@@ -231,6 +231,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
       <button data-sel="delete">Удалить</button>
       <button data-sel="copy">На новый слой</button>
       <button data-sel="mask">Маска из выделения</button>
+      <button data-sel="fill2">Заливка с учётом содержимого</button>
       <button data-sel="transform" class="pri">Трансформ</button>
     </div>
     <div class="fbar" id="xfbar" hidden>
@@ -290,6 +291,85 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   <input type="file" id="fPlace" accept="image/*" hidden>
 </div>
 
+<script type="text/plain" id="pmSrc">
+// PatchMatch image completion (Wexler-style EM over an image pyramid). Runs inside a Worker.
+function inpaint(W, H, rgba, holeMask, opts){
+  const R = opts.r || 3, P = 2*R+1;
+  const progress = opts.progress || (()=>{});
+  // ---- pyramid
+  const levels=[]; { let w=W,h=H, img=new Float32Array(W*H*3), m=new Uint8Array(holeMask);
+    for (let i=0;i<W*H;i++){ img[i*3]=rgba[i*4]; img[i*3+1]=rgba[i*4+1]; img[i*3+2]=rgba[i*4+2]; }
+    levels.push({w,h,img,m});
+    while (Math.max(w,h)>opts.minSize){ const nw=Math.max(1,w>>1), nh=Math.max(1,h>>1), ni=new Float32Array(nw*nh*3), nm=new Uint8Array(nw*nh);
+      for (let y=0;y<nh;y++) for (let x=0;x<nw;x++){ let s0=0,s1=0,s2=0,c=0,hole=0;
+        for (let dy=0;dy<2;dy++) for (let dx=0;dx<2;dx++){ const xx=Math.min(w-1,2*x+dx), yy=Math.min(h-1,2*y+dy), k=yy*w+xx; if (m[k]) hole=1; else { s0+=img[k*3]; s1+=img[k*3+1]; s2+=img[k*3+2]; c++; } }
+        const j=y*nw+x; nm[j]=hole; if(c){ ni[j*3]=s0/c; ni[j*3+1]=s1/c; ni[j*3+2]=s2/c; } }
+      w=nw; h=nh; img=ni; m=nm; levels.push({w,h,img,m}); } }
+  const L=levels.length;
+  // ---- coarsest: onion-peel fill
+  { const {w,h,img,m}=levels[L-1]; const known=new Uint8Array(w*h); for(let i=0;i<w*h;i++) known[i]=m[i]?0:1;
+    let left=0; for(let i=0;i<w*h;i++) if(!known[i]) left++;
+    while(left>0){ const add=[]; for (let y=0;y<h;y++) for(let x=0;x<w;x++){ const k=y*w+x; if(known[k]) continue; let s0=0,s1=0,s2=0,c=0;
+        for (let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const xx=x+dx, yy=y+dy; if(xx<0||yy<0||xx>=w||yy>=h) continue; const q=yy*w+xx; if(known[q]){ s0+=img[q*3]; s1+=img[q*3+1]; s2+=img[q*3+2]; c++; } }
+        if(c) add.push(k,s0/c,s1/c,s2/c); }
+      if(!add.length) break; for(let i=0;i<add.length;i+=4){ const k=add[i]; img[k*3]=add[i+1]; img[k*3+1]=add[i+2]; img[k*3+2]=add[i+3]; known[k]=1; left--; } } }
+  let nnx=null, nny=null, prevW=0;
+  let rnd=12345; const rand=()=>{ rnd^=rnd<<13; rnd^=rnd>>>17; rnd^=rnd<<5; return (rnd>>>0)/4294967296; };
+  for (let li=L-1; li>=0; li--){
+    const {w,h,img,m}=levels[li];
+    // valid source centres: patch fully inside and touching no hole pixel (summed-area table of the mask)
+    const sat=new Int32Array((w+1)*(h+1)); for(let y=0;y<h;y++){ let row=0; for(let x=0;x<w;x++){ row+=m[y*w+x]; sat[(y+1)*(w+1)+x+1]=sat[y*(w+1)+x+1]+row; } }
+    const holeIn=(x0,y0,x1,y1)=>sat[y1*(w+1)+x1]-sat[y0*(w+1)+x1]-sat[y1*(w+1)+x0]+sat[y0*(w+1)+x0];
+    const valid=new Uint8Array(w*h); const vlist=[];
+    for (let y=R;y<h-R;y++) for(let x=R;x<w-R;x++){ if(!holeIn(x-R,y-R,x+R+1,y+R+1)){ valid[y*w+x]=1; vlist.push(y*w+x); } }
+    if (!vlist.length) continue;
+    // targets: centres whose patch touches the hole
+    const tgt=[]; for (let y=0;y<h;y++) for(let x=0;x<w;x++){ const x0=Math.max(0,x-R), y0=Math.max(0,y-R), x1=Math.min(w,x+R+1), y1=Math.min(h,y+R+1); if(holeIn(x0,y0,x1,y1)) tgt.push(y*w+x); }
+    const NX=new Int32Array(w*h).fill(-1), NY=new Int32Array(w*h).fill(-1), ND=new Float32Array(w*h).fill(Infinity);
+    const dist=(cx,cy,sx,sy,best)=>{ let d=0; for(let dy=-R;dy<=R;dy++){ const ty=cy+dy; if(ty<0||ty>=h) continue; const sy2=sy+dy;
+        for(let dx=-R;dx<=R;dx++){ const tx=cx+dx; if(tx<0||tx>=w) continue; const a=(ty*w+tx)*3, b=(sy2*w+sx+dx)*3;
+          const e0=img[a]-img[b], e1=img[a+1]-img[b+1], e2=img[a+2]-img[b+2]; d+=e0*e0+e1*e1+e2*e2; } if(d>=best) return d; } return d; };
+    const tryS=(k,cx,cy,sx,sy)=>{ if(sx<R||sy<R||sx>=w-R||sy>=h-R) return; const s=sy*w+sx; if(!valid[s]) return; if(Math.abs(sx-cx)<=R && Math.abs(sy-cy)<=R && m[k]) return;
+      const d=dist(cx,cy,sx,sy,ND[k]); if(d<ND[k]){ ND[k]=d; NX[k]=sx; NY[k]=sy; } };
+    // init NNF: from coarser level if any, else random
+    for (const k of tgt){ const x=k%w, y=(k/w)|0;
+      if (nnx && prevW){ const pk=(y>>1)*prevW+(x>>1); const px=nnx[pk], py=nny[pk]; if(px>=0) tryS(k,x,y,px*2+(x&1),py*2+(y&1)); }
+      if (NX[k]<0){ for(let t=0;t<4;t++){ const s=vlist[(rand()*vlist.length)|0]; tryS(k,x,y,s%w,(s/w)|0); } } }
+    const em = li===L-1 ? opts.itCoarse : (li===0 ? opts.itFine : opts.itMid);
+    const acc=new Float32Array(w*h*4);
+    for (let it=0; it<em; it++){
+      // PatchMatch passes
+      for (let pass=0; pass<2; pass++){ const fwd=(pass+it)%2===0, dd=fwd?1:-1;
+        for (let ii=0; ii<tgt.length; ii++){ const k=tgt[fwd?ii:tgt.length-1-ii], x=k%w, y=(k/w)|0;
+          const lx=x-dd, ly=y-dd;
+          if (lx>=0&&lx<w){ const q=y*w+lx; if(NX[q]>=0) tryS(k,x,y,NX[q]+dd,NY[q]); }
+          if (ly>=0&&ly<h){ const q=ly*w+x; if(NX[q]>=0) tryS(k,x,y,NX[q],NY[q]+dd); }
+          let rad=Math.max(w,h); const bx=NX[k], by=NY[k];
+          while(rad>=1 && bx>=0){ tryS(k,x,y,(bx+(rand()*2-1)*rad)|0,(by+(rand()*2-1)*rad)|0); rad>>=1; }
+          if (NX[k]<0){ const s=vlist[(rand()*vlist.length)|0]; tryS(k,x,y,s%w,(s/w)|0); } } }
+      // voting: hole pixels become the weighted mean of the patches covering them
+      acc.fill(0); let sigma=0, n=0; for(const k of tgt){ if(ND[k]<Infinity){ sigma+=ND[k]; n++; } } sigma=Math.max(1,(sigma/Math.max(1,n))*(opts.sig||0.75));
+      for (const k of tgt){ if(NX[k]<0) continue; const x=k%w, y=(k/w)|0, wt=Math.exp(-ND[k]/(2*sigma))+1e-6;
+        for(let dy=-R;dy<=R;dy++){ const ty=y+dy; if(ty<0||ty>=h) continue; for(let dx=-R;dx<=R;dx++){ const tx=x+dx; if(tx<0||tx>=w) continue; const t=ty*w+tx; if(!m[t]) continue;
+          const s=((NY[k]+dy)*w+NX[k]+dx)*3; acc[t*4]+=img[s]*wt; acc[t*4+1]+=img[s+1]*wt; acc[t*4+2]+=img[s+2]*wt; acc[t*4+3]+=wt; } } }
+      for (let t=0;t<w*h;t++){ if(m[t] && acc[t*4+3]>0){ img[t*3]=acc[t*4]/acc[t*4+3]; img[t*3+1]=acc[t*4+1]/acc[t*4+3]; img[t*3+2]=acc[t*4+2]/acc[t*4+3]; } }
+      for (const k of tgt) ND[k]=Infinity; for (const k of tgt){ const x=k%w,y=(k/w)|0; if(NX[k]>=0){ const sx=NX[k],sy=NY[k]; NX[k]=-1; tryS(k,x,y,sx,sy); } }
+    }
+    // upsample the filled hole into the next finer level as its starting guess
+    if (li>0){ const f=levels[li-1]; for(let y=0;y<f.h;y++) for(let x=0;x<f.w;x++){ const k=y*f.w+x; if(!f.m[k]) continue; const c=Math.min(h-1,y>>1)*w+Math.min(w-1,x>>1); f.img[k*3]=img[c*3]; f.img[k*3+1]=img[c*3+1]; f.img[k*3+2]=img[c*3+2]; } }
+    nnx=NX; nny=NY; prevW=w;
+    progress((L-li)/L);
+  }
+  const out=new Uint8ClampedArray(W*H*4), img=levels[0].img;
+  for (let i=0;i<W*H;i++){ out[i*4]=img[i*3]; out[i*4+1]=img[i*3+1]; out[i*4+2]=img[i*3+2]; out[i*4+3]=255; }
+  return out;
+}
+if (typeof self!=='undefined' && typeof window==='undefined'){
+  self.onmessage=e=>{ const {W,H,rgba,mask,opts}=e.data; const out=inpaint(W,H,rgba,mask,{...opts, progress:p=>self.postMessage({progress:p})}); self.postMessage({done:true,out},[out.buffer]); };
+}
+if (typeof module!=='undefined') module.exports={inpaint};
+
+</script>
 <script>
 "use strict";
 /* ============ basics ============ */
@@ -965,6 +1045,48 @@ async function selectSubject(){
 }
 $('#bSubject').onclick=()=>{ if(xf){ toast('Сначала примени или отмени трансформ'); return; } selectSubject(); };
 
+/* ============ content-aware fill (PatchMatch in a worker, result on a new layer) ============ */
+let pmWorkerURL=null;
+function pmWorker(){ if(!pmWorkerURL) pmWorkerURL=URL.createObjectURL(new Blob([document.getElementById('pmSrc').textContent],{type:'text/javascript'})); return new Worker(pmWorkerURL); }
+function compositeRegion(r, cw, ch){
+  const c=mk(cw,ch), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high';
+  for (const L of doc.layers){ if(!L.visible) continue; let src=L.canvas;
+    if (L.mask&&L.mask.enabled){ const t=mk(r.w,r.h), tx=ctx2(t); tx.drawImage(L.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h); tx.globalCompositeOperation='destination-in'; tx.drawImage(L.mask.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
+      x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(t,0,0,cw,ch); continue; }
+    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,r.x,r.y,r.w,r.h,0,0,cw,ch); }
+  x.globalAlpha=1; x.globalCompositeOperation='source-over'; return c;
+}
+async function contentAwareFill(){
+  if (!sel){ toast('Сначала выдели то, что нужно убрать'); return; }
+  const b=selBBox(); if(!b.w||!b.h){ toast('Пустое выделение'); return; }
+  // context around the hole: generous margin so the algorithm has material to borrow from
+  const mg=Math.max(64, Math.round(Math.max(b.w,b.h)*0.6));
+  const r=clipRect(b.x-mg, b.y-mg, b.w+2*mg, b.h+2*mg);
+  const k=Math.min(1, 1200/Math.max(r.w,r.h)), cw=Math.max(8,Math.round(r.w*k)), ch=Math.max(8,Math.round(r.h*k));
+  busy(true,'Заливаю с учётом содержимого…'); await nextFrame();
+  const img=compositeRegion(r,cw,ch), rgba=ctx2(img).getImageData(0,0,cw,ch).data;
+  const mc=mk(cw,ch), mx=ctx2(mc,{willReadFrequently:true}); mx.drawImage(sel.mask,r.x,r.y,r.w,r.h,0,0,cw,ch);
+  const ma=mx.getImageData(0,0,cw,ch).data; let hole=new Uint8Array(cw*ch); for(let i=0;i<cw*ch;i++) hole[i]=ma[i*4+3]>100?1:0;
+  // grow the hole a little so no halo of the removed object survives
+  const rd=Math.max(2,Math.round(6*k)+1), tmp=new Uint8Array(cw*ch);
+  for (let y=0;y<ch;y++){ let run=-1e9; for(let x=0;x<cw;x++){ if(hole[y*cw+x]) run=x; tmp[y*cw+x]= x-run<=rd ?1:0; } run=1e9; for(let x=cw-1;x>=0;x--){ if(hole[y*cw+x]) run=x; if(run-x<=rd) tmp[y*cw+x]=1; } }
+  hole=new Uint8Array(cw*ch);
+  for (let x=0;x<cw;x++){ let run=-1e9; for(let y=0;y<ch;y++){ if(tmp[y*cw+x]) run=y; if(y-run<=rd) hole[y*cw+x]=1; } run=1e9; for(let y=ch-1;y>=0;y--){ if(tmp[y*cw+x]) run=y; if(run-y<=rd) hole[y*cw+x]=1; } }
+  let known=0; for(let i=0;i<cw*ch;i++) if(!hole[i]) known++;
+  if (known < cw*ch*0.15){ busy(false); toast('Выделение почти на весь кадр — заливке не из чего брать фон'); return; }
+  let out;
+  try{
+    out = await new Promise((res,rej)=>{ const w=pmWorker();
+      w.onmessage=e=>{ if(e.data.progress!=null) busy(true,`Заливаю с учётом содержимого… ${Math.round(e.data.progress*100)}%`); if(e.data.done){ w.terminate(); res(e.data.out); } };
+      w.onerror=err=>{ w.terminate(); rej(err); };
+      w.postMessage({W:cw,H:ch,rgba:new Uint8ClampedArray(rgba),mask:hole,opts:{r:3,minSize:32,sig:0.5,itCoarse:14,itMid:7,itFine:4}}); });
+  }catch(err){ console.error(err); busy(false); toast('Заливка не получилась'); return; }
+  // keep only the filled hole, scale back to document pixels, put on its own layer above the current one
+  const rc=mk(cw,ch), rx=ctx2(rc), id=rx.createImageData(cw,ch); id.data.set(out); for(let i=0;i<cw*ch;i++) id.data[i*4+3]=hole[i]?255:0; rx.putImageData(id,0,0);
+  const L=newLayer('Заливка'); L.ctx.imageSmoothingQuality='high'; L.ctx.drawImage(rc,0,0,cw,ch,r.x,r.y,r.w,r.h);
+  insertLayer(L, doc.active+1, 'Готово: заливка на отдельном слое'); busy(false); thumbSoon(L);
+}
+
 /* ============ transform ============ */
 function contentBBox(c){
   const d=ctx2(c,{willReadFrequently:true}).getImageData(0,0,c.width,c.height).data, w=c.width, h=c.height;
@@ -1479,7 +1601,7 @@ document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops
 
 /* ============ selection bar & transform bar ============ */
 document.querySelectorAll('#selbar [data-sel]').forEach(b=>b.onclick=()=>{ const a=b.dataset.sel;
-  ({deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform')})[a](); });
+  ({deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill})[a](); });
 $('#xfApply').onclick=xfApply; $('#xfCancel').onclick=xfCancel;
 $('#xfFlipH').onclick=()=>{ if(xf){ xf.sx*=-1; flipFix(); } }; $('#xfFlipV').onclick=()=>{ if(xf){ xf.sy*=-1; flipFix(); } };
 function flipFix(){ // keep scales positive by flipping pixels instead
