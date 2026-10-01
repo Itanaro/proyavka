@@ -120,6 +120,8 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #lyList{flex:1;overflow-y:auto;padding:4px 8px;display:flex;flex-direction:column;gap:4px;touch-action:pan-y}
 .ly{display:grid;grid-template-columns:30px 46px 46px minmax(0,1fr);align-items:center;gap:8px;padding:6px;border-radius:10px;background:var(--panel-2)}
 .ly.act{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.ly.lift{opacity:.85;transform:scale(1.03);box-shadow:0 8px 24px rgba(0,0,0,.5),inset 0 0 0 1.5px var(--accent);position:relative;z-index:2;transition:transform .12s}
+.ly.dropb{box-shadow:inset 0 -3px 0 var(--accent)} .ly.dropa{box-shadow:inset 0 3px 0 var(--accent)}
 .ly .eye{width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
 .ly .eye.off{opacity:.35}
 .ly .eye svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}
@@ -285,6 +287,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <button data-m="finger">Рисовать пальцем <small id="mFinger">выкл</small></button>
     <button data-m="help">Жесты и клавиши</button>
     <button data-m="store">Проверка памяти <small>для отладки</small></button>
+    <button data-m="noop" disabled style="opacity:.6">Версия <small id="appVer"></small></button>
   </div>
 
   <div class="pop" id="picker" hidden>
@@ -1243,6 +1246,42 @@ function deleteLayer(){
   const ins=()=>{ doc.layers.splice(idx,0,L); doc.active=idx; };
   rem(); pushHist({undo:ins,redo:rem}); layersChanged(); requestRender();
 }
+function moveLayerTo(from, to){
+  if (from===to || to<0 || to>=doc.layers.length) return;
+  const mv=(a,b)=>{ const [L]=doc.layers.splice(a,1); doc.layers.splice(b,0,L); doc.active=b; };
+  mv(from,to); pushHist({undo(){ mv(to,from); }, redo(){ mv(from,to); }}); layersChanged(); requestRender();
+}
+/* press and hold a layer (Pencil or finger), then drag it up or down the list */
+let dragJustEnded=false, layerDragging=false;
+// while a layer is being dragged, stop the list from scrolling under the Pencil or finger
+$('#lyList').addEventListener('touchmove', e=>{ if (layerDragging) e.preventDefault(); }, {passive:false});
+function attachLayerDrag(row, L){
+  let timer=null, drag=null, start=null;
+  row.addEventListener('pointerdown', e=>{
+    if (e.target.closest('.eye')) return;
+    start={x:e.clientX,y:e.clientY,id:e.pointerId};
+    clearTimeout(timer);
+    timer=setTimeout(()=>{ drag={from:doc.layers.indexOf(L), over:null}; layerDragging=true; row.classList.add('lift'); try{ row.setPointerCapture(start.id); }catch(_){} }, 320);
+  });
+  row.addEventListener('pointermove', e=>{
+    if (!start) return;
+    if (!drag){ if (Math.hypot(e.clientX-start.x, e.clientY-start.y)>8){ clearTimeout(timer); start=null; } return; }
+    e.preventDefault();
+    const rows=[...document.querySelectorAll('#lyList .ly')]; rows.forEach(r=>r.classList.remove('dropa','dropb'));
+    let target=null, after=false;
+    for (const r of rows){ if (r===row) continue; const b=r.getBoundingClientRect(); if (e.clientY>=b.top && e.clientY<=b.bottom){ target=r; after=e.clientY>b.top+b.height/2; break; } }
+    if (target){ target.classList.add(after?'dropb':'dropa'); drag.over={idx:+target.dataset.idx, after}; }
+    const list=$('#lyList'), lb=list.getBoundingClientRect(); if (e.clientY<lb.top+30) list.scrollTop-=12; else if (e.clientY>lb.bottom-30) list.scrollTop+=12;
+  });
+  const finish=()=>{ clearTimeout(timer);
+    if (drag){ row.classList.remove('lift'); document.querySelectorAll('#lyList .ly').forEach(r=>r.classList.remove('dropa','dropb'));
+      if (drag.over){ // the list shows the top layer first, so "below a row" means a lower index in doc.layers
+        let to = drag.over.after ? drag.over.idx : drag.over.idx+1; const from=drag.from; if (to>from) to--; moveLayerTo(from, clamp(to,0,doc.layers.length-1)); }
+      dragJustEnded=true; setTimeout(()=>dragJustEnded=false,50); }
+    drag=null; start=null; layerDragging=false; };
+  row.addEventListener('pointerup', finish); row.addEventListener('pointercancel', finish);
+  row.addEventListener('contextmenu', e=>e.preventDefault());
+}
 function moveLayer(dir){
   const i=doc.active, j=i+dir; if(j<0||j>=doc.layers.length) return;
   const sw=()=>{ const a=doc.layers; [a[i],a[j]]=[a[j],a[i]]; };
@@ -1325,7 +1364,8 @@ function layersChanged(){
       const nm=document.createElement('div'); nm.style.minWidth='0';
       nm.innerHTML='<div class="nm"></div><div class="meta"></div>';
       nm.firstChild.textContent=L.name; nm.lastChild.textContent=Math.round(L.opacity*100)+'% · '+(BLENDS.find(b=>b[0]===L.blend)||BLENDS[0])[1];
-      row.append(nm); row.onclick=()=>{ doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); };
+      row.append(nm); row.onclick=()=>{ if (dragJustEnded) return; doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); };
+      row.dataset.idx=i; attachLayerDrag(row, L);
       list.append(row);
     }
     const L=AL(); $('#lyName').value=L.name;  drawLyOpac(); $('#lyOpacV').textContent=Math.round(L.opacity*100); $('#lyBlend').value=L.blend;
@@ -1607,6 +1647,7 @@ async function exportImg(kind){
 }
 const safeName=()=> (doc.name||'proyavka').replace(/[\\/:*?"<>|]+/g,'_');
 document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops(); const m=b.dataset.m;
+  if (m==='noop') return;
   if (xf && m!=='help' && m!=='store'){ toast('Сначала примени или отмени трансформ'); return; }
   if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click();
   else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
@@ -1863,6 +1904,7 @@ async function restore(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(); } });
 
+const APP_VERSION='2026-10-01 · 20:10'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
