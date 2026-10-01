@@ -121,7 +121,13 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .ly{display:grid;grid-template-columns:30px 46px 46px minmax(0,1fr);align-items:center;gap:8px;padding:6px;border-radius:10px;background:var(--panel-2)}
 .ly.act{box-shadow:inset 0 0 0 1.5px var(--accent)}
 .ly.lift{opacity:.85;transform:scale(1.03);box-shadow:0 8px 24px rgba(0,0,0,.5),inset 0 0 0 1.5px var(--accent);position:relative;z-index:2;transition:transform .12s}
-.ly.dropb{box-shadow:inset 0 -3px 0 var(--accent)} .ly.dropa{box-shadow:inset 0 3px 0 var(--accent)}
+.ly.dropb{box-shadow:inset 0 -3px 0 var(--accent)} .ly.dropa{box-shadow:inset 0 3px 0 var(--accent)} .ly.dropi{box-shadow:inset 0 0 0 2px var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--panel-2))}
+.ly.grp{background:color-mix(in srgb,var(--panel-2) 70%,#000)}
+.ly .fold{width:46px;height:34px;display:flex;align-items:center;justify-content:center;gap:2px;color:var(--accent)}
+.ly .fold svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6}
+.ly .fold .chev{width:12px;height:12px;stroke:var(--muted);stroke-width:2.2;transition:transform .15s}
+.ly.col .fold .chev{transform:rotate(-90deg)}
+.ly.hid{opacity:.5}
 .ly .eye{width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
 .ly .eye.off{opacity:.35}
 .ly .eye svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}
@@ -138,6 +144,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .btns button{height:34px;border-radius:8px;background:var(--panel-2);font-size:12px}
 .btns button:active{background:var(--line)}
 .btns .dg{color:var(--danger)}
+.btns button:disabled{opacity:.4}
 
 /* popovers / dialogs */
 .pop{position:absolute;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.55);padding:8px}
@@ -162,6 +169,18 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .dlg .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
 .dlg .actions button{height:40px;padding:0 16px;border-radius:10px;background:var(--panel-2)}
 .dlg .actions .pri{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.dlg.narrow{width:min(400px,100%)}
+.dlg .actions.list{display:flex;flex-direction:column;align-items:stretch;gap:6px;margin-top:14px}
+.dlg .actions.list button{height:auto;min-height:52px;padding:9px 14px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;font-size:14px}
+.dlg .actions.list button small{color:var(--muted);font-size:11.5px;line-height:1.3}
+.dlg .actions.list button:active{background:var(--line)}
+.dlg .actions.list .dg{color:var(--danger)}
+.dlg .actions.list .close{min-height:44px;margin-top:4px;background:none;border:1px solid var(--line);align-items:center}
+.mhead{display:flex;gap:14px;align-items:center}
+.mhead h3{margin:0}
+.mhead .mname{margin:2px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.mprev{flex:0 0 auto;width:76px;height:76px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#000;border:1px solid var(--line);overflow:hidden}
+.mprev canvas{max-width:72px;max-height:72px}
 .presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-bottom:12px}
 .presets button{padding:10px;border-radius:10px;background:var(--panel-2);text-align:left}
 .presets button.on{box-shadow:inset 0 0 0 1.5px var(--accent)}
@@ -261,14 +280,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
         <div class="row"><label for="lyBlend">Наложение</label><select id="lyBlend"></select></div>
         <div class="btns">
           <button id="lyAdd">+ Слой</button>
+          <button id="lyGroup">В группу</button>
           <button id="lyDup">Копия</button>
+          <button id="lyDel" class="dg">Удалить</button>
           <button id="lyUp">Выше</button>
           <button id="lyDown">Ниже</button>
-          <button id="lyMask">+ Маска</button>
           <button id="lyMerge">Слить вниз</button>
           <button id="lyClear">Очистить</button>
-          <button id="lyDel" class="dg">Удалить</button>
-          <button id="lyMaskInv" style="grid-column:1/-1" hidden>Инвертировать маску</button>
+          <button id="lyMask" style="grid-column:1/-1">+ Маска</button>
+          <button id="lyMaskInv" style="grid-column:span 2" hidden>Инвертировать маску</button>
         </div>
       </div>
     </aside>
@@ -434,7 +454,7 @@ function newLayer(name, fillWhite){
   const c = mk(doc.w, doc.h); const x = ctx2(c);
   if(!x) throw new Error('mem');
   if (fillWhite){ x.fillStyle='#fff'; x.fillRect(0,0,doc.w,doc.h); }
-  return { id: uid++, name, canvas:c, ctx:x, visible:true, opacity:1, blend:'source-over', mask:null, dirty:true };
+  return { id: uid++, name, canvas:c, ctx:x, visible:true, opacity:1, blend:'source-over', mask:null, parent:null, dirty:true };
 }
 function newMask(L, fromSel){
   const c = mk(doc.w, doc.h), x = ctx2(c);
@@ -451,8 +471,46 @@ function createDoc(w,h,name='Без названия'){
   fitView(); layersChanged(); updateSelBar(); markDirty();
 }
 const AL = () => doc.layers[doc.active];
+/* ---- groups: doc.layers stays a flat bottom-to-top list; a group header sits right above its members, every item knows its parent ---- */
+const isGroup = L => !!L && L.kind==='group';
+let gid=1;
+function newGroup(name){ return { id: uid++, kind:'group', name: name||('Группа '+(gid++)), visible:true, opacity:1, blend:'pass', collapsed:false, parent:null, mask:null, dirty:false, saved:true }; }
+const kidsOf = P => doc.layers.filter(x=>x.parent===P);
+function isDesc(x,G){ for(let p=x.parent;p;p=p.parent) if(p===G) return true; return false; }
+function depthOf(x){ let d=0; for(let p=x.parent;p;p=p.parent) d++; return d; }
+function shown(x){ for(let p=x;p;p=p.parent) if(!p.visible) return false; return true; }
+function blockStart(X){ let s=doc.layers.indexOf(X); while(s>0 && isDesc(doc.layers[s-1],X)) s--; return s; }
+function pixelOnly(){ const L=AL(); if(!isGroup(L)) return true; toast('Выбрана группа. Выбери слой внутри неё',2200); return false; }
+/* composite the tree: pass-through groups at 100% draw straight through, others are flattened on a temp canvas first */
+let grpPool=[];
+function composeTree(ctx, leaf, P=null, depth=0){
+  for (const L of doc.layers){ if (L.parent!==P || !L.visible) continue;
+    if (!isGroup(L)){ leaf(ctx,L); continue; }
+    if (L.blend==='pass' && L.opacity>=1){ composeTree(ctx, leaf, L, depth+1); continue; }
+    const cw=ctx.canvas.width, ch=ctx.canvas.height; let t=grpPool[depth];
+    if (!t || t.width!==cw || t.height!==ch){ t=mk(cw,ch); if (cw===comp.width && ch===comp.height) grpPool[depth]=t; }
+    const tx=ctx2(t); tx.setTransform(1,0,0,1,0,0); tx.globalAlpha=1; tx.globalCompositeOperation='source-over'; tx.clearRect(0,0,cw,ch);
+    tx.imageSmoothingEnabled=ctx.imageSmoothingEnabled; tx.imageSmoothingQuality=ctx.imageSmoothingQuality; tx.setTransform(ctx.getTransform());
+    composeTree(tx, leaf, L, depth+1);
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity; ctx.globalCompositeOperation=L.blend==='pass'?'source-over':L.blend; ctx.drawImage(t,0,0); ctx.restore();
+  }
+}
+function leafFull(x,L){ let src=L.canvas;
+  if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const t=ctx2(src); t.drawImage(L.canvas,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0); }
+  x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0); x.globalAlpha=1; x.globalCompositeOperation='source-over'; }
+/* structural edits are undone by restoring the whole order + parents (cheap: only references) */
+function structSnap(){ return { list:doc.layers.slice(), par:doc.layers.map(x=>x.parent), act:doc.active }; }
+function structLoad(st){ doc.layers=st.list.slice(); st.list.forEach((x,i)=>x.parent=st.par[i]); doc.active=st.act; doc.editMask=false; }
+function structEdit(fn, msg){ const b=structSnap(); if (fn()===false) return; const a=structSnap(); pushHist({undo(){structLoad(b);}, redo(){structLoad(a);}}); layersChanged(); requestRender(); markDirty(); if(msg) toast(msg,1600); }
+function moveBlock(X, to, P){
+  if (P && (P===X || isDesc(P,X))) return false;
+  const s=blockStart(X), e=doc.layers.indexOf(X), n=e-s+1;
+  if (to>=s && to<=e+1 && X.parent===P) return false;
+  if (to>s && to<=e) return false;
+  const blk=doc.layers.splice(s,n); if (to>e) to-=n; doc.layers.splice(to,0,...blk); X.parent=P; doc.active=doc.layers.indexOf(X); return true;
+}
 function memMB(){
-  let n = 0; for (const L of doc.layers){ n++; if (L.mask) n++; }
+  let n = 0; for (const L of doc.layers){ if(isGroup(L)) continue; n++; if (L.mask) n++; }
   if (strokeBuf) n++; if (sel) n++;
   return Math.round(n*doc.w*doc.h*4/1048576 + histBytes/1048576);
 }
@@ -495,9 +553,9 @@ function getPreview(){
   const x=ctx2(preview); x.setTransform(1,0,0,1,0,0); x.globalAlpha=1; x.globalCompositeOperation='source-over';
   x.clearRect(0,0,w,h); x.imageSmoothingQuality='medium';
   let tmp=null;
-  for (const L of doc.layers){ if(!L.visible) continue; let src=L.canvas;
+  composeTree(x, (x,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ tmp=tmp||mk(w,h); const t=ctx2(tmp); t.globalCompositeOperation='source-over'; t.clearRect(0,0,w,h); t.drawImage(L.canvas,0,0,w,h); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0,w,h); src=tmp; }
-    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,w,h); }
+    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,w,h); });
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; previewVer=contentVer; return preview;
 }
 function render(){
@@ -520,7 +578,7 @@ function render(){
   const smooth = view.s < 2.5;
   for (const c of [cc, ctx2(tLayer), ctx2(tMask), ctx2(tStroke)]){ c.imageSmoothingEnabled = smooth; c.imageSmoothingQuality = view.s<1 ? 'medium' : 'low'; }
   cc.save(); setVT(cc); cc.beginPath(); cc.rect(0,0,doc.w,doc.h); cc.clip();
-  for (const L of doc.layers){ if(L.visible) drawLayer(cc,L); }
+  composeTree(cc, drawLayer);
   cc.restore();
   vx.setTransform(1,0,0,1,0,0); vx.drawImage(comp,0,0);
   if (xf){ // part of the piece that hangs outside the canvas: shown faded
@@ -645,8 +703,9 @@ function hexA(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${n>>16&25
 const curSize = () => S.tool==='eraser' ? S.eraserSize : S.size;
 
 function strokeBegin(p){
+  if (!pixelOnly()) return false;
   const L=AL();
-  if (!L.visible){ toast('Слой скрыт, включи видимость'); return false; }
+  if (!shown(L)){ toast(L.visible?'Группа со слоем скрыта, включи её видимость':'Слой скрыт, включи видимость'); return false; }
   const target = doc.editMask && L.mask ? 'mask' : 'content';
   const erase = S.tool==='eraser';
   let op;
@@ -703,10 +762,10 @@ function strokeEnd(cancel){
 function samplePixel(x,y){
   x=Math.floor(x); y=Math.floor(y); if(x<0||y<0||x>=doc.w||y>=doc.h) return null;
   const c=mk(1,1), cx=ctx2(c,{willReadFrequently:true}), t=mk(1,1), tx=ctx2(t);
-  for (const L of doc.layers){ if(!L.visible) continue;
+  composeTree(cx, (cx,L)=>{
     tx.clearRect(0,0,1,1); tx.globalCompositeOperation='source-over'; tx.drawImage(L.canvas,x,y,1,1,0,0,1,1);
     if (L.mask&&L.mask.enabled){ tx.globalCompositeOperation='destination-in'; tx.drawImage(L.mask.canvas,x,y,1,1,0,0,1,1); }
-    cx.globalAlpha=L.opacity; cx.globalCompositeOperation=L.blend; cx.drawImage(t,0,0); }
+    cx.globalAlpha=L.opacity; cx.globalCompositeOperation=L.blend; cx.drawImage(t,0,0); });
   const d=cx.getImageData(0,0,1,1).data; if(d[3]===0) return null;
   return '#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
@@ -795,27 +854,27 @@ function selBBox(){
 }
 function selTarget(){ const L=AL(); return doc.editMask&&L.mask ? L.mask.canvas : L.canvas; }
 function selFill(){
-  if(!sel) return; const r=selBBox(); if(!r.w||!r.h) return; const tgt=selTarget(), before=grab(tgt,r);
+  if(!sel || !pixelOnly()) return; const r=selBBox(); if(!r.w||!r.h) return; const tgt=selTarget(), before=grab(tgt,r);
   const reg=mk(r.w,r.h), rx=ctx2(reg); rx.fillStyle = doc.editMask ? '#fff' : S.color; rx.fillRect(0,0,r.w,r.h);
   rx.globalCompositeOperation='destination-in'; rx.drawImage(sel.mask,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
   const t=ctx2(tgt); if(doc.editMask){ t.globalCompositeOperation='destination-out'; } t.drawImage(reg,r.x,r.y); t.globalCompositeOperation='source-over';
   pushHist(pxEntry(tgt,r.x,r.y,r.w,r.h,before)); AL().dirty=true; thumbSoon(AL()); requestRender();
 }
 function selDelete(){
-  if(!sel) return; const r=selBBox(); if(!r.w||!r.h) return; const tgt=selTarget(), before=grab(tgt,r);
+  if(!sel || !pixelOnly()) return; const r=selBBox(); if(!r.w||!r.h) return; const tgt=selTarget(), before=grab(tgt,r);
   const t=ctx2(tgt);
   if (doc.editMask){ const reg=mk(r.w,r.h), rx=ctx2(reg); rx.fillStyle='#fff'; rx.fillRect(0,0,r.w,r.h); rx.globalCompositeOperation='destination-in'; rx.drawImage(sel.mask,r.x,r.y,r.w,r.h,0,0,r.w,r.h); t.drawImage(reg,r.x,r.y); }
   else { t.globalCompositeOperation='destination-out'; t.drawImage(sel.mask,r.x,r.y,r.w,r.h,r.x,r.y,r.w,r.h); t.globalCompositeOperation='source-over'; }
   pushHist(pxEntry(tgt,r.x,r.y,r.w,r.h,before)); AL().dirty=true; thumbSoon(AL()); requestRender();
 }
 function selCopyToLayer(){
-  if(!sel) return; const src=AL();
+  if(!sel || !pixelOnly()) return; const src=AL();
   const L=newLayer(src.name+' · фрагмент'); L.ctx.drawImage(src.canvas,0,0);
   L.ctx.globalCompositeOperation='destination-in'; L.ctx.drawImage(sel.mask,0,0); L.ctx.globalCompositeOperation='source-over';
   insertLayer(L, doc.active+1, 'Фрагмент на новом слое');
 }
 function selToMask(){
-  if(!sel) return; const L=AL();
+  if(!sel || !pixelOnly()) return; const L=AL();
   if (L.mask){ const before=grab(L.mask.canvas,{x:0,y:0,w:doc.w,h:doc.h}); const m=L.mask.ctx; m.globalCompositeOperation='destination-in'; m.drawImage(sel.mask,0,0); m.globalCompositeOperation='source-over'; pushHist(pxEntry(L.mask.canvas,0,0,doc.w,doc.h,before)); }
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
@@ -945,9 +1004,9 @@ async function loadSam(){
 }
 function samGeom(){ const k=1024/Math.max(doc.w,doc.h); return {k, w:Math.round(doc.w*k), h:Math.round(doc.h*k)}; }
 function compositeTo(ctx, w, h){
-  for (const L of doc.layers){ if(!L.visible) continue; let src=L.canvas;
+  composeTree(ctx, (ctx,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const t=ctx2(src); t.drawImage(L.canvas,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0); }
-    ctx.globalAlpha=L.opacity; ctx.globalCompositeOperation=L.blend; ctx.drawImage(src,0,0,w,h); }
+    ctx.globalAlpha=L.opacity; ctx.globalCompositeOperation=L.blend; ctx.drawImage(src,0,0,w,h); });
   ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
 }
 async function samEmbed(){
@@ -1025,9 +1084,9 @@ async function selectSubject(){
   busy(true,'Ищу главный объект…'); await nextFrame();
   try{
     const N=SEG_SIZE, c=mk(N,N), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high';
-    for (const L of doc.layers){ if(!L.visible) continue; let src=L.canvas;
+    composeTree(x, (x,L)=>{ let src=L.canvas;
       if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const t=ctx2(src); t.drawImage(L.canvas,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0); }
-      x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,N,N); }
+      x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,N,N); });
     const px=x.getImageData(0,0,N,N).data, inp=new Float32Array(3*N*N);
     for (let i=0,j=0;i<N*N;i++,j+=4){ inp[i]=px[j]/255-.5; inp[i+N*N]=px[j+1]/255-.5; inp[i+2*N*N]=px[j+2]/255-.5; }
     const res=await sess.run({[sess.inputNames[0]]: new ort.Tensor('float32',inp,[1,3,N,N])});
@@ -1060,10 +1119,10 @@ let pmWorkerURL=null;
 function pmWorker(){ if(!pmWorkerURL) pmWorkerURL=URL.createObjectURL(new Blob([document.getElementById('pmSrc').textContent],{type:'text/javascript'})); return new Worker(pmWorkerURL); }
 function compositeRegion(r, cw, ch){
   const c=mk(cw,ch), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high';
-  for (const L of doc.layers){ if(!L.visible) continue; let src=L.canvas;
+  composeTree(x, (x,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ const t=mk(r.w,r.h), tx=ctx2(t); tx.drawImage(L.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h); tx.globalCompositeOperation='destination-in'; tx.drawImage(L.mask.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
-      x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(t,0,0,cw,ch); continue; }
-    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,r.x,r.y,r.w,r.h,0,0,cw,ch); }
+      x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(t,0,0,cw,ch); return; }
+    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,r.x,r.y,r.w,r.h,0,0,cw,ch); });
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; return c;
 }
 async function contentAwareFill(){
@@ -1106,7 +1165,8 @@ function contentBBox(c){
 }
 function beginTransform(opts={}){
   if (xf) return;
-  const L=AL(); if(!L.visible){ toast('Слой скрыт'); return; }
+  if (!opts.float && isGroup(AL())){ toast('Трансформ целой группы пока не умею — выбери слой внутри',2400); return; }
+  const L=AL(); if(!shown(L)){ toast('Слой скрыт'); return; }
   const target = doc.editMask && L.mask ? 'mask' : 'content';
   if (target==='mask'){ toast('Трансформ маски пока не поддерживается — переключись на сам слой'); return; }
   let r, float, fromSel=false, selMask=null;
@@ -1232,7 +1292,7 @@ function xfCancel(){
 
 /* ============ layers ops ============ */
 function insertLayer(L, idx, msg){
-  const prevActive=doc.active;
+  const prevActive=doc.active; if (doc.layers[doc.active]) L.parent=doc.layers[doc.active].parent;
   const ins=()=>{ doc.layers.splice(idx,0,L); doc.active=idx; doc.editMask=false; };
   const rem=()=>{ doc.layers.splice(doc.layers.indexOf(L),1); doc.active=prevActive; };
   ins(); pushHist({undo:rem, redo:ins, bytes:doc.w*doc.h*4});
@@ -1240,7 +1300,9 @@ function insertLayer(L, idx, msg){
   return L;
 }
 function deleteLayer(){
-  if (doc.layers.length<2){ toast('Последний слой удалить нельзя'); return; }
+  const X=AL(), s=blockStart(X), e=doc.layers.indexOf(X);
+  if (!doc.layers.some((x,i)=>!isGroup(x) && (i<s||i>e))){ toast('Последний слой удалить нельзя'); return; }
+  if (isGroup(X)){ structEdit(()=>{ doc.layers.splice(s,e-s+1); doc.active=clamp(s-1,0,doc.layers.length-1); }, 'Группа удалена (можно отменить)'); return; }
   const idx=doc.active, L=doc.layers[idx];
   const rem=()=>{ doc.layers.splice(idx,1); doc.active=Math.max(0,idx-1); doc.editMask=false; };
   const ins=()=>{ doc.layers.splice(idx,0,L); doc.active=idx; };
@@ -1261,38 +1323,87 @@ function attachLayerDrag(row, L){
     if (e.target.closest('.eye')) return;
     start={x:e.clientX,y:e.clientY,id:e.pointerId};
     clearTimeout(timer);
-    timer=setTimeout(()=>{ drag={from:doc.layers.indexOf(L), over:null}; layerDragging=true; row.classList.add('lift'); try{ row.setPointerCapture(start.id); }catch(_){} }, 320);
+    timer=setTimeout(()=>{ drag={over:null}; layerDragging=true; row.classList.add('lift'); try{ row.setPointerCapture(start.id); }catch(_){} }, 320);
   });
   row.addEventListener('pointermove', e=>{
     if (!start) return;
     if (!drag){ if (Math.hypot(e.clientX-start.x, e.clientY-start.y)>8){ clearTimeout(timer); start=null; } return; }
     e.preventDefault();
     const rows=[...document.querySelectorAll('#lyList .ly')]; rows.forEach(r=>r.classList.remove('dropa','dropb'));
-    let target=null, after=false;
-    for (const r of rows){ if (r===row) continue; const b=r.getBoundingClientRect(); if (e.clientY>=b.top && e.clientY<=b.bottom){ target=r; after=e.clientY>b.top+b.height/2; break; } }
-    if (target){ target.classList.add(after?'dropb':'dropa'); drag.over={idx:+target.dataset.idx, after}; }
+    let target=null, zone='above'; drag.over=null;
+    for (const r of rows){ if (r===row) continue; const b=r.getBoundingClientRect(); if (e.clientY>=b.top && e.clientY<=b.bottom){ target=r; const f=(e.clientY-b.top)/b.height;
+        zone = r.classList.contains('grp') ? (f<.3?'above':f>.7&&r.dataset.col==='1'?'below':'into') : (f<.5?'above':'below'); break; } }
+    if (!target && rows.length){ const last=rows[rows.length-1]; if (last!==row && e.clientY>last.getBoundingClientRect().bottom){ target=last; zone='end'; } }
+    if (target){ const T=doc.layers[+target.dataset.idx];
+      if (T!==L && !isDesc(T,L)){ target.classList.add(zone==='above'?'dropa':zone==='into'?'dropi':'dropb'); drag.over={T, zone}; } }
     const list=$('#lyList'), lb=list.getBoundingClientRect(); if (e.clientY<lb.top+30) list.scrollTop-=12; else if (e.clientY>lb.bottom-30) list.scrollTop+=12;
   });
   const finish=()=>{ clearTimeout(timer);
     if (drag){ row.classList.remove('lift'); document.querySelectorAll('#lyList .ly').forEach(r=>r.classList.remove('dropa','dropb'));
       if (drag.over){ // the list shows the top layer first, so "below a row" means a lower index in doc.layers
-        let to = drag.over.after ? drag.over.idx : drag.over.idx+1; const from=drag.from; if (to>from) to--; moveLayerTo(from, clamp(to,0,doc.layers.length-1)); }
+        const {T, zone}=drag.over, ti=doc.layers.indexOf(T);
+        structEdit(()=>{
+          if (zone==='end') return moveBlock(L, 0, null);
+          if (zone==='above') return moveBlock(L, ti+1, T.parent);
+          if (zone==='into' || (zone==='below' && isGroup(T) && !T.collapsed)){ const ok=moveBlock(L, ti, T); if(ok && T.collapsed){ T.collapsed=false; } return ok; }
+          return moveBlock(L, isGroup(T) ? blockStart(T) : ti, T.parent);
+        }); }
       dragJustEnded=true; setTimeout(()=>dragJustEnded=false,50); }
     drag=null; start=null; layerDragging=false; };
   row.addEventListener('pointerup', finish); row.addEventListener('pointercancel', finish);
   row.addEventListener('contextmenu', e=>e.preventDefault());
 }
 function moveLayer(dir){
-  const i=doc.active, j=i+dir; if(j<0||j>=doc.layers.length) return;
-  const sw=()=>{ const a=doc.layers; [a[i],a[j]]=[a[j],a[i]]; };
-  sw(); doc.active=j; pushHist({undo(){sw();doc.active=i;},redo(){sw();doc.active=j;}}); layersChanged(); requestRender();
+  const X=AL(), s=blockStart(X), e=doc.layers.indexOf(X), A=doc.layers;
+  structEdit(()=>{
+    if (dir>0){
+      if (e+1>=A.length) return false;
+      const N=A[e+1];
+      if (N===X.parent) return moveBlock(X, e+2, N.parent);            // top of its group: step out above the group
+      let S=N; while (S.parent!==X.parent) S=S.parent;                 // sibling (or sibling group) right above
+      return moveBlock(X, A.indexOf(S)+1, X.parent);
+    } else {
+      if (s===0) return false;
+      const N=A[s-1];
+      if (N.parent!==X.parent) return X.parent ? moveBlock(X, blockStart(X.parent), X.parent.parent) : false; // bottom of its group: step out below it
+      return moveBlock(X, isGroup(N) ? blockStart(N) : s-1, X.parent);
+    }
+  });
+}
+function cloneItem(s){
+  if (isGroup(s)){ const G=newGroup(s.name+' копия'); Object.assign(G,{visible:s.visible,opacity:s.opacity,blend:s.blend,collapsed:s.collapsed}); return G; }
+  const L=newLayer(s.name+' копия'); L.ctx.drawImage(s.canvas,0,0); L.opacity=s.opacity; L.blend=s.blend; L.visible=s.visible;
+  if (s.mask){ L.mask=newMask(L); L.mask.ctx.clearRect(0,0,doc.w,doc.h); L.mask.ctx.drawImage(s.mask.canvas,0,0); L.mask.enabled=s.mask.enabled; }
+  return L;
+}
+function dupGroup(){
+  const X=AL(), s=blockStart(X), e=doc.layers.indexOf(X), map=new Map(), blk=[];
+  for (let i=s;i<=e;i++){ const o=doc.layers[i], c=cloneItem(o); if (i<e) c.name=o.name; map.set(o,c); blk.push(c); }
+  blk.forEach((c,k)=>{ const o=doc.layers[s+k]; c.parent = o===X ? X.parent : map.get(o.parent); });
+  structEdit(()=>{ doc.layers.splice(e+1,0,...blk); doc.active=e+1+blk.length-1; }, 'Группа скопирована');
+}
+function makeGroup(){
+  const X=AL(), e=doc.layers.indexOf(X), G=newGroup();
+  structEdit(()=>{ G.parent=X.parent; doc.layers.splice(e+1,0,G); X.parent=G; doc.active=e+1; }, 'Новая группа. Перетаскивай в неё слои — удержи слой и тяни на папку');
+}
+function ungroup(){
+  const G=AL(); if(!isGroup(G)) return;
+  structEdit(()=>{ for (const x of doc.layers) if (x.parent===G) x.parent=G.parent; const i=doc.layers.indexOf(G); doc.layers.splice(i,1); doc.active=clamp(i-1,0,doc.layers.length-1); }, 'Группа расформирована');
+}
+function mergeGroup(){
+  const G=AL(), s=blockStart(G), e=doc.layers.indexOf(G), L=newLayer(G.name);
+  composeTree(L.ctx, leafFull, G);
+  L.opacity=G.opacity; L.blend=G.blend==='pass'?'source-over':G.blend; L.visible=G.visible;
+  structEdit(()=>{ L.parent=G.parent; doc.layers.splice(s,e-s+1,L); doc.active=s; }, 'Группа слита в один слой');
 }
 function dupLayer(){
+  if (isGroup(AL())){ dupGroup(); return; }
   const s=AL(), L=newLayer(s.name+' копия'); L.ctx.drawImage(s.canvas,0,0); L.opacity=s.opacity; L.blend=s.blend; L.visible=s.visible;
   if (s.mask){ L.mask=newMask(L); L.mask.ctx.clearRect(0,0,doc.w,doc.h); L.mask.ctx.drawImage(s.mask.canvas,0,0); L.mask.enabled=s.mask.enabled; }
   insertLayer(L, doc.active+1, 'Слой скопирован');
 }
 function toggleMask(){
+  if (isGroup(AL())){ toast('Маска для группы — позже. Пока маскируй слои внутри',2400); return; }
   const L=AL();
   if (!L.mask){ const m=newMask(L, !!sel); L.mask=m; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=m;}}); if(sel) deselect(); toast('Маска добавлена: кисть скрывает, ластик возвращает',3200); }
   layersChanged(); requestRender();
@@ -1312,8 +1423,11 @@ function removeMask(apply){
   L.dirty=true; layersChanged(); requestRender();
 }
 function mergeDown(){
+  if (isGroup(AL())){ mergeGroup(); return; }
   const i=doc.active; if(i<1){ toast('Ниже нет слоя'); return; }
   const up=doc.layers[i], lo=doc.layers[i-1];
+  if (isGroup(lo)){ toast('Ниже группа — слить с ней нельзя'); return; }
+  if (lo.parent!==up.parent){ toast('Это нижний слой в группе — ниже слить не с чем'); return; }
   if (lo.mask){ toast('У нижнего слоя маска: сначала примени её'); return; }
   const before=grab(lo.canvas,{x:0,y:0,w:doc.w,h:doc.h});
   let src=up.canvas;
@@ -1325,6 +1439,7 @@ function mergeDown(){
   lo.dirty=true; layersChanged(); requestRender();
 }
 function clearLayer(){
+  if (isGroup(AL())){ ungroup(); return; }
   const L=AL(), tgt=doc.editMask&&L.mask?L.mask.canvas:L.canvas, before=grab(tgt,{x:0,y:0,w:doc.w,h:doc.h});
   const x=ctx2(tgt); if(tgt!==L.canvas){ x.fillStyle='#fff'; x.fillRect(0,0,doc.w,doc.h); } else x.clearRect(0,0,doc.w,doc.h);
   pushHist(pxEntry(tgt,0,0,doc.w,doc.h,before)); L.dirty=true; thumbSoon(L); requestRender();
@@ -1346,15 +1461,31 @@ function thumbFor(L, mask){
 }
 const thumbQ=new Set(); let thumbT;
 function thumbSoon(L){ thumbQ.add(L); clearTimeout(thumbT); thumbT=setTimeout(()=>{ if($('#layers').hidden){ return; } for(const l of thumbQ){ thumbFor(l,false); if(l.mask) thumbFor(l,true);} thumbQ.clear(); },350); markDirty(); }
+const FOLDER='<svg viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 9.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>';
+const CHEV='<svg class="chev" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>';
 const EYE='<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 function layersChanged(){
   if (!doc) return;
   if (!$('#layers').hidden){
     const list=$('#lyList'); list.textContent='';
     for (let i=doc.layers.length-1;i>=0;i--){
-      const L=doc.layers[i], row=document.createElement('div'); row.className='ly'+(i===doc.active?' act':'');
+      const L=doc.layers[i]; let hidden=false; for(let p=L.parent;p;p=p.parent) if(p.collapsed) hidden=true; if (hidden) continue;
+      const row=document.createElement('div'); row.className='ly'+(i===doc.active?' act':'')+(L.parent&&!shown(L.parent)?' hid':'');
+      row.style.marginLeft=(depthOf(L)*16)+'px';
       const eye=document.createElement('button'); eye.className='eye'+(L.visible?'':' off'); eye.innerHTML=EYE; eye.setAttribute('aria-label','Видимость');
       eye.onclick=e=>{ e.stopPropagation(); setProp(L,'visible',!L.visible); layersChanged(); };
+      if (isGroup(L)){
+        row.classList.add('grp'); if (L.collapsed) row.classList.add('col'); row.dataset.col=L.collapsed?'1':'0';
+        const fold=document.createElement('button'); fold.className='fold'; fold.setAttribute('aria-label','Свернуть или развернуть группу'); fold.innerHTML=CHEV+FOLDER;
+        fold.onclick=e=>{ e.stopPropagation(); L.collapsed=!L.collapsed; markDirty(); layersChanged(); };
+        const n=doc.layers.filter(x=>isDesc(x,L)&&!isGroup(x)).length;
+        const nm=document.createElement('div'); nm.style.minWidth='0'; nm.style.gridColumn='span 2';
+        nm.innerHTML='<div class="nm"></div><div class="meta"></div>';
+        nm.firstChild.textContent=L.name; nm.lastChild.textContent=n+' сл. · '+Math.round(L.opacity*100)+'% · '+(L.blend==='pass'?'Сквозной':(BLENDS.find(b=>b[0]===L.blend)||BLENDS[0])[1]);
+        row.append(eye, fold, nm);
+        row.onclick=()=>{ if (dragJustEnded) return; doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); };
+        row.dataset.idx=i; attachLayerDrag(row, L); list.append(row); continue;
+      }
       const tc=thumbFor(L,false); tc.classList.toggle('sel', i===doc.active && !doc.editMask && !!L.mask);
       tc.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); };
       row.append(eye, tc);
@@ -1368,9 +1499,15 @@ function layersChanged(){
       row.dataset.idx=i; attachLayerDrag(row, L);
       list.append(row);
     }
-    const L=AL(); $('#lyName').value=L.name;  drawLyOpac(); $('#lyOpacV').textContent=Math.round(L.opacity*100); $('#lyBlend').value=L.blend;
-    $('#lyMask').textContent = L.mask ? 'Маска…' : '+ Маска';
+    const L=AL(), g=isGroup(L); $('#lyName').value=L.name;  drawLyOpac(); $('#lyOpacV').textContent=Math.round(L.opacity*100);
+    if ($('#lyBlend').dataset.g!==String(g)){ $('#lyBlend').dataset.g=String(g); $('#lyBlend').innerHTML=(g?'<option value="pass">Сквозной</option>':'')+BLENDS.map(b=>`<option value="${b[0]}">${b[1]}</option>`).join(''); }
+    $('#lyBlend').value=L.blend;
+    $('#lyMask').textContent = g ? 'Маска группы — позже' : L.mask ? 'Маска…' : '+ Маска'; $('#lyMask').disabled=g;
+    $('#lyMask').style.gridColumn = L.mask ? 'span 2' : '1/-1';
     $('#lyMaskInv').hidden = !L.mask;
+    $('#lyMerge').textContent = g ? 'Слить группу' : 'Слить вниз';
+    $('#lyClear').textContent = g ? 'Разгруппир.' : 'Очистить';
+    $('#lyGroup').textContent = g ? '+ Группа' : 'В группу';
   }
   if (S.tool==='brush'||S.tool==='eraser') renderOpts();
   updateStatus();
@@ -1387,18 +1524,27 @@ const drawLyOpac = hslider($('#lyOpac'), {min:0, max:1, get:()=>doc?AL().opacity
   set:x=>{ AL().opacity=Math.round(x*100)/100; $('#lyOpacV').textContent=Math.round(x*100); bumpContent(); requestRender(); },
   end:()=>{ const L=AL(), v=L.opacity, o=opacStart??v; opacStart=null; if(o!==v) pushHist({undo(){L.opacity=o;},redo(){L.opacity=v;}}); layersChanged(); }});
 $('#lyBlend').addEventListener('change',e=>{ setProp(AL(),'blend',e.target.value); layersChanged(); });
-$('#lyAdd').onclick=()=>insertLayer(newLayer('Слой '+(doc.layers.length)), doc.active+1);
+$('#lyAdd').onclick=()=>insertLayer(newLayer('Слой '+(doc.layers.filter(x=>!isGroup(x)).length)), doc.active+1);
+$('#lyGroup').onclick=makeGroup;
 $('#lyDup').onclick=dupLayer; $('#lyDel').onclick=deleteLayer; $('#lyUp').onclick=()=>moveLayer(1); $('#lyDown').onclick=()=>moveLayer(-1);
 $('#lyMerge').onclick=mergeDown; $('#lyMaskInv').onclick=invertMask; $('#lyClear').onclick=clearLayer;
 $('#lyMask').onclick=()=>{ if(!AL().mask){ toggleMask(); return; } openMaskMenu(); };
 function openMaskMenu(){
-  const L=AL();
-  dialog(`<h3>Маска слоя «${escapeHtml(L.name)}»</h3><p>Кисть по маске скрывает, ластик возвращает.</p>`,
-    [[L.mask.enabled?'Выключить':'Включить', ()=>{ setProp(L.mask,'enabled',!L.mask.enabled); layersChanged(); }],
-     ['Инвертировать', ()=>invertMask()], ['Применить к слою', ()=>removeMask(true)], ['Удалить маску', ()=>removeMask(false)], ['Закрыть', null, true]]);
+  const L=AL(), onMask=doc.editMask;
+  const d=dialog(`<div class="mhead"><div class="mprev"></div><div><h3>Маска слоя</h3><p class="mname"></p></div></div>`,
+    [[onMask?'Рисовать по слою':'Рисовать по маске', ()=>{ doc.editMask=!onMask; layersChanged(); if(!onMask) toast('Рисуешь по маске: кисть скрывает, ластик возвращает',2600); }, '', onMask?'Кисть снова рисует по картинке':'Кисть скрывает, ластик возвращает'],
+     ['Инвертировать', ()=>invertMask(), '', 'Скрытое станет видимым и наоборот · ⌘I'],
+     [L.mask.enabled?'Выключить маску':'Включить маску', ()=>{ setProp(L.mask,'enabled',!L.mask.enabled); layersChanged(); }, '', L.mask.enabled?'Временно показать слой целиком':'Снова скрыть замаскированное'],
+     ['Применить к слою', ()=>removeMask(true), '', 'Скрытое стирается со слоя, маска исчезает'],
+     ['Удалить маску', ()=>removeMask(false), 'dg', 'Слой снова виден целиком'],
+     ['Закрыть', null, 'close']], {list:true});
+  d.querySelector('.mname').textContent='«'+L.name+'»'+(L.mask.enabled?'':' · выключена');
+  const k=Math.min(144/doc.w, 144/doc.h), c=mk(Math.max(1,Math.round(doc.w*k)), Math.max(1,Math.round(doc.h*k))), x=ctx2(c);
+  x.fillStyle='#000'; x.fillRect(0,0,c.width,c.height); x.imageSmoothingQuality='high'; x.drawImage(L.mask.canvas,0,0,c.width,c.height);
+  d.querySelector('.mprev').append(c);
 }
 const escapeHtml = s => s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function showLayers(on){ const p=$('#layers'); p.hidden=!on; stage.classList.toggle('lyopen', on); for(const b of ['#bLayers','#bLayers2']) $(b).classList.toggle('on',on); if(on&&doc){ doc.layers.forEach(L=>{thumbFor(L,false); if(L.mask)thumbFor(L,true);}); layersChanged(); } }
+function showLayers(on){ const p=$('#layers'); p.hidden=!on; stage.classList.toggle('lyopen', on); for(const b of ['#bLayers','#bLayers2']) $(b).classList.toggle('on',on); if(on&&doc){ doc.layers.forEach(L=>{ if(isGroup(L)) return; thumbFor(L,false); if(L.mask)thumbFor(L,true);}); layersChanged(); } }
 $('#bLayers').onclick=()=>showLayers($('#layers').hidden);
 $('#bLayers2').onclick=()=>showLayers($('#layers').hidden);
 $('#lyClose').onclick=()=>showLayers(false);
@@ -1510,10 +1656,11 @@ $('#bMenu').onclick=e=>{ e.stopPropagation(); closePops('menu'); $('#menu').hidd
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu')) closePops(); },true);
 
 /* ============ dialogs ============ */
-function dialog(html, buttons){
-  const s=document.createElement('div'); s.className='scrim'; const d=document.createElement('div'); d.className='dlg'; d.innerHTML=html;
-  const a=document.createElement('div'); a.className='actions';
-  for (const [label,fn,pri] of buttons){ const b=document.createElement('button'); b.textContent=label; if(pri) b.className='pri'; b.onclick=()=>{ const keep = fn && fn(d)===false; if(!keep) s.remove(); }; a.append(b); }
+function dialog(html, buttons, opt={}){
+  const s=document.createElement('div'); s.className='scrim'; const d=document.createElement('div'); d.className='dlg'+(opt.list?' narrow':''); d.innerHTML=html;
+  const a=document.createElement('div'); a.className='actions'+(opt.list?' list':'');
+  for (const [label,fn,pri,desc] of buttons){ const b=document.createElement('button'); b.textContent=label; if(pri) b.className=pri===true?'pri':pri;
+    if (desc){ const sm=document.createElement('small'); sm.textContent=desc; b.append(sm); } b.onclick=()=>{ const keep = fn && fn(d)===false; if(!keep) s.remove(); }; a.append(b); }
   d.append(a); s.append(d); s.addEventListener('pointerdown',e=>{ if(e.target===s) s.remove(); }); $('#app').append(s); return d;
 }
 function showHelp(){
@@ -1560,12 +1707,16 @@ async function openPsd(f){
   const buf=await f.arrayBuffer();
   const psd=agPsd.readPsd(buf,{skipThumbnail:true,skipCompositeImageData:false});
   createDoc(psd.width, psd.height, f.name.replace(/\.psd$/i,''));
-  const layers=[]; let groups=false;
-  (function walk(ch){ for(const c of ch||[]){ if(c.children){ groups=true; walk(c.children);} else layers.push(c);} })(psd.children);
-  if (!layers.length && psd.canvas){ doc.layers[0].ctx.clearRect(0,0,doc.w,doc.h); doc.layers[0].ctx.drawImage(psd.canvas,0,0); doc.layers.length=1; doc.active=0; return; }
+  const layers=[]; let gmask=false;
+  (function walk(ch, P){ for(const c of ch||[]){
+    if(c.children){ const G=newGroup(c.name||'Группа'); G.visible=!c.hidden; G.opacity=c.opacity??1; G.blend=c.blendMode==='pass through'?'pass':psdToBlend(c.blendMode||'normal'); G.collapsed=!c.opened; G.parent=P;
+      if (c.mask) gmask=true; walk(c.children, G); layers.push(G); }
+    else { c.__parent=P; layers.push(c); } } })(psd.children, null);
+  if (!layers.some(x=>!isGroup(x)) && psd.canvas){ doc.layers[0].ctx.clearRect(0,0,doc.w,doc.h); doc.layers[0].ctx.drawImage(psd.canvas,0,0); doc.layers.length=1; doc.active=0; return; }
   doc.layers=[];
   for (const c of layers){
-    const L=newLayer(c.name||'Слой');
+    if (isGroup(c)){ doc.layers.push(c); continue; }
+    const L=newLayer(c.name||'Слой'); L.parent=c.__parent;
     if (c.canvas) L.ctx.drawImage(c.canvas, c.left||0, c.top||0);
     L.visible=!c.hidden; L.opacity=c.opacity??1; L.blend=psdToBlend(c.blendMode||'normal');
     if (c.mask && c.mask.canvas){
@@ -1581,7 +1732,7 @@ async function openPsd(f){
     await nextFrame();
   }
   doc.active=doc.layers.length-1; clearHistory();
-  if (groups) toast('Группы из PSD развёрнуты в плоский список слоёв',3600);
+  if (gmask) toast('Маски групп из PSD пока не поддерживаются — группы открыты без них',4000);
 }
 $('#fPlace').addEventListener('change', e=>{ const f=e.target.files[0]; e.target.value=''; if(f) placeFile(f); });
 async function placeFile(f){
@@ -1589,7 +1740,7 @@ async function placeFile(f){
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   try{
     const im=await loadImage(f); const c=mk(im.naturalWidth,im.naturalHeight); ctx2(c).drawImage(im,0,0);
-    const L=newLayer(f.name.replace(/\.[^.]+$/,'')); const idx=doc.active+1, prevA=doc.active;
+    const L=newLayer(f.name.replace(/\.[^.]+$/,'')); const idx=doc.active+1, prevA=doc.active; L.parent=AL().parent;
     doc.layers.splice(idx,0,L); doc.active=idx; doc.editMask=false; layersChanged();
     const scale=Math.min(1, doc.w*0.8/c.width, doc.h*0.8/c.height);
     const prev=S.tool==='transform'?'brush':S.tool;
@@ -1605,9 +1756,9 @@ document.addEventListener('paste', e=>{ if(e.target.matches&&e.target.matches('i
 function flatten(scale=1, white){
   const w=Math.round(doc.w*scale), h=Math.round(doc.h*scale), c=mk(w,h), x=ctx2(c);
   x.imageSmoothingQuality='high'; if (white){ x.fillStyle='#fff'; x.fillRect(0,0,w,h); }
-  for (const L of doc.layers){ if(!L.visible) continue; let src=L.canvas;
+  composeTree(x, (x,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const s=ctx2(src); s.drawImage(L.canvas,0,0); s.globalCompositeOperation='destination-in'; s.drawImage(L.mask.canvas,0,0); }
-    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,w,h); }
+    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,w,h); });
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; return c;
 }
 const toBlob=(c,type,q)=>new Promise(r=>c.toBlob(r,type,q));
@@ -1630,9 +1781,12 @@ async function exportImg(kind){
   try{
     if (kind==='psd'){
       if(!window.agPsd||!window.fflate) throw new Error('Библиотеки PSD не загрузились');
-      const children=doc.layers.map(L=>{ const o={name:L.name, canvas:L.canvas, left:0, top:0, opacity:L.opacity, hidden:!L.visible, blendMode:blendToPsd(L.blend)};
+      const build=P=>kidsOf(P).map(L=>{
+        if (isGroup(L)) return {name:L.name, opacity:L.opacity, hidden:!L.visible, blendMode:L.blend==='pass'?'pass through':blendToPsd(L.blend), opened:!L.collapsed, children:build(L)};
+        const o={name:L.name, canvas:L.canvas, left:0, top:0, opacity:L.opacity, hidden:!L.visible, blendMode:blendToPsd(L.blend)};
         if (L.mask){ const m=mk(doc.w,doc.h), mx=ctx2(m); mx.fillStyle='#000'; mx.fillRect(0,0,doc.w,doc.h); mx.drawImage(L.mask.canvas,0,0); o.mask={canvas:m,left:0,top:0,defaultColor:0,disabled:!L.mask.enabled}; }
         return o; });
+      const children=build(null);
       const buf=agPsd.writePsd({width:doc.w,height:doc.h,children,canvas:flatten(1)},{generateThumbnail:false});
       busy(false);
       if (!dl){ await saveFile(safeName()+'.psd', new Blob([buf],{type:'image/vnd.adobe.photoshop'})); return; }
@@ -1851,6 +2005,7 @@ document.addEventListener('keydown', e=>{
   if (mod && k==='z'){ e.preventDefault(); e.shiftKey?redo():undo(); return; }
   if (mod && k==='d'){ e.preventDefault(); deselect(); return; }
   if (mod && k==='i'){ e.preventDefault(); if (AL().mask && doc.editMask) invertMask(); else if (sel) invertSel(); else if (AL().mask) invertMask(); return; }
+  if (mod && k==='g'){ e.preventDefault(); e.shiftKey?ungroup():makeGroup(); return; }
   if (mod && k==='j'){ e.preventDefault(); sel?selCopyToLayer():dupLayer(); return; }
   if (mod) return;
   const map={b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap'};
@@ -1878,8 +2033,8 @@ async function autosave(){
   saving=true; dirtyDoc=false;
   try{
     const put={};
-    for (const L of doc.layers){ if (L.dirty || !L.saved){ put['c'+L.id]=await toBlob(L.canvas,'image/png'); if(L.mask) put['m'+L.id]=await toBlob(L.mask.canvas,'image/png'); L.dirty=false; L.saved=true; } }
-    put.meta={ w:doc.w, h:doc.h, name:doc.name, active:doc.active, uid, layers:doc.layers.map(L=>({id:L.id,name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
+    for (const L of doc.layers){ if (isGroup(L)) continue; if (L.dirty || !L.saved){ put['c'+L.id]=await toBlob(L.canvas,'image/png'); if(L.mask) put['m'+L.id]=await toBlob(L.mask.canvas,'image/png'); L.dirty=false; L.saved=true; } }
+    put.meta={ w:doc.w, h:doc.h, name:doc.name, active:doc.active, uid, layers:doc.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
     await idbPut(put);
   }catch(e){ console.warn('autosave', e); }
   saving=false; if (dirtyDoc) markDirty();
@@ -1889,13 +2044,16 @@ async function restore(){
     const m=await idbGet('meta'); if(!m||!m.layers||!m.layers.length) return false;
     busy(true,'Восстанавливаю документ…'); await nextFrame();
     doc={w:m.w,h:m.h,name:m.name,layers:[],active:0,editMask:false};
+    const byId=new Map();
     for (const l of m.layers){
-      const L=newLayer(l.name); L.id=l.id; Object.assign(L,{visible:l.visible,opacity:l.opacity,blend:l.blend});
+      if (l.kind==='group'){ const G=newGroup(l.name); G.id=l.id; Object.assign(G,{visible:l.visible,opacity:l.opacity,blend:l.blend,collapsed:l.collapsed}); G.__p=l.parent; byId.set(G.id,G); doc.layers.push(G); continue; }
+      const L=newLayer(l.name); L.__p=l.parent; byId.set(l.id,L); L.id=l.id; Object.assign(L,{visible:l.visible,opacity:l.opacity,blend:l.blend});
       const cb=await idbGet('c'+l.id); if(cb){ const im=await createImageBitmap(cb); L.ctx.drawImage(im,0,0); im.close&&im.close(); }
       await nextFrame();
       if (l.mask){ L.mask=newMask(L); L.mask.enabled=l.mask.enabled; const mb=await idbGet('m'+l.id); if(mb){ const im=await createImageBitmap(mb); L.mask.ctx.clearRect(0,0,doc.w,doc.h); L.mask.ctx.drawImage(im,0,0); im.close&&im.close(); } }
       L.dirty=false; L.saved=true; doc.layers.push(L);
     }
+    for (const L of doc.layers){ L.parent = L.__p!=null ? (byId.get(L.__p)||null) : null; delete L.__p; }
     uid=Math.max(uid, (m.uid||0)+1, ...doc.layers.map(L=>L.id+1));
     doc.active=clamp(m.active||0,0,doc.layers.length-1);
     busy(false); fitView(); layersChanged(); toast('Продолжаем «'+doc.name+'» с того же места');
@@ -1904,7 +2062,7 @@ async function restore(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(); } });
 
-const APP_VERSION='2026-10-01 · 20:10'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · 21:30'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
