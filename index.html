@@ -593,9 +593,19 @@ function render(){
   renderOverlay();
   updateStatus();
 }
+/* linked masks: during a whole-layer transform the mask moves with the pixels */
+function maskPatch(owner, r){ const c=mk(r.w,r.h); ctx2(c).drawImage(owner.mask.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h); return c; }
+function movedMaskInto(m, owner){ // m already has the doc->target transform; draws owner's mask as it will look after the transform
+  const patch=xf.maskParts.get(owner), o=xf.orig;
+  m.drawImage(owner.mask.canvas,0,0); m.fillStyle='#fff'; m.fillRect(o.x,o.y,o.w,o.h);
+  m.save(); m.transform(...xfMatrix()); m.clearRect(0,0,patch.width,patch.height); m.drawImage(patch,0,0); m.restore();
+}
+const maskMoving = L => !!(xf && xf.maskParts && xf.maskParts.has(L));
 function renderGroupMask(c, cv, G){ // view-space group mask, with the live brush stroke when painting on it
   if (stroke && stroke.layer===G && stroke.target==='mask'){
     const m=ctx2(tMask); m.setTransform(1,0,0,1,0,0); m.clearRect(0,0,tMask.width,tMask.height); setVT(m); m.drawImage(cv,0,0); applyStrokePreview(m);
+    c.setTransform(1,0,0,1,0,0); c.drawImage(tMask,0,0); return; }
+  if (maskMoving(G)){ const m=ctx2(tMask); m.setTransform(1,0,0,1,0,0); m.clearRect(0,0,tMask.width,tMask.height); setVT(m); movedMaskInto(m,G);
     c.setTransform(1,0,0,1,0,0); c.drawImage(tMask,0,0); return; }
   setVT(c); c.drawImage(cv,0,0);
 }
@@ -616,7 +626,7 @@ function drawLayer(cc, L){
   if (isStroke && stroke.target==='content') applyStrokePreview(t);
   if (hasMask || (isStroke && stroke.target==='mask')){
     const m=ctx2(tMask); m.setTransform(1,0,0,1,0,0); m.clearRect(0,0,tMask.width,tMask.height);
-    setVT(m); m.drawImage(L.mask.canvas,0,0);
+    setVT(m); if (maskMoving(L)) movedMaskInto(m,L); else m.drawImage(L.mask.canvas,0,0);
     if (isStroke && stroke.target==='mask') applyStrokePreview(m);
     t.setTransform(1,0,0,1,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(tMask,0,0); t.globalCompositeOperation='source-over';
   }
@@ -1191,7 +1201,8 @@ function beginTransform(opts={}){
     r=contentBBox(L.canvas); if(!r){ toast('На слое пусто'); return; }
     float=mk(r.w,r.h); ctx2(float).drawImage(L.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
   }
-  xf = { layer:L, target, float, fromSel, selMask, orig:r, placed:!!opts.float, onCancel:opts.onCancel,
+  const maskParts = (!opts.float && !fromSel && L.mask) ? new Map([[L, maskPatch(L,r)]]) : null;
+  xf = { layer:L, target, float, fromSel, selMask, orig:r, placed:!!opts.float, onCancel:opts.onCancel, maskParts,
          cx:r.x+r.w/2, cy:r.y+r.h/2, sx:opts.scale||1, sy:opts.scale||1, rot:0, drag:null, prevTool:opts.prevTool };
   $('#xfbar').hidden=false; updateSelBar(); setTool('transform', true); requestRender();
 }
@@ -1208,7 +1219,9 @@ function beginGroupTransform(opts){
   for (const L of mem){ const f=mk(r.w,r.h), x=ctx2(f); x.drawImage(L.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
     if (fromSel){ x.globalCompositeOperation='destination-in'; x.drawImage(sel.mask,r.x,r.y,r.w,r.h,0,0,r.w,r.h); }
     parts.set(L,f); if (shown(L)) fx.drawImage(f,0,0); }
-  xf = { layer:G, parts, target:'content', float, fromSel, selMask, orig:r, placed:false,
+  let maskParts=null;
+  if (!fromSel){ maskParts=new Map(); for (const x of [...mem, ...doc.layers.filter(g=>isGroup(g)&&(g===G||isDesc(g,G)))]) if (x.mask) maskParts.set(x, maskPatch(x,r)); }
+  xf = { layer:G, parts, maskParts, target:'content', float, fromSel, selMask, orig:r, placed:false,
          cx:r.x+r.w/2, cy:r.y+r.h/2, sx:1, sy:1, rot:0, drag:null, prevTool:opts.prevTool };
   $('#xfbar').hidden=false; updateSelBar(); setTool('transform', true); requestRender();
 }
@@ -1299,8 +1312,14 @@ function xfApply(){
     L.dirty=true; thumbSoon(L); return pxEntry(L.canvas,U.x,U.y,U.w,U.h,before);
   };
   if (U.w>0&&U.h>0){
-    if (t.parts){ const es=[]; for (const [PL,fl] of t.parts) es.push(applyTo(PL,fl)); entry=compound(...es); }
-    else entry=applyTo(L, t.float);
+    const es=[];
+    if (t.parts){ for (const [PL,fl] of t.parts) es.push(applyTo(PL,fl)); }
+    else es.push(applyTo(L, t.float));
+    if (t.maskParts) for (const [ML,patch] of t.maskParts){ const mc=ML.mask.canvas, mx=ML.mask.ctx, before=grab(mc,U);
+      mx.fillStyle='#fff'; mx.fillRect(t.orig.x,t.orig.y,t.orig.w,t.orig.h);
+      mx.save(); mx.imageSmoothingEnabled=true; mx.imageSmoothingQuality='high'; mx.setTransform(...M); mx.clearRect(0,0,w,h); mx.drawImage(patch,0,0); mx.restore();
+      ML.dirty=true; thumbSoon(ML); es.push(pxEntry(mc,U.x,U.y,U.w,U.h,before)); }
+    entry = es.length===1 ? es[0] : compound(...es);
   }
   const extra = t.placedEntry;
   xf=null; $('#xfbar').hidden=true;
@@ -1852,7 +1871,7 @@ function flipFix(){ // keep scales positive by flipping pixels instead
   const f=xf.float, c=mk(f.width,f.height), x=ctx2(c);
   if (xf.sx<0){ x.translate(f.width,0); x.scale(-1,1); xf.sx*=-1; } else { x.translate(0,f.height); x.scale(1,-1); xf.sy*=-1; }
   x.drawImage(f,0,0);
-  if (xf.parts) for (const [PL,pf] of xf.parts){ const c2=mk(pf.width,pf.height), x2=ctx2(c2); x2.setTransform(x.getTransform()); x2.drawImage(pf,0,0); xf.parts.set(PL,c2); }
+  for (const mp of [xf.parts, xf.maskParts]) if (mp) for (const [PL,pf] of mp){ const c2=mk(pf.width,pf.height), x2=ctx2(c2); x2.setTransform(x.getTransform()); x2.drawImage(pf,0,0); mp.set(PL,c2); }
   xf.float=c; requestRender();
 }
 $('#xfCover').onclick=()=>xfFit(true); $('#xfContain').onclick=()=>xfFit(false);
@@ -2101,7 +2120,7 @@ async function restore(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(); } });
 
-const APP_VERSION='2026-10-01 · 23:00'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · 23:40'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
