@@ -266,6 +266,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
           <button id="lyMerge">Слить вниз</button>
           <button id="lyClear">Очистить</button>
           <button id="lyDel" class="dg">Удалить</button>
+          <button id="lyMaskInv" style="grid-column:1/-1" hidden>Инвертировать маску</button>
         </div>
       </div>
     </aside>
@@ -1257,6 +1258,12 @@ function toggleMask(){
   if (!L.mask){ const m=newMask(L, !!sel); L.mask=m; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=m;}}); if(sel) deselect(); toast('Маска добавлена: кисть скрывает, ластик возвращает',3200); }
   layersChanged(); requestRender();
 }
+function invertMask(){
+  const L=AL(); if(!L.mask){ toast('У слоя нет маски'); return; }
+  const before=grab(L.mask.canvas,{x:0,y:0,w:doc.w,h:doc.h}), m=L.mask.ctx;
+  m.globalCompositeOperation='xor'; m.fillStyle='#fff'; m.fillRect(0,0,doc.w,doc.h); m.globalCompositeOperation='source-over'; // alpha a -> 1-a
+  pushHist(pxEntry(L.mask.canvas,0,0,doc.w,doc.h,before)); L.dirty=true; thumbSoon(L); layersChanged(); requestRender(); toast('Маска инвертирована',1000);
+}
 function removeMask(apply){
   const L=AL(); if(!L.mask) return; const m=L.mask;
   if (apply){ const before=grab(L.canvas,{x:0,y:0,w:doc.w,h:doc.h}); L.ctx.globalCompositeOperation='destination-in'; L.ctx.drawImage(m.canvas,0,0); L.ctx.globalCompositeOperation='source-over';
@@ -1323,6 +1330,7 @@ function layersChanged(){
     }
     const L=AL(); $('#lyName').value=L.name;  drawLyOpac(); $('#lyOpacV').textContent=Math.round(L.opacity*100); $('#lyBlend').value=L.blend;
     $('#lyMask').textContent = L.mask ? 'Маска…' : '+ Маска';
+    $('#lyMaskInv').hidden = !L.mask;
   }
   if (S.tool==='brush'||S.tool==='eraser') renderOpts();
   updateStatus();
@@ -1341,13 +1349,13 @@ const drawLyOpac = hslider($('#lyOpac'), {min:0, max:1, get:()=>doc?AL().opacity
 $('#lyBlend').addEventListener('change',e=>{ setProp(AL(),'blend',e.target.value); layersChanged(); });
 $('#lyAdd').onclick=()=>insertLayer(newLayer('Слой '+(doc.layers.length)), doc.active+1);
 $('#lyDup').onclick=dupLayer; $('#lyDel').onclick=deleteLayer; $('#lyUp').onclick=()=>moveLayer(1); $('#lyDown').onclick=()=>moveLayer(-1);
-$('#lyMerge').onclick=mergeDown; $('#lyClear').onclick=clearLayer;
+$('#lyMerge').onclick=mergeDown; $('#lyMaskInv').onclick=invertMask; $('#lyClear').onclick=clearLayer;
 $('#lyMask').onclick=()=>{ if(!AL().mask){ toggleMask(); return; } openMaskMenu(); };
 function openMaskMenu(){
   const L=AL();
   dialog(`<h3>Маска слоя «${escapeHtml(L.name)}»</h3><p>Кисть по маске скрывает, ластик возвращает.</p>`,
     [[L.mask.enabled?'Выключить':'Включить', ()=>{ setProp(L.mask,'enabled',!L.mask.enabled); layersChanged(); }],
-     ['Применить к слою', ()=>removeMask(true)], ['Удалить маску', ()=>removeMask(false)], ['Закрыть', null, true]]);
+     ['Инвертировать', ()=>invertMask()], ['Применить к слою', ()=>removeMask(true)], ['Удалить маску', ()=>removeMask(false)], ['Закрыть', null, true]]);
 }
 const escapeHtml = s => s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function showLayers(on){ const p=$('#layers'); p.hidden=!on; stage.classList.toggle('lyopen', on); for(const b of ['#bLayers','#bLayers2']) $(b).classList.toggle('on',on); if(on&&doc){ doc.layers.forEach(L=>{thumbFor(L,false); if(L.mask)thumbFor(L,true);}); layersChanged(); } }
@@ -1483,7 +1491,7 @@ function showHelp(){
    <dt>Маска</dt><dd>Кисть скрывает, ластик возвращает. Выбор между слоем и маской — тап по миниатюре.</dd>
   </dl>
   <p class="kbd">На ПК: колёсико — масштаб, Alt+колёсико — поворот, Shift+колёсико — сдвиг вбок, пробел или средняя кнопка + тянуть — двигать холст, зажатый Alt — пипетка, ⌘/Ctrl+0 — вписать, Ctrl+1 — 100%.</p>
-  <p class="kbd">С клавиатурой: B кисть · E ластик · L лассо · M прямоугольник · V трансформ · I пипетка · [ ] размер · ⌘Z / ⇧⌘Z · ⌘D снять выделение · Enter применить · Esc отмена</p>`,
+  <p class="kbd">С клавиатурой: B кисть · E ластик · L лассо · M прямоугольник · V трансформ · I пипетка · [ ] размер · ⌘Z / ⇧⌘Z · ⌘D снять выделение · ⌘I инвертировать маску или выделение · Enter применить · Esc отмена</p>`,
   [['Понятно', ()=>{ try{localStorage.setItem('kadr.help','1');}catch(e){} }, true]]);
 }
 $('#bHelp').onclick=showHelp;
@@ -1801,6 +1809,7 @@ document.addEventListener('keydown', e=>{
   if (mod && k==='-'){ e.preventDefault(); const st=stage.getBoundingClientRect(); zoomAt(st.width/2,st.height/2,0.8); return; }
   if (mod && k==='z'){ e.preventDefault(); e.shiftKey?redo():undo(); return; }
   if (mod && k==='d'){ e.preventDefault(); deselect(); return; }
+  if (mod && k==='i'){ e.preventDefault(); if (AL().mask && doc.editMask) invertMask(); else if (sel) invertSel(); else if (AL().mask) invertMask(); return; }
   if (mod && k==='j'){ e.preventDefault(); sel?selCopyToLayer():dupLayer(); return; }
   if (mod) return;
   const map={b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap'};
