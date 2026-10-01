@@ -239,6 +239,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   </g></svg>Проявка</span>
     <button class="tb" id="bMenu" aria-label="Файл"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Файл</button>
     <button class="tb" id="bUndo" aria-label="Отменить"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+    <button class="tb" id="bDesel" hidden aria-label="Снять выделение (⌘D)" title="Снять выделение"><svg viewBox="0 0 24 24"><path d="M4 7V4h3M10 4h4M17 4h3v3M20 10v1M4 10v4M4 17v3h3M10 20h1"/><path d="m15 15 6 6M21 15l-6 6"/></svg></button>
     <button class="tb" id="bRedo" aria-label="Вернуть отменённое"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
     <span class="sep"></span>
     <div id="opts"></div>
@@ -937,7 +938,8 @@ function selToMask(){
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
 }
-function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge; syncSelModes(); }
+function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge; $('#bDesel').hidden = !sel || !!xf || !!edge; syncSelModes(); }
+function quickDeselect(){ if(!sel) return; deselect(); toast('Выделение снято · вернуть — тап двумя пальцами',1500); }
 function syncSelModes(){ document.querySelectorAll('#selModes button').forEach(b=>b.classList.toggle('on', b.dataset.mode===S.selMode)); }
 function setSelMode(k){ S.selMode=k; if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
   if(k!=='new') toast(k==='add'?'Обводи — участок добавится к выделению':'Обводи — участок вычтется из выделения',1600); }
@@ -1970,6 +1972,7 @@ function showHelp(){
    <dt>3 пальца, тап</dt><dd>Вернуть то, что отменила двумя пальцами.</dd>
    <dt>4 пальца, тап</dt><dd>Спрятать или вернуть интерфейс.</dd>
    <dt>Инструменты слева</dt><dd>Похожие собраны в группы: рисование, выделение, умное выделение. Тап по группе берёт последний инструмент из неё, повторный тап или удержание открывает список.</dd>
+   <dt>Снять выделение</dt><dd>Тап одним пальцем по холсту, тап карандашом мимо картинки (в инструментах выделения), кнопка ✕ рядом со стрелками отмены вверху или ⌘D.</dd>
    <dt>Край выделения</dt><dd>Кнопка «Край…» на панели выделения: сгладить, растушевать, сузить или расширить. Красным подсвечено то, что не попадёт в выделение. Enter — применить, Esc — отмена.</dd>
    <dt>Волшебная палочка (W)</dt><dd>Тап выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы.</dd>
    <dt>Тап по масштабу</dt><dd>Плашка внизу слева: вписать холст и сбросить поворот.</dd>
@@ -2110,6 +2113,7 @@ document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops
 /* ============ selection bar & transform bar ============ */
 document.querySelectorAll('#selbar [data-sel]').forEach(b=>b.onclick=()=>{ const a=b.dataset.sel;
   ({edge:edgeOpen, deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill})[a](); });
+$('#bDesel').onclick=()=>quickDeselect();
 $('#xfApply').onclick=xfApply; $('#xfCancel').onclick=xfCancel;
 $('#xfFlipH').onclick=()=>{ if(xf){ xf.sx*=-1; flipFix(); } }; $('#xfFlipV').onclick=()=>{ if(xf){ xf.sy*=-1; flipFix(); } };
 function flipFix(){ // keep scales positive by flipping pixels instead
@@ -2185,7 +2189,7 @@ function endTouch(e){
   if (touches.size===0){
     if (gesture && !gesture.moved && Date.now()-gesture.t0<350){
       if (gesture.max===2) undo(); else if (gesture.max===3) redo(); else if (gesture.max>=4) toggleUI();
-      else if (gesture.max===1 && !S.fingerDraw && !xf && !onePan?.pick && (S.tool==='lasso'||S.tool==='rect') && sel && S.selMode==='new') deselect();
+      else if (gesture.max===1 && !S.fingerDraw && !xf && !edge && !onePan?.pick && S.tool!=='wand' && S.tool!=='tap' && sel) quickDeselect();
     }
     gesture=null; onePan=null; if (navigating) navEnd();
   } else if (touches.size>=2 && gesture) startPinch();
@@ -2218,6 +2222,7 @@ $('#zoomBadge').onclick=()=>fitView();
 /* tool dispatch (pen, mouse, or finger when finger drawing is on) */
 let activeTool='brush', tmpMode=null;
 function toolDown(e,p){
+  if (sel && !xf && !edge && ['lasso','rect','wand','tap'].includes(S.tool) && !altDown){ const [dx,dy]=toDoc(...p); if (dx<0||dy<0||dx>=doc.w||dy>=doc.h){ toolPtr=null; quickDeselect(); return; } }
   if (edge){ toast('Сначала примени или отмени край выделения'); toolPtr=null; return; }
   toolPtr=e.pointerId; hover=null;
   const t = activeTool = (altDown && S.tool!=='transform') ? 'picker' : S.tool;
@@ -2371,7 +2376,7 @@ async function restore(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(); } });
 
-const APP_VERSION='2026-10-01 · №9 край выделения'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · №10 быстро снять выделение'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
