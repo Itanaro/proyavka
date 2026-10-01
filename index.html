@@ -21,8 +21,7 @@ window.addEventListener('error', function(e){ try{ var d=document.getElementById
 </head>
 <body>
 <title>Проявка</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
 <script src="vendor/ag-psd.js"></script>
 <script src="vendor/fflate.js"></script>
 <style>
@@ -221,6 +220,95 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #busy{position:absolute;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(8,9,11,.5);font-family:var(--mono);font-size:13px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
+<style id="polish">
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url(vendor/fonts/ibm-plex-sans-cyrillic-400-normal.woff2) format('woff2');unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url(vendor/fonts/ibm-plex-sans-latin-400-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:swap;src:url(vendor/fonts/ibm-plex-sans-cyrillic-500-normal.woff2) format('woff2');unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:swap;src:url(vendor/fonts/ibm-plex-sans-latin-500-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:swap;src:url(vendor/fonts/ibm-plex-sans-cyrillic-600-normal.woff2) format('woff2');unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:swap;src:url(vendor/fonts/ibm-plex-sans-latin-600-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url(vendor/fonts/ibm-plex-mono-cyrillic-400-normal.woff2) format('woff2');unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url(vendor/fonts/ibm-plex-mono-latin-400-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url(vendor/fonts/ibm-plex-mono-cyrillic-500-normal.woff2) format('woff2');unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url(vendor/fonts/ibm-plex-mono-latin-500-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+/* ---- polish pass: calmer surfaces, tighter rhythm, one accent ---- */
+:root{
+  --panel:#1e2025; --panel-2:#292c33; --panel-3:#33373f; --line:#30343b; --line-soft:#272a30;
+  --glass:rgba(30,32,37,.88); --shadow:0 14px 40px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.3);
+  --accent-soft:color-mix(in srgb,var(--accent) 16%,transparent);
+}
+body{-webkit-font-smoothing:antialiased}
+#top{gap:4px;padding:6px 10px;box-shadow:inset 0 -1px 0 var(--line-soft)}
+.tb{transition:background-color .12s,color .12s,box-shadow .12s}
+@media (hover:hover){ .tb:hover:not(.on){background:var(--panel-2)} .btns button:hover,.fbar button:hover:not(.pri),#flyout button:hover:not(.on),.pop button:hover{background:var(--panel-3)} .ly:hover:not(.act){background:var(--panel-2)} }
+.tb:active:not(.on){background:var(--panel-3)}
+.tb.on{box-shadow:0 2px 10px color-mix(in srgb,var(--accent) 35%,transparent)}
+.pill{display:inline-flex;align-items:center;gap:0;background:var(--panel-2);border-radius:10px;padding:2px;flex:none}
+.pill .tb{height:32px;min-width:34px;padding:0 8px;border-radius:8px}
+#docName{max-width:200px;color:var(--muted);font-size:13px;gap:4px;padding:0 8px 0 10px}
+#docName span{overflow:hidden;text-overflow:ellipsis}
+#docName svg{width:14px;height:14px;opacity:.7}
+#swatch{width:32px;height:32px;box-shadow:0 0 0 2px var(--panel),0 0 0 3px var(--line)}
+.seg{border-radius:9px}
+.seg button{transition:background-color .12s}
+.chk{border-radius:8px}
+/* rail */
+#rail{gap:6px;padding:10px 6px}
+#rail .tb{border-radius:12px}
+#rail .tgm::after{right:4px;bottom:4px;border-left-width:4px;border-bottom-width:4px;opacity:.45}
+#rail .tb.on.tgm::after{opacity:.6}
+.rsep{width:26px;height:1px;background:var(--line);flex:none;margin:4px 0}
+.vs{border-radius:14px;background:var(--panel-2);box-shadow:inset 0 0 0 1px var(--line-soft)}
+.vs .fill{background:color-mix(in srgb,var(--fg) 22%,transparent);border-radius:14px}
+.vs .knob{height:6px;left:-4px;right:-4px;box-shadow:0 1px 4px rgba(0,0,0,.6)}
+.vlabel{margin-top:2px}
+/* glass for floating surfaces */
+#layers,.fbar,.pop,#flyout,#toast,.dlg{background:var(--glass);-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2);border-color:var(--line);box-shadow:var(--shadow)}
+.scrim{-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+/* layers panel */
+#layers{width:296px;border-radius:16px}
+#layers header{padding:12px 12px 8px 16px}
+#layers h2{font-size:12px;display:flex;align-items:baseline;gap:8px}
+#layers h2 small{font-family:var(--mono);font-weight:400;letter-spacing:0;text-transform:none;color:var(--muted);opacity:.7}
+#lyClose{width:32px;height:32px;min-width:32px;padding:0;color:var(--muted)}
+#lyList{padding:2px 8px 8px;gap:2px}
+.ly{grid-template-columns:28px 42px 42px minmax(0,1fr);gap:8px;padding:5px 8px 5px 4px;background:transparent;border-radius:10px;transition:background-color .12s}
+.ly.act{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.ly.grp{background:color-mix(in srgb,var(--panel-2) 55%,transparent)}
+.ly.grp.act{background:var(--accent-soft)}
+.ly .fold{width:42px}
+.th{width:42px;height:42px;border-radius:7px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.ly .nm{font-size:13.5px;font-weight:500}
+.ly .meta{font-size:10.5px;opacity:.85;margin-top:1px}
+#lyProps{gap:10px;padding:12px}
+.row label{width:84px}
+.row input[type=text],.row select{height:34px;border-radius:9px;background:var(--bg);border-color:var(--line);padding:0 10px}
+.row select{-webkit-appearance:none;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 15px) 15px,calc(100% - 10px) 15px;background-size:5px 5px;background-repeat:no-repeat;padding-right:26px}
+#lyOpacV{min-width:34px;text-align:right;margin-left:4px}
+.btns{gap:5px}
+.btns button{height:34px;border-radius:9px;font-size:12px;white-space:nowrap;background:var(--panel-2);transition:background-color .12s;overflow:hidden;text-overflow:ellipsis;padding:0 2px;letter-spacing:-.01em}
+.btns button:active{background:var(--panel-3)}
+.btns .dg{color:var(--danger)}
+/* floating bars */
+.fbar{border-radius:16px;padding:6px;gap:2px;align-items:center}
+#selbar .seg button{padding:0 9px}
+.fbar button{height:36px;padding:0 9px;font-size:13px;border-radius:10px;transition:background-color .12s}
+.fbar button:active:not(.pri){background:var(--panel-3)}
+.fbar .pri{box-shadow:0 2px 10px color-mix(in srgb,var(--accent) 35%,transparent)}
+.fsep{width:1px;height:22px;background:var(--line);margin:0 3px;flex:none}
+.fbar .ai{color:var(--accent)}
+/* small things */
+#toast{border-radius:12px;padding:9px 16px;font-size:13px}
+#status span{background:var(--glass);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);padding:4px 8px;border-radius:7px}
+.pop button{transition:background-color .12s}
+#flyout{border-radius:16px}
+#flyout button{border-radius:11px}
+#flyout button.on{box-shadow:0 2px 10px color-mix(in srgb,var(--accent) 30%,transparent)}
+.dlg{border-radius:18px}
+.dlg .actions button{border-radius:11px}
+#busy{-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+
+</style>
 
 <div id="app">
   <div id="splash"><svg viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#212328"/>
@@ -249,9 +337,12 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <rect x="316" y="728" width="392" height="24" opacity=".07"/>
   </g></svg>Проявка</span>
     <button class="tb" id="bMenu" aria-label="Файл"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Файл</button>
+    <button class="tb" id="docName" aria-label="Мои документы" title="Мои документы"><span></span><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></button>
+    <span class="pill">
     <button class="tb" id="bUndo" aria-label="Отменить"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
-    <button class="tb" id="bDesel" hidden aria-label="Снять выделение (⌘D)" title="Снять выделение"><svg viewBox="0 0 24 24"><path d="M4 7V4h3M10 4h4M17 4h3v3M20 10v1M4 10v4M4 17v3h3M10 20h1"/><path d="m15 15 6 6M21 15l-6 6"/></svg></button>
     <button class="tb" id="bRedo" aria-label="Вернуть отменённое"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+    <button class="tb" id="bDesel" hidden aria-label="Снять выделение (⌘D)" title="Снять выделение"><svg viewBox="0 0 24 24"><path d="M4 7V4h3M10 4h4M17 4h3v3M20 10v1M4 10v4M4 17v3h3M10 20h1"/><path d="m15 15 6 6M21 15l-6 6"/></svg></button>
+    </span>
     <span class="sep"></span>
     <div id="opts"></div>
     <span class="sep"></span>
@@ -265,7 +356,9 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <button class="tb tgm" data-group="sel" aria-label="Выделение: лассо, прямоугольник, палочка"></button>
     <button class="tb tgm" data-group="ai" aria-label="Умное выделение: объект, тап по объекту"></button>
     <button class="tb tgm" data-group="fix" aria-label="Ретушь: заплатка, восстанавливающая кисть, штамп"></button>
+    <span class="rsep"></span>
     <button class="tb" data-tool="transform" aria-label="Трансформ (V)"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
+    <span class="rsep"></span>
     <div class="vs" id="vsSize" aria-label="Размер"><div class="fill"></div><div class="knob"></div></div>
     <div class="vlabel" id="lSize">40</div>
     <div class="vs" id="vsOpac" aria-label="Непрозрачность"><div class="fill"></div><div class="knob"></div></div>
@@ -296,15 +389,17 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <div id="status"><span id="zoomBadge">100%</span><span id="docInfo"></span><span id="memInfo"></span></div>
     <div class="fbar" id="selbar" hidden>
       <div class="seg" id="selModes"><button data-mode="new">Новое</button><button data-mode="add">＋ Добавить</button><button data-mode="sub">− Вычесть</button></div>
-      <button data-sel="deselect">Снять</button>
-      <button data-sel="invert">Инвертировать</button>
+      <span class="fsep"></span>
+      <button data-sel="invert">Инверсия</button>
       <button data-sel="edge">Край…</button>
-      <button data-sel="fill">Залить цветом</button>
+      <span class="fsep"></span>
+      <button data-sel="copy">На слой</button>
+      <button data-sel="mask">В маску</button>
+      <button data-sel="fill">Залить</button>
       <button data-sel="delete">Удалить</button>
-      <button data-sel="copy">На новый слой</button>
-      <button data-sel="mask">Маска из выделения</button>
-      <button data-sel="fill2">Заливка с учётом содержимого</button>
-      <button data-sel="ai">Убрать нейросетью</button>
+      <span class="fsep"></span>
+      <button data-sel="fill2" title="Заливка с учётом содержимого">Умная заливка</button>
+      <button data-sel="ai" class="ai" title="Убрать нейросетью">✦ Убрать</button>
       <button data-sel="transform" class="pri">Трансформ</button>
     </div>
     <div class="fbar" id="edgebar" hidden>
@@ -325,7 +420,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
       <button id="xfApply" class="pri">Применить</button>
     </div>
     <aside id="layers" hidden>
-      <header><h2>Слои</h2><button class="tb" id="lyClose" aria-label="Скрыть слои">✕</button></header>
+      <header><h2>Слои <small id="lyCount"></small></h2><button class="tb" id="lyClose" aria-label="Скрыть слои">✕</button></header>
       <div id="lyList"></div>
       <div id="lyProps">
         <div class="row"><label for="lyName">Имя</label><input type="text" id="lyName" autocomplete="off" readonly></div>
@@ -359,7 +454,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <button data-m="psd">Сохранить PSD</button>
     <hr>
     <button data-m="finger">Рисовать пальцем <small id="mFinger">выкл</small></button>
-    <button data-m="penpick">Пипетка удержанием карандаша <small id="mPenPick">вкл</small></button>
+    <button data-m="penpick">Пипетка карандашом <small id="mPenPick">вкл</small></button>
     <button data-m="help">Жесты и клавиши</button>
     <button data-m="store">Проверка памяти <small>для отладки</small></button>
     <button data-m="noop" disabled style="opacity:.6">Версия <small id="appVer"></small></button>
@@ -741,6 +836,7 @@ setInterval(()=>{ if(sel||lassoPts||rectSel){ antsPhase=(antsPhase+1)%10; render
 const statusCache={};
 function setText(id,t){ if(statusCache[id]!==t){ statusCache[id]=t; $(id).textContent=t; } }
 function updateStatus(){
+  if (doc) setText('#docName span', doc.name||'Без названия');
   setText('#zoomBadge', Math.round(view.s*100)+'%' + (Math.abs(view.r)>0.01 ? ' · '+Math.round(view.r*180/Math.PI)+'°':''));
   if (navigating) return; // the rest cannot change mid-gesture
   setText('#docInfo', doc.w+'×'+doc.h);
@@ -2076,8 +2172,8 @@ function layersChanged(){
       row.append(eye, tc);
       if (L.mask){ const mc=thumbFor(L,true); mc.classList.toggle('sel', i===doc.active && doc.editMask); mc.style.opacity=L.mask.enabled?1:.4;
         mc.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); toast('Рисуешь по маске: кисть скрывает, ластик возвращает',2600); };
-        row.append(mc); } else row.append(document.createElement('span'));
-      const nm=document.createElement('div'); nm.style.minWidth='0';
+        row.append(mc); }
+      const nm=document.createElement('div'); nm.style.minWidth='0'; if (!L.mask) nm.style.gridColumn='span 2';
       nm.innerHTML='<div class="nm"></div><div class="meta"></div>';
       nm.firstChild.textContent=L.name; nm.lastChild.textContent=Math.round(L.opacity*100)+'% · '+(BLENDS.find(b=>b[0]===L.blend)||BLENDS[0])[1];
       row.append(nm); row.onclick=()=>{ if (dragJustEnded) return; doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); };
@@ -2090,8 +2186,9 @@ function layersChanged(){
     $('#lyMask').textContent = L.mask ? 'Маска…' : (g ? '+ Маска группы' : '+ Маска');
     $('#lyMask').style.gridColumn = L.mask ? 'span 2' : '1/-1';
     $('#lyMaskInv').hidden = !L.mask;
-    $('#lyMerge').textContent = g ? 'Слить группу' : 'Слить вниз';
-    $('#lyClear').textContent = g ? 'Разгруппир.' : 'Очистить';
+    $('#lyMerge').textContent = g ? 'Слить' : 'Слить вниз';
+    $('#lyClear').textContent = g ? 'Без папки' : 'Очистить';
+    $('#lyCount').textContent = doc.layers.filter(x=>!isGroup(x)).length;
     $('#lyGroup').textContent = g ? '+ Группа' : 'В группу';
   }
   if (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove') renderOpts();
@@ -2229,7 +2326,6 @@ function renderOpts(){
     const seg=document.createElement('div'); seg.className='seg';
     for (const [k,l] of [['new','Новое'],['add','＋ Добавить'],['sub','− Вычесть']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.selMode===k?'on':''; b.onclick=()=>setSelMode(k); seg.append(b); }
     o.append(seg);
-    const h=document.createElement('span'); h.className='opt'; h.textContent='Тап по холсту без обводки снимает выделение'; o.append(h);
   } else if (S.tool==='tap'){
     const seg=document.createElement('div'); seg.className='seg';
     for (const [k,l] of [['new','Новое'],['add','＋ Добавить'],['sub','− Вычесть']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.selMode===k?'on':''; b.onclick=()=>{ S.selMode=k; renderOpts(); syncSelModes(); }; seg.append(b); }
@@ -2481,6 +2577,7 @@ document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops
 document.querySelectorAll('#selbar [data-sel]').forEach(b=>b.onclick=()=>{ const a=b.dataset.sel;
   ({ai:()=>inpaintFromSel(), edge:edgeOpen, deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill})[a](); });
 $('#bDesel').onclick=()=>quickDeselect();
+$('#docName').onclick=()=>openLibrary();
 $('#xfApply').onclick=xfApply; $('#xfCancel').onclick=xfCancel;
 $('#xfFlipH').onclick=()=>{ if(xf){ xf.sx*=-1; flipFix(); } }; $('#xfFlipV').onclick=()=>{ if(xf){ xf.sy*=-1; flipFix(); } };
 function flipFix(){ // keep scales positive by flipping pixels instead
@@ -2867,7 +2964,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-01 · №17 память'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · №18 причёска'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{

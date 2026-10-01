@@ -1,7 +1,7 @@
 // Проявка: keeps the app itself available offline. Models live in IndexedDB, not here.
-const CACHE = 'proyavka-shell-v6';
+const CACHE = 'proyavka-shell-v7';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'vendor/ag-psd.js', 'vendor/fflate.js', 'vendor/ort.min.js',
-  'vendor/ort-wasm-simd-threaded.jsep.mjs', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
+  'vendor/ort-wasm-simd-threaded.jsep.mjs', 'vendor/fonts/ibm-plex-sans-cyrillic-400-normal.woff2','vendor/fonts/ibm-plex-sans-cyrillic-500-normal.woff2','vendor/fonts/ibm-plex-sans-cyrillic-600-normal.woff2','vendor/fonts/ibm-plex-sans-latin-400-normal.woff2','vendor/fonts/ibm-plex-sans-latin-500-normal.woff2','vendor/fonts/ibm-plex-sans-latin-600-normal.woff2','vendor/fonts/ibm-plex-mono-cyrillic-400-normal.woff2','vendor/fonts/ibm-plex-mono-latin-400-normal.woff2','vendor/fonts/ibm-plex-mono-cyrillic-500-normal.woff2','vendor/fonts/ibm-plex-mono-latin-500-normal.woff2', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
