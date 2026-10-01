@@ -235,6 +235,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <button class="tb" data-tool="eraser" aria-label="Ластик (E)"><svg viewBox="0 0 24 24"><path d="m7 21-4-4 11-11 7 7-8 8z"/><path d="M9 9l7 7M7 21h14"/></svg></button>
     <button class="tb" data-tool="lasso" aria-label="Лассо (L)"><svg viewBox="0 0 24 24"><path d="M5 10c0-4 4-6 8-6s7 2 7 5-3 6-8 6c-2 0-3.5-.4-4.5-1"/><path d="M7.5 14c-2 1-2.5 3-1 4.5S9 20 9 22"/></svg></button>
     <button class="tb" data-tool="rect" aria-label="Прямоугольное выделение (M)"><svg viewBox="0 0 24 24"><path d="M4 4h3M10 4h4M17 4h3v3M20 10v4M20 17v3h-3M14 20h-4M7 20H4v-3M4 14v-4M4 7V4"/></svg></button>
+    <button class="tb" data-tool="wand" aria-label="Волшебная палочка (W)"><svg viewBox="0 0 24 24"><path d="m4 20 11-11"/><path d="m13.5 7.5 3 3"/><path d="M18 2.5v3M16.5 4h3M20.5 8.5v2.5M19.25 9.75h2.5M10 3v2M9 4h2"/></svg></button>
     <button class="tb" data-tool="tap" aria-label="Тап по объекту (T)"><svg viewBox="0 0 24 24"><path d="M9 11V5a1.5 1.5 0 0 1 3 0v5"/><path d="M12 10V8.5a1.5 1.5 0 0 1 3 0V11"/><path d="M15 10.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-4.6-2.2L4 15.5a1.5 1.5 0 0 1 2.3-1.9L9 16"/><path d="M19 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></svg></button>
     <button class="tb" id="bSubject" aria-label="Выделить объект"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/><path d="M3 3h3M18 3h3M3 3v3M21 3v3" /></svg></button>
     <button class="tb" data-tool="transform" aria-label="Трансформ (V)"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
@@ -425,7 +426,8 @@ const psdToBlend = p => (BLENDS.find(x=>x[2]===p)||BLENDS[0])[0];
 /* ============ state ============ */
 const S = {
   tool:'brush', color:'#2b2f3a', size:40, opacity:1, hardness:0.6, flow:0.3, smooth:0.35,
-  pSize:true, pOpac:true, eraserSize:80, selMode:'new', fingerDraw:false, xfFree:false
+  pSize:true, pOpac:true, eraserSize:80, selMode:'new', fingerDraw:false, xfFree:false,
+  wandTol:0.13, wandContig:true, wandSoft:true, wandAll:false
 };
 let doc = null;          // {w,h,name,layers:[], active, editMask}
 let view = {x:0,y:0,s:1,r:0};
@@ -665,6 +667,7 @@ function renderOverlay(){ if(!doc) return;
     for (const hd of xfHandles()){ ox.beginPath(); ox.arc(hd.sx,hd.sy, hd.kind==='rot'?7:6, 0, Math.PI*2); ox.fillStyle=hd.kind==='rot'?cssVar('--accent'):'#fff'; ox.fill(); ox.strokeStyle='#000'; ox.lineWidth=1; ox.stroke(); }
     const top=toScr(w/2,0,M), rot=xfHandles().find(h=>h.kind==='rot'); ox.beginPath(); ox.moveTo(top[0],top[1]); ox.lineTo(rot.sx,rot.sy); ox.strokeStyle=cssVar('--accent'); ox.stroke();
   }
+  if (wandPrev){ const m=viewM(); ox.save(); ox.setTransform(dpr*m[0],dpr*m[1],dpr*m[2],dpr*m[3],dpr*m[4],dpr*m[5]); ox.imageSmoothingEnabled=true; ox.drawImage(wandPrev,0,0,doc.w,doc.h); ox.restore(); ox.setTransform(dpr,0,0,dpr,0,0); }
   if (tapSess && S.tool==='tap'){ for (const [x,y,l] of tapSess.points){ const [a,b]=toScr(x,y); ox.beginPath(); ox.arc(a,b,7,0,7); ox.fillStyle=l?'#3fb950':'#f85149'; ox.fill(); ox.lineWidth=2; ox.strokeStyle='#fff'; ox.stroke(); ox.fillStyle='#fff'; ox.fillRect(a-3.5,b-1,7,2); if(l) ox.fillRect(a-1,b-3.5,2,7); } }
   const cur = stroke ? stroke.cursor : hover;
   if (cur && (S.tool==='brush'||S.tool==='eraser')){
@@ -1081,6 +1084,79 @@ async function tapSelect(dx,dy){
     } else sel={mask:full, polys:[], inverted:false, segs, box};
     pushSelHist(before); updateSelBar(); requestRender(); busy(false);
   }catch(err){ console.error(err); busy(false); toast('Не получилось: '+(err.message||'ошибка'),4000); }
+}
+/* ============ magic wand: select by colour (on-device, plain JS) ============ */
+let wandCache=null, wandPrev=null, wandDrag=null, wandRaf=0;
+function wandSource(){
+  const L=AL(), key=contentVer+'|'+(S.wandAll?'all':L.id);
+  if (wandCache && wandCache.key===key) return wandCache;
+  let c;
+  if (S.wandAll) c=flatten(1);
+  else if (isGroup(L)){ c=mk(doc.w,doc.h); composeTree(ctx2(c), leafFull, {P:L}); }
+  else c=L.canvas;
+  const full=ctx2(c,{willReadFrequently:true}).getImageData(0,0,doc.w,doc.h).data;
+  const k=Math.min(1, 1024/Math.max(doc.w,doc.h)), sw=Math.max(1,Math.round(doc.w*k)), sh=Math.max(1,Math.round(doc.h*k));
+  const sc=mk(sw,sh), sx=ctx2(sc,{willReadFrequently:true}); sx.imageSmoothingQuality='medium'; sx.drawImage(c,0,0,sw,sh);
+  wandCache={key, full, small:sx.getImageData(0,0,sw,sh).data, sw, sh, k};
+  return wandCache;
+}
+// colours are compared premultiplied, so transparent pixels match each other whatever their hidden RGB
+function wandMask(img, W, H, px, py, tol, soft, contig){
+  px=clamp(px|0,0,W-1); py=clamp(py|0,0,H-1);
+  let r=0,g=0,b=0,a=0,n=0;
+  for (let y=Math.max(0,py-1);y<=Math.min(H-1,py+1);y++) for (let x=Math.max(0,px-1);x<=Math.min(W-1,px+1);x++){ const j=(y*W+x)*4, al=img[j+3]; r+=img[j]*al; g+=img[j+1]*al; b+=img[j+2]*al; a+=al; n++; }
+  r/=n*255; g/=n*255; b/=n*255; a/=n;
+  const t=tol*255, w=soft?Math.max(2,3+t*0.35):0.0001, hi=t+w, N=W*H, out=new Uint8Array(N);
+  const val=i=>{ const j=i*4, al=img[j+3], k=al/255;
+    const d=Math.max(Math.abs(al-a), Math.abs(img[j]*k-r), Math.abs(img[j+1]*k-g), Math.abs(img[j+2]*k-b));
+    return d<=t ? 255 : d<hi ? Math.round(255*(hi-d)/w) : 0; };
+  if (!contig){ for (let i=0;i<N;i++) out[i]=val(i); return out; }
+  const stack=new Int32Array(N), seen=new Uint8Array(N); let sp=0; const s0=py*W+px; stack[sp++]=s0; seen[s0]=1;
+  while (sp){ const i=stack[--sp], v=val(i); if(!v) continue; out[i]=v; if(v<255) continue; // soft edge pixels are kept but not grown from
+    const x=i%W;
+    if (x>0 && !seen[i-1]){ seen[i-1]=1; stack[sp++]=i-1; }
+    if (x<W-1 && !seen[i+1]){ seen[i+1]=1; stack[sp++]=i+1; }
+    if (i>=W && !seen[i-W]){ seen[i-W]=1; stack[sp++]=i-W; }
+    if (i<N-W && !seen[i+W]){ seen[i+W]=1; stack[sp++]=i+W; } }
+  return out;
+}
+function wandPreview(){
+  wandRaf=0; if(!wandDrag) return;
+  const c=wandSource(), out=wandMask(c.small, c.sw, c.sh, wandDrag.x*c.k, wandDrag.y*c.k, S.wandTol, S.wandSoft, S.wandContig);
+  if (!wandPrev || wandPrev.width!==c.sw || wandPrev.height!==c.sh) wandPrev=mk(c.sw,c.sh);
+  const x=ctx2(wandPrev), id=x.createImageData(c.sw,c.sh), d=id.data, sub=S.selMode==='sub'&&sel;
+  const [R,G,B]= sub ? [248,81,73] : [226,166,90];
+  for (let i=0,j=0;i<out.length;i++,j+=4){ d[j]=R; d[j+1]=G; d[j+2]=B; d[j+3]=out[i]*0.55; }
+  x.putImageData(id,0,0); renderOverlay();
+}
+function wandDown(p){
+  if (xf) return; const [x,y]=toDoc(...p);
+  if (x<0||y<0||x>=doc.w||y>=doc.h){ toolPtr=null; return; }
+  wandDrag={p0:p, x, y, tol0:S.wandTol, moved:false};
+  try{ wandPreview(); }catch(err){ console.error(err); wandDrag=null; toast('Не хватило памяти на выделение'); }
+}
+function wandMove(p){
+  const d=wandDrag, dx=p[0]-d.p0[0]; if (!d.moved && Math.abs(dx)<8) return; d.moved=true;
+  S.wandTol=clamp(d.tol0+dx/600,0,1); toast('Допуск '+Math.round(S.wandTol*255),700);
+  if (!wandRaf) wandRaf=requestAnimationFrame(wandPreview);
+}
+async function wandUp(){
+  const d=wandDrag, selMode=S.selMode; wandDrag=null; if(!d) return;
+  if (d.moved){ savePrefs(); renderOpts(); }
+  const big=doc.w*doc.h>3e6; if (big){ busy(true,'Выделяю…'); await nextFrame(); }
+  try{
+    const c=wandSource(), out=wandMask(c.full, doc.w, doc.h, d.x, d.y, S.wandTol, S.wandSoft, S.wandContig);
+    let any=false; for (let i=0;i<out.length;i+=7) if(out[i]){ any=true; break; }
+    wandPrev=null;
+    if (!any){ busy(false); renderOverlay(); toast('Ничего не попало в допуск'); return; }
+    const full=mk(doc.w,doc.h), fx=ctx2(full), id=fx.createImageData(doc.w,doc.h), dd=id.data;
+    for (let i=0,j=0;i<out.length;i++,j+=4){ dd[j]=dd[j+1]=dd[j+2]=255; dd[j+3]=out[i]; }
+    fx.putImageData(id,0,0);
+    const before=snapshotSel(), mode = sel ? selMode : 'new';
+    if (mode==='new') sel={mask:full, polys:[], inverted:false, segs:null};
+    else { const m=ctx2(sel.mask); m.globalCompositeOperation = mode==='sub' ? 'destination-out' : 'source-over'; m.drawImage(full,0,0); m.globalCompositeOperation='source-over'; sel.segs=null; }
+    pushSelHist(before); updateSelBar(); busy(false); requestRender();
+  }catch(err){ console.error(err); wandPrev=null; busy(false); toast('Выделение не получилось: '+(err.message||'ошибка'),4000); }
 }
 function marchingSegs(a, W, H, thr, sx, sy){ // outline of mask a (W×H, 0..255) as segments in doc coords
   const out=[]; const v=(x,y)=> (x<0||y<0||x>=W||y>=H) ? 0 : a[y*W+x];
@@ -1606,7 +1682,7 @@ $('#lyClose').onclick=()=>showLayers(false);
 /* ============ tools & options UI ============ */
 function setTool(t, internal){
   if (xf && t!=='transform' && !internal){ toast('Сначала примени или отмени трансформ'); return; }
-  const prev=S.tool; S.tool=t; if (t!=='tap') tapSess=null;
+  const prev=S.tool; S.tool=t; if (t!=='tap') tapSess=null; if (t!=='wand'){ wandCache=null; wandPrev=null; } else if (prev!=='wand' && !internal) toast('Тап — выделить по цвету. Тап и тянуть вбок — допуск на лету',3200);
   document.querySelectorAll('#rail [data-tool]').forEach(b=>b.classList.toggle('on', b.dataset.tool===t));
   if (t==='transform' && !xf && !internal){ beginTransform({prevTool: prev==='transform'?'brush':prev}); if(!xf){ S.tool=prev; setTool(prev,true); return; } }
   renderOpts(); syncSliders(); requestRender(); if (typeof updateCursor==='function') updateCursor();
@@ -1651,6 +1727,12 @@ function renderOpts(){
     const rs=document.createElement('button'); rs.className='chk'; rs.textContent='Новый объект'; rs.onclick=()=>{ tapSess=null; S.selMode='new'; renderOpts(); syncSelModes(); toast('Следующий тап начнёт новый объект',1400); };
     const h=document.createElement('span'); h.className='opt'; h.textContent='Тап по объекту выделяет его. «Добавить» — ещё точка на объекте, «Вычесть» — точка на лишнем';
     o.append(seg, rs, h);
+  } else if (S.tool==='wand'){
+    const seg=document.createElement('div'); seg.className='seg';
+    for (const [k,l] of [['new','Новое'],['add','＋ Добавить'],['sub','− Вычесть']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.selMode===k?'on':''; b.onclick=()=>{ S.selMode=k; renderOpts(); syncSelModes(); }; seg.append(b); }
+    const src=document.createElement('div'); src.className='seg';
+    for (const [k,l] of [[false,'Слой'],[true,'Все слои']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.wandAll===k?'on':''; b.onclick=()=>{ S.wandAll=k; wandCache=null; savePrefs(); renderOpts(); }; src.append(b); }
+    o.append(seg, src, rng('Допуск','wandTol',0,100,v=>String(Math.round(v*255))), chk('Смежные','wandContig'), chk('Мягкий край','wandSoft'));
   } else if (S.tool==='transform'){
     const h=document.createElement('span'); h.className='opt'; h.textContent='Тяни внутри — сдвиг, углы — масштаб, кружок сверху — поворот'; o.append(h);
   } else if (S.tool==='picker'){
@@ -1727,6 +1809,7 @@ function showHelp(){
    <dt>2 пальца, тап</dt><dd>Отменить.</dd>
    <dt>3 пальца, тап</dt><dd>Вернуть то, что отменила двумя пальцами.</dd>
    <dt>4 пальца, тап</dt><dd>Спрятать или вернуть интерфейс.</dd>
+   <dt>Волшебная палочка (W)</dt><dd>Тап выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы.</dd>
    <dt>Тап по масштабу</dt><dd>Плашка внизу слева: вписать холст и сбросить поворот.</dd>
    <dt>Картинка слоем</dt><dd>Перетащи фото из «Фото» или «Файлов» прямо на холст (Split View или Slide Over), либо вставь из буфера.</dd>
    <dt>Маска</dt><dd>Кисть скрывает, ластик возвращает. Выбор между слоем и маской — тап по миниатюре.</dd>
@@ -1895,7 +1978,7 @@ stage.addEventListener('pointerdown', e=>{
     const p=stagePos(e); touches.set(e.pointerId,{x:p[0],y:p[1],x0:p[0],y0:p[1]}); capture(e);
     clearTimeout(holdT);
     if (touches.size===1){
-      if (S.fingerDraw || (S.tool==='transform' && xf) || S.tool==='tap'){ fingerTool=true; toolDown(e,p); }
+      if (S.fingerDraw || (S.tool==='transform' && xf) || S.tool==='tap' || S.tool==='wand'){ fingerTool=true; toolDown(e,p); }
       else { onePan={x:p[0],y:p[1],vx:view.x,vy:view.y,moved:false};
         holdT=setTimeout(()=>{ if(onePan&&!onePan.moved){ onePan.pick=true; pickAt(p[0],p[1]); } },420); }
       gesture={t0:Date.now(), max:1, moved:false, start:null};
@@ -1978,7 +2061,8 @@ function toolDown(e,p){
   if (t==='brush'||t==='eraser'){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e)); }
   else if (t==='lasso'){ lassoPts=[toDoc(...p)]; }
   else if (t==='rect'){ const [x,y]=toDoc(...p); rectSel={x0:x,y0:y,x1:x,y1:y}; }
-  if ((t==='lasso'||t==='rect') && e.shiftKey && sel){ tmpMode=S.selMode; S.selMode='add'; }
+  if ((t==='lasso'||t==='rect'||t==='wand') && e.shiftKey && sel){ tmpMode=S.selMode; S.selMode='add'; }
+  if (t==='wand'){ wandDown(p); return; }
   else if (t==='transform'){ if(xf) xfDown(p[0],p[1]); }
   else if (t==='picker'){ pickAt(p[0],p[1]); }
   else if (t==='tap'){ tapDown=p; }
@@ -1996,6 +2080,7 @@ function toolMove(e){
     else if (t==='transform' && xf) xfMove(p[0],p[1]);
     else if (t==='picker') pickAt(p[0],p[1]);
   }
+  if (t==='wand' && wandDrag) wandMove(stagePos(e));
   if (t!=='brush'&&t!=='eraser') renderOverlay();
 }
 /* desktop: wheel zoom / rotate, space or middle-button pan, Alt eyedropper */
@@ -2041,12 +2126,13 @@ function toolUp(e){
   else if (t==='rect' && rectSel){ const r=normRect(rectSel); rectSel=null; if(r.w*view.s<4||r.h*view.s<4){ if(S.selMode==='new') deselect(); } else applySelPoly([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); }
   else if (t==='transform' && xf) xf.drag=null;
   else if (t==='picker') pushRecent(S.color);
+  else if (t==='wand' && wandDrag) wandUp();
   else if (t==='tap' && tapDown){ const q=stagePos(e); if (Math.hypot(q[0]-tapDown[0],q[1]-tapDown[1])<12){ const [dx,dy]=toDoc(...tapDown); tapSelect(dx,dy); } tapDown=null; }
   if (tmpMode){ S.selMode=tmpMode; tmpMode=null; }
   if (e.pointerType!=='touch') hover=stagePos(e);
   renderOverlay();
 }
-function toolCancel(){ toolPtr=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
+function toolCancel(){ toolPtr=null; wandDrag=null; wandPrev=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
 
 /* keyboard */
 document.addEventListener('keydown', e=>{
@@ -2064,7 +2150,7 @@ document.addEventListener('keydown', e=>{
   if (mod && k==='g'){ e.preventDefault(); e.shiftKey?ungroup():makeGroup(); return; }
   if (mod && k==='j'){ e.preventDefault(); sel?selCopyToLayer():dupLayer(); return; }
   if (mod) return;
-  const map={b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap'};
+  const map={b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap',w:'wand'};
   if (map[k]){ setTool(map[k]); return; }
   if (k==='['||k===']'){ const f=k===']'?1.15:1/1.15; const s=clamp(Math.round(curSize()*f+(k===']'?1:-1)),1,SIZE_MAX); if(S.tool==='eraser') S.eraserSize=s; else S.size=s; spriteKey=''; syncSliders(); return; }
   if (k==='enter' && xf){ xfApply(); return; }
@@ -2075,7 +2161,7 @@ document.addEventListener('gesturestart', e=>e.preventDefault());
 document.addEventListener('contextmenu', e=>e.preventDefault());
 
 /* ============ prefs & autosave ============ */
-function savePrefs(){ try{ localStorage.setItem('kadr.prefs', JSON.stringify({color:S.color,size:S.size,eraserSize:S.eraserSize,opacity:S.opacity,hardness:S.hardness,flow:S.flow,smooth:S.smooth,pSize:S.pSize,pOpac:S.pOpac,fingerDraw:S.fingerDraw,recent})); }catch(e){} }
+function savePrefs(){ try{ localStorage.setItem('kadr.prefs', JSON.stringify({color:S.color,size:S.size,eraserSize:S.eraserSize,opacity:S.opacity,hardness:S.hardness,flow:S.flow,smooth:S.smooth,pSize:S.pSize,pOpac:S.pOpac,fingerDraw:S.fingerDraw,wandTol:S.wandTol,wandContig:S.wandContig,wandSoft:S.wandSoft,wandAll:S.wandAll,recent})); }catch(e){} }
 function loadPrefs(){ try{ const p=JSON.parse(localStorage.getItem('kadr.prefs')||'null'); if(p){ const {recent:r,...rest}=p; Object.assign(S,rest); if(r) recent.push(...r); } }catch(e){} }
 const DB='kadr', STORE='doc';
 function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB,1); r.onupgradeneeded=()=>r.result.createObjectStore(STORE); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
@@ -2120,7 +2206,7 @@ async function restore(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(); } });
 
-const APP_VERSION='2026-10-01 · 23:40'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · №7 палочка'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
