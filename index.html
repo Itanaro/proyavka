@@ -181,7 +181,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .dlg p{margin:0 0 14px;color:var(--muted)}
 .gest{display:grid;grid-template-columns:auto 1fr;gap:10px 16px;margin:14px 0}
 .gest dt{font-family:var(--mono);font-size:12px;color:var(--accent);white-space:nowrap;padding-top:2px}
-.gest dd{margin:0}
+.gest dd{margin:0;overflow-wrap:anywhere;white-space:pre-line}
 .kbd{font-family:var(--mono);font-size:12px;color:var(--muted)}
 .dlg .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
 .dlg .actions button{height:40px;padding:0 16px;border-radius:10px;background:var(--panel-2)}
@@ -531,6 +531,8 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
   <div class="pop" id="menu" hidden>
     <button data-m="lib">Мои документы</button>
     <button data-m="new">Новый документ</button>
+    <button data-m="backup">Резервная копия <small>все документы</small></button>
+    <button data-m="restore">Восстановить из копии</button>
     <button data-m="open">Открыть PSD или картинку</button>
     <button data-m="place">Поместить картинку слоем</button>
     <hr>
@@ -555,6 +557,7 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
 
   <input type="file" id="fOpen" hidden>
   <input type="file" id="fPlace" accept="image/*" hidden>
+  <input type="file" id="fBackup" accept=".zip,application/zip" hidden>
 </div>
 
 <script type="text/plain" id="pmSrc">
@@ -933,10 +936,13 @@ function updateStatus(){
 let undoStack=[], redoStack=[], histBytes=0;
 const HIST_LIMIT = 260*1048576; // Safari on iPad kills the tab well before the device runs out of RAM
 function clearHistory(){ undoStack=[]; redoStack=[]; histBytes=0; }
+function layersMB(){ if(!doc) return 0; let n=0; for (const L of doc.layers){ if(!isGroup(L)) n++; if (L.mask) n++; } return n*doc.w*doc.h*4/1048576; }
+function histLimit(){ return Math.min(HIST_LIMIT, Math.max(60, 350-layersMB())*1048576); }
+function trimHistory(maxMB){ while (histBytes>maxMB*1048576 && undoStack.length>1){ const o=undoStack.shift(); histBytes-=o.bytes||0; } }
 function pushHist(e){
   e.bytes = e.bytes||0; undoStack.push(e); histBytes+=e.bytes;
   for (const r of redoStack) histBytes-=r.bytes||0; redoStack=[];
-  while (histBytes>HIST_LIMIT && undoStack.length>1){ const o=undoStack.shift(); histBytes-=o.bytes||0; }
+  const lim=histLimit(); while (histBytes>lim && undoStack.length>1){ const o=undoStack.shift(); histBytes-=o.bytes||0; }
   if (undoStack.length>80){ const o=undoStack.shift(); histBytes-=o.bytes||0; }
   if (!e.sel) markDirty(); // selection changes do not touch pixels
 }
@@ -1709,7 +1715,7 @@ async function loadMigan(){
 async function generateFill(r, D, hole, method){
   const N=r.w*r.h;
   if (method==='ai'){
-    const k=Math.min(1, 1024/Math.max(r.w,r.h)), cw=Math.max(8,Math.round(r.w*k)), ch=Math.max(8,Math.round(r.h*k));
+    const k=Math.min(1, 768/Math.max(r.w,r.h)), cw=Math.max(8,Math.round(r.w*k)), ch=Math.max(8,Math.round(r.h*k));
     const sc=mk(r.w,r.h), sx=ctx2(sc); const sid=new ImageData(new Uint8ClampedArray(D),r.w,r.h); sx.putImageData(sid,0,0);
     const small=mk(cw,ch), smx=ctx2(small,{willReadFrequently:true}); smx.imageSmoothingQuality='high'; smx.drawImage(sc,0,0,cw,ch);
     const hc=mk(r.w,r.h), hx=ctx2(hc), hid=hx.createImageData(r.w,r.h); for(let i=0;i<N;i++){ hid.data[i*4+3]=hole[i]; } hx.putImageData(hid,0,0);
@@ -1760,7 +1766,8 @@ function writeFill(r, D, G, soft, name){ setTimeout(()=>{ clearTimeout(saveT); s
   }
   markDirty(); requestRender();
 }
-async function runRemoval(holeDoc, bb, method, name){ // holeDoc(x,y region reader): Uint8 alpha over bb
+async function runRemoval(holeDoc, bb, method, name){
+  if (method==='ai'){ trimHistory(100); retouchCache=null; wandCache=null; } // holeDoc(x,y region reader): Uint8 alpha over bb
   if (!S.retouchAll && !pixelOnly()) return;
   if (!S.retouchAll && !shown(AL())){ toast('Слой скрыт'); return; }
   inpaintBusy=true;
@@ -2654,7 +2661,7 @@ const safeName=()=> (doc.name||'proyavka').replace(/[\\/:*?"<>|]+/g,'_');
 document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops(); const m=b.dataset.m;
   if (m==='noop') return;
   if (xf && m!=='help' && m!=='store'){ toast('Сначала примени или отмени трансформ'); return; }
-  if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click();
+  if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click();
   else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='penpick'){ S.penHoldPick=!S.penHoldPick; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; savePrefs(); toast(S.penHoldPick?'Задержи карандаш на месте ~0.5 с — появится пипетка':'Пипетка карандашом выключена; палец по-прежнему берёт цвет удержанием'); } else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
   else exportImg(m);
 });
@@ -3016,6 +3023,39 @@ async function renameDoc(id, name){
 const fmtWhen = t => { const d=new Date(t), n=new Date(), hm=d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
   if (d.toDateString()===n.toDateString()) return 'сегодня '+hm; const y=new Date(n); y.setDate(n.getDate()-1); if (d.toDateString()===y.toDateString()) return 'вчера '+hm;
   return d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'})+' '+hm; };
+/* backup: every document (layers, masks, previews) in one zip; restore merges it back */
+async function exportBackup(){
+  if (!window.fflate){ toast('Архиватор не загрузился'); return; }
+  busy(true,'Собираю резервную копию…'); await flushSave();
+  try{
+    const all=await idbAll(), files={}; let n=0;
+    for (const [k,v] of all){ if (typeof k!=='string' || !(k==='library' || k.startsWith('d:'))) continue;
+      const name=encodeURIComponent(k);
+      if (v instanceof Blob){ files['b/'+name]=new Uint8Array(await v.arrayBuffer()); }
+      else files['j/'+name]=fflate.strToU8(JSON.stringify(v));
+      if (k.endsWith(':meta')) n++; }
+    files['proyavka.json']=fflate.strToU8(JSON.stringify({v:1, t:Date.now(), docs:n}));
+    const zip=fflate.zipSync(files,{level:0}); busy(false);
+    const d=new Date(), stamp=d.toISOString().slice(0,10);
+    await saveFile(`proyavka-${stamp}.zip`, new Blob([zip],{type:'application/zip'}));
+    toast(`В копии ${n} док. Сохрани её в «Файлы» или облако`,4000);
+  }catch(err){ console.error(err); busy(false); toast('Копия не собралась: '+(err.message||'ошибка'),4000); }
+}
+$('#fBackup').addEventListener('change', async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  busy(true,'Восстанавливаю из копии…');
+  try{
+    const un=fflate.unzipSync(new Uint8Array(await f.arrayBuffer()));
+    if (!un['proyavka.json']) throw new Error('это не копия Проявки');
+    const puts={}; let lib=null;
+    for (const [name,u8] of Object.entries(un)){
+      if (name.startsWith('b/')){ const k=decodeURIComponent(name.slice(2)); puts[k]=new Blob([u8],{type: k.endsWith(':thumb')?'image/jpeg':'image/png'}); }
+      else if (name.startsWith('j/')){ const k=decodeURIComponent(name.slice(2)), v=JSON.parse(fflate.strFromU8(u8)); if (k==='library') lib=v; else puts[k]=v; }
+    }
+    const cur=await libGet(), merged=[...(lib||[])]; for (const e of cur) if (!merged.some(x=>x.id===e.id)) merged.push(e);
+    puts.library=merged.sort((a,b)=>b.t-a.t);
+    await idbTx(puts); busy(false); toast(`Восстановлено документов: ${(lib||[]).length}`,3000); openLibrary();
+  }catch(err){ console.error(err); busy(false); toast('Не получилось: '+(err.message||'ошибка'),4000); }
+});
 async function openLibrary(){
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   busy(true,'Сохраняю…'); await flushSave(); busy(false);
@@ -3050,7 +3090,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-01 · №19 новая иконка'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · №20 резервная копия'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
@@ -3082,7 +3122,7 @@ function crumb(){ try{ sessionStorage.setItem('proyavka.alive', JSON.stringify({
 setInterval(crumb, 2000);
 window.addEventListener('pagehide', ()=>{ try{ sessionStorage.removeItem('proyavka.alive'); }catch(_){} });
 let crashedBefore=null; try{ crashedBefore=JSON.parse(sessionStorage.getItem('proyavka.alive')||'null'); }catch(_){}
-if (crashedBefore) memNote('перезапуск после: '+JSON.stringify(crashedBefore));
+if (crashedBefore){ const c=crashedBefore; memNote(`перезапуск · инструмент ${c.tool} · документ ≈${c.mem} МБ · ${c.size} · слоёв ${c.layers}${c.ai?' · нейросеть удаления':''}${c.sam?' · тап по объекту':''}`); }
 (async function boot(){
   loadPrefs(); $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл';
   setColor(S.color); sizeStage();
