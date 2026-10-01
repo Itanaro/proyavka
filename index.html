@@ -838,6 +838,7 @@ function strokeEnd(cancel){
   const before = grab(tgt,r);
   const reg=mk(r.w,r.h), rx=ctx2(reg); rx.drawImage(strokeBuf, r.x,r.y,r.w,r.h, 0,0,r.w,r.h);
   if (sel){ rx.globalCompositeOperation='destination-in'; rx.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,r.w,r.h); }
+  if (st.clone && S.cloneAligned && st.last) cloneSrc={x:clamp(st.last.x+st.clone.ox,0,doc.w-1), y:clamp(st.last.y+st.clone.oy,0,doc.h-1)};
   if (st.clone){ const c=st.clone;
     if (c.heal){ try{ healRegion(rx, r, c); }catch(e){ console.error(e); toast('Смешивание не удалось, оставила как штамп'); c.heal=false; } }
     if (!c.heal){ rx.globalCompositeOperation='source-in'; rx.drawImage(c.src, -(r.x+c.ox), -(r.y+c.oy)); rx.globalCompositeOperation='source-over'; } }
@@ -1303,7 +1304,7 @@ for (const [key,id,min] of [['smooth','edSmooth',0],['feather','edFeather',0],['
 $('#edApply').onclick=edgeApply; $('#edCancel').onclick=edgeCancel;
 $('#edReset').onclick=()=>{ if(!edge) return; edge.t={smooth:0,feather:0,shift:0}; edgeDraw(); edgePreview(); };
 /* ============ retouch: seamless (Poisson) blending, patch, healing brush, clone stamp ============ */
-let retouchCache=null, cloneSrc=null, cloneOff=null, clonePick=false, patchDrag=null, patchPrev=null;
+let retouchCache=null, cloneSrc=null, cloneOff=null, clonePick=false, patchDrag=null, patchPrev=null, srcDrag=null;
 function retouchSource(){
   const L=AL(), key=contentVer+'|'+(S.retouchAll?'all':L.id);
   if (retouchCache && retouchCache.key===key) return retouchCache.c;
@@ -1423,11 +1424,25 @@ function retouchOverlay(cur){
       ox.setLineDash([6,4]); ox.strokeStyle='#000'; ox.lineWidth=2.5; ox.stroke(); ox.strokeStyle=cssVar('--accent'); ox.lineWidth=1.3; ox.stroke(); ox.setLineDash([]); } }
   if ((S.tool==='clone'||S.tool==='heal') && cloneSrc){
     let sx=cloneSrc.x, sy=cloneSrc.y;
-    if (cur && cloneOff && (stroke || S.cloneAligned)){ const [x,y]=toDoc(cur[0],cur[1]); sx=x+cloneOff[0]; sy=y+cloneOff[1]; }
-    const [a,b]=toScr(sx,sy), r=Math.max(4, curSize()/2*view.s);
-    ox.beginPath(); ox.arc(a,b,r,0,Math.PI*2); ox.moveTo(a-6,b); ox.lineTo(a+6,b); ox.moveTo(a,b-6); ox.lineTo(a,b+6);
-    ox.setLineDash([4,3]); ox.strokeStyle='rgba(0,0,0,.7)'; ox.lineWidth=2.5; ox.stroke(); ox.strokeStyle='rgba(255,255,255,.95)'; ox.lineWidth=1; ox.stroke(); ox.setLineDash([]);
+    if (stroke && stroke.clone && stroke.sm){ sx=stroke.sm[0]+stroke.clone.ox; sy=stroke.sm[1]+stroke.clone.oy; }
+    const [a,b]=toScr(sx,sy), r=srcRadius(), acc=cssVar('--accent');
+    ox.beginPath(); ox.arc(a,b,r,0,Math.PI*2); ox.strokeStyle='rgba(0,0,0,.65)'; ox.lineWidth=4; ox.stroke(); ox.strokeStyle=acc; ox.lineWidth=2; ox.stroke();
+    ox.beginPath(); ox.moveTo(a-7,b); ox.lineTo(a+7,b); ox.moveTo(a,b-7); ox.lineTo(a,b+7); ox.strokeStyle='rgba(0,0,0,.7)'; ox.lineWidth=3; ox.stroke(); ox.strokeStyle='#fff'; ox.lineWidth=1.2; ox.stroke();
+    if (!stroke){ // grab knob
+      const kx=a+r*0.7071, ky=b+r*0.7071; ox.beginPath(); ox.arc(kx,ky,6,0,Math.PI*2); ox.fillStyle=acc; ox.fill(); ox.strokeStyle='#000'; ox.lineWidth=1; ox.stroke(); }
+    if (srcDrag) drawLoupe(sx,sy,a,b);
   }
+}
+function srcRadius(){ return Math.max(18, curSize()/2*view.s); }
+function srcHit(p){ const [a,b]=toScr(cloneSrc.x,cloneSrc.y); return Math.hypot(p[0]-a,p[1]-b) <= srcRadius()+12; }
+function drawLoupe(sx,sy,a,b){ // magnified view of the source spot, placed away from the pen
+  const R=70, zoom=Math.max(4, 4*view.s), half=R/zoom, src=retouchCache&&retouchCache.c; if(!src) return;
+  const W=oc.width/dpr, H=oc.height/dpr; let lx=a-R-40, ly=b-R-40; if (lx<R+8) lx=a+R+40; if (ly<R+8) ly=b+R+40; lx=clamp(lx,R+8,W-R-8); ly=clamp(ly,R+8,H-R-8);
+  ox.save(); ox.beginPath(); ox.arc(lx,ly,R,0,Math.PI*2); ox.fillStyle='#000'; ox.fill(); ox.clip();
+  ox.imageSmoothingEnabled = zoom<8; ox.drawImage(src, sx-half, sy-half, half*2, half*2, lx-R, ly-R, R*2, R*2); ox.restore();
+  ox.beginPath(); ox.arc(lx,ly,R,0,Math.PI*2); ox.strokeStyle=cssVar('--accent'); ox.lineWidth=2.5; ox.stroke();
+  const rr=Math.max(3, curSize()/2*zoom); ox.beginPath(); ox.arc(lx,ly,Math.min(rr,R-4),0,Math.PI*2); ox.moveTo(lx-8,ly); ox.lineTo(lx+8,ly); ox.moveTo(lx,ly-8); ox.lineTo(lx,ly+8);
+  ox.strokeStyle='rgba(0,0,0,.7)'; ox.lineWidth=3; ox.stroke(); ox.strokeStyle='#fff'; ox.lineWidth=1.2; ox.stroke();
 }
 function marchingSegs(a, W, H, thr, sx, sy){ // outline of mask a (W×H, 0..255) as segments in doc coords
   const out=[]; const v=(x,y)=> (x<0||y<0||x>=W||y>=H) ? 0 : a[y*W+x];
@@ -1955,7 +1970,9 @@ function setTool(t, internal){
   if (xf && t!=='transform' && !internal){ toast('Сначала примени или отмени трансформ'); return; }
   const prev=S.tool; S.tool=t; if (t!=='tap') tapSess=null; if (t!=='wand'){ wandCache=null; wandPrev=null; } else if (prev!=='wand' && !internal) toast('Тап — выделить по цвету. Тап и тянуть вбок — допуск на лету',3200);
   if (t!==prev && !internal){ if (t==='patch') toast('Обведи дефект (или выдели чем угодно), потом потяни выделение на чистое место',3600);
-    else if ((t==='clone'||t==='heal') && !cloneSrc) toast('Тап пальцем — источник, карандаш — рисовать. На клавиатуре источник — Alt + клик',3600); }
+    else if ((t==='clone'||t==='heal') && !cloneSrc && doc){ const st=$('#stage').getBoundingClientRect(), [x,y]=toDoc(st.width*0.35, st.height*0.45);
+      cloneSrc={x:clamp(x,0,doc.w-1), y:clamp(y,0,doc.h-1)}; cloneOff=null; requestRender();
+      toast('Перетащи карандашом кружок-источник на чистое место, потом рисуй',3600); } }
   document.querySelectorAll('#rail [data-tool]').forEach(b=>b.classList.toggle('on', b.dataset.tool===t));
   syncGroups();
   if (t==='transform' && !xf && !internal){ beginTransform({prevTool: prev==='transform'?'brush':prev}); if(!xf){ S.tool=prev; setTool(prev,true); return; } }
@@ -2141,7 +2158,7 @@ function showHelp(){
    <dt>4 пальца, тап</dt><dd>Спрятать или вернуть интерфейс.</dd>
    <dt>Инструменты слева</dt><dd>Похожие собраны в группы: рисование, выделение, умное выделение. Тап по группе берёт последний инструмент из неё, повторный тап или удержание открывает список.</dd>
    <dt>Заплатка (J)</dt><dd>Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение.</dd>
-   <dt>Штамп (S) и восстанавливающая кисть (H)</dt><dd>Тап пальцем задаёт источник, карандаш рисует. Штамп копирует как есть, восстанавливающая кисть ещё и подгоняет цвет и свет под место. «Выровнять» — источник едет вместе с кистью между мазками. На клавиатуре источник — Alt + клик.</dd>
+   <dt>Штамп (S) и восстанавливающая кисть (H)</dt><dd>Источник — кружок на холсте: перетащи его карандашом на чистое место (рядом появится лупа), потом рисуй. Ещё можно тапнуть пальцем или Alt + клик. Штамп копирует как есть, восстанавливающая кисть ещё и подгоняет цвет и свет под место. «Выровнять» — источник едет вместе с кистью между мазками. На клавиатуре источник — Alt + клик.</dd>
    <dt>Снять выделение</dt><dd>Тап одним пальцем по холсту, тап карандашом мимо картинки (в инструментах выделения), кнопка ✕ рядом со стрелками отмены вверху или ⌘D.</dd>
    <dt>Край выделения</dt><dd>Кнопка «Край…» на панели выделения: сгладить, растушевать, сузить или расширить. Красным подсвечено то, что не попадёт в выделение. Enter — применить, Esc — отмена.</dd>
    <dt>Волшебная палочка (W)</dt><dd>Тап выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы.</dd>
@@ -2400,6 +2417,7 @@ function toolDown(e,p){
   toolPtr=e.pointerId; hover=null;
   const t = activeTool = (altDown && !['transform','clone','heal'].includes(S.tool)) ? 'picker' : S.tool;
   if ((t==='clone'||t==='heal') && (altDown || clonePick)){ const [x,y]=toDoc(...p); setCloneSrc(x,y); toolPtr=null; return; }
+  if ((t==='clone'||t==='heal') && cloneSrc && srcHit(p)){ const [x,y]=toDoc(...p); try{ retouchSource(); }catch(_){} srcDrag={gx:cloneSrc.x-x, gy:cloneSrc.y-y, p}; renderOverlay(); return; }
   if (t==='patch'){ patchDown(p); return; }
   if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e)); }
   else if (t==='lasso'){ lassoPts=[toDoc(...p)]; }
@@ -2417,7 +2435,8 @@ function toolMove(e){
   const t=activeTool;
   for (const ev of list){
     const p=stagePos(ev);
-    if (t==='brush'||t==='eraser'||t==='clone'||t==='heal') strokeMove(p[0],p[1],penPressure(ev));
+    if (srcDrag){ const [x,y]=toDoc(...p); cloneSrc={x:clamp(x+srcDrag.gx,0,doc.w-1), y:clamp(y+srcDrag.gy,0,doc.h-1)}; srcDrag.p=p; }
+    else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal') strokeMove(p[0],p[1],penPressure(ev));
     else if (t==='patch') patchMove(p);
     else if (t==='lasso' && lassoPts){ const q=toDoc(...p), l=lassoPts[lassoPts.length-1]; if(Math.hypot(q[0]-l[0],q[1]-l[1])*view.s>2) lassoPts.push(q); }
     else if (t==='rect' && rectSel){ const [x,y]=toDoc(...p); rectSel.x1=x; rectSel.y1=y; }
@@ -2465,7 +2484,8 @@ document.addEventListener('keyup', e=>{
 window.addEventListener('blur', ()=>{ spaceDown=altDown=false; panDrag=null; updateCursor(); });
 function toolUp(e){
   const t=activeTool; toolPtr=null;
-  if (t==='brush'||t==='eraser'||t==='clone'||t==='heal') strokeEnd(false);
+  if (srcDrag){ srcDrag=null; cloneOff=null; renderOverlay(); toast('Источник на месте. Рисуй карандашом',1300); }
+  else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal') strokeEnd(false);
   else if (t==='patch') patchUp();
   else if (t==='lasso' && lassoPts){ const pts=lassoPts; lassoPts=null; if(pts.length<3){ if(S.selMode==='new') deselect(); } else applySelPoly(pts); }
   else if (t==='rect' && rectSel){ const r=normRect(rectSel); rectSel=null; if(r.w*view.s<4||r.h*view.s<4){ if(S.selMode==='new') deselect(); } else applySelPoly([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); }
@@ -2477,7 +2497,7 @@ function toolUp(e){
   if (e.pointerType!=='touch') hover=stagePos(e);
   renderOverlay();
 }
-function toolCancel(){ toolPtr=null; if(patchDrag){ patchDrag=null; patchPrev=null; } if(t_patchLasso()) lassoPts=null; wandDrag=null; wandPrev=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
+function toolCancel(){ toolPtr=null; srcDrag=null; if(patchDrag){ patchDrag=null; patchPrev=null; } if(t_patchLasso()) lassoPts=null; wandDrag=null; wandPrev=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
 
 /* keyboard */
 document.addEventListener('keydown', e=>{
@@ -2667,7 +2687,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-01 · №12 заплатка и штамп'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · №13 источник штампа'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
