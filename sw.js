@@ -1,5 +1,5 @@
 // Проявка: keeps the app itself available offline. Models live in IndexedDB, not here.
-const CACHE = 'proyavka-shell-v4';
+const CACHE = 'proyavka-shell-v5';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'vendor/ag-psd.js', 'vendor/fflate.js', 'vendor/ort.min.js',
   'vendor/ort-wasm-simd-threaded.jsep.mjs', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });

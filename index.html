@@ -264,6 +264,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <button class="tb tgm" data-group="paint" aria-label="Кисть, ластик, пипетка"></button>
     <button class="tb tgm" data-group="sel" aria-label="Выделение: лассо, прямоугольник, палочка"></button>
     <button class="tb tgm" data-group="ai" aria-label="Умное выделение: объект, тап по объекту"></button>
+    <button class="tb tgm" data-group="fix" aria-label="Ретушь: заплатка, восстанавливающая кисть, штамп"></button>
     <button class="tb" data-tool="transform" aria-label="Трансформ (V)"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
     <div class="vs" id="vsSize" aria-label="Размер"><div class="fill"></div><div class="knob"></div></div>
     <div class="vlabel" id="lSize">40</div>
@@ -273,6 +274,9 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   </div>
 
   <div id="toolSrc" hidden>
+    <button class="tb" data-tool="patch" aria-label="Заплатка (J)"><svg viewBox="0 0 24 24"><rect x="3.5" y="8" width="17" height="8" rx="4" transform="rotate(-35 12 12)"/><path d="M10.5 10.5h.01M13.5 13.5h.01M13.5 10.5h.01M10.5 13.5h.01"/></svg></button>
+    <button class="tb" data-tool="heal" aria-label="Восстанавливающая кисть (H)"><svg viewBox="0 0 24 24"><path d="M14.5 4.5 19.5 9.5 10 19c-1.5 1.5-4 1.8-6 1 .8-2-.5-4.5 1-6z"/><path d="M19 15v6M16 18h6"/></svg></button>
+    <button class="tb" data-tool="clone" aria-label="Штамп (S)"><svg viewBox="0 0 24 24"><path d="M9.5 10.5a2.5 2.5 0 1 1 5 0c0 1.8-1.2 2.2-1.2 4h-2.6c0-1.8-1.2-2.2-1.2-4z"/><path d="M5 15.5h14v3H5zM7 21h10"/></svg></button>
     <button class="tb" data-tool="brush" aria-label="Кисть (B)"><svg viewBox="0 0 24 24"><path d="M14.5 4.5 19.5 9.5 10 19c-1.5 1.5-4 1.8-6 1 .8-2-.5-4.5 1-6z"/></svg></button>
     <button class="tb" data-tool="eraser" aria-label="Ластик (E)"><svg viewBox="0 0 24 24"><path d="m7 21-4-4 11-11 7 7-8 8z"/><path d="M9 9l7 7M7 21h14"/></svg></button>
     <button class="tb" data-tool="lasso" aria-label="Лассо (L)"><svg viewBox="0 0 24 24"><path d="M5 10c0-4 4-6 8-6s7 2 7 5-3 6-8 6c-2 0-3.5-.4-4.5-1"/><path d="M7.5 14c-2 1-2.5 3-1 4.5S9 20 9 22"/></svg></button>
@@ -473,7 +477,8 @@ const psdToBlend = p => (BLENDS.find(x=>x[2]===p)||BLENDS[0])[0];
 const S = {
   tool:'brush', color:'#2b2f3a', size:40, opacity:1, hardness:0.6, flow:0.3, smooth:0.35,
   pSize:true, pOpac:true, eraserSize:80, selMode:'new', fingerDraw:false, xfFree:false,
-  wandTol:0.13, wandContig:true, wandSoft:true, wandAll:false
+  wandTol:0.13, wandContig:true, wandSoft:true, wandAll:false,
+  retouchAll:false, cloneAligned:true, cloneFlow:1
 };
 let doc = null;          // {w,h,name,layers:[], active, editMask}
 let view = {x:0,y:0,s:1,r:0};
@@ -686,6 +691,7 @@ function applyStrokePreview(t){
   const s=ctx2(tStroke); s.setTransform(1,0,0,1,0,0); s.clearRect(0,0,tStroke.width,tStroke.height);
   setVT(s); s.drawImage(strokeBuf,0,0);
   if (sel){ s.globalCompositeOperation='destination-in'; s.drawImage(sel.mask,0,0); s.globalCompositeOperation='source-over'; }
+  if (stroke.clone){ s.globalCompositeOperation='source-in'; s.drawImage(stroke.clone.src,-stroke.clone.ox,-stroke.clone.oy); s.globalCompositeOperation='source-over'; }
   t.setTransform(1,0,0,1,0,0); t.globalAlpha=stroke.opacity; t.globalCompositeOperation=stroke.op; t.drawImage(tStroke,0,0);
   t.globalAlpha=1; t.globalCompositeOperation='source-over'; setVT(t);
 }
@@ -718,7 +724,8 @@ function renderOverlay(){ if(!doc) return;
   if (wandPrev){ const m=viewM(); ox.save(); ox.setTransform(dpr*m[0],dpr*m[1],dpr*m[2],dpr*m[3],dpr*m[4],dpr*m[5]); ox.imageSmoothingEnabled=true; ox.drawImage(wandPrev,0,0,doc.w,doc.h); ox.restore(); ox.setTransform(dpr,0,0,dpr,0,0); }
   if (tapSess && S.tool==='tap'){ for (const [x,y,l] of tapSess.points){ const [a,b]=toScr(x,y); ox.beginPath(); ox.arc(a,b,7,0,7); ox.fillStyle=l?'#3fb950':'#f85149'; ox.fill(); ox.lineWidth=2; ox.strokeStyle='#fff'; ox.stroke(); ox.fillStyle='#fff'; ox.fillRect(a-3.5,b-1,7,2); if(l) ox.fillRect(a-1,b-3.5,2,7); } }
   const cur = stroke ? stroke.cursor : hover;
-  if (cur && (S.tool==='brush'||S.tool==='eraser')){
+  retouchOverlay(cur);
+  if (cur && (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal')){
     const r = Math.max(1.5, curSize()/2*view.s);
     ox.beginPath(); ox.arc(cur[0],cur[1],r,0,Math.PI*2); ox.strokeStyle='rgba(0,0,0,.7)'; ox.lineWidth=2.5; ox.stroke(); ox.strokeStyle='rgba(255,255,255,.9)'; ox.lineWidth=1; ox.stroke();
   }
@@ -778,6 +785,9 @@ function strokeBegin(p){
   if (!pixelOnly(true)) return false;
   const L=AL();
   if (!shown(L)){ toast(L.visible?'Группа со слоем скрыта, включи её видимость':'Слой скрыт, включи видимость'); return false; }
+  const cloning = S.tool==='clone'||S.tool==='heal';
+  if (cloning && doc.editMask){ toast('Штамп и восстанавливающая кисть работают по картинке, а не по маске'); return false; }
+  if (cloning && !cloneSrc){ toast('Сначала задай источник: тап пальцем по чистому месту (на клавиатуре — Alt + клик)',3200); return false; }
   const target = doc.editMask && L.mask ? 'mask' : 'content';
   const erase = S.tool==='eraser';
   let op;
@@ -785,8 +795,11 @@ function strokeBegin(p){
   else op = erase ? 'source-over' : 'destination-out'; // mask: brush hides, eraser reveals
   if (!strokeBuf || strokeBuf.width!==doc.w || strokeBuf.height!==doc.h){ strokeBuf=mk(doc.w,doc.h); if(!ctx2(strokeBuf)){ toast('Не хватает памяти для кисти'); strokeBuf=null; return false; } }
   const sb=ctx2(strokeBuf); sb.setTransform(1,0,0,1,0,0); sb.clearRect(0,0,doc.w,doc.h);
-  stroke = { layer:L, target, op, opacity:S.opacity, sprite:getSprite(target==='mask'?'#ffffff':S.color),
+  stroke = { layer:L, target, op, opacity:S.opacity, sprite:getSprite(target==='mask'||cloning?'#ffffff':S.color),
     last:null, carry:0, bbox:null, sm:null, cursor:null, size:curSize() };
+  if (cloning){ const [x0,y0]=toDoc(...p);
+    if (!S.cloneAligned || !cloneOff) cloneOff=[cloneSrc.x-x0, cloneSrc.y-y0];
+    try{ stroke.clone={ src:retouchSource(), ox:Math.round(cloneOff[0]), oy:Math.round(cloneOff[1]), heal:S.tool==='heal' }; }catch(e){ stroke=null; toast('Не хватает памяти'); return false; } }
   return true;
 }
 function strokeMove(px,py,pressure){
@@ -797,7 +810,7 @@ function strokeMove(px,py,pressure){
   stroke.sm=[x,y];
   const p = clamp(pressure,0,1);
   const sizeK = S.pSize ? 0.12+0.88*p : 1;
-  const alpha = S.flow * (S.pOpac ? clamp(0.15+0.85*p,0,1) : 1);
+  const alpha = (stroke.clone ? S.cloneFlow : S.flow) * (S.pOpac ? clamp(0.15+0.85*p,0,1) : 1);
   const d = Math.max(1, stroke.size*sizeK);
   const sb=ctx2(strokeBuf);
   const dab=(dx,dy,dd,a)=>{ const r=dd/2; sb.globalAlpha=a; sb.drawImage(stroke.sprite,dx-r,dy-r,dd,dd);
@@ -825,6 +838,9 @@ function strokeEnd(cancel){
   const before = grab(tgt,r);
   const reg=mk(r.w,r.h), rx=ctx2(reg); rx.drawImage(strokeBuf, r.x,r.y,r.w,r.h, 0,0,r.w,r.h);
   if (sel){ rx.globalCompositeOperation='destination-in'; rx.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,r.w,r.h); }
+  if (st.clone){ const c=st.clone;
+    if (c.heal){ try{ healRegion(rx, r, c); }catch(e){ console.error(e); toast('Смешивание не удалось, оставила как штамп'); c.heal=false; } }
+    if (!c.heal){ rx.globalCompositeOperation='source-in'; rx.drawImage(c.src, -(r.x+c.ox), -(r.y+c.oy)); rx.globalCompositeOperation='source-over'; } }
   const tx=ctx2(tgt); tx.save(); tx.globalAlpha=st.opacity; tx.globalCompositeOperation=st.op; tx.drawImage(reg,r.x,r.y); tx.restore();
   pushHist(pxEntry(tgt, r.x,r.y,r.w,r.h, before));
   st.layer.dirty=true; thumbSoon(st.layer); requestRender();
@@ -1286,6 +1302,133 @@ for (const [key,id,min] of [['smooth','edSmooth',0],['feather','edFeather',0],['
 }
 $('#edApply').onclick=edgeApply; $('#edCancel').onclick=edgeCancel;
 $('#edReset').onclick=()=>{ if(!edge) return; edge.t={smooth:0,feather:0,shift:0}; edgeDraw(); edgePreview(); };
+/* ============ retouch: seamless (Poisson) blending, patch, healing brush, clone stamp ============ */
+let retouchCache=null, cloneSrc=null, cloneOff=null, clonePick=false, patchDrag=null, patchPrev=null;
+function retouchSource(){
+  const L=AL(), key=contentVer+'|'+(S.retouchAll?'all':L.id);
+  if (retouchCache && retouchCache.key===key) return retouchCache.c;
+  let c; if (S.retouchAll) c=flatten(1); else { c=mk(doc.w,doc.h); ctx2(c).drawImage(L.canvas,0,0); }
+  retouchCache={key,c}; return c;
+}
+function setCloneSrc(x,y){ cloneSrc={x,y}; cloneOff=null; clonePick=false; if (S.tool==='clone'||S.tool==='heal') renderOpts(); toast('Источник задан. Теперь рисуй карандашом',1600); renderOverlay(); }
+/* membrane solver: f holds D−S on known pixels; fills unknown ones with a smooth (harmonic) interpolation. coarse-to-fine, 4 channels interleaved */
+function solveMembrane(f, known, W, H){
+  const N=W*H;
+  let anyK=false, anyU=false; for (let i=0;i<N;i++){ if(known[i]) anyK=true; else anyU=true; }
+  if (!anyU) return; if (!anyK){ f.fill(0); return; }
+  const relax=(iters)=>{ for (let it=0; it<iters; it++) for (let par=0; par<2; par++) for (let y=0;y<H;y++){ for (let x=(y+par)&1; x<W; x+=2){ const i=y*W+x; if (known[i]) continue;
+      let n=0, a0=0,a1=0,a2=0,a3=0;
+      if (x>0){ const j=(i-1)*4; a0+=f[j];a1+=f[j+1];a2+=f[j+2];a3+=f[j+3]; n++; }
+      if (x<W-1){ const j=(i+1)*4; a0+=f[j];a1+=f[j+1];a2+=f[j+2];a3+=f[j+3]; n++; }
+      if (y>0){ const j=(i-W)*4; a0+=f[j];a1+=f[j+1];a2+=f[j+2];a3+=f[j+3]; n++; }
+      if (y<H-1){ const j=(i+W)*4; a0+=f[j];a1+=f[j+1];a2+=f[j+2];a3+=f[j+3]; n++; }
+      const j=i*4; f[j]=a0/n; f[j+1]=a1/n; f[j+2]=a2/n; f[j+3]=a3/n; } } };
+  if (W<=6 || H<=6 || N<=64){ let m=[0,0,0,0],c=0; for(let i=0;i<N;i++) if(known[i]){ for(let k=0;k<4;k++) m[k]+=f[i*4+k]; c++; }
+    for (let i=0;i<N;i++) if(!known[i]) for(let k=0;k<4;k++) f[i*4+k]=m[k]/c; relax(200); return; }
+  const w2=(W+1)>>1, h2=(H+1)>>1, f2=new Float32Array(w2*h2*4), k2=new Uint8Array(w2*h2), cnt=new Float32Array(w2*h2);
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const i=y*W+x; if(!known[i]) continue; const c=(y>>1)*w2+(x>>1); for(let k=0;k<4;k++) f2[c*4+k]+=f[i*4+k]; cnt[c]++; }
+  for (let c=0;c<w2*h2;c++) if (cnt[c]){ k2[c]=1; for(let k=0;k<4;k++) f2[c*4+k]/=cnt[c]; }
+  solveMembrane(f2,k2,w2,h2);
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const i=y*W+x; if(known[i]) continue;
+    // bilinear from the coarse grid
+    const gx=Math.min(w2-1,Math.max(0,(x-0.5)/2)), gy=Math.min(h2-1,Math.max(0,(y-0.5)/2)), x0=Math.floor(gx), y0=Math.floor(gy), x1=Math.min(w2-1,x0+1), y1=Math.min(h2-1,y0+1), tx=gx-x0, ty=gy-y0;
+    for (let k=0;k<4;k++){ const a=f2[(y0*w2+x0)*4+k], b=f2[(y0*w2+x1)*4+k], c=f2[(y1*w2+x0)*4+k], d=f2[(y1*w2+x1)*4+k]; f[i*4+k]=(a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty; } }
+  relax(N>400000?12:20);
+}
+/* S, D: RGBA of the same region; M: 0..255 how much of the region gets replaced. returns S with D's colour and light carried in from the border */
+function seamless(Sd, Dd, M, W, H){
+  const N=W*H, f=new Float32Array(N*4), known=new Uint8Array(N);
+  for (let i=0;i<N;i++) if (M[i]<=10){ known[i]=1; const j=i*4; f[j]=Dd[j]-Sd[j]; f[j+1]=Dd[j+1]-Sd[j+1]; f[j+2]=Dd[j+2]-Sd[j+2]; f[j+3]=Dd[j+3]-Sd[j+3]; }
+  solveMembrane(f, known, W, H);
+  const out=new Uint8ClampedArray(N*4); for (let j=0;j<N*4;j++) out[j]=Sd[j]+f[j];
+  return out;
+}
+function regionPixels(src, rx, ry, w, h){ const c=mk(w,h), x=ctx2(c,{willReadFrequently:true}); x.drawImage(src,-rx,-ry); return x.getImageData(0,0,w,h).data; }
+function destPixels(r){ return S.retouchAll ? ctx2(compositeRegion(r,r.w,r.h),{willReadFrequently:true}).getImageData(0,0,r.w,r.h).data : regionPixels(AL().canvas, r.x, r.y, r.w, r.h); }
+function healRegion(rx, r, c){ // rx: ctx of region canvas holding the stroke alpha; becomes blended pixels with that alpha
+  const id=rx.getImageData(0,0,r.w,r.h), d=id.data, N=r.w*r.h, M=new Uint8Array(N); for (let i=0;i<N;i++) M[i]=d[i*4+3];
+  const Sd=regionPixels(c.src, r.x+c.ox, r.y+c.oy, r.w, r.h), Dd=destPixels(r), out=seamless(Sd,Dd,M,r.w,r.h);
+  for (let i=0;i<N;i++){ const j=i*4; d[j]=out[j]; d[j+1]=out[j+1]; d[j+2]=out[j+2]; d[j+3]=Math.round(M[i]*out[j+3]/255); }
+  rx.putImageData(id,0,0);
+}
+/* patch: drag the selection onto a clean area; the selected spot takes that texture, blended into its surroundings */
+const t_patchLasso = () => activeTool==='patch' && !!lassoPts;
+function selAlphaAt(x,y){ if(!sel) return 0; x=Math.floor(x); y=Math.floor(y); if(x<0||y<0||x>=doc.w||y>=doc.h) return 0; return ctx2(sel.mask,{willReadFrequently:true}).getImageData(x,y,1,1).data[3]; }
+function patchDown(p){
+  const [x,y]=toDoc(...p);
+  if (!sel || selAlphaAt(x,y)<20){ lassoPts=[[x,y]]; return; } // no selection under the pen: draw one, like the lasso
+  if (!pixelOnly()) { toolPtr=null; return; }
+  if (!S.retouchAll && !shown(AL())){ toast('Слой скрыт'); toolPtr=null; return; }
+  const b=sel.box&&sel.box.w?sel.box:{x:0,y:0,w:doc.w,h:doc.h};
+  let src; try{ src=retouchSource(); }catch(e){ toast('Не хватает памяти'); toolPtr=null; return; }
+  const k=Math.min(1, 700/Math.max(b.w,b.h)), pw=Math.max(1,Math.round(b.w*k)), ph=Math.max(1,Math.round(b.h*k));
+  const mk_=mk(pw,ph); ctx2(mk_).drawImage(sel.mask,b.x,b.y,b.w,b.h,0,0,pw,ph);
+  const Mh=ctx2(mk_,{willReadFrequently:true}).getImageData(0,0,pw,ph).data;
+  // small grid for the colour/light correction: region with a margin, so the border ring exists
+  const mg=Math.max(4,Math.round(Math.max(b.w,b.h)*0.04)), rb=clipRect(b.x-mg,b.y-mg,b.w+2*mg,b.h+2*mg), ks=Math.min(1,150/Math.max(rb.w,rb.h)), sw=Math.max(4,Math.round(rb.w*ks)), sh=Math.max(4,Math.round(rb.h*ks));
+  const ms=mk(sw,sh); ctx2(ms).drawImage(sel.mask,rb.x,rb.y,rb.w,rb.h,0,0,sw,sh);
+  const Msd=ctx2(ms,{willReadFrequently:true}).getImageData(0,0,sw,sh).data, Ms=new Uint8Array(sw*sh); for(let i=0;i<Ms.length;i++) Ms[i]=Msd[i*4+3];
+  const dc=S.retouchAll ? compositeRegion(rb,sw,sh) : (()=>{ const c=mk(sw,sh); ctx2(c).drawImage(AL().canvas,rb.x,rb.y,rb.w,rb.h,0,0,sw,sh); return c; })();
+  const Ds=ctx2(dc,{willReadFrequently:true}).getImageData(0,0,sw,sh).data;
+  patchDrag={x0:x,y0:y,dx:0,dy:0,b,src,k,pw,ph,mask:mk_,Mh,rb,sw,sh,Ms,Ds}; patchPrev=mk(pw,ph); patchPreview();
+}
+function patchMove(p){ if(lassoPts){ const q=toDoc(...p), l=lassoPts[lassoPts.length-1]; if(Math.hypot(q[0]-l[0],q[1]-l[1])*view.s>2) lassoPts.push(q); return; }
+  if(!patchDrag) return; const [x,y]=toDoc(...p); patchDrag.dx=x-patchDrag.x0; patchDrag.dy=y-patchDrag.y0; patchPreview(); }
+let patchRaf=0;
+function patchPreview(){ if(!patchRaf) patchRaf=requestAnimationFrame(patchPreviewNow); }
+function patchPreviewNow(){
+  patchRaf=0; const P=patchDrag; if(!P||!patchPrev) return;
+  const x=ctx2(patchPrev,{willReadFrequently:true}); x.globalCompositeOperation='source-over'; x.clearRect(0,0,P.pw,P.ph);
+  x.drawImage(P.src, P.b.x+P.dx, P.b.y+P.dy, P.b.w, P.b.h, 0,0,P.pw,P.ph);
+  const id=x.getImageData(0,0,P.pw,P.ph), d=id.data;
+  // correction field on the small grid, then added to the sharp donor
+  const sc=mk(P.sw,P.sh), sx=ctx2(sc,{willReadFrequently:true}); sx.drawImage(P.src, P.rb.x+P.dx, P.rb.y+P.dy, P.rb.w, P.rb.h, 0,0,P.sw,P.sh);
+  const Ss=sx.getImageData(0,0,P.sw,P.sh).data, out=seamless(Ss,P.Ds,P.Ms,P.sw,P.sh);
+  const fx=(P.b.x-P.rb.x)/P.rb.w*P.sw, fy=(P.b.y-P.rb.y)/P.rb.h*P.sh, fsx=P.b.w/P.rb.w*P.sw/P.pw, fsy=P.b.h/P.rb.h*P.sh/P.ph;
+  for (let y=0;y<P.ph;y++){ const gy=Math.min(P.sh-1,Math.max(0,fy+(y+0.5)*fsy-0.5)), y0=gy|0, y1=Math.min(P.sh-1,y0+1), ty=gy-y0;
+    for (let xx=0;xx<P.pw;xx++){ const j=(y*P.pw+xx)*4, a=P.Mh[j+3]; if(!a){ d[j+3]=0; continue; }
+      const gx=Math.min(P.sw-1,Math.max(0,fx+(xx+0.5)*fsx-0.5)), x0=gx|0, x1=Math.min(P.sw-1,x0+1), tx=gx-x0;
+      for (let k=0;k<3;k++){ const q=(i)=>out[i*4+k]-Ss[i*4+k];
+        const v=(q(y0*P.sw+x0)*(1-tx)+q(y0*P.sw+x1)*tx)*(1-ty)+(q(y1*P.sw+x0)*(1-tx)+q(y1*P.sw+x1)*tx)*ty; d[j+k]=d[j+k]+v; }
+      d[j+3]=a; } }
+  x.putImageData(id,0,0); renderOverlay();
+}
+async function patchUp(){
+  if (lassoPts){ const pts=lassoPts; lassoPts=null; if (pts.length>=3){ const m=S.selMode; S.selMode='new'; applySelPoly(pts); S.selMode=m; toast('Теперь потяни выделение на чистое место',2000); } return; }
+  const P=patchDrag; patchDrag=null; if(!P){ return; }
+  patchPrev=null; renderOverlay();
+  const dx=Math.round(P.dx), dy=Math.round(P.dy); if (Math.hypot(dx,dy)*view.s<6){ requestRender(); return; }
+  busy(true,'Ставлю заплатку…'); await nextFrame();
+  try{
+    const r=clipRect(P.b.x-6,P.b.y-6,P.b.w+12,P.b.h+12), N=r.w*r.h;
+    const Md=regionPixels(sel.mask,r.x,r.y,r.w,r.h), M=new Uint8Array(N); for(let i=0;i<N;i++) M[i]=Md[i*4+3];
+    const Sd=regionPixels(P.src, r.x+dx, r.y+dy, r.w, r.h), Dd=destPixels(r), out=seamless(Sd,Dd,M,r.w,r.h);
+    const res=new ImageData(r.w,r.h), d=res.data;
+    if (S.retouchAll){
+      for (let i=0;i<N;i++){ const j=i*4; d[j]=out[j]; d[j+1]=out[j+1]; d[j+2]=out[j+2]; d[j+3]=Math.round(M[i]*out[j+3]/255); }
+      const L=newLayer('Заплатка'); L.ctx.putImageData(res,r.x,r.y); insertLayer(L, doc.active+1, 'Заплатка — на новом слое');
+    } else {
+      const L=AL(), before=grab(L.canvas,r);
+      for (let i=0;i<N;i++){ const j=i*4, a=M[i]/255; for (let k=0;k<4;k++) d[j+k]=Dd[j+k]+(out[j+k]-Dd[j+k])*a; }
+      L.ctx.putImageData(res,r.x,r.y); pushHist(pxEntry(L.canvas,r.x,r.y,r.w,r.h,before)); L.dirty=true; thumbSoon(L); toast('Заплатка поставлена',1000);
+    }
+    markDirty(); requestRender();
+  }catch(err){ console.error(err); toast('Заплатка не получилась: '+(err.message||'ошибка'),4000); }
+  busy(false);
+}
+function retouchOverlay(cur){
+  if (patchDrag && patchPrev){ const P=patchDrag, m=viewM();
+    ox.save(); ox.setTransform(dpr*m[0],dpr*m[1],dpr*m[2],dpr*m[3],dpr*m[4],dpr*m[5]); ox.drawImage(patchPrev,P.b.x,P.b.y,P.b.w,P.b.h); ox.restore(); ox.setTransform(dpr,0,0,dpr,0,0);
+    if (sel && sel.outline){ ox.beginPath(); for (const ln of sel.outline){ const q=(i)=>toScr(ln[i]+P.dx, ln[i+1]+P.dy); let a=q(0); ox.moveTo(a[0],a[1]); for(let i=2;i<ln.length;i+=2){ a=q(i); ox.lineTo(a[0],a[1]); } }
+      ox.setLineDash([6,4]); ox.strokeStyle='#000'; ox.lineWidth=2.5; ox.stroke(); ox.strokeStyle=cssVar('--accent'); ox.lineWidth=1.3; ox.stroke(); ox.setLineDash([]); } }
+  if ((S.tool==='clone'||S.tool==='heal') && cloneSrc){
+    let sx=cloneSrc.x, sy=cloneSrc.y;
+    if (cur && cloneOff && (stroke || S.cloneAligned)){ const [x,y]=toDoc(cur[0],cur[1]); sx=x+cloneOff[0]; sy=y+cloneOff[1]; }
+    const [a,b]=toScr(sx,sy), r=Math.max(4, curSize()/2*view.s);
+    ox.beginPath(); ox.arc(a,b,r,0,Math.PI*2); ox.moveTo(a-6,b); ox.lineTo(a+6,b); ox.moveTo(a,b-6); ox.lineTo(a,b+6);
+    ox.setLineDash([4,3]); ox.strokeStyle='rgba(0,0,0,.7)'; ox.lineWidth=2.5; ox.stroke(); ox.strokeStyle='rgba(255,255,255,.95)'; ox.lineWidth=1; ox.stroke(); ox.setLineDash([]);
+  }
+}
 function marchingSegs(a, W, H, thr, sx, sy){ // outline of mask a (W×H, 0..255) as segments in doc coords
   const out=[]; const v=(x,y)=> (x<0||y<0||x>=W||y>=H) ? 0 : a[y*W+x];
   for (let y=-1;y<H;y++) for (let x=-1;x<W;x++){
@@ -1767,7 +1910,7 @@ function layersChanged(){
     $('#lyClear').textContent = g ? 'Разгруппир.' : 'Очистить';
     $('#lyGroup').textContent = g ? '+ Группа' : 'В группу';
   }
-  if (S.tool==='brush'||S.tool==='eraser') renderOpts();
+  if (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal') renderOpts();
   updateStatus();
 }
 $('#lyBlend').innerHTML = BLENDS.map(b=>`<option value="${b[0]}">${b[1]}</option>`).join('');
@@ -1811,6 +1954,8 @@ $('#lyClose').onclick=()=>showLayers(false);
 function setTool(t, internal){
   if (xf && t!=='transform' && !internal){ toast('Сначала примени или отмени трансформ'); return; }
   const prev=S.tool; S.tool=t; if (t!=='tap') tapSess=null; if (t!=='wand'){ wandCache=null; wandPrev=null; } else if (prev!=='wand' && !internal) toast('Тап — выделить по цвету. Тап и тянуть вбок — допуск на лету',3200);
+  if (t!==prev && !internal){ if (t==='patch') toast('Обведи дефект (или выдели чем угодно), потом потяни выделение на чистое место',3600);
+    else if ((t==='clone'||t==='heal') && !cloneSrc) toast('Тап пальцем — источник, карандаш — рисовать. На клавиатуре источник — Alt + клик',3600); }
   document.querySelectorAll('#rail [data-tool]').forEach(b=>b.classList.toggle('on', b.dataset.tool===t));
   syncGroups();
   if (t==='transform' && !xf && !internal){ beginTransform({prevTool: prev==='transform'?'brush':prev}); if(!xf){ S.tool=prev; setTool(prev,true); return; } }
@@ -1822,9 +1967,10 @@ const TOOL_GROUPS = {
   paint:{ title:'Рисование', items:[['brush','Кисть','B'],['eraser','Ластик','E'],['picker','Пипетка','I']] },
   sel:  { title:'Выделение', items:[['lasso','Лассо','L'],['rect','Прямоугольник','M'],['wand','Волшебная палочка','W']] },
   ai:   { title:'Умное выделение', items:[['@subject','Выделить объект',''],['tap','Тап по объекту','T']] },
+  fix:  { title:'Ретушь', items:[['patch','Заплатка','J'],['heal','Восстанавливающая кисть','H'],['clone','Штамп','S']] },
 };
 const toolIcon = t => (t==='@subject' ? $('#bSubject') : $(`#toolSrc [data-tool="${t}"]`)).innerHTML;
-let groupCur = { paint:'brush', sel:'lasso', ai:'tap' };
+let groupCur = { paint:'brush', sel:'lasso', ai:'tap', fix:'patch' };
 try{ Object.assign(groupCur, JSON.parse(localStorage.getItem('proyavka.groups')||'{}')); }catch(e){}
 function syncGroups(){
   for (const [g,def] of Object.entries(TOOL_GROUPS)){
@@ -1902,6 +2048,15 @@ function renderOpts(){
     const rs=document.createElement('button'); rs.className='chk'; rs.textContent='Новый объект'; rs.onclick=()=>{ tapSess=null; S.selMode='new'; renderOpts(); syncSelModes(); toast('Следующий тап начнёт новый объект',1400); };
     const h=document.createElement('span'); h.className='opt'; h.textContent='Тап по объекту выделяет его. «Добавить» — ещё точка на объекте, «Вычесть» — точка на лишнем';
     o.append(seg, rs, h);
+  } else if (S.tool==='clone'||S.tool==='heal'){
+    const src=document.createElement('div'); src.className='seg';
+    for (const [k,l] of [[false,'Слой'],[true,'Все слои']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.retouchAll===k?'on':''; b.onclick=()=>{ S.retouchAll=k; retouchCache=null; savePrefs(); renderOpts(); }; src.append(b); }
+    const pick=document.createElement('button'); pick.className='chk'+(clonePick?' on':''); pick.textContent='⊕ Источник'; pick.onclick=()=>{ clonePick=!clonePick; renderOpts(); if(clonePick) toast('Тапни карандашом по месту-источнику',2000); };
+    o.append(pick, src, rng('Жёсткость','hardness',0,100,pct), rng('Поток','cloneFlow',2,100,pct), chk('Выровнять','cloneAligned'), chk('Нажим → размер','pSize'));
+  } else if (S.tool==='patch'){
+    const src=document.createElement('div'); src.className='seg';
+    for (const [k,l] of [[false,'Слой'],[true,'Все слои → новый слой']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.retouchAll===k?'on':''; b.onclick=()=>{ S.retouchAll=k; retouchCache=null; savePrefs(); renderOpts(); }; src.append(b); }
+    o.append(src);
   } else if (S.tool==='wand'){
     const seg=document.createElement('div'); seg.className='seg';
     for (const [k,l] of [['new','Новое'],['add','＋ Добавить'],['sub','− Вычесть']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.selMode===k?'on':''; b.onclick=()=>{ S.selMode=k; renderOpts(); syncSelModes(); }; seg.append(b); }
@@ -1985,6 +2140,8 @@ function showHelp(){
    <dt>3 пальца, тап</dt><dd>Вернуть то, что отменила двумя пальцами.</dd>
    <dt>4 пальца, тап</dt><dd>Спрятать или вернуть интерфейс.</dd>
    <dt>Инструменты слева</dt><dd>Похожие собраны в группы: рисование, выделение, умное выделение. Тап по группе берёт последний инструмент из неё, повторный тап или удержание открывает список.</dd>
+   <dt>Заплатка (J)</dt><dd>Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение.</dd>
+   <dt>Штамп (S) и восстанавливающая кисть (H)</dt><dd>Тап пальцем задаёт источник, карандаш рисует. Штамп копирует как есть, восстанавливающая кисть ещё и подгоняет цвет и свет под место. «Выровнять» — источник едет вместе с кистью между мазками. На клавиатуре источник — Alt + клик.</dd>
    <dt>Снять выделение</dt><dd>Тап одним пальцем по холсту, тап карандашом мимо картинки (в инструментах выделения), кнопка ✕ рядом со стрелками отмены вверху или ⌘D.</dd>
    <dt>Край выделения</dt><dd>Кнопка «Край…» на панели выделения: сгладить, растушевать, сузить или расширить. Красным подсвечено то, что не попадёт в выделение. Enter — применить, Esc — отмена.</dd>
    <dt>Волшебная палочка (W)</dt><dd>Тап выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы.</dd>
@@ -2204,6 +2361,7 @@ function endTouch(e){
   if (touches.size===0){
     if (gesture && !gesture.moved && Date.now()-gesture.t0<350){
       if (gesture.max===2) undo(); else if (gesture.max===3) redo(); else if (gesture.max>=4) toggleUI();
+      else if (gesture.max===1 && !S.fingerDraw && onePan && !onePan.pick && (S.tool==='clone'||S.tool==='heal')){ const [x,y]=toDoc(onePan.x,onePan.y); setCloneSrc(x,y); }
       else if (gesture.max===1 && !S.fingerDraw && !xf && !edge && !onePan?.pick && S.tool!=='wand' && S.tool!=='tap' && sel) quickDeselect();
     }
     gesture=null; onePan=null; if (navigating) navEnd();
@@ -2240,8 +2398,10 @@ function toolDown(e,p){
   if (sel && !xf && !edge && ['lasso','rect','wand','tap'].includes(S.tool) && !altDown){ const [dx,dy]=toDoc(...p); if (dx<0||dy<0||dx>=doc.w||dy>=doc.h){ toolPtr=null; quickDeselect(); return; } }
   if (edge){ toast('Сначала примени или отмени край выделения'); toolPtr=null; return; }
   toolPtr=e.pointerId; hover=null;
-  const t = activeTool = (altDown && S.tool!=='transform') ? 'picker' : S.tool;
-  if (t==='brush'||t==='eraser'){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e)); }
+  const t = activeTool = (altDown && !['transform','clone','heal'].includes(S.tool)) ? 'picker' : S.tool;
+  if ((t==='clone'||t==='heal') && (altDown || clonePick)){ const [x,y]=toDoc(...p); setCloneSrc(x,y); toolPtr=null; return; }
+  if (t==='patch'){ patchDown(p); return; }
+  if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e)); }
   else if (t==='lasso'){ lassoPts=[toDoc(...p)]; }
   else if (t==='rect'){ const [x,y]=toDoc(...p); rectSel={x0:x,y0:y,x1:x,y1:y}; }
   if ((t==='lasso'||t==='rect'||t==='wand') && e.shiftKey && sel){ tmpMode=S.selMode; S.selMode='add'; }
@@ -2257,7 +2417,8 @@ function toolMove(e){
   const t=activeTool;
   for (const ev of list){
     const p=stagePos(ev);
-    if (t==='brush'||t==='eraser') strokeMove(p[0],p[1],penPressure(ev));
+    if (t==='brush'||t==='eraser'||t==='clone'||t==='heal') strokeMove(p[0],p[1],penPressure(ev));
+    else if (t==='patch') patchMove(p);
     else if (t==='lasso' && lassoPts){ const q=toDoc(...p), l=lassoPts[lassoPts.length-1]; if(Math.hypot(q[0]-l[0],q[1]-l[1])*view.s>2) lassoPts.push(q); }
     else if (t==='rect' && rectSel){ const [x,y]=toDoc(...p); rectSel.x1=x; rectSel.y1=y; }
     else if (t==='transform' && xf) xfMove(p[0],p[1]);
@@ -2295,7 +2456,7 @@ function updateCursor(){
   if (panDrag) st.cursor='grabbing';
   else if (spaceDown) st.cursor='grab';
   else if (altDown && S.tool!=='transform') st.cursor='crosshair';
-  else st.cursor = (S.tool==='brush'||S.tool==='eraser') ? 'none' : (S.tool==='transform' ? 'move' : 'crosshair');
+  else st.cursor = (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal') ? 'none' : (S.tool==='transform' ? 'move' : 'crosshair');
 }
 document.addEventListener('keyup', e=>{
   if (e.key===' '){ spaceDown=false; updateCursor(); }
@@ -2304,7 +2465,8 @@ document.addEventListener('keyup', e=>{
 window.addEventListener('blur', ()=>{ spaceDown=altDown=false; panDrag=null; updateCursor(); });
 function toolUp(e){
   const t=activeTool; toolPtr=null;
-  if (t==='brush'||t==='eraser') strokeEnd(false);
+  if (t==='brush'||t==='eraser'||t==='clone'||t==='heal') strokeEnd(false);
+  else if (t==='patch') patchUp();
   else if (t==='lasso' && lassoPts){ const pts=lassoPts; lassoPts=null; if(pts.length<3){ if(S.selMode==='new') deselect(); } else applySelPoly(pts); }
   else if (t==='rect' && rectSel){ const r=normRect(rectSel); rectSel=null; if(r.w*view.s<4||r.h*view.s<4){ if(S.selMode==='new') deselect(); } else applySelPoly([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); }
   else if (t==='transform' && xf) xf.drag=null;
@@ -2315,7 +2477,7 @@ function toolUp(e){
   if (e.pointerType!=='touch') hover=stagePos(e);
   renderOverlay();
 }
-function toolCancel(){ toolPtr=null; wandDrag=null; wandPrev=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
+function toolCancel(){ toolPtr=null; if(patchDrag){ patchDrag=null; patchPrev=null; } if(t_patchLasso()) lassoPts=null; wandDrag=null; wandPrev=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
 
 /* keyboard */
 document.addEventListener('keydown', e=>{
@@ -2333,7 +2495,7 @@ document.addEventListener('keydown', e=>{
   if (mod && k==='g'){ e.preventDefault(); e.shiftKey?ungroup():makeGroup(); return; }
   if (mod && k==='j'){ e.preventDefault(); sel?selCopyToLayer():dupLayer(); return; }
   if (mod) return;
-  const map={b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap',w:'wand'};
+  const map={b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap',w:'wand',j:'patch',h:'heal',s:'clone'};
   if (map[k]){ setTool(map[k]); return; }
   if (k==='['||k===']'){ const f=k===']'?1.15:1/1.15; const s=clamp(Math.round(curSize()*f+(k===']'?1:-1)),1,SIZE_MAX); if(S.tool==='eraser') S.eraserSize=s; else S.size=s; spriteKey=''; syncSliders(); return; }
   if (edge && k==='enter'){ edgeApply(); return; }
@@ -2346,7 +2508,7 @@ document.addEventListener('gesturestart', e=>e.preventDefault());
 document.addEventListener('contextmenu', e=>e.preventDefault());
 
 /* ============ prefs & autosave ============ */
-function savePrefs(){ try{ localStorage.setItem('kadr.prefs', JSON.stringify({color:S.color,size:S.size,eraserSize:S.eraserSize,opacity:S.opacity,hardness:S.hardness,flow:S.flow,smooth:S.smooth,pSize:S.pSize,pOpac:S.pOpac,fingerDraw:S.fingerDraw,wandTol:S.wandTol,wandContig:S.wandContig,wandSoft:S.wandSoft,wandAll:S.wandAll,recent})); }catch(e){} }
+function savePrefs(){ try{ localStorage.setItem('kadr.prefs', JSON.stringify({color:S.color,size:S.size,eraserSize:S.eraserSize,opacity:S.opacity,hardness:S.hardness,flow:S.flow,smooth:S.smooth,pSize:S.pSize,pOpac:S.pOpac,fingerDraw:S.fingerDraw,wandTol:S.wandTol,wandContig:S.wandContig,wandSoft:S.wandSoft,wandAll:S.wandAll,retouchAll:S.retouchAll,cloneAligned:S.cloneAligned,cloneFlow:S.cloneFlow,recent})); }catch(e){} }
 function loadPrefs(){ try{ const p=JSON.parse(localStorage.getItem('kadr.prefs')||'null'); if(p){ const {recent:r,...rest}=p; Object.assign(S,rest); if(r) recent.push(...r); } }catch(e){} }
 const DB='kadr', STORE='doc';
 function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB,1); r.onupgradeneeded=()=>r.result.createObjectStore(STORE); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
@@ -2505,7 +2667,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-01 · №11 мои документы'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · №12 заплатка и штамп'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
