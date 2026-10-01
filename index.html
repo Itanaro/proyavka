@@ -88,6 +88,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;width:58px;overflow-y:auto;scrollbar-width:none}
 #rail .tb{width:44px;height:44px;padding:0}
 #rail .tb svg{width:22px;height:22px}
+#rail .tgm{position:relative}
+#rail .tgm::after{content:'';position:absolute;right:5px;bottom:5px;width:0;height:0;border-left:5px solid transparent;border-bottom:5px solid currentColor;opacity:.55}
+#flyout{position:absolute;z-index:40;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:0 12px 36px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:2px;min-width:230px}
+#flyout button{display:flex;align-items:center;gap:12px;height:46px;padding:0 12px 0 10px;border-radius:10px;text-align:left;font-size:14px}
+#flyout button svg{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#flyout button .k{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted)}
+#flyout button.on{background:var(--accent);color:var(--accent-ink)} #flyout button.on .k{color:inherit;opacity:.7}
+#flyout button:active{background:var(--line)}
+#flyout .fh{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 10px 4px}
 .vs{position:relative;width:26px;height:150px;border-radius:13px;background:var(--panel-2);margin-top:8px;flex:none;touch-action:none}
 .vs .fill{position:absolute;left:0;right:0;bottom:0;border-radius:13px;background:color-mix(in srgb,var(--fg) 30%,transparent)}
 .vs .knob{position:absolute;left:-3px;right:-3px;height:8px;border-radius:4px;background:var(--fg);transform:translateY(50%)}
@@ -231,6 +240,18 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   </div>
 
   <div id="rail">
+    <button class="tb tgm" data-group="paint" aria-label="Кисть, ластик, пипетка"></button>
+    <button class="tb tgm" data-group="sel" aria-label="Выделение: лассо, прямоугольник, палочка"></button>
+    <button class="tb tgm" data-group="ai" aria-label="Умное выделение: объект, тап по объекту"></button>
+    <button class="tb" data-tool="transform" aria-label="Трансформ (V)"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
+    <div class="vs" id="vsSize" aria-label="Размер"><div class="fill"></div><div class="knob"></div></div>
+    <div class="vlabel" id="lSize">40</div>
+    <div class="vs" id="vsOpac" aria-label="Непрозрачность"><div class="fill"></div><div class="knob"></div></div>
+    <div class="vlabel" id="lOpac">100%</div>
+    <button class="tb" id="bLayers2" aria-label="Слои" style="margin-top:auto"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/></svg></button>
+  </div>
+
+  <div id="toolSrc" hidden>
     <button class="tb" data-tool="brush" aria-label="Кисть (B)"><svg viewBox="0 0 24 24"><path d="M14.5 4.5 19.5 9.5 10 19c-1.5 1.5-4 1.8-6 1 .8-2-.5-4.5 1-6z"/></svg></button>
     <button class="tb" data-tool="eraser" aria-label="Ластик (E)"><svg viewBox="0 0 24 24"><path d="m7 21-4-4 11-11 7 7-8 8z"/><path d="M9 9l7 7M7 21h14"/></svg></button>
     <button class="tb" data-tool="lasso" aria-label="Лассо (L)"><svg viewBox="0 0 24 24"><path d="M5 10c0-4 4-6 8-6s7 2 7 5-3 6-8 6c-2 0-3.5-.4-4.5-1"/><path d="M7.5 14c-2 1-2.5 3-1 4.5S9 20 9 22"/></svg></button>
@@ -238,14 +259,9 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <button class="tb" data-tool="wand" aria-label="Волшебная палочка (W)"><svg viewBox="0 0 24 24"><path d="m4 20 11-11"/><path d="m13.5 7.5 3 3"/><path d="M18 2.5v3M16.5 4h3M20.5 8.5v2.5M19.25 9.75h2.5M10 3v2M9 4h2"/></svg></button>
     <button class="tb" data-tool="tap" aria-label="Тап по объекту (T)"><svg viewBox="0 0 24 24"><path d="M9 11V5a1.5 1.5 0 0 1 3 0v5"/><path d="M12 10V8.5a1.5 1.5 0 0 1 3 0V11"/><path d="M15 10.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-4.6-2.2L4 15.5a1.5 1.5 0 0 1 2.3-1.9L9 16"/><path d="M19 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></svg></button>
     <button class="tb" id="bSubject" aria-label="Выделить объект"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/><path d="M3 3h3M18 3h3M3 3v3M21 3v3" /></svg></button>
-    <button class="tb" data-tool="transform" aria-label="Трансформ (V)"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
     <button class="tb" data-tool="picker" aria-label="Пипетка (I)"><svg viewBox="0 0 24 24"><path d="m14 6 4 4M4 20l1.5-4.5L15 6l3-3 3 3-3 3-9.5 9.5z"/></svg></button>
-    <div class="vs" id="vsSize" aria-label="Размер"><div class="fill"></div><div class="knob"></div></div>
-    <div class="vlabel" id="lSize">40</div>
-    <div class="vs" id="vsOpac" aria-label="Непрозрачность"><div class="fill"></div><div class="knob"></div></div>
-    <div class="vlabel" id="lOpac">100%</div>
-    <button class="tb" id="bLayers2" aria-label="Слои" style="margin-top:auto"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/></svg></button>
   </div>
+  <div class="pop" id="flyout" hidden></div>
 
   <div id="stage">
     <canvas id="view"></canvas>
@@ -1684,10 +1700,57 @@ function setTool(t, internal){
   if (xf && t!=='transform' && !internal){ toast('Сначала примени или отмени трансформ'); return; }
   const prev=S.tool; S.tool=t; if (t!=='tap') tapSess=null; if (t!=='wand'){ wandCache=null; wandPrev=null; } else if (prev!=='wand' && !internal) toast('Тап — выделить по цвету. Тап и тянуть вбок — допуск на лету',3200);
   document.querySelectorAll('#rail [data-tool]').forEach(b=>b.classList.toggle('on', b.dataset.tool===t));
+  syncGroups();
   if (t==='transform' && !xf && !internal){ beginTransform({prevTool: prev==='transform'?'brush':prev}); if(!xf){ S.tool=prev; setTool(prev,true); return; } }
   renderOpts(); syncSliders(); requestRender(); if (typeof updateCursor==='function') updateCursor();
 }
 document.querySelectorAll('#rail [data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+/* grouped tools: tap a group to take its last tool, tap it again (or hold) to open the list */
+const TOOL_GROUPS = {
+  paint:{ title:'Рисование', items:[['brush','Кисть','B'],['eraser','Ластик','E'],['picker','Пипетка','I']] },
+  sel:  { title:'Выделение', items:[['lasso','Лассо','L'],['rect','Прямоугольник','M'],['wand','Волшебная палочка','W']] },
+  ai:   { title:'Умное выделение', items:[['@subject','Выделить объект',''],['tap','Тап по объекту','T']] },
+};
+const toolIcon = t => (t==='@subject' ? $('#bSubject') : $(`#toolSrc [data-tool="${t}"]`)).innerHTML;
+let groupCur = { paint:'brush', sel:'lasso', ai:'tap' };
+try{ Object.assign(groupCur, JSON.parse(localStorage.getItem('proyavka.groups')||'{}')); }catch(e){}
+function syncGroups(){
+  for (const [g,def] of Object.entries(TOOL_GROUPS)){
+    const has=def.items.some(i=>i[0]===S.tool); if (has && groupCur[g]!==S.tool){ groupCur[g]=S.tool; try{ localStorage.setItem('proyavka.groups', JSON.stringify(groupCur)); }catch(e){} }
+    const b=document.querySelector(`#rail [data-group="${g}"]`); if(!b) continue;
+    if (b.dataset.icon!==groupCur[g]){ b.innerHTML=toolIcon(groupCur[g]); b.dataset.icon=groupCur[g]; }
+    b.classList.toggle('on', has);
+    const lbl=def.items.find(i=>i[0]===groupCur[g]); b.title=lbl?lbl[1]:'';
+  }
+}
+function openFlyout(btn, g){
+  const f=$('#flyout'), def=TOOL_GROUPS[g];
+  if (!f.hidden && f.dataset.g===g){ f.hidden=true; return; }
+  closePops('flyout'); f.textContent=''; f.dataset.g=g;
+  const h=document.createElement('div'); h.className='fh'; h.textContent=def.title; f.append(h);
+  for (const [t,label,key] of def.items){
+    const b=document.createElement('button'); b.innerHTML=toolIcon(t)+`<span></span><span class="k">${key}</span>`; b.children[1].textContent=label;
+    if (t===S.tool) b.classList.add('on');
+    b.onclick=()=>{ f.hidden=true;
+      if (t==='@subject'){ $('#bSubject').click(); return; }
+      groupCur[g]=t; setTool(t); };
+    f.append(b);
+  }
+  const ar=$('#app').getBoundingClientRect(), br=btn.getBoundingClientRect(), rr=$('#rail').getBoundingClientRect();
+  f.style.left=(rr.right-ar.left+6)+'px'; f.hidden=false;
+  f.style.top=Math.max(8, Math.min(br.top-ar.top-6, ar.height-f.offsetHeight-8))+'px';
+}
+document.querySelectorAll('#rail .tgm').forEach(b=>{
+  const g=b.dataset.group; let t=null, longed=false;
+  b.addEventListener('pointerdown', e=>{ longed=false; clearTimeout(t); t=setTimeout(()=>{ longed=true; openFlyout(b,g); }, 380); });
+  const cancel=()=>clearTimeout(t);
+  b.addEventListener('pointerleave', cancel); b.addEventListener('pointercancel', cancel);
+  b.addEventListener('pointerup', ()=>{ clearTimeout(t); if (longed) return;
+    const active=TOOL_GROUPS[g].items.some(i=>i[0]===S.tool);
+    if (active) openFlyout(b,g); else { $('#flyout').hidden=true; setTool(groupCur[g]); } });
+  b.addEventListener('contextmenu', e=>e.preventDefault());
+});
+syncGroups();
 /* plain div slider: no <input>, so Apple Pencil never triggers Scribble handwriting on it */
 function hslider(el, o){
   el.classList.add('hs'); el.setAttribute('role','slider'); el.tabIndex=0;
@@ -1787,9 +1850,9 @@ dragOn($('#sv'), e=>{ const r=$('#sv').getBoundingClientRect(); hsv[1]=clamp((e.
 dragOn($('#hue'), e=>{ const r=$('#hue').getBoundingClientRect(); hsv[0]=clamp((e.clientX-r.left)/r.width,0,0.9999)*360; setColor(hsvToHex(...hsv),true); });
 $('#hex').addEventListener('change',e=>{ let v=e.target.value.trim(); if(!v.startsWith('#')) v='#'+v; if(/^#[0-9a-f]{6}$/i.test(v)){ setColor(v); pushRecent(S.color); drawPicker(); } else toast('Нужен формат #RRGGBB'); });
 $('#swatch').onclick=e=>{ e.stopPropagation(); closePops('picker'); const p=$('#picker'); p.hidden=!p.hidden; if(!p.hidden){ hsv=rgbToHsv(...hexToRgb(S.color)); drawPicker(); } };
-function closePops(except){ for(const id of ['menu','picker']) if(id!==except) $('#'+id).hidden=true; }
+function closePops(except){ for(const id of ['menu','picker','flyout']) if(id!==except) $('#'+id).hidden=true; }
 $('#bMenu').onclick=e=>{ e.stopPropagation(); closePops('menu'); $('#menu').hidden=!$('#menu').hidden; };
-document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu')) closePops(); },true);
+document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,.tgm')) closePops(); },true);
 
 /* ============ dialogs ============ */
 function dialog(html, buttons, opt={}){
@@ -1809,6 +1872,7 @@ function showHelp(){
    <dt>2 пальца, тап</dt><dd>Отменить.</dd>
    <dt>3 пальца, тап</dt><dd>Вернуть то, что отменила двумя пальцами.</dd>
    <dt>4 пальца, тап</dt><dd>Спрятать или вернуть интерфейс.</dd>
+   <dt>Инструменты слева</dt><dd>Похожие собраны в группы: рисование, выделение, умное выделение. Тап по группе берёт последний инструмент из неё, повторный тап или удержание открывает список.</dd>
    <dt>Волшебная палочка (W)</dt><dd>Тап выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы.</dd>
    <dt>Тап по масштабу</dt><dd>Плашка внизу слева: вписать холст и сбросить поворот.</dd>
    <dt>Картинка слоем</dt><dd>Перетащи фото из «Фото» или «Файлов» прямо на холст (Split View или Slide Over), либо вставь из буфера.</dd>
@@ -2206,7 +2270,7 @@ async function restore(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(); } });
 
-const APP_VERSION='2026-10-01 · №7 палочка'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · №8 меню инструментов'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
