@@ -121,6 +121,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .fbar button{height:36px;padding:0 12px;border-radius:8px;white-space:nowrap;font-size:13px}
 .fbar button:active{background:var(--panel-2)}
 .fbar .pri{background:var(--accent);color:var(--accent-ink);font-weight:600}
+#edgebar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
+#edgebar .eh{font-weight:600;font-size:14px}
+#edgebar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+#edgebar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
+#edgebar .er label{color:var(--muted)}
+#edgebar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
+#edgebar .er .hs{height:32px;width:auto}
+#edShift::after{content:"";position:absolute;left:50%;top:9px;width:2px;height:12px;margin-left:-1px;background:var(--muted);border-radius:1px}
+#edgebar .eb{display:flex;gap:6px;margin-top:2px}
 
 /* layers */
 #layers{position:absolute;top:8px;right:8px;bottom:8px;width:290px;max-width:calc(100% - 16px);background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;box-shadow:0 10px 36px rgba(0,0,0,.5);z-index:5}
@@ -271,12 +280,20 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
       <div class="seg" id="selModes"><button data-mode="new">Новое</button><button data-mode="add">＋ Добавить</button><button data-mode="sub">− Вычесть</button></div>
       <button data-sel="deselect">Снять</button>
       <button data-sel="invert">Инвертировать</button>
+      <button data-sel="edge">Край…</button>
       <button data-sel="fill">Залить цветом</button>
       <button data-sel="delete">Удалить</button>
       <button data-sel="copy">На новый слой</button>
       <button data-sel="mask">Маска из выделения</button>
       <button data-sel="fill2">Заливка с учётом содержимого</button>
       <button data-sel="transform" class="pri">Трансформ</button>
+    </div>
+    <div class="fbar" id="edgebar" hidden>
+      <div class="eh">Край выделения <span>красным — то, что не выделено</span></div>
+      <div class="er"><label>Сгладить</label><div id="edSmooth"></div><span class="v" id="edSmoothV">0</span></div>
+      <div class="er"><label>Растушёвка</label><div id="edFeather"></div><span class="v" id="edFeatherV">0</span></div>
+      <div class="er"><label>Сузить ↔ Расширить</label><div id="edShift"></div><span class="v" id="edShiftV">0</span></div>
+      <div class="eb"><button id="edReset">Сброс</button><span style="flex:1"></span><button id="edCancel">Отмена</button><button id="edApply" class="pri">Применить</button></div>
     </div>
     <div class="fbar" id="xfbar" hidden>
       <button id="xfFlipH">Отразить ↔</button>
@@ -664,7 +681,8 @@ function renderOverlay(){ if(!doc) return;
   ox.setTransform(dpr,0,0,dpr,0,0); ox.lineWidth=1;
   const polyPath = (pts,extra) => { ox.beginPath(); pts.forEach((p,i)=>{ const [sx,sy]=toScr(p[0],p[1],extra); i?ox.lineTo(sx,sy):ox.moveTo(sx,sy); }); ox.closePath(); };
   const ants = () => { ox.setLineDash([]); ox.strokeStyle='#000'; ox.stroke(); ox.setLineDash([5,5]); ox.lineDashOffset=-antsPhase; ox.strokeStyle='#fff'; ox.stroke(); ox.setLineDash([]); };
-  if (sel && !xf && sel.outline){ const m=viewM(); ox.beginPath();
+  if (edgePrev && edge){ const m=viewM(); ox.save(); ox.setTransform(dpr*m[0],dpr*m[1],dpr*m[2],dpr*m[3],dpr*m[4],dpr*m[5]); ox.imageSmoothingEnabled=true; ox.drawImage(edgePrev,0,0,doc.w,doc.h); ox.restore(); ox.setTransform(dpr,0,0,dpr,0,0); }
+  else if (sel && !xf && sel.outline){ const m=viewM(); ox.beginPath();
     for (const ln of sel.outline){ ox.moveTo(m[0]*ln[0]+m[2]*ln[1]+m[4], m[1]*ln[0]+m[3]*ln[1]+m[5]); for(let i=2;i<ln.length;i+=2) ox.lineTo(m[0]*ln[i]+m[2]*ln[i+1]+m[4], m[1]*ln[i]+m[3]*ln[i+1]+m[5]); ox.closePath(); }
     ants(); }
   else if (sel && !xf){ for(const p of sel.polys){ polyPath(p); ants(); }
@@ -721,7 +739,7 @@ function pxEntry(canvas, x,y,w,h, before){
   return { undo:swap, redo:swap, bytes:w*h*4 };
 }
 const compound = (...es) => ({ undo(){ for(let i=es.length-1;i>=0;i--) es[i].undo(); }, redo(){ for(const e of es) e.redo(); }, bytes: es.reduce((a,e)=>a+(e.bytes||0),0) });
-function undo(){ if(stroke||xf) return; const e=undoStack.pop(); if(!e){ toast('Нечего отменять'); return; } e.undo(); redoStack.push(e); afterHist('Отменено', e.sel); }
+function undo(){ if(edge){ edgeCancel(); return; } if(stroke||xf) return; const e=undoStack.pop(); if(!e){ toast('Нечего отменять'); return; } e.undo(); redoStack.push(e); afterHist('Отменено', e.sel); }
 function redo(){ if(stroke||xf) return; const e=redoStack.pop(); if(!e){ toast("Нечего возвращать"); return; } e.redo(); undoStack.push(e); afterHist("Возвращено", e.sel); }
 function afterHist(msg, selOnly){ if(selOnly){ requestRender(); toast(msg,900); return; } doc.active=clamp(doc.active,0,doc.layers.length-1); if(!AL().mask) doc.editMask=false; doc.layers.forEach(L=>L.dirty=true); layersChanged(); requestRender(); markDirty(); toast(msg,900); }
 function grab(canvas,r){ return ctx2(canvas).getImageData(r.x,r.y,r.w,r.h); }
@@ -919,7 +937,7 @@ function selToMask(){
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
 }
-function updateSelBar(){ $('#selbar').hidden = !sel || !!xf; syncSelModes(); }
+function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge; syncSelModes(); }
 function syncSelModes(){ document.querySelectorAll('#selModes button').forEach(b=>b.classList.toggle('on', b.dataset.mode===S.selMode)); }
 function setSelMode(k){ S.selMode=k; if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
   if(k!=='new') toast(k==='add'?'Обводи — участок добавится к выделению':'Обводи — участок вычтется из выделения',1600); }
@@ -1174,6 +1192,85 @@ async function wandUp(){
     pushSelHist(before); updateSelBar(); busy(false); requestRender();
   }catch(err){ console.error(err); wandPrev=null; busy(false); toast('Выделение не получилось: '+(err.message||'ошибка'),4000); }
 }
+/* ============ selection edge: smooth, feather, contract / expand ============ */
+let edge=null, edgePrev=null, edgeRaf=0;
+const EDGE_MAX={smooth:50, feather:250, shift:150};
+function boxesForGauss(sigma){ const n=3, wI=Math.floor(Math.sqrt(12*sigma*sigma/n+1)); let wl=wI%2?wI:wI-1; const wu=wl+2, m=Math.round((12*sigma*sigma-n*wl*wl-4*n*wl-3*n)/(-4*wl-4)); return [0,1,2].map(i=>((i<m?wl:wu)-1)/2); }
+function boxH(a,b,W,H,r){ if(r<1){ b.set(a); return; } const iarr=1/(2*r+1);
+  for (let y=0;y<H;y++){ const o=y*W; let acc=(r+1)*a[o]; for(let i=1;i<=r;i++) acc+=a[o+Math.min(i,W-1)];
+    for (let x=0;x<W;x++){ b[o+x]=acc*iarr; acc+=a[o+Math.min(x+r+1,W-1)]-a[o+Math.max(x-r,0)]; } } }
+function boxV(a,b,W,H,r){ if(r<1){ b.set(a); return; } const iarr=1/(2*r+1);
+  for (let x=0;x<W;x++){ let acc=(r+1)*a[x]; for(let i=1;i<=r;i++) acc+=a[Math.min(i,H-1)*W+x];
+    for (let y=0;y<H;y++){ b[y*W+x]=acc*iarr; acc+=a[Math.min(y+r+1,H-1)*W+x]-a[Math.max(y-r,0)*W+x]; } } }
+function gauss(f,W,H,sigma){ if(sigma<0.3) return f; const t=new Float32Array(f.length); for (const r of boxesForGauss(sigma)){ const ri=Math.round(r); boxH(f,t,W,H,ri); boxV(t,f,W,H,ri); } return f; }
+function edt2d(g,W,H){ // g: 0 at features, big elsewhere -> squared distance
+  const n=Math.max(W,H), f=new Float32Array(n), d=new Float32Array(n), v=new Int32Array(n), z=new Float32Array(n+1), INF=1e20;
+  const pass=(len)=>{ let k=0; v[0]=0; z[0]=-INF; z[1]=INF;
+    for (let q=1;q<len;q++){ let s=((f[q]+q*q)-(f[v[k]]+v[k]*v[k]))/(2*q-2*v[k]); while(s<=z[k]){ k--; s=((f[q]+q*q)-(f[v[k]]+v[k]*v[k]))/(2*q-2*v[k]); } k++; v[k]=q; z[k]=s; z[k+1]=INF; }
+    k=0; for (let q=0;q<len;q++){ while(z[k+1]<q) k++; d[q]=(q-v[k])*(q-v[k])+f[v[k]]; } };
+  for (let x=0;x<W;x++){ for(let y=0;y<H;y++) f[y]=g[y*W+x]; pass(H); for(let y=0;y<H;y++) g[y*W+x]=d[y]; }
+  for (let y=0;y<H;y++){ const o=y*W; for(let x=0;x<W;x++) f[x]=g[o+x]; pass(W); for(let x=0;x<W;x++) g[o+x]=d[x]; }
+  return g;
+}
+function edgeProcess(a, W, H, smooth, feather, shift){ // a: Uint8 alpha; radii in pixels of this grid
+  let f=new Float32Array(W*H); for (let i=0;i<f.length;i++) f[i]=a[i];
+  if (smooth>=0.5){ gauss(f,W,H,smooth/2); for (let i=0;i<f.length;i++) f[i]=Math.min(255,Math.max(0,(f[i]-127.5)*3+127.5)); }
+  if (Math.abs(shift)>=0.5){
+    const exp=shift>0, g=new Float32Array(W*H), R=Math.abs(shift);
+    for (let i=0;i<g.length;i++) g[i] = ((f[i]>127)===exp) ? 0 : 1e20;
+    edt2d(g,W,H);
+    for (let i=0;i<g.length;i++){ const dd=Math.sqrt(g[i]); f[i] = exp ? Math.min(1,Math.max(0,R-dd+1))*255 : Math.min(1,Math.max(0,dd-R))*255; }
+  }
+  if (feather>=0.5) gauss(f,W,H,feather/2);
+  const out=new Uint8Array(W*H); for (let i=0;i<out.length;i++) out[i]=f[i]+0.5;
+  return out;
+}
+const edgeVal = (t,max) => Math.round(Math.sign(t)*max*t*t);
+function edgeOpen(){
+  if (!sel || xf || edge) return;
+  const k=Math.min(1, 1024/Math.max(doc.w,doc.h)), sw=Math.max(1,Math.round(doc.w*k)), sh=Math.max(1,Math.round(doc.h*k));
+  const c=mk(sw,sh), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='medium'; x.drawImage(sel.mask,0,0,sw,sh);
+  const d=x.getImageData(0,0,sw,sh).data, small=new Uint8Array(sw*sh); for (let i=0;i<small.length;i++) small[i]=d[i*4+3];
+  edge={k,sw,sh,small,t:{smooth:0,feather:0,shift:0}};
+  $('#edgebar').hidden=false; updateSelBar(); edgeDraw(); edgePreview();
+}
+function edgeDraw(){ for (const [key,id] of [['smooth','edSmooth'],['feather','edFeather'],['shift','edShift']]){ edgeSl[key](); $('#'+id+'V').textContent=edgeVal(edge?edge.t[key]:0,EDGE_MAX[key])+' px'; } }
+function edgePreview(){
+  edgeRaf=0; if(!edge) return; const e=edge, t=e.t;
+  const out=edgeProcess(e.small, e.sw, e.sh, edgeVal(t.smooth,EDGE_MAX.smooth)*e.k, edgeVal(t.feather,EDGE_MAX.feather)*e.k, edgeVal(t.shift,EDGE_MAX.shift)*e.k);
+  if (!edgePrev || edgePrev.width!==e.sw || edgePrev.height!==e.sh) edgePrev=mk(e.sw,e.sh);
+  const x=ctx2(edgePrev), id=x.createImageData(e.sw,e.sh), d=id.data;
+  for (let i=0,j=0;i<out.length;i++,j+=4){ d[j]=235; d[j+1]=50; d[j+2]=50; d[j+3]=(255-out[i])*0.55; }
+  x.putImageData(id,0,0); renderOverlay();
+}
+function edgeClose(){ edge=null; edgePrev=null; $('#edgebar').hidden=true; updateSelBar(); requestRender(); }
+function edgeCancel(){ edgeClose(); }
+async function edgeApply(){
+  if (!edge || !sel) return edgeClose();
+  const t=edge.t, sm=edgeVal(t.smooth,EDGE_MAX.smooth), fe=edgeVal(t.feather,EDGE_MAX.feather), sh=edgeVal(t.shift,EDGE_MAX.shift);
+  if (!sm && !fe && !sh){ edgeClose(); return; }
+  busy(true,'Обрабатываю край…'); await nextFrame();
+  try{
+    // work only around the selection: its box plus room for growth and blur
+    const b=sel.box && sel.box.w ? sel.box : {x:0,y:0,w:doc.w,h:doc.h}, mg=Math.ceil(Math.max(0,sh)+fe*1.6+sm+4);
+    const r=clipRect(b.x-mg,b.y-mg,b.w+2*mg,b.h+2*mg);
+    const mx=ctx2(sel.mask,{willReadFrequently:true}), id=mx.getImageData(r.x,r.y,r.w,r.h), d=id.data, a=new Uint8Array(r.w*r.h);
+    for (let i=0;i<a.length;i++) a[i]=d[i*4+3];
+    const out=edgeProcess(a, r.w, r.h, sm, fe, sh);
+    for (let i=0,j=0;i<out.length;i++,j+=4){ d[j]=d[j+1]=d[j+2]=255; d[j+3]=out[i]; }
+    const before=snapshotSel(), nm=mk(doc.w,doc.h), nx=ctx2(nm); nx.drawImage(sel.mask,0,0); nx.clearRect(r.x,r.y,r.w,r.h); nx.putImageData(id,r.x,r.y);
+    sel.mask=nm; sel.segs=null; sel.polys=[];
+    edgeClose(); pushSelHist(before); updateSelBar(); requestRender(); busy(false);
+    toast([sm&&'сглажено '+sm, fe&&'растушёвка '+fe, sh&&(sh>0?'расширено на ':'сужено на ')+Math.abs(sh)].filter(Boolean).join(', ')+' px',1800);
+  }catch(err){ console.error(err); busy(false); edgeClose(); toast('Не получилось: '+(err.message||'не хватило памяти'),4000); }
+}
+const edgeSl={};
+for (const [key,id,min] of [['smooth','edSmooth',0],['feather','edFeather',0],['shift','edShift',-1]]){
+  edgeSl[key]=hslider($('#'+id), {min, max:1, get:()=>edge?edge.t[key]:0,
+    set:v=>{ if(!edge) return; if (key==='shift' && Math.abs(v)<0.04) v=0; edge.t[key]=v; $('#'+id+'V').textContent=edgeVal(v,EDGE_MAX[key])+' px'; if(!edgeRaf) edgeRaf=requestAnimationFrame(edgePreview); }});
+}
+$('#edApply').onclick=edgeApply; $('#edCancel').onclick=edgeCancel;
+$('#edReset').onclick=()=>{ if(!edge) return; edge.t={smooth:0,feather:0,shift:0}; edgeDraw(); edgePreview(); };
 function marchingSegs(a, W, H, thr, sx, sy){ // outline of mask a (W×H, 0..255) as segments in doc coords
   const out=[]; const v=(x,y)=> (x<0||y<0||x>=W||y>=H) ? 0 : a[y*W+x];
   for (let y=-1;y<H;y++) for (let x=-1;x<W;x++){
@@ -1873,6 +1970,7 @@ function showHelp(){
    <dt>3 пальца, тап</dt><dd>Вернуть то, что отменила двумя пальцами.</dd>
    <dt>4 пальца, тап</dt><dd>Спрятать или вернуть интерфейс.</dd>
    <dt>Инструменты слева</dt><dd>Похожие собраны в группы: рисование, выделение, умное выделение. Тап по группе берёт последний инструмент из неё, повторный тап или удержание открывает список.</dd>
+   <dt>Край выделения</dt><dd>Кнопка «Край…» на панели выделения: сгладить, растушевать, сузить или расширить. Красным подсвечено то, что не попадёт в выделение. Enter — применить, Esc — отмена.</dd>
    <dt>Волшебная палочка (W)</dt><dd>Тап выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы.</dd>
    <dt>Тап по масштабу</dt><dd>Плашка внизу слева: вписать холст и сбросить поворот.</dd>
    <dt>Картинка слоем</dt><dd>Перетащи фото из «Фото» или «Файлов» прямо на холст (Split View или Slide Over), либо вставь из буфера.</dd>
@@ -2011,7 +2109,7 @@ document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops
 
 /* ============ selection bar & transform bar ============ */
 document.querySelectorAll('#selbar [data-sel]').forEach(b=>b.onclick=()=>{ const a=b.dataset.sel;
-  ({deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill})[a](); });
+  ({edge:edgeOpen, deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill})[a](); });
 $('#xfApply').onclick=xfApply; $('#xfCancel').onclick=xfCancel;
 $('#xfFlipH').onclick=()=>{ if(xf){ xf.sx*=-1; flipFix(); } }; $('#xfFlipV').onclick=()=>{ if(xf){ xf.sy*=-1; flipFix(); } };
 function flipFix(){ // keep scales positive by flipping pixels instead
@@ -2120,6 +2218,7 @@ $('#zoomBadge').onclick=()=>fitView();
 /* tool dispatch (pen, mouse, or finger when finger drawing is on) */
 let activeTool='brush', tmpMode=null;
 function toolDown(e,p){
+  if (edge){ toast('Сначала примени или отмени край выделения'); toolPtr=null; return; }
   toolPtr=e.pointerId; hover=null;
   const t = activeTool = (altDown && S.tool!=='transform') ? 'picker' : S.tool;
   if (t==='brush'||t==='eraser'){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e)); }
@@ -2217,6 +2316,8 @@ document.addEventListener('keydown', e=>{
   const map={b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap',w:'wand'};
   if (map[k]){ setTool(map[k]); return; }
   if (k==='['||k===']'){ const f=k===']'?1.15:1/1.15; const s=clamp(Math.round(curSize()*f+(k===']'?1:-1)),1,SIZE_MAX); if(S.tool==='eraser') S.eraserSize=s; else S.size=s; spriteKey=''; syncSliders(); return; }
+  if (edge && k==='enter'){ edgeApply(); return; }
+  if (edge && k==='escape'){ edgeCancel(); return; }
   if (k==='enter' && xf){ xfApply(); return; }
   if (k==='escape'){ if(xf) xfCancel(); else closePops(); return; }
   if ((k==='delete'||k==='backspace') && sel){ selDelete(); }
@@ -2270,7 +2371,7 @@ async function restore(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(); } });
 
-const APP_VERSION='2026-10-01 · №8 меню инструментов'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · №9 край выделения'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
