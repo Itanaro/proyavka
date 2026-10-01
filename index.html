@@ -1414,7 +1414,7 @@ function patchPreviewNow(){
   x.putImageData(id,0,0); renderOverlay();
 }
 async function patchUp(){
-  if (lassoPts){ const pts=lassoPts; lassoPts=null; if (pts.length>=3){ const m=S.selMode; S.selMode='new'; applySelPoly(pts); S.selMode=m; toast('Теперь потяни выделение на чистое место',2000); } return; }
+  if (lassoPts){ const pts=lassoPts; lassoPts=null; if (pts.length<3){ if (sel) quickDeselect(); return; } if (pts.length>=3){ const m=S.selMode; S.selMode='new'; applySelPoly(pts); S.selMode=m; toast('Теперь потяни выделение на чистое место',2000); } return; }
   const P=patchDrag; patchDrag=null; if(!P){ return; }
   patchPrev=null; renderOverlay();
   const dx=Math.round(P.dx), dy=Math.round(P.dy); if (Math.hypot(dx,dy)*view.s<6){ requestRender(); return; }
@@ -2432,7 +2432,7 @@ $('#zoomBadge').onclick=()=>fitView();
 /* tool dispatch (pen, mouse, or finger when finger drawing is on) */
 let activeTool='brush', tmpMode=null;
 function toolDown(e,p){
-  if (sel && !xf && !edge && ['lasso','rect','wand','tap'].includes(S.tool) && !altDown){ const [dx,dy]=toDoc(...p); if (dx<0||dy<0||dx>=doc.w||dy>=doc.h){ toolPtr=null; quickDeselect(); return; } }
+  if (sel && !xf && !edge && ['lasso','rect','wand','tap','patch'].includes(S.tool) && !altDown){ const [dx,dy]=toDoc(...p); if (dx<0||dy<0||dx>=doc.w||dy>=doc.h){ toolPtr=null; quickDeselect(); return; } }
   if (edge){ toast('Сначала примени или отмени край выделения'); toolPtr=null; return; }
   toolPtr=e.pointerId; hover=null;
   const t = activeTool = (altDown && !['transform','clone','heal'].includes(S.tool)) ? 'picker' : S.tool;
@@ -2709,7 +2709,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-01 · №14 пипетка'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · №15 заплатка: снять выделение'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
