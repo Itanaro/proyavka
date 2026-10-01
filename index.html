@@ -11,7 +11,13 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-180.png">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} [hidden]{display:none!important}</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} html,body{margin:0;background:#17181b;color:#e6e7ea} [hidden]{display:none!important}</style>
+<script>
+// show any startup error on screen instead of a blank page
+window.addEventListener('error', function(e){ try{ var d=document.getElementById('bootErr')||document.createElement('div'); d.id='bootErr';
+  d.style.cssText='position:fixed;left:12px;right:12px;bottom:12px;z-index:99;background:#3a1d1d;color:#ffd7d0;font:13px/1.4 -apple-system,sans-serif;padding:10px 12px;border-radius:10px';
+  d.textContent='Ошибка: '+(e.message||e.type)+(e.filename?' ('+e.filename.split('/').pop()+':'+e.lineno+')':''); document.body&&document.body.appendChild(d); }catch(_){} });
+</script>
 </head>
 <body>
 <title>Проявка</title>
@@ -1835,8 +1841,9 @@ async function restore(){
     doc={w:m.w,h:m.h,name:m.name,layers:[],active:0,editMask:false};
     for (const l of m.layers){
       const L=newLayer(l.name); L.id=l.id; Object.assign(L,{visible:l.visible,opacity:l.opacity,blend:l.blend});
-      const cb=await idbGet('c'+l.id); if(cb){ const im=await createImageBitmap(cb); L.ctx.drawImage(im,0,0); }
-      if (l.mask){ L.mask=newMask(L); L.mask.enabled=l.mask.enabled; const mb=await idbGet('m'+l.id); if(mb){ const im=await createImageBitmap(mb); L.mask.ctx.clearRect(0,0,doc.w,doc.h); L.mask.ctx.drawImage(im,0,0); } }
+      const cb=await idbGet('c'+l.id); if(cb){ const im=await createImageBitmap(cb); L.ctx.drawImage(im,0,0); im.close&&im.close(); }
+      await nextFrame();
+      if (l.mask){ L.mask=newMask(L); L.mask.enabled=l.mask.enabled; const mb=await idbGet('m'+l.id); if(mb){ const im=await createImageBitmap(mb); L.mask.ctx.clearRect(0,0,doc.w,doc.h); L.mask.ctx.drawImage(im,0,0); im.close&&im.close(); } }
       L.dirty=false; L.saved=true; doc.layers.push(L);
     }
     uid=Math.max(uid, (m.uid||0)+1, ...doc.layers.map(L=>L.id+1));
@@ -1873,8 +1880,14 @@ async function storeReport(){
 (async function boot(){
   loadPrefs(); $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл';
   setColor(S.color); sizeStage();
-  const ok = await restore();
+  // crash guard: if the previous start died while restoring, start clean and offer the document instead of crashing again
+  let crashed=false; try{ crashed=!!localStorage.getItem('proyavka.booting'); localStorage.setItem('proyavka.booting','1'); }catch(_){}
+  let ok=false;
+  if (!crashed) ok = await restore();
   if (!ok) createDoc(3000,4000,'Без названия');
+  try{ localStorage.removeItem('proyavka.booting'); }catch(_){}
+  if (crashed) setTimeout(()=>dialog('<h3>Прошлый запуск не удался</h3><p>Похоже, Проявка закрылась, пока восстанавливала документ. Я открыла чистый холст, а сохранённый документ не тронут.</p>',
+    [['Не восстанавливать', null], ['Восстановить документ', ()=>{ (async()=>{ try{ localStorage.setItem('proyavka.booting','1'); }catch(_){} const r=await restore(); try{ localStorage.removeItem('proyavka.booting'); }catch(_){} if(!r) toast('Сохранённого документа нет'); })(); }, true]]), 600);
   setTool('brush'); syncSliders();
   if (stage.clientWidth >= 900){ showLayers(true); fitView(); }
   window.addEventListener('resize', ()=>{ sizeStage(); });
