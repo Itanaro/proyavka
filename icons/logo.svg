@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="bg" cx="70%" cy="18%" r="95%">
+      <stop offset="0" stop-color="#3a2f26"/>
+      <stop offset=".38" stop-color="#23252b"/>
+      <stop offset="1" stop-color="#111215"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="42%" r="50%">
+      <stop offset="0" stop-color="#e2a65a" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#e2a65a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6cf8e"/>
+      <stop offset=".55" stop-color="#e2a65a"/>
+      <stop offset="1" stop-color="#b8743a"/>
+    </linearGradient>
+    <linearGradient id="dev" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16171b" stop-opacity="0"/>
+      <stop offset=".42" stop-color="#16171b" stop-opacity="0"/>
+      <stop offset="1" stop-color="#16171b" stop-opacity=".97"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3efe8"/>
+      <stop offset="1" stop-color="#d9d3c9"/>
+    </linearGradient>
+    <clipPath id="pic"><rect x="318" y="282" width="388" height="420" rx="14"/></clipPath>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="22" stdDeviation="26" flood-color="#000" flood-opacity=".55"/></filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+  <g transform="translate(512 512) scale(1.13) translate(-512 -512)">
+  <!-- the print -->
+  <g filter="url(#sh)">
+    <rect x="290" y="254" width="444" height="516" rx="30" fill="url(#card)"/>
+  </g>
+  <g clip-path="url(#pic)">
+    <rect x="318" y="282" width="388" height="420" fill="url(#sky)"/>
+    <circle cx="610" cy="372" r="46" fill="#fff4dc" opacity=".95"/>
+    <path d="M318 560 L420 470 L486 520 L582 430 L706 548 L706 702 L318 702 Z" fill="#2a2d34"/>
+    <path d="M318 610 L452 540 L560 600 L706 560 L706 702 L318 702 Z" fill="#1c1e23"/>
+    <rect x="318" y="282" width="388" height="420" fill="url(#dev)"/>
+  </g>
+  <!-- marching-ants selection around it, with transform handles -->
+  <rect x="232" y="196" width="560" height="632" rx="40" fill="none" stroke="#f3efe8" stroke-opacity=".9" stroke-width="15" stroke-dasharray="42 26" stroke-linecap="round"/>
+  <g fill="#e2a65a" stroke="#111215" stroke-width="8">
+    <rect x="212" y="176" width="40" height="40" rx="10"/>
+    <rect x="772" y="176" width="40" height="40" rx="10"/>
+    <rect x="212" y="808" width="40" height="40" rx="10"/>
+    <rect x="772" y="808" width="40" height="40" rx="10"/>
+  </g>
+  <!-- spark: the AI part -->
+  <path d="M800 640 C808 690 822 704 872 712 C822 720 808 734 800 784 C792 734 778 720 728 712 C778 704 792 690 800 640 Z" fill="#f6cf8e"/>
+  </g>
+</svg>
