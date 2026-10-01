@@ -480,18 +480,23 @@ function isDesc(x,G){ for(let p=x.parent;p;p=p.parent) if(p===G) return true; re
 function depthOf(x){ let d=0; for(let p=x.parent;p;p=p.parent) d++; return d; }
 function shown(x){ for(let p=x;p;p=p.parent) if(!p.visible) return false; return true; }
 function blockStart(X){ let s=doc.layers.indexOf(X); while(s>0 && isDesc(doc.layers[s-1],X)) s--; return s; }
-function pixelOnly(){ const L=AL(); if(!isGroup(L)) return true; toast('Выбрана группа. Выбери слой внутри неё',2200); return false; }
+function pixelOnly(maskOk){ const L=AL(); if(!isGroup(L)) return true; if(maskOk && doc.editMask && L.mask) return true;
+  toast(L.mask?'Выбрана группа. Выбери слой внутри или миниатюру маски группы':'Выбрана группа. Выбери слой внутри неё',2400); return false; }
 /* composite the tree: pass-through groups at 100% draw straight through, others are flattened on a temp canvas first */
 let grpPool=[];
-function composeTree(ctx, leaf, P=null, depth=0){
+// opt.map(ctx, docCanvas, item) draws a document-sized canvas with the same mapping the leaves use (needed for group masks)
+const mapIdentity=(c,cv)=>c.drawImage(cv,0,0);
+function composeTree(ctx, leaf, opt={}, P=opt.P||null, depth=0){
   for (const L of doc.layers){ if (L.parent!==P || !L.visible) continue;
     if (!isGroup(L)){ leaf(ctx,L); continue; }
-    if (L.blend==='pass' && L.opacity>=1){ composeTree(ctx, leaf, L, depth+1); continue; }
+    const gm = L.mask && L.mask.enabled;
+    if (L.blend==='pass' && L.opacity>=1 && !gm){ composeTree(ctx, leaf, opt, L, depth+1); continue; }
     const cw=ctx.canvas.width, ch=ctx.canvas.height; let t=grpPool[depth];
     if (!t || t.width!==cw || t.height!==ch){ t=mk(cw,ch); if (cw===comp.width && ch===comp.height) grpPool[depth]=t; }
     const tx=ctx2(t); tx.setTransform(1,0,0,1,0,0); tx.globalAlpha=1; tx.globalCompositeOperation='source-over'; tx.clearRect(0,0,cw,ch);
     tx.imageSmoothingEnabled=ctx.imageSmoothingEnabled; tx.imageSmoothingQuality=ctx.imageSmoothingQuality; tx.setTransform(ctx.getTransform());
-    composeTree(tx, leaf, L, depth+1);
+    composeTree(tx, leaf, opt, L, depth+1);
+    if (gm){ tx.save(); tx.setTransform(1,0,0,1,0,0); tx.globalAlpha=1; tx.globalCompositeOperation='destination-in'; (opt.map||mapIdentity)(tx, L.mask.canvas, L); tx.restore(); }
     ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity; ctx.globalCompositeOperation=L.blend==='pass'?'source-over':L.blend; ctx.drawImage(t,0,0); ctx.restore();
   }
 }
@@ -555,7 +560,7 @@ function getPreview(){
   let tmp=null;
   composeTree(x, (x,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ tmp=tmp||mk(w,h); const t=ctx2(tmp); t.globalCompositeOperation='source-over'; t.clearRect(0,0,w,h); t.drawImage(L.canvas,0,0,w,h); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0,w,h); src=tmp; }
-    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,w,h); });
+    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,w,h); }, {map:(c,cv)=>c.drawImage(cv,0,0,w,h)});
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; previewVer=contentVer; return preview;
 }
 function render(){
@@ -578,7 +583,7 @@ function render(){
   const smooth = view.s < 2.5;
   for (const c of [cc, ctx2(tLayer), ctx2(tMask), ctx2(tStroke)]){ c.imageSmoothingEnabled = smooth; c.imageSmoothingQuality = view.s<1 ? 'medium' : 'low'; }
   cc.save(); setVT(cc); cc.beginPath(); cc.rect(0,0,doc.w,doc.h); cc.clip();
-  composeTree(cc, drawLayer);
+  composeTree(cc, drawLayer, {map:renderGroupMask});
   cc.restore();
   vx.setTransform(1,0,0,1,0,0); vx.drawImage(comp,0,0);
   if (xf){ // part of the piece that hangs outside the canvas: shown faded
@@ -588,8 +593,14 @@ function render(){
   renderOverlay();
   updateStatus();
 }
+function renderGroupMask(c, cv, G){ // view-space group mask, with the live brush stroke when painting on it
+  if (stroke && stroke.layer===G && stroke.target==='mask'){
+    const m=ctx2(tMask); m.setTransform(1,0,0,1,0,0); m.clearRect(0,0,tMask.width,tMask.height); setVT(m); m.drawImage(cv,0,0); applyStrokePreview(m);
+    c.setTransform(1,0,0,1,0,0); c.drawImage(tMask,0,0); return; }
+  setVT(c); c.drawImage(cv,0,0);
+}
 function drawLayer(cc, L){
-  const isStroke = stroke && stroke.layer===L, isXf = xf && xf.layer===L;
+  const isStroke = stroke && stroke.layer===L, isXf = xf && (xf.parts ? xf.parts.has(L) : xf.layer===L), xff = isXf && (xf.parts ? xf.parts.get(L) : xf.float);
   const hasMask = L.mask && L.mask.enabled;
   if (!isStroke && !isXf && !hasMask){
     setVT(cc); cc.globalAlpha=L.opacity; cc.globalCompositeOperation=L.blend; cc.drawImage(L.canvas,0,0);
@@ -600,7 +611,7 @@ function drawLayer(cc, L){
   setVT(t);
   if (isXf && xf.target==='content'){
     if (xf.fromSel){ t.drawImage(L.canvas,0,0); t.globalCompositeOperation='destination-out'; t.drawImage(xf.selMask,0,0); t.globalCompositeOperation='source-over'; }
-    setVT(t, xfMatrix()); t.drawImage(xf.float,0,0); setVT(t);
+    setVT(t, xfMatrix()); t.drawImage(xff,0,0); setVT(t);
   } else t.drawImage(L.canvas,0,0);
   if (isStroke && stroke.target==='content') applyStrokePreview(t);
   if (hasMask || (isStroke && stroke.target==='mask')){
@@ -703,7 +714,7 @@ function hexA(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${n>>16&25
 const curSize = () => S.tool==='eraser' ? S.eraserSize : S.size;
 
 function strokeBegin(p){
-  if (!pixelOnly()) return false;
+  if (!pixelOnly(true)) return false;
   const L=AL();
   if (!shown(L)){ toast(L.visible?'Группа со слоем скрыта, включи её видимость':'Слой скрыт, включи видимость'); return false; }
   const target = doc.editMask && L.mask ? 'mask' : 'content';
@@ -765,7 +776,7 @@ function samplePixel(x,y){
   composeTree(cx, (cx,L)=>{
     tx.clearRect(0,0,1,1); tx.globalCompositeOperation='source-over'; tx.drawImage(L.canvas,x,y,1,1,0,0,1,1);
     if (L.mask&&L.mask.enabled){ tx.globalCompositeOperation='destination-in'; tx.drawImage(L.mask.canvas,x,y,1,1,0,0,1,1); }
-    cx.globalAlpha=L.opacity; cx.globalCompositeOperation=L.blend; cx.drawImage(t,0,0); });
+    cx.globalAlpha=L.opacity; cx.globalCompositeOperation=L.blend; cx.drawImage(t,0,0); }, {map:(c,cv)=>c.drawImage(cv,x,y,1,1,0,0,1,1)});
   const d=cx.getImageData(0,0,1,1).data; if(d[3]===0) return null;
   return '#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
@@ -854,14 +865,14 @@ function selBBox(){
 }
 function selTarget(){ const L=AL(); return doc.editMask&&L.mask ? L.mask.canvas : L.canvas; }
 function selFill(){
-  if(!sel || !pixelOnly()) return; const r=selBBox(); if(!r.w||!r.h) return; const tgt=selTarget(), before=grab(tgt,r);
+  if(!sel || !pixelOnly(true)) return; const r=selBBox(); if(!r.w||!r.h) return; const tgt=selTarget(), before=grab(tgt,r);
   const reg=mk(r.w,r.h), rx=ctx2(reg); rx.fillStyle = doc.editMask ? '#fff' : S.color; rx.fillRect(0,0,r.w,r.h);
   rx.globalCompositeOperation='destination-in'; rx.drawImage(sel.mask,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
   const t=ctx2(tgt); if(doc.editMask){ t.globalCompositeOperation='destination-out'; } t.drawImage(reg,r.x,r.y); t.globalCompositeOperation='source-over';
   pushHist(pxEntry(tgt,r.x,r.y,r.w,r.h,before)); AL().dirty=true; thumbSoon(AL()); requestRender();
 }
 function selDelete(){
-  if(!sel || !pixelOnly()) return; const r=selBBox(); if(!r.w||!r.h) return; const tgt=selTarget(), before=grab(tgt,r);
+  if(!sel || !pixelOnly(true)) return; const r=selBBox(); if(!r.w||!r.h) return; const tgt=selTarget(), before=grab(tgt,r);
   const t=ctx2(tgt);
   if (doc.editMask){ const reg=mk(r.w,r.h), rx=ctx2(reg); rx.fillStyle='#fff'; rx.fillRect(0,0,r.w,r.h); rx.globalCompositeOperation='destination-in'; rx.drawImage(sel.mask,r.x,r.y,r.w,r.h,0,0,r.w,r.h); t.drawImage(reg,r.x,r.y); }
   else { t.globalCompositeOperation='destination-out'; t.drawImage(sel.mask,r.x,r.y,r.w,r.h,r.x,r.y,r.w,r.h); t.globalCompositeOperation='source-over'; }
@@ -874,7 +885,7 @@ function selCopyToLayer(){
   insertLayer(L, doc.active+1, 'Фрагмент на новом слое');
 }
 function selToMask(){
-  if(!sel || !pixelOnly()) return; const L=AL();
+  if(!sel) return; const L=AL();
   if (L.mask){ const before=grab(L.mask.canvas,{x:0,y:0,w:doc.w,h:doc.h}); const m=L.mask.ctx; m.globalCompositeOperation='destination-in'; m.drawImage(sel.mask,0,0); m.globalCompositeOperation='source-over'; pushHist(pxEntry(L.mask.canvas,0,0,doc.w,doc.h,before)); }
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
@@ -1006,7 +1017,7 @@ function samGeom(){ const k=1024/Math.max(doc.w,doc.h); return {k, w:Math.round(
 function compositeTo(ctx, w, h){
   composeTree(ctx, (ctx,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const t=ctx2(src); t.drawImage(L.canvas,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0); }
-    ctx.globalAlpha=L.opacity; ctx.globalCompositeOperation=L.blend; ctx.drawImage(src,0,0,w,h); });
+    ctx.globalAlpha=L.opacity; ctx.globalCompositeOperation=L.blend; ctx.drawImage(src,0,0,w,h); }, {map:(c,cv)=>c.drawImage(cv,0,0,w,h)});
   ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
 }
 async function samEmbed(){
@@ -1086,7 +1097,7 @@ async function selectSubject(){
     const N=SEG_SIZE, c=mk(N,N), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high';
     composeTree(x, (x,L)=>{ let src=L.canvas;
       if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const t=ctx2(src); t.drawImage(L.canvas,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0); }
-      x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,N,N); });
+      x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,N,N); }, {map:(c,cv)=>c.drawImage(cv,0,0,N,N)});
     const px=x.getImageData(0,0,N,N).data, inp=new Float32Array(3*N*N);
     for (let i=0,j=0;i<N*N;i++,j+=4){ inp[i]=px[j]/255-.5; inp[i+N*N]=px[j+1]/255-.5; inp[i+2*N*N]=px[j+2]/255-.5; }
     const res=await sess.run({[sess.inputNames[0]]: new ort.Tensor('float32',inp,[1,3,N,N])});
@@ -1122,7 +1133,7 @@ function compositeRegion(r, cw, ch){
   composeTree(x, (x,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ const t=mk(r.w,r.h), tx=ctx2(t); tx.drawImage(L.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h); tx.globalCompositeOperation='destination-in'; tx.drawImage(L.mask.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
       x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(t,0,0,cw,ch); return; }
-    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,r.x,r.y,r.w,r.h,0,0,cw,ch); });
+    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,r.x,r.y,r.w,r.h,0,0,cw,ch); }, {map:(c,cv)=>c.drawImage(cv,r.x,r.y,r.w,r.h,0,0,cw,ch)});
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; return c;
 }
 async function contentAwareFill(){
@@ -1165,7 +1176,7 @@ function contentBBox(c){
 }
 function beginTransform(opts={}){
   if (xf) return;
-  if (!opts.float && isGroup(AL())){ toast('Трансформ целой группы пока не умею — выбери слой внутри',2400); return; }
+  if (!opts.float && isGroup(AL())){ beginGroupTransform(opts); return; }
   const L=AL(); if(!shown(L)){ toast('Слой скрыт'); return; }
   const target = doc.editMask && L.mask ? 'mask' : 'content';
   if (target==='mask'){ toast('Трансформ маски пока не поддерживается — переключись на сам слой'); return; }
@@ -1182,6 +1193,23 @@ function beginTransform(opts={}){
   }
   xf = { layer:L, target, float, fromSel, selMask, orig:r, placed:!!opts.float, onCancel:opts.onCancel,
          cx:r.x+r.w/2, cy:r.y+r.h/2, sx:opts.scale||1, sy:opts.scale||1, rot:0, drag:null, prevTool:opts.prevTool };
+  $('#xfbar').hidden=false; updateSelBar(); setTool('transform', true); requestRender();
+}
+function beginGroupTransform(opts){
+  const G=AL(); if(!shown(G)){ toast('Группа скрыта'); return; }
+  if (doc.editMask){ toast('Трансформ маски пока не поддерживается — выбери саму группу'); return; }
+  const mem=doc.layers.filter(x=>!isGroup(x) && isDesc(x,G)); if(!mem.length){ toast('В группе нет слоёв'); return; }
+  let r, fromSel=false, selMask=null;
+  if (sel){ r=selBBox(); if(!r.w||!r.h){ toast('Пустое выделение'); return; } fromSel=true; selMask=sel.mask; }
+  else { let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    for (const L of mem){ const b=contentBBox(L.canvas); if(!b) continue; x0=Math.min(x0,b.x); y0=Math.min(y0,b.y); x1=Math.max(x1,b.x+b.w); y1=Math.max(y1,b.y+b.h); }
+    if (x1<0 || x0===Infinity){ toast('В группе пусто'); return; } r={x:x0,y:y0,w:x1-x0,h:y1-y0}; }
+  const parts=new Map(), float=mk(r.w,r.h), fx=ctx2(float);
+  for (const L of mem){ const f=mk(r.w,r.h), x=ctx2(f); x.drawImage(L.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
+    if (fromSel){ x.globalCompositeOperation='destination-in'; x.drawImage(sel.mask,r.x,r.y,r.w,r.h,0,0,r.w,r.h); }
+    parts.set(L,f); if (shown(L)) fx.drawImage(f,0,0); }
+  xf = { layer:G, parts, target:'content', float, fromSel, selMask, orig:r, placed:false,
+         cx:r.x+r.w/2, cy:r.y+r.h/2, sx:1, sy:1, rot:0, drag:null, prevTool:opts.prevTool };
   $('#xfbar').hidden=false; updateSelBar(); setTool('transform', true); requestRender();
 }
 function xfMatrix(){
@@ -1260,16 +1288,19 @@ function xfApply(){
   if (t.placed){ x0=Infinity;y0=Infinity;x1=-Infinity;y1=-Infinity; }
   for (const [x,y] of pts){ x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y); }
   const U=clipRect(x0-2,y0-2,x1-x0+4,y1-y0+4);
-  const lx=L.ctx;
   let entry=null;
-  if (U.w>0&&U.h>0){
-    const before=grab(L.canvas,U);
+  const applyTo=(L, fl)=>{
+    const lx=L.ctx, before=grab(L.canvas,U);
     if (!t.placed){
       if (t.fromSel){ lx.globalCompositeOperation='destination-out'; lx.drawImage(t.selMask,0,0); lx.globalCompositeOperation='source-over'; }
       else lx.clearRect(t.orig.x,t.orig.y,t.orig.w,t.orig.h);
     }
-    lx.save(); lx.imageSmoothingEnabled=true; lx.imageSmoothingQuality='high'; lx.setTransform(...M); lx.drawImage(t.float,0,0); lx.restore();
-    entry=pxEntry(L.canvas,U.x,U.y,U.w,U.h,before);
+    lx.save(); lx.imageSmoothingEnabled=true; lx.imageSmoothingQuality='high'; lx.setTransform(...M); lx.drawImage(fl,0,0); lx.restore();
+    L.dirty=true; thumbSoon(L); return pxEntry(L.canvas,U.x,U.y,U.w,U.h,before);
+  };
+  if (U.w>0&&U.h>0){
+    if (t.parts){ const es=[]; for (const [PL,fl] of t.parts) es.push(applyTo(PL,fl)); entry=compound(...es); }
+    else entry=applyTo(L, t.float);
   }
   const extra = t.placedEntry;
   xf=null; $('#xfbar').hidden=true;
@@ -1282,7 +1313,7 @@ function xfApply(){
     sel={mask:nm, polys:sel?sel.polys.map(p=>p.map(([x,y])=>mp(x,y))):[], inverted:false, segs, box:clipRect(bx.x0,bx.y0,bx.x1-bx.x0,bx.y1-bx.y0)};
     refreshSelOutline();
   }
-  L.dirty=true; thumbSoon(L); updateSelBar(); setTool(t.prevTool||'brush'); requestRender();
+  updateSelBar(); setTool(t.prevTool||'brush'); markDirty(); requestRender();
 }
 function xfCancel(){
   if(!xf) return; const t=xf; xf=null; $('#xfbar').hidden=true;
@@ -1371,7 +1402,8 @@ function moveLayer(dir){
   });
 }
 function cloneItem(s){
-  if (isGroup(s)){ const G=newGroup(s.name+' копия'); Object.assign(G,{visible:s.visible,opacity:s.opacity,blend:s.blend,collapsed:s.collapsed}); return G; }
+  if (isGroup(s)){ const G=newGroup(s.name+' копия'); Object.assign(G,{visible:s.visible,opacity:s.opacity,blend:s.blend,collapsed:s.collapsed});
+    if (s.mask){ G.mask=newMask(G); G.mask.ctx.clearRect(0,0,doc.w,doc.h); G.mask.ctx.drawImage(s.mask.canvas,0,0); G.mask.enabled=s.mask.enabled; G.dirty=true; } return G; }
   const L=newLayer(s.name+' копия'); L.ctx.drawImage(s.canvas,0,0); L.opacity=s.opacity; L.blend=s.blend; L.visible=s.visible;
   if (s.mask){ L.mask=newMask(L); L.mask.ctx.clearRect(0,0,doc.w,doc.h); L.mask.ctx.drawImage(s.mask.canvas,0,0); L.mask.enabled=s.mask.enabled; }
   return L;
@@ -1392,8 +1424,9 @@ function ungroup(){
 }
 function mergeGroup(){
   const G=AL(), s=blockStart(G), e=doc.layers.indexOf(G), L=newLayer(G.name);
-  composeTree(L.ctx, leafFull, G);
+  composeTree(L.ctx, leafFull, {P:G});
   L.opacity=G.opacity; L.blend=G.blend==='pass'?'source-over':G.blend; L.visible=G.visible;
+  if (G.mask){ L.mask=newMask(L); L.mask.ctx.clearRect(0,0,doc.w,doc.h); L.mask.ctx.drawImage(G.mask.canvas,0,0); L.mask.enabled=G.mask.enabled; }
   structEdit(()=>{ L.parent=G.parent; doc.layers.splice(s,e-s+1,L); doc.active=s; }, 'Группа слита в один слой');
 }
 function dupLayer(){
@@ -1403,7 +1436,6 @@ function dupLayer(){
   insertLayer(L, doc.active+1, 'Слой скопирован');
 }
 function toggleMask(){
-  if (isGroup(AL())){ toast('Маска для группы — позже. Пока маскируй слои внутри',2400); return; }
   const L=AL();
   if (!L.mask){ const m=newMask(L, !!sel); L.mask=m; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=m;}}); if(sel) deselect(); toast('Маска добавлена: кисть скрывает, ластик возвращает',3200); }
   layersChanged(); requestRender();
@@ -1415,7 +1447,7 @@ function invertMask(){
   pushHist(pxEntry(L.mask.canvas,0,0,doc.w,doc.h,before)); L.dirty=true; thumbSoon(L); layersChanged(); requestRender(); toast('Маска инвертирована',1000);
 }
 function removeMask(apply){
-  const L=AL(); if(!L.mask) return; const m=L.mask;
+  const L=AL(); if(!L.mask) return; const m=L.mask; if (isGroup(L)) apply=false;
   if (apply){ const before=grab(L.canvas,{x:0,y:0,w:doc.w,h:doc.h}); L.ctx.globalCompositeOperation='destination-in'; L.ctx.drawImage(m.canvas,0,0); L.ctx.globalCompositeOperation='source-over';
     const px=pxEntry(L.canvas,0,0,doc.w,doc.h,before); L.mask=null; doc.editMask=false;
     pushHist(compound(px,{undo(){L.mask=m;},redo(){L.mask=null;doc.editMask=false;}})); }
@@ -1439,7 +1471,7 @@ function mergeDown(){
   lo.dirty=true; layersChanged(); requestRender();
 }
 function clearLayer(){
-  if (isGroup(AL())){ ungroup(); return; }
+  if (isGroup(AL()) && !(doc.editMask && AL().mask)){ ungroup(); return; }
   const L=AL(), tgt=doc.editMask&&L.mask?L.mask.canvas:L.canvas, before=grab(tgt,{x:0,y:0,w:doc.w,h:doc.h});
   const x=ctx2(tgt); if(tgt!==L.canvas){ x.fillStyle='#fff'; x.fillRect(0,0,doc.w,doc.h); } else x.clearRect(0,0,doc.w,doc.h);
   pushHist(pxEntry(tgt,0,0,doc.w,doc.h,before)); L.dirty=true; thumbSoon(L); requestRender();
@@ -1460,7 +1492,7 @@ function thumbFor(L, mask){
   return c;
 }
 const thumbQ=new Set(); let thumbT;
-function thumbSoon(L){ thumbQ.add(L); clearTimeout(thumbT); thumbT=setTimeout(()=>{ if($('#layers').hidden){ return; } for(const l of thumbQ){ thumbFor(l,false); if(l.mask) thumbFor(l,true);} thumbQ.clear(); },350); markDirty(); }
+function thumbSoon(L){ thumbQ.add(L); clearTimeout(thumbT); thumbT=setTimeout(()=>{ if($('#layers').hidden){ return; } for(const l of thumbQ){ if(!isGroup(l)) thumbFor(l,false); if(l.mask) thumbFor(l,true);} thumbQ.clear(); },350); markDirty(); }
 const FOLDER='<svg viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 9.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>';
 const CHEV='<svg class="chev" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>';
 const EYE='<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -1479,10 +1511,13 @@ function layersChanged(){
         const fold=document.createElement('button'); fold.className='fold'; fold.setAttribute('aria-label','Свернуть или развернуть группу'); fold.innerHTML=CHEV+FOLDER;
         fold.onclick=e=>{ e.stopPropagation(); L.collapsed=!L.collapsed; markDirty(); layersChanged(); };
         const n=doc.layers.filter(x=>isDesc(x,L)&&!isGroup(x)).length;
-        const nm=document.createElement('div'); nm.style.minWidth='0'; nm.style.gridColumn='span 2';
+        const nm=document.createElement('div'); nm.style.minWidth='0'; let mcg=null;
+        if (L.mask){ mcg=thumbFor(L,true); mcg.classList.toggle('sel', i===doc.active && doc.editMask); mcg.style.opacity=L.mask.enabled?1:.4;
+          mcg.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); toast('Рисуешь по маске группы: кисть скрывает, ластик возвращает',2600); }; }
+        else nm.style.gridColumn='span 2';
         nm.innerHTML='<div class="nm"></div><div class="meta"></div>';
         nm.firstChild.textContent=L.name; nm.lastChild.textContent=n+' сл. · '+Math.round(L.opacity*100)+'% · '+(L.blend==='pass'?'Сквозной':(BLENDS.find(b=>b[0]===L.blend)||BLENDS[0])[1]);
-        row.append(eye, fold, nm);
+        row.append(eye, fold); if (mcg) row.append(mcg); row.append(nm);
         row.onclick=()=>{ if (dragJustEnded) return; doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); };
         row.dataset.idx=i; attachLayerDrag(row, L); list.append(row); continue;
       }
@@ -1502,7 +1537,7 @@ function layersChanged(){
     const L=AL(), g=isGroup(L); $('#lyName').value=L.name;  drawLyOpac(); $('#lyOpacV').textContent=Math.round(L.opacity*100);
     if ($('#lyBlend').dataset.g!==String(g)){ $('#lyBlend').dataset.g=String(g); $('#lyBlend').innerHTML=(g?'<option value="pass">Сквозной</option>':'')+BLENDS.map(b=>`<option value="${b[0]}">${b[1]}</option>`).join(''); }
     $('#lyBlend').value=L.blend;
-    $('#lyMask').textContent = g ? 'Маска группы — позже' : L.mask ? 'Маска…' : '+ Маска'; $('#lyMask').disabled=g;
+    $('#lyMask').textContent = L.mask ? 'Маска…' : (g ? '+ Маска группы' : '+ Маска');
     $('#lyMask').style.gridColumn = L.mask ? 'span 2' : '1/-1';
     $('#lyMaskInv').hidden = !L.mask;
     $('#lyMerge').textContent = g ? 'Слить группу' : 'Слить вниз';
@@ -1530,21 +1565,21 @@ $('#lyDup').onclick=dupLayer; $('#lyDel').onclick=deleteLayer; $('#lyUp').onclic
 $('#lyMerge').onclick=mergeDown; $('#lyMaskInv').onclick=invertMask; $('#lyClear').onclick=clearLayer;
 $('#lyMask').onclick=()=>{ if(!AL().mask){ toggleMask(); return; } openMaskMenu(); };
 function openMaskMenu(){
-  const L=AL(), onMask=doc.editMask;
-  const d=dialog(`<div class="mhead"><div class="mprev"></div><div><h3>Маска слоя</h3><p class="mname"></p></div></div>`,
-    [[onMask?'Рисовать по слою':'Рисовать по маске', ()=>{ doc.editMask=!onMask; layersChanged(); if(!onMask) toast('Рисуешь по маске: кисть скрывает, ластик возвращает',2600); }, '', onMask?'Кисть снова рисует по картинке':'Кисть скрывает, ластик возвращает'],
+  const L=AL(), onMask=doc.editMask, g=isGroup(L);
+  const items=[[onMask?(g?'Закончить с маской':'Рисовать по слою'):'Рисовать по маске', ()=>{ doc.editMask=!onMask; layersChanged(); if(!onMask) toast('Рисуешь по маске: кисть скрывает, ластик возвращает',2600); }, '', onMask?(g?'Вернуться к группе':'Кисть снова рисует по картинке'):'Кисть скрывает, ластик возвращает'],
      ['Инвертировать', ()=>invertMask(), '', 'Скрытое станет видимым и наоборот · ⌘I'],
-     [L.mask.enabled?'Выключить маску':'Включить маску', ()=>{ setProp(L.mask,'enabled',!L.mask.enabled); layersChanged(); }, '', L.mask.enabled?'Временно показать слой целиком':'Снова скрыть замаскированное'],
-     ['Применить к слою', ()=>removeMask(true), '', 'Скрытое стирается со слоя, маска исчезает'],
-     ['Удалить маску', ()=>removeMask(false), 'dg', 'Слой снова виден целиком'],
-     ['Закрыть', null, 'close']], {list:true});
+     [L.mask.enabled?'Выключить маску':'Включить маску', ()=>{ setProp(L.mask,'enabled',!L.mask.enabled); layersChanged(); }, '', L.mask.enabled?(g?'Временно показать группу целиком':'Временно показать слой целиком'):'Снова скрыть замаскированное'],
+     ...(g?[]:[['Применить к слою', ()=>removeMask(true), '', 'Скрытое стирается со слоя, маска исчезает']]),
+     ['Удалить маску', ()=>removeMask(false), 'dg', g?'Группа снова видна целиком':'Слой снова виден целиком'],
+     ['Закрыть', null, 'close']];
+  const d=dialog(`<div class="mhead"><div class="mprev"></div><div><h3>${g?'Маска группы':'Маска слоя'}</h3><p class="mname"></p></div></div>`, items, {list:true});
   d.querySelector('.mname').textContent='«'+L.name+'»'+(L.mask.enabled?'':' · выключена');
   const k=Math.min(144/doc.w, 144/doc.h), c=mk(Math.max(1,Math.round(doc.w*k)), Math.max(1,Math.round(doc.h*k))), x=ctx2(c);
   x.fillStyle='#000'; x.fillRect(0,0,c.width,c.height); x.imageSmoothingQuality='high'; x.drawImage(L.mask.canvas,0,0,c.width,c.height);
   d.querySelector('.mprev').append(c);
 }
 const escapeHtml = s => s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function showLayers(on){ const p=$('#layers'); p.hidden=!on; stage.classList.toggle('lyopen', on); for(const b of ['#bLayers','#bLayers2']) $(b).classList.toggle('on',on); if(on&&doc){ doc.layers.forEach(L=>{ if(isGroup(L)) return; thumbFor(L,false); if(L.mask)thumbFor(L,true);}); layersChanged(); } }
+function showLayers(on){ const p=$('#layers'); p.hidden=!on; stage.classList.toggle('lyopen', on); for(const b of ['#bLayers','#bLayers2']) $(b).classList.toggle('on',on); if(on&&doc){ doc.layers.forEach(L=>{ if(!isGroup(L)) thumbFor(L,false); if(L.mask)thumbFor(L,true);}); layersChanged(); } }
 $('#bLayers').onclick=()=>showLayers($('#layers').hidden);
 $('#bLayers2').onclick=()=>showLayers($('#layers').hidden);
 $('#lyClose').onclick=()=>showLayers(false);
@@ -1707,10 +1742,10 @@ async function openPsd(f){
   const buf=await f.arrayBuffer();
   const psd=agPsd.readPsd(buf,{skipThumbnail:true,skipCompositeImageData:false});
   createDoc(psd.width, psd.height, f.name.replace(/\.psd$/i,''));
-  const layers=[]; let gmask=false;
+  const layers=[];
   (function walk(ch, P){ for(const c of ch||[]){
     if(c.children){ const G=newGroup(c.name||'Группа'); G.visible=!c.hidden; G.opacity=c.opacity??1; G.blend=c.blendMode==='pass through'?'pass':psdToBlend(c.blendMode||'normal'); G.collapsed=!c.opened; G.parent=P;
-      if (c.mask) gmask=true; walk(c.children, G); layers.push(G); }
+      if (c.mask && c.mask.canvas) G.mask=psdMask(c.mask, G); walk(c.children, G); layers.push(G); }
     else { c.__parent=P; layers.push(c); } } })(psd.children, null);
   if (!layers.some(x=>!isGroup(x)) && psd.canvas){ doc.layers[0].ctx.clearRect(0,0,doc.w,doc.h); doc.layers[0].ctx.drawImage(psd.canvas,0,0); doc.layers.length=1; doc.active=0; return; }
   doc.layers=[];
@@ -1719,20 +1754,20 @@ async function openPsd(f){
     const L=newLayer(c.name||'Слой'); L.parent=c.__parent;
     if (c.canvas) L.ctx.drawImage(c.canvas, c.left||0, c.top||0);
     L.visible=!c.hidden; L.opacity=c.opacity??1; L.blend=psdToBlend(c.blendMode||'normal');
-    if (c.mask && c.mask.canvas){
-      const m=newMask(L); const mx=m.ctx; const def=(c.mask.defaultColor??255);
-      mx.clearRect(0,0,doc.w,doc.h); if(def>0){ mx.fillStyle=`rgba(255,255,255,${def/255})`; mx.fillRect(0,0,doc.w,doc.h); }
-      const mc=c.mask.canvas, g=ctx2(mc).getImageData(0,0,mc.width,mc.height), d=g.data;
-      for(let i=0;i<d.length;i+=4){ const v=d[i]; d[i]=d[i+1]=d[i+2]=255; d[i+3]=v; }
-      const tmp=mk(mc.width,mc.height); ctx2(tmp).putImageData(g,0,0);
-      mx.clearRect(c.mask.left||0,c.mask.top||0,mc.width,mc.height); mx.drawImage(tmp,c.mask.left||0,c.mask.top||0);
-      m.enabled=!c.mask.disabled; L.mask=m;
-    }
+    if (c.mask && c.mask.canvas) L.mask=psdMask(c.mask, L);
     doc.layers.push(L);
     await nextFrame();
   }
   doc.active=doc.layers.length-1; clearHistory();
-  if (gmask) toast('Маски групп из PSD пока не поддерживаются — группы открыты без них',4000);
+}
+function psdMask(cm, owner){
+  const m=newMask(owner), mx=m.ctx, def=(cm.defaultColor??255);
+  mx.clearRect(0,0,doc.w,doc.h); if(def>0){ mx.fillStyle=`rgba(255,255,255,${def/255})`; mx.fillRect(0,0,doc.w,doc.h); }
+  const mc=cm.canvas, g=ctx2(mc).getImageData(0,0,mc.width,mc.height), d=g.data;
+  for(let i=0;i<d.length;i+=4){ const v=d[i]; d[i]=d[i+1]=d[i+2]=255; d[i+3]=v; }
+  const tmp=mk(mc.width,mc.height); ctx2(tmp).putImageData(g,0,0);
+  mx.clearRect(cm.left||0,cm.top||0,mc.width,mc.height); mx.drawImage(tmp,cm.left||0,cm.top||0);
+  m.enabled=!cm.disabled; return m;
 }
 $('#fPlace').addEventListener('change', e=>{ const f=e.target.files[0]; e.target.value=''; if(f) placeFile(f); });
 async function placeFile(f){
@@ -1758,7 +1793,7 @@ function flatten(scale=1, white){
   x.imageSmoothingQuality='high'; if (white){ x.fillStyle='#fff'; x.fillRect(0,0,w,h); }
   composeTree(x, (x,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const s=ctx2(src); s.drawImage(L.canvas,0,0); s.globalCompositeOperation='destination-in'; s.drawImage(L.mask.canvas,0,0); }
-    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,w,h); });
+    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,w,h); }, {map:(c,cv)=>c.drawImage(cv,0,0,w,h)});
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; return c;
 }
 const toBlob=(c,type,q)=>new Promise(r=>c.toBlob(r,type,q));
@@ -1782,8 +1817,8 @@ async function exportImg(kind){
     if (kind==='psd'){
       if(!window.agPsd||!window.fflate) throw new Error('Библиотеки PSD не загрузились');
       const build=P=>kidsOf(P).map(L=>{
-        if (isGroup(L)) return {name:L.name, opacity:L.opacity, hidden:!L.visible, blendMode:L.blend==='pass'?'pass through':blendToPsd(L.blend), opened:!L.collapsed, children:build(L)};
-        const o={name:L.name, canvas:L.canvas, left:0, top:0, opacity:L.opacity, hidden:!L.visible, blendMode:blendToPsd(L.blend)};
+        const o = isGroup(L) ? {name:L.name, opacity:L.opacity, hidden:!L.visible, blendMode:L.blend==='pass'?'pass through':blendToPsd(L.blend), opened:!L.collapsed, children:build(L)}
+                             : {name:L.name, canvas:L.canvas, left:0, top:0, opacity:L.opacity, hidden:!L.visible, blendMode:blendToPsd(L.blend)};
         if (L.mask){ const m=mk(doc.w,doc.h), mx=ctx2(m); mx.fillStyle='#000'; mx.fillRect(0,0,doc.w,doc.h); mx.drawImage(L.mask.canvas,0,0); o.mask={canvas:m,left:0,top:0,defaultColor:0,disabled:!L.mask.enabled}; }
         return o; });
       const children=build(null);
@@ -1816,7 +1851,9 @@ $('#xfFlipH').onclick=()=>{ if(xf){ xf.sx*=-1; flipFix(); } }; $('#xfFlipV').onc
 function flipFix(){ // keep scales positive by flipping pixels instead
   const f=xf.float, c=mk(f.width,f.height), x=ctx2(c);
   if (xf.sx<0){ x.translate(f.width,0); x.scale(-1,1); xf.sx*=-1; } else { x.translate(0,f.height); x.scale(1,-1); xf.sy*=-1; }
-  x.drawImage(f,0,0); xf.float=c; requestRender();
+  x.drawImage(f,0,0);
+  if (xf.parts) for (const [PL,pf] of xf.parts){ const c2=mk(pf.width,pf.height), x2=ctx2(c2); x2.setTransform(x.getTransform()); x2.drawImage(pf,0,0); xf.parts.set(PL,c2); }
+  xf.float=c; requestRender();
 }
 $('#xfCover').onclick=()=>xfFit(true); $('#xfContain').onclick=()=>xfFit(false);
 $('#xfFree').onclick=()=>{ S.xfFree=!S.xfFree; $('#xfFree').classList.toggle('pri',S.xfFree); };
@@ -2033,7 +2070,7 @@ async function autosave(){
   saving=true; dirtyDoc=false;
   try{
     const put={};
-    for (const L of doc.layers){ if (isGroup(L)) continue; if (L.dirty || !L.saved){ put['c'+L.id]=await toBlob(L.canvas,'image/png'); if(L.mask) put['m'+L.id]=await toBlob(L.mask.canvas,'image/png'); L.dirty=false; L.saved=true; } }
+    for (const L of doc.layers){ if (isGroup(L)){ if (L.mask && (L.dirty || !L.saved)){ put['m'+L.id]=await toBlob(L.mask.canvas,'image/png'); L.dirty=false; L.saved=true; } continue; } if (L.dirty || !L.saved){ put['c'+L.id]=await toBlob(L.canvas,'image/png'); if(L.mask) put['m'+L.id]=await toBlob(L.mask.canvas,'image/png'); L.dirty=false; L.saved=true; } }
     put.meta={ w:doc.w, h:doc.h, name:doc.name, active:doc.active, uid, layers:doc.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
     await idbPut(put);
   }catch(e){ console.warn('autosave', e); }
@@ -2046,7 +2083,9 @@ async function restore(){
     doc={w:m.w,h:m.h,name:m.name,layers:[],active:0,editMask:false};
     const byId=new Map();
     for (const l of m.layers){
-      if (l.kind==='group'){ const G=newGroup(l.name); G.id=l.id; Object.assign(G,{visible:l.visible,opacity:l.opacity,blend:l.blend,collapsed:l.collapsed}); G.__p=l.parent; byId.set(G.id,G); doc.layers.push(G); continue; }
+      if (l.kind==='group'){ const G=newGroup(l.name); G.id=l.id; Object.assign(G,{visible:l.visible,opacity:l.opacity,blend:l.blend,collapsed:l.collapsed}); G.__p=l.parent; byId.set(G.id,G);
+        if (l.mask){ G.mask=newMask(G); G.mask.enabled=l.mask.enabled; const mb=await idbGet('m'+l.id); if(mb){ const im=await createImageBitmap(mb); G.mask.ctx.clearRect(0,0,doc.w,doc.h); G.mask.ctx.drawImage(im,0,0); im.close&&im.close(); } }
+        doc.layers.push(G); continue; }
       const L=newLayer(l.name); L.__p=l.parent; byId.set(l.id,L); L.id=l.id; Object.assign(L,{visible:l.visible,opacity:l.opacity,blend:l.blend});
       const cb=await idbGet('c'+l.id); if(cb){ const im=await createImageBitmap(cb); L.ctx.drawImage(im,0,0); im.close&&im.close(); }
       await nextFrame();
@@ -2062,7 +2101,7 @@ async function restore(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(); } });
 
-const APP_VERSION='2026-10-01 · 21:30'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · 23:00'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
