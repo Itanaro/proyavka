@@ -749,7 +749,7 @@ function updateStatus(){
 
 /* ============ history ============ */
 let undoStack=[], redoStack=[], histBytes=0;
-const HIST_LIMIT = 700*1048576;
+const HIST_LIMIT = 260*1048576; // Safari on iPad kills the tab well before the device runs out of RAM
 function clearHistory(){ undoStack=[]; redoStack=[]; histBytes=0; }
 function pushHist(e){
   e.bytes = e.bytes||0; undoStack.push(e); histBytes+=e.bytes;
@@ -847,6 +847,7 @@ function strokeEnd(cancel){
   const before = grab(tgt,r);
   const reg=mk(r.w,r.h), rx=ctx2(reg); rx.drawImage(strokeBuf, r.x,r.y,r.w,r.h, 0,0,r.w,r.h);
   if (sel){ rx.globalCompositeOperation='destination-in'; rx.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,r.w,r.h); }
+  if (st.clone) setTimeout(()=>{ if(!stroke) retouchCache=null; }, 0);
   if (st.clone && S.cloneAligned && st.last) cloneSrc={x:clamp(st.last.x+st.clone.ox,0,doc.w-1), y:clamp(st.last.y+st.clone.oy,0,doc.h-1)};
   if (st.clone){ const c=st.clone;
     if (c.heal){ try{ healRegion(rx, r, c); }catch(e){ console.error(e); toast('Смешивание не удалось, оставила как штамп'); c.heal=false; } }
@@ -1250,6 +1251,7 @@ async function wandUp(){
     else { const m=ctx2(sel.mask); m.globalCompositeOperation = mode==='sub' ? 'destination-out' : 'source-over'; m.drawImage(full,0,0); m.globalCompositeOperation='source-over'; sel.segs=null; }
     pushSelHist(before); updateSelBar(); busy(false); requestRender();
   }catch(err){ console.error(err); wandPrev=null; busy(false); toast('Выделение не получилось: '+(err.message||'ошибка'),4000); }
+  finally{ if (wandCache) wandCache.full=null; wandCache=null; }
 }
 /* ============ selection edge: smooth, feather, contract / expand ============ */
 let edge=null, edgePrev=null, edgeRaf=0;
@@ -1424,6 +1426,7 @@ function patchPreviewNow(){
 async function patchUp(){
   if (lassoPts){ const pts=lassoPts; lassoPts=null; if (pts.length<3){ if (sel) quickDeselect(); return; } if (pts.length>=3){ const m=S.selMode; S.selMode='new'; applySelPoly(pts); S.selMode=m; toast('Теперь потяни выделение на чистое место',2000); } return; }
   const P=patchDrag; patchDrag=null; if(!P){ return; }
+  setTimeout(()=>{ retouchCache=null; }, 0);
   patchPrev=null; renderOverlay();
   const dx=Math.round(P.dx), dy=Math.round(P.dy); if (Math.hypot(dx,dy)*view.s<6){ requestRender(); return; }
   busy(true,'Ставлю заплатку…'); await nextFrame();
@@ -1473,6 +1476,46 @@ function drawLoupe(sx,sy,a,b){ // magnified view of the source spot, placed away
 }
 /* ============ removal: neural (MI-GAN, on device) and content-aware (PatchMatch) ============ */
 let miganSess=null, miganLoading=null, inpaintBusy=false;
+/* the network runs in its own worker; after a pause the worker is closed and Safari gets all of its memory back */
+let miganW=null, miganWT=null, miganWReady=null, miganWBroken=false;
+const MIGAN_WORKER=`let sess=null;
+onmessage=async e=>{ const m=e.data;
+  try{
+    if(m.type==='init'){ importScripts(m.ortUrl); ort.env.wasm.numThreads=1; ort.env.wasm.proxy=false; ort.env.wasm.wasmPaths={mjs:m.mjs}; ort.env.wasm.wasmBinary=m.wasm;
+      sess=await ort.InferenceSession.create(m.model,{executionProviders:['wasm'],graphOptimizationLevel:'all'}); postMessage({type:'ready'}); }
+    else if(m.type==='run'){ const r=await sess.run({image:new ort.Tensor('uint8',m.img,[1,3,m.h,m.w]), mask:new ort.Tensor('uint8',m.msk,[1,1,m.h,m.w])});
+      const o=r[sess.outputNames[0]].data; postMessage({type:'out',o},[o.buffer]); }
+  }catch(err){ postMessage({type:'err',msg:String(err&&err.message||err)}); } };`;
+function miganWorkerClose(){ clearTimeout(miganWT); if (miganW){ miganW.terminate(); miganW=null; } miganWReady=null; }
+async function miganWorker(){
+  clearTimeout(miganWT);
+  if (miganWReady) return miganWReady;
+  miganWReady=(async()=>{
+    busy(true,'Загружаю нейросеть удаления…'); await nextFrame();
+    const parts=await downloadAll([...MODELS.runtime, ...MODELS.migan],'Загружаю нейросеть удаления');
+    const nrt=MODELS.runtime.length, wasm=joinParts(parts.slice(0,nrt)).buffer, model=joinParts(parts.slice(nrt));
+    busy(true,'Готовлю нейросеть…'); await nextFrame();
+    const w=new Worker(URL.createObjectURL(new Blob([MIGAN_WORKER],{type:'text/javascript'})));
+    await new Promise((res,rej)=>{ w.onmessage=e=>{ if(e.data.type==='ready') res(); else if(e.data.type==='err') rej(new Error(e.data.msg)); }; w.onerror=e=>rej(new Error(e.message||'worker')); 
+      w.postMessage({type:'init', ortUrl:new URL('vendor/ort.min.js',location.href).href, mjs:new URL('vendor/ort-wasm-simd-threaded.jsep.mjs',location.href).href, wasm, model},[wasm, model.buffer]); });
+    miganW=w; return w;
+  })();
+  try{ return await miganWReady; }catch(e){ miganWReady=null; throw e; }
+}
+async function miganRun(img, msk, w, h){
+  if (!miganWBroken){
+    try{
+      const W=await miganWorker();
+      const o=await new Promise((res,rej)=>{ W.onmessage=e=>{ if(e.data.type==='out') res(e.data.o); else if(e.data.type==='err') rej(new Error(e.data.msg)); }; W.onerror=e=>rej(new Error(e.message||'worker'));
+        W.postMessage({type:'run', img, msk, w, h},[img.buffer, msk.buffer]); });
+      clearTimeout(miganWT); miganWT=setTimeout(miganWorkerClose, 25000);
+      return o;
+    }catch(e){ console.warn('migan worker failed, main thread fallback', e); miganWorkerClose(); miganWBroken=true; memNote('migan worker: '+e.message); }
+  }
+  const sess=await loadMigan();
+  const res=await sess.run({image:new ort.Tensor('uint8',img,[1,3,h,w]), mask:new ort.Tensor('uint8',msk,[1,1,h,w])});
+  return res[sess.outputNames[0]].data;
+}
 async function loadMigan(){
   if (miganSess) return miganSess; if (miganLoading) return miganLoading;
   miganLoading=(async()=>{ busy(true,'Загружаю нейросеть удаления…'); await nextFrame();
@@ -1484,7 +1527,6 @@ async function loadMigan(){
 async function generateFill(r, D, hole, method){
   const N=r.w*r.h;
   if (method==='ai'){
-    const sess=await loadMigan();
     const k=Math.min(1, 1024/Math.max(r.w,r.h)), cw=Math.max(8,Math.round(r.w*k)), ch=Math.max(8,Math.round(r.h*k));
     const sc=mk(r.w,r.h), sx=ctx2(sc); const sid=new ImageData(new Uint8ClampedArray(D),r.w,r.h); sx.putImageData(sid,0,0);
     const small=mk(cw,ch), smx=ctx2(small,{willReadFrequently:true}); smx.imageSmoothingQuality='high'; smx.drawImage(sc,0,0,cw,ch);
@@ -1494,8 +1536,8 @@ async function generateFill(r, D, hole, method){
     const img=new Uint8Array(3*M), msk=new Uint8Array(M);
     for (let i=0;i<M;i++){ const a=px[i*4+3]/255; img[i]=px[i*4]*a+255*(1-a)*0; img[i+M]=px[i*4+1]*a; img[i+2*M]=px[i*4+2]*a; msk[i]=hp[i*4+3]>20?0:255; }
     busy(true,'Нейросеть дорисовывает…'); await nextFrame();
-    const res=await sess.run({image:new ort.Tensor('uint8',img,[1,3,ch,cw]), mask:new ort.Tensor('uint8',msk,[1,1,ch,cw])});
-    const o=res[sess.outputNames[0]].data, oc_=mk(cw,ch), ox_=ctx2(oc_), oid=ox_.createImageData(cw,ch);
+    const o=await miganRun(img, msk, cw, ch); busy(true,'Вклеиваю…');
+    const oc_=mk(cw,ch), ox_=ctx2(oc_), oid=ox_.createImageData(cw,ch);
     for (let i=0;i<M;i++){ oid.data[i*4]=o[i]; oid.data[i*4+1]=o[i+M]; oid.data[i*4+2]=o[i+2*M]; oid.data[i*4+3]=255; }
     ox_.putImageData(oid,0,0);
     const big=mk(r.w,r.h), bx=ctx2(big,{willReadFrequently:true}); bx.imageSmoothingQuality='high'; bx.drawImage(oc_,0,0,r.w,r.h);
@@ -1524,7 +1566,7 @@ async function generateFill(r, D, hole, method){
     for (let i=0;i<N4;i++) res4[i*4+c]= c===3 ? 255 : base[i*4+c] + (f[i]-bl[i]); }
   return res4;
 }
-function writeFill(r, D, G, soft, name){ // soft: 0..255 blend mask
+function writeFill(r, D, G, soft, name){ setTimeout(()=>{ clearTimeout(saveT); saveT=setTimeout(autosave,1500); },0); // soft: 0..255 blend mask
   const N=r.w*r.h, res=new ImageData(r.w,r.h), d=res.data;
   if (S.retouchAll){
     for (let i=0;i<N;i++){ const j=i*4; d[j]=G[j]; d[j+1]=G[j+1]; d[j+2]=G[j+2]; d[j+3]=soft[i]; }
@@ -2095,7 +2137,7 @@ $('#lyClose').onclick=()=>showLayers(false);
 /* ============ tools & options UI ============ */
 function setTool(t, internal){
   if (xf && t!=='transform' && !internal){ toast('Сначала примени или отмени трансформ'); return; }
-  const prev=S.tool; S.tool=t; if (t!=='tap') tapSess=null; if (t==='picker' && prev!=='picker' && !internal) pickerBack=(prev==='brush'||prev==='eraser'||prev==='clone'||prev==='heal')?prev:'brush'; if (t!=='wand'){ wandCache=null; wandPrev=null; } else if (prev!=='wand' && !internal) toast('Тап — выделить по цвету. Тап и тянуть вбок — допуск на лету',3200);
+  const prev=S.tool; S.tool=t; if (t!=='tap') tapSess=null; if (t==='picker' && prev!=='picker' && !internal) pickerBack=(prev==='brush'||prev==='eraser'||prev==='clone'||prev==='heal')?prev:'brush'; retouchCache=null; if (t!=='wand'){ wandCache=null; wandPrev=null; } else if (prev!=='wand' && !internal) toast('Тап — выделить по цвету. Тап и тянуть вбок — допуск на лету',3200);
   if (t!==prev && !internal){ if (t==='remove') toast('Закрась то, что убрать, и отпусти — нейросеть дорисует фон. Первый раз скачает модель ~28 МБ',4200);
     else if (t==='spot') toast('Мажь по пятнышку, пылинке, прыщику — заполнится текстурой вокруг',3200);
     else if (t==='patch') toast('Обведи дефект (или выдели чем угодно), потом потяни выделение на чистое место',3600);
@@ -2825,7 +2867,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-01 · №16 удаление нейросетью'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-01 · №17 память'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
@@ -2844,11 +2886,20 @@ async function storeReport(){
   for (const f of all){ if (await mdbGet(f[0])) have++; }
   rows.push(['Частей моделей сохранено', `${have} из ${all.length}`]);
   try{ rows.push(['Документов в памяти', String((await libGet()).length)]); }catch(_){ rows.push(['Документов в памяти','нет доступа']); }
+  try{ const tr=JSON.parse(localStorage.getItem('proyavka.trail')||'[]'); if(tr.length) rows.push(['Последние перезапуски', tr.slice(-5).join('\n')]); }catch(_){}
+  rows.push(['Сейчас в памяти документа', '≈'+(doc?memMB():0)+' МБ']);
   dialog(`<h3>Проверка памяти</h3><p>Открой это окно, закрой Проявку, открой снова и загляни сюда ещё раз. Если счётчик открытий опять 1 — Safari стирает память этой страницы при закрытии.</p>
     <dl class="gest">${rows.map(r=>`<dt>${escapeHtml(r[0])}</dt><dd>${escapeHtml(r[1])}</dd>`).join('')}</dl>`, [['Закрыть',null,true]]);
 }
 
 /* ============ boot ============ */
+/* restart detector: if the page comes back while the previous run never said goodbye, Safari closed it (almost always memory) */
+function memNote(s){ try{ const a=JSON.parse(localStorage.getItem('proyavka.trail')||'[]'); a.push(new Date().toLocaleTimeString('ru-RU')+' '+s); while(a.length>25) a.shift(); localStorage.setItem('proyavka.trail', JSON.stringify(a)); }catch(_){} }
+function crumb(){ try{ sessionStorage.setItem('proyavka.alive', JSON.stringify({t:Date.now(), tool:S.tool, mem:doc?memMB():0, size:doc?doc.w+'×'+doc.h:'', layers:doc?doc.layers.length:0, ai:!!miganW, sam:!!samEnc})); }catch(_){} }
+setInterval(crumb, 2000);
+window.addEventListener('pagehide', ()=>{ try{ sessionStorage.removeItem('proyavka.alive'); }catch(_){} });
+let crashedBefore=null; try{ crashedBefore=JSON.parse(sessionStorage.getItem('proyavka.alive')||'null'); }catch(_){}
+if (crashedBefore) memNote('перезапуск после: '+JSON.stringify(crashedBefore));
 (async function boot(){
   loadPrefs(); $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл';
   setColor(S.color); sizeStage();
@@ -2863,6 +2914,7 @@ async function storeReport(){
   if (crashed) setTimeout(()=>dialog('<h3>Прошлый запуск не удался</h3><p>Похоже, Проявка закрылась, пока восстанавливала документ. Я открыла чистый холст, а сохранённый документ не тронут.</p>',
     [['Не восстанавливать', null], ['Восстановить документ', ()=>{ (async()=>{ try{ localStorage.setItem('proyavka.booting','1'); }catch(_){} const r=await restore(getCurDoc()); try{ localStorage.removeItem('proyavka.booting'); }catch(_){} if(!r) toast('Сохранённого документа нет'); })(); }, true]]), 600);
   setTool('brush'); syncSliders();
+  if (crashedBefore) setTimeout(()=>toast('Safari перезапустил Проявку (похоже, не хватило памяти). Документ восстановлен с последнего автосохранения',6000), 900);
   if (stage.clientWidth >= 900){ showLayers(true); fitView(); }
   window.addEventListener('resize', ()=>{ sizeStage(); });
   let seen=false; try{ seen=localStorage.getItem('kadr.help')==='1'; }catch(e){}
