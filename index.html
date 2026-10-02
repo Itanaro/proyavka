@@ -2,6 +2,13 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
+<script>/* black box: errors and boot stages survive a crash, shown in «Файл → Проверка памяти» */
+(function(){ function put(k,v){ try{ var a=JSON.parse(localStorage.getItem(k)||'[]'); a.push(new Date().toLocaleTimeString('ru-RU')+' '+v); while(a.length>15) a.shift(); localStorage.setItem(k,JSON.stringify(a)); }catch(_){} }
+  window.pvLog=function(v){ put('proyavka.boot', v); };
+  window.addEventListener('error', function(e){ put('proyavka.errors', (e.message||'ошибка')+' @'+(e.lineno||'?')); });
+  window.addEventListener('unhandledrejection', function(e){ var r=e.reason; put('proyavka.errors', 'promise: '+((r&&r.message)||String(r)).slice(0,160)); });
+  pvLog('старт страницы'); })();
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -3238,7 +3245,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №23.1 безопасный запуск'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №23.2 бортовой журнал'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
@@ -3258,6 +3265,7 @@ async function storeReport(){
   rows.push(['Частей моделей сохранено', `${have} из ${all.length}`]);
   try{ rows.push(['Документов в памяти', String((await libGet()).length)]); }catch(_){ rows.push(['Документов в памяти','нет доступа']); }
   try{ const tr=JSON.parse(localStorage.getItem('proyavka.trail')||'[]'); if(tr.length) rows.push(['Последние перезапуски', tr.slice(-5).join('\n')]); }catch(_){}
+  for (const [k,t] of [['proyavka.errors','Последние ошибки'],['proyavka.boot','Этапы запуска']]){ try{ const a=JSON.parse(localStorage.getItem(k)||'[]'); if(a.length) rows.push([t, a.slice(-6).join('\n')]); }catch(_){} }
   rows.push(['Сейчас в памяти документа', '≈'+(doc?memMB():0)+' МБ']);
   dialog(`<h3>Проверка памяти</h3><p>Открой это окно, закрой Проявку, открой снова и загляни сюда ещё раз. Если счётчик открытий опять 1 — Safari стирает память этой страницы при закрытии.</p>
     <dl class="gest">${rows.map(r=>`<dt>${escapeHtml(r[0])}</dt><dd>${escapeHtml(r[1])}</dd>`).join('')}</dl>`, [['Закрыть',null,true]]);
@@ -3272,17 +3280,18 @@ window.addEventListener('pagehide', ()=>{ try{ sessionStorage.removeItem('proyav
 let crashedBefore=null; try{ crashedBefore=JSON.parse(sessionStorage.getItem('proyavka.alive')||'null'); }catch(_){}
 if (crashedBefore){ const c=crashedBefore; memNote(`перезапуск · инструмент ${c.tool} · документ ≈${c.mem} МБ · ${c.size} · слоёв ${c.layers}${c.ai?' · нейросети были открыты':''}`); }
 (async function boot(){
+  pvLog('скрипт загружен');
   loadPrefs(); $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл';
   setColor(S.color); sizeStage();
   // crash guard: if the previous start died while restoring, start clean and offer the document instead of crashing again
   let crashed=false; try{ crashed=!!localStorage.getItem('proyavka.booting'); localStorage.setItem('proyavka.booting','1'); }catch(_){}
   let ok=false, found=0;
   try{ found = await migrateStorage() || 0; }catch(e){ console.warn('migrate', e); }
-  if (!crashed) ok = await restore();
+  pvLog(crashed?'безопасный запуск':'открываю документ'); if (!crashed) ok = await restore(); pvLog(ok?'документ открыт':'новый холст');
   if (found) setTimeout(()=>toast('В памяти нашлись прежние картинки: «Файл → Мои документы», карточки «Найдено»',6000), 1500);
   if (!ok) createDoc(3000,4000,'Без названия');
   // the guard stays on until the restored document has been drawn and lived a few seconds: a crash on the first frames also counts
-  setTimeout(()=>{ try{ localStorage.removeItem('proyavka.booting'); }catch(_){} }, 6000);
+  setTimeout(()=>{ try{ localStorage.removeItem('proyavka.booting'); }catch(_){} pvLog('запуск прошёл'); }, 6000);
   if (crashed) setTimeout(()=>dialog('<h3>Прошлый запуск не удался</h3><p>Похоже, Проявка закрылась, пока восстанавливала документ. Я открыла чистый холст, а сохранённый документ не тронут.</p>',
     [['Не восстанавливать', null], ['Восстановить документ', ()=>{ (async()=>{ try{ localStorage.setItem('proyavka.booting','1'); }catch(_){} const r=await restore(getCurDoc()); try{ localStorage.removeItem('proyavka.booting'); }catch(_){} if(!r) toast('Сохранённого документа нет'); })(); }, true]]), 600);
   setTool('brush'); syncSliders();
