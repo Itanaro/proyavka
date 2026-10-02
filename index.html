@@ -83,7 +83,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .hs .hk{position:absolute;top:6px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--fg);box-shadow:0 1px 4px rgba(0,0,0,.5)}
 .row .hs{flex:1;width:auto}
 #opts.tight{gap:8px} #opts.tight .hs{width:80px} #opts.tight .opt{gap:5px}
-#adjbar .seg{align-self:flex-start} #adjbar .er{grid-template-columns:150px 1fr 52px} #adjbar canvas.curve{width:100%;aspect-ratio:1.6;max-height:240px;border-radius:10px;touch-action:none;display:block} #adjbar canvas.lv{aspect-ratio:auto;height:64px}
+#adjbar .seg,#depthbar .seg{align-self:flex-start} #adjbar .er{grid-template-columns:150px 1fr 52px} #adjbar canvas.curve{width:100%;aspect-ratio:1.6;max-height:240px;border-radius:10px;touch-action:none;display:block} #adjbar canvas.lv{aspect-ratio:auto;height:64px}
 #optMore{min-width:36px;font-size:16px;letter-spacing:1px}
 #optPop{position:absolute;z-index:45;display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);max-width:min(420px,calc(100vw - 32px))}
 #optPop .opt{justify-content:space-between} #optPop .hs{width:150px} #optPop .seg{align-self:flex-start}
@@ -132,15 +132,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .fbar button{height:36px;padding:0 12px;border-radius:8px;white-space:nowrap;font-size:13px}
 .fbar button:active{background:var(--panel-2)}
 .fbar .pri{background:var(--accent);color:var(--accent-ink);font-weight:600}
-#edgebar,#harmbar,#adjbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
-#edgebar .eh,#harmbar .eh,#adjbar .eh{font-weight:600;font-size:14px}
-#edgebar .eh span,#harmbar .eh span,#adjbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
-#edgebar .er,#harmbar .er,#adjbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
-#edgebar .er label,#harmbar .er label,#adjbar .er label{color:var(--muted)}
-#edgebar .er .v,#harmbar .er .v,#adjbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
-#edgebar .er .hs,#harmbar .er .hs,#adjbar .er .hs{height:32px;width:auto}
+#edgebar,#harmbar,#adjbar,#depthbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
+#edgebar .eh,#harmbar .eh,#adjbar .eh,#depthbar .eh{font-weight:600;font-size:14px}
+#edgebar .eh span,#harmbar .eh span,#adjbar .eh span,#depthbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+#edgebar .er,#harmbar .er,#adjbar .er,#depthbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
+#edgebar .er label,#harmbar .er label,#adjbar .er label,#depthbar .er label{color:var(--muted)}
+#edgebar .er .v,#harmbar .er .v,#adjbar .er .v,#depthbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
+#edgebar .er .hs,#harmbar .er .hs,#adjbar .er .hs,#depthbar .er .hs{height:32px;width:auto}
 #edShift::after{content:"";position:absolute;left:50%;top:9px;width:2px;height:12px;margin-left:-1px;background:var(--muted);border-radius:1px}
-#edgebar .eb,#harmbar .eb,#adjbar .eb{display:flex;gap:6px;margin-top:2px}
+#edgebar .eb,#harmbar .eb,#adjbar .eb,#depthbar .eb{display:flex;gap:6px;margin-top:2px}
 
 /* layers */
 #layers{position:absolute;top:8px;right:8px;bottom:8px;width:290px;max-width:calc(100% - 16px);background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;box-shadow:0 10px 36px rgba(0,0,0,.5);z-index:5}
@@ -480,6 +480,7 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
     <button class="tb" data-tool="lasso" aria-label="Лассо (L)"><svg viewBox="0 0 24 24"><path d="M5 10c0-4 4-6 8-6s7 2 7 5-3 6-8 6c-2 0-3.5-.4-4.5-1"/><path d="M7.5 14c-2 1-2.5 3-1 4.5S9 20 9 22"/></svg></button>
     <button class="tb" data-tool="rect" aria-label="Прямоугольное выделение (M)"><svg viewBox="0 0 24 24"><path d="M4 4h3M10 4h4M17 4h3v3M20 10v4M20 17v3h-3M14 20h-4M7 20H4v-3M4 14v-4M4 7V4"/></svg></button>
     <button class="tb" data-tool="wand" aria-label="Волшебная палочка (W)"><svg viewBox="0 0 24 24"><path d="m4 20 11-11"/><path d="m13.5 7.5 3 3"/><path d="M18 2.5v3M16.5 4h3M20.5 8.5v2.5M19.25 9.75h2.5M10 3v2M9 4h2"/></svg></button>
+    <button class="tb" data-tool="depth" aria-label="Глубина (D)"><svg viewBox="0 0 24 24"><path d="M2.5 18.5 8 10l3.5 5 3-4 7 7.5z"/><path d="M4 7h4M3 4h7M14 4.5h7"/></svg></button>
     <button class="tb" data-tool="tap" aria-label="Тап по объекту (T)"><svg viewBox="0 0 24 24"><path d="M9 11V5a1.5 1.5 0 0 1 3 0v5"/><path d="M12 10V8.5a1.5 1.5 0 0 1 3 0V11"/><path d="M15 10.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-4.6-2.2L4 15.5a1.5 1.5 0 0 1 2.3-1.9L9 16"/><path d="M19 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></svg></button>
     <button class="tb" id="bSubject" aria-label="Выделить объект"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/><path d="M3 3h3M18 3h3M3 3v3M21 3v3" /></svg></button>
     <button class="tb" data-tool="picker" aria-label="Пипетка (I)"><svg viewBox="0 0 24 24"><path d="m14 6 4 4M4 20l1.5-4.5L15 6l3-3 3 3-3 3-9.5 9.5z"/></svg></button>
@@ -513,6 +514,7 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
       <div class="eb"><button id="edReset">Сброс</button><span style="flex:1"></span><button id="edCancel">Отмена</button><button id="edApply" class="pri">Применить</button></div>
     </div>
     <div class="fbar" id="adjbar" hidden></div>
+    <div class="fbar" id="depthbar" hidden></div>
     <div class="fbar" id="harmbar" hidden>
       <div class="eh">Гармонизация <span id="hmHint"></span></div>
       <div class="er"><label>Сила</label><div id="hm_str"></div><span class="v" id="hm_strV"></span></div>
@@ -927,6 +929,7 @@ function renderOverlay(){ if(!doc) return;
   ox.setTransform(dpr,0,0,dpr,0,0); ox.lineWidth=1;
   const polyPath = (pts,extra) => { ox.beginPath(); pts.forEach((p,i)=>{ const [sx,sy]=toScr(p[0],p[1],extra); i?ox.lineTo(sx,sy):ox.moveTo(sx,sy); }); ox.closePath(); };
   const ants = () => { ox.setLineDash([]); ox.strokeStyle='#000'; ox.stroke(); ox.setLineDash([5,5]); ox.lineDashOffset=-antsPhase; ox.strokeStyle='#fff'; ox.stroke(); ox.setLineDash([]); };
+  if (depPrev && dep){ const m=viewM(); ox.save(); ox.setTransform(dpr*m[0],dpr*m[1],dpr*m[2],dpr*m[3],dpr*m[4],dpr*m[5]); ox.imageSmoothingEnabled=true; ox.imageSmoothingQuality='high'; ox.drawImage(depPrev,0,0,doc.w,doc.h); ox.restore(); ox.setTransform(dpr,0,0,dpr,0,0); }
   if (edgePrev && edge){ const m=viewM(); ox.save(); ox.setTransform(dpr*m[0],dpr*m[1],dpr*m[2],dpr*m[3],dpr*m[4],dpr*m[5]); ox.imageSmoothingEnabled=true; ox.drawImage(edgePrev,0,0,doc.w,doc.h); ox.restore(); ox.setTransform(dpr,0,0,dpr,0,0); }
   else if (sel && !xf && sel.outline){ const m=viewM(); ox.beginPath();
     for (const ln of sel.outline){ ox.moveTo(m[0]*ln[0]+m[2]*ln[1]+m[4], m[1]*ln[0]+m[3]*ln[1]+m[5]); for(let i=2;i<ln.length;i+=2) ox.lineTo(m[0]*ln[i]+m[2]*ln[i+1]+m[4], m[1]*ln[i]+m[3]*ln[i+1]+m[5]); ox.closePath(); }
@@ -1236,7 +1239,7 @@ function selToMask(){
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
 }
-function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
+function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
 function quickDeselect(){ if(!sel) return; deselect(); toast('Выделение снято · вернуть — тап двумя пальцами',1500); }
 function syncSelModes(){ document.querySelectorAll('#selModes button').forEach(b=>b.classList.toggle('on', b.dataset.mode===S.selMode)); }
 function setSelMode(k){ S.selMode=k; if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
@@ -1309,6 +1312,7 @@ const MODELS = {
   sam_enc:  partList('msam_enc', [12582912,12582912,2817274]),
   sam_dec:  partList('msam_dec', [12582912,3918806]),
   migan:    partList('migan',    [12582912,12582912,2913357]),
+  depth:    partList('depth',    [12582912,12582912,2092977]),
 };
 async function ensureOrt(extraFiles=[], label='Загружаю модель'){
   if (!window.ort) await loadScript('vendor/ort.min.js');
@@ -1570,6 +1574,143 @@ for (const [key,id,min] of [['smooth','edSmooth',0],['feather','edFeather',0],['
 }
 $('#lyHarm').onclick=()=>harmOpen(); $('#lyAdj').onclick=()=>adjMenu(); $('#edApply').onclick=edgeApply; $('#edCancel').onclick=edgeCancel;
 $('#edReset').onclick=()=>{ if(!edge) return; edge.t={smooth:0,feather:0,shift:0}; edgeDraw(); edgePreview(); };
+/* ============ depth map (Depth Anything V2 Small, on the iPad): select by depth, haze, depth blur ============
+   The map is computed once per picture state from the visible composite (long side 518 px), then reused:
+   near ∈ [0..1], 1 = closest to the camera. */
+let depthMap=null, depthLoading=null, dep=null, depPrev=null, depRaf=0;
+const DEP_DEF={mode:'sel', ref:null, near:0.08, far:0.08, soft:0.06, start:0.45, dens:0.75, hsoft:0.5, blur:0.5, dof:0.06, show:false};
+async function depthCompute(){
+  if (depthMap && depthMap.ver===contentVer && depthMap.w0===doc.w && depthMap.h0===doc.h) return depthMap;
+  if (depthLoading) return depthLoading;
+  depthLoading=(async()=>{
+    const sess=await mlSession('depth', MODELS.depth, 'Загружаю модель глубины (один раз, ~27 МБ)', false);
+    busy(true,'Считаю глубину…'); await nextFrame();
+    const k=518/Math.max(doc.w,doc.h), w=Math.max(14,Math.round(doc.w*k/14)*14), h=Math.max(14,Math.round(doc.h*k/14)*14), N=w*h;
+    const c=mk(w,h), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high'; x.drawImage(flatten(Math.min(1,2*k),true),0,0,w,h);
+    const d=x.getImageData(0,0,w,h).data, inp=new Float32Array(3*N), M=[0.485,0.456,0.406], SD=[0.229,0.224,0.225];
+    for (let i=0;i<N;i++) for (let ch=0;ch<3;ch++) inp[ch*N+i]=(d[i*4+ch]/255-M[ch])/SD[ch];
+    const res=await sess.run({[sess.inputNames[0]]: new ort.Tensor('float32',inp,[1,3,h,w])});
+    const y=res[sess.outputNames[0]].data;
+    const smp=Float32Array.from(y).sort(), lo=smp[Math.floor(N*0.01)], hi=smp[Math.floor(N*0.995)], near=new Float32Array(N);
+    for (let i=0;i<N;i++) near[i]=clamp((y[i]-lo)/Math.max(1e-6,hi-lo),0,1);
+    depthMap={ver:contentVer, w0:doc.w, h0:doc.h, w, h, near};
+    busy(false); return depthMap;
+  })();
+  try{ return await depthLoading; } finally{ depthLoading=null; }
+}
+const smooth01 = (a,b,v) => { if (b<=a) return v>=b?1:0; const t=clamp((v-a)/(b-a),0,1); return t*t*(3-2*t); };
+function depthAt(m, dx, dy){ // bilinear, doc coords
+  const fx=clamp(dx/m.w0*m.w-0.5,0,m.w-1), fy=clamp(dy/m.h0*m.h-0.5,0,m.h-1), x0=fx|0, y0=fy|0, x1=Math.min(m.w-1,x0+1), y1=Math.min(m.h-1,y0+1), tx=fx-x0, ty=fy-y0, n=m.near;
+  return (n[y0*m.w+x0]*(1-tx)+n[y0*m.w+x1]*tx)*(1-ty)+(n[y1*m.w+x0]*(1-tx)+n[y1*m.w+x1]*tx)*ty; }
+function depSelW(v,t){ const r=t.ref??0.5; return smooth01(r-t.far-t.soft-0.001, r-t.far, v) * (1-smooth01(r+t.near, r+t.near+t.soft+0.001, v)); }
+function depHazeW(v,t){ const f=1-v, a=t.start, b=a+(1-a)*t.hsoft+0.02; return t.dens*smooth01(a,b,f); }
+function depRadius(v,t,maxR){ const r=t.ref??depthMap.focusGuess; return maxR*smooth01(t.dof, t.dof+0.3, Math.abs(v-r)); }
+async function depthOpen(){
+  if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  try{ await depthCompute(); }
+  catch(err){ console.error(err); busy(false);
+    if (err.message==='cancel') toast('Загрузка модели отменена. Скачанные части сохранятся');
+    else if (err.message==='stall' || /fetch|http|network|Load failed/i.test(err.message)) toast('Модель глубины не скачалась: соединение оборвалось. Попробуй ещё раз, скачанные части сохранятся',6000);
+    else toast('Глубина не посчиталась: '+(err.message||'ошибка'),5000);
+    return; }
+  if (S.tool!=='depth') return;
+  const m=depthMap; if (m.focusGuess==null){ let best=0; for (let i=0;i<m.near.length;i++) if (m.near[i]>best) best=m.near[i]; m.focusGuess=best*0.92; }
+  dep={ t:Object.assign({}, DEP_DEF, dep?{mode:dep.t.mode}:{}), pv:null };
+  $('#depthbar').hidden=false; depthBuild(); depthPreview(); updateSelBar();
+}
+function depthClose(){ dep=null; depPrev=null; $('#depthbar').hidden=true; updateSelBar(); renderOverlay(); }
+function depthTap(dx,dy){ if(!dep){ depthOpen().then(()=>{ if(dep) depthTap(dx,dy); }); return; } if(!depthMap) return; dep.t.ref=depthAt(depthMap,dx,dy); depthBuild(); depthPreview(); }
+function depthBuild(){
+  const box=$('#depthbar'), t=dep.t; box.textContent='';
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='Глубина <span></span>';
+  head.lastChild.textContent = t.mode==='sel' ? (t.ref==null?'тапни по объекту — выделится всё на его глубине':'тап по другому месту — новая глубина')
+    : t.mode==='haze' ? 'дымка ложится новым слоем текущего цвета кисти' : (t.ref==null?'тапни по тому, что должно остаться резким':'тап — другая точка фокуса');
+  box.append(head);
+  const seg=document.createElement('div'); seg.className='seg';
+  for (const [k,l] of [['sel','Выделение'],['haze','Дымка'],['blur','Размытие']]){ const b=document.createElement('button'); b.textContent=l; b.className=t.mode===k?'on':''; b.onclick=()=>{ t.mode=k; depthBuild(); depthPreview(); }; seg.append(b); }
+  box.append(seg);
+  const row=(label,key,min,max,fmt)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label></label><div></div><span class="v"></span>'; r.firstChild.textContent=label;
+    const v=r.lastChild, show=()=>v.textContent=fmt(t[key]); show();
+    hslider(r.children[1], {min, max, get:()=>t[key], set:x=>{ t[key]=x; show(); if(!depRaf) depRaf=requestAnimationFrame(depthPreview); }}); box.append(r); };
+  const pc=x=>Math.round(x*100)+'%';
+  if (t.mode==='sel'){ row('Ближе','near',0,0.6,pc); row('Дальше','far',0,0.6,pc); row('Мягкость края','soft',0,0.3,pc); }
+  else if (t.mode==='haze'){ row('Начало','start',0,0.95,pc); row('Плотность','dens',0.05,1,pc); row('Переход','hsoft',0,1,pc);
+    const sw=document.createElement('div'); sw.className='er'; sw.innerHTML='<label>Цвет</label><div class="sw"></div><span></span>'; sw.children[1].style.cssText='height:22px;border-radius:6px;border:1px solid var(--line);background:'+S.color; box.append(sw); }
+  else { row('Сила','blur',0.05,1,pc); row('Резкая зона','dof',0,0.5,pc); }
+  const foot=document.createElement('div'); foot.className='eb';
+  const mapB=document.createElement('button'); mapB.className='chk'+(t.show?' on':''); mapB.textContent='Карта'; mapB.onclick=()=>{ t.show=!t.show; mapB.classList.toggle('on',t.show); depthPreview(); };
+  const sp=document.createElement('span'); sp.style.flex='1';
+  const cancel=document.createElement('button'); cancel.textContent='Закрыть'; cancel.onclick=()=>{ depthClose(); setTool('tap'); };
+  const ok=document.createElement('button'); ok.className='pri'; ok.textContent = t.mode==='sel' ? 'Выделить' : t.mode==='haze' ? 'Добавить дымку' : 'Размыть'; ok.onclick=depthApply;
+  foot.append(mapB, sp, cancel, ok); box.append(foot);
+}
+function depthPreview(){ depRaf=0; if(!dep||!depthMap) return; const m=depthMap, t=dep.t, N=m.w*m.h;
+  if (t.show){ const c=mk(m.w,m.h), x=ctx2(c), id=x.createImageData(m.w,m.h); for (let i=0;i<N;i++){ const g=m.near[i]*255; id.data[i*4]=id.data[i*4+1]=id.data[i*4+2]=g; id.data[i*4+3]=235; } x.putImageData(id,0,0); depPrev=c; renderOverlay(); return; }
+  if (t.mode==='blur'){ depPrev=depthBlurPreview(); renderOverlay(); return; }
+  const c=mk(m.w,m.h), x=ctx2(c), id=x.createImageData(m.w,m.h), d=id.data;
+  if (t.mode==='sel'){ if (t.ref==null){ depPrev=null; renderOverlay(); return; }
+    for (let i=0;i<N;i++){ const w=depSelW(m.near[i],t); d[i*4]=235; d[i*4+1]=50; d[i*4+2]=50; d[i*4+3]=(1-w)*140; } }
+  else { const col=hexRGB(S.color); for (let i=0;i<N;i++){ d[i*4]=col[0]; d[i*4+1]=col[1]; d[i*4+2]=col[2]; d[i*4+3]=depHazeW(m.near[i],t)*255; } }
+  x.putImageData(id,0,0); depPrev=c; renderOverlay();
+}
+function hexRGB(h){ const v=parseInt(String(h).replace('#',''),16); return [(v>>16)&255,(v>>8)&255,v&255]; }
+/* depth blur: a few blur levels (premultiplied), per pixel mixed by the radius its depth asks for */
+function blurMix(src, W, H, radiusAt, maxR){
+  const N=W*H, lv=[0, maxR/4, maxR/2, maxR], P=[0,1,2,3].map(()=>new Float32Array(N));
+  for (let i=0;i<N;i++){ const a=src[i*4+3]/255; P[0][i]=src[i*4]*a; P[1][i]=src[i*4+1]*a; P[2][i]=src[i*4+2]*a; P[3][i]=src[i*4+3]; }
+  const L=lv.map((s,l)=> l===0 ? P : P.map(ch=>gauss(Float32Array.from(ch),W,H,s/2)));
+  const out=new Uint8ClampedArray(N*4);
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const i=y*W+x, r=Math.min(maxR, radiusAt(x,y)); let l=0; while (l<lv.length-2 && r>lv[l+1]) l++;
+    const t = lv[l+1]>lv[l] ? clamp((r-lv[l])/(lv[l+1]-lv[l]),0,1) : 0, A=L[l], B=L[l+1];
+    const a=A[3][i]+(B[3][i]-A[3][i])*t, ia=a>0.5?255/a:0;
+    out[i*4]=(A[0][i]+(B[0][i]-A[0][i])*t)*ia; out[i*4+1]=(A[1][i]+(B[1][i]-A[1][i])*t)*ia; out[i*4+2]=(A[2][i]+(B[2][i]-A[2][i])*t)*ia; out[i*4+3]=a; }
+  return out;
+}
+function depthBlurPreview(){ const m=depthMap, t=dep.t;
+  if (!dep.pv){ const k=Math.min(1,900/Math.max(doc.w,doc.h)), c=flatten(k); dep.pv={k, w:c.width, h:c.height, data:ctx2(c,{willReadFrequently:true}).getImageData(0,0,c.width,c.height).data}; }
+  const {k,w,h,data}=dep.pv, maxR=t.blur*0.02*Math.max(doc.w,doc.h)*k;
+  const out=blurMix(data,w,h,(x,y)=>depRadius(depthAt(m,(x+0.5)/k,(y+0.5)/k),t,maxR),Math.max(0.5,maxR));
+  const c=mk(w,h); ctx2(c).putImageData(new ImageData(out,w,h),0,0); return c;
+}
+function depthSmallMask(fn){ const m=depthMap, c=mk(m.w,m.h), x=ctx2(c), id=x.createImageData(m.w,m.h), N=m.w*m.h, a8=new Uint8Array(N);
+  for (let i=0;i<N;i++){ const v=Math.round(clamp(fn(m.near[i]),0,1)*255); a8[i]=v; id.data[i*4]=id.data[i*4+1]=id.data[i*4+2]=255; id.data[i*4+3]=v; }
+  x.putImageData(id,0,0); return {c,a8}; }
+function topInsert(L, msg){ insertLayer(L, doc.layers.length, msg); L.parent=null; layersChanged(); }
+async function depthApply(){
+  if (!dep||!depthMap) return; const m=depthMap, t=dep.t;
+  if (t.mode==='sel'){
+    if (t.ref==null){ toast('Сначала тапни по объекту'); return; }
+    const {c,a8}=depthSmallMask(v=>depSelW(v,t)), sx=doc.w/m.w, sy=doc.h/m.h;
+    let x0=m.w,y0=m.h,x1=-1,y1=-1; for (let i=0;i<a8.length;i++) if (a8[i]>127){ const xx=i%m.w, yy=(i/m.w)|0; if(xx<x0)x0=xx; if(xx>x1)x1=xx; if(yy<y0)y0=yy; if(yy>y1)y1=yy; }
+    if (x1<0){ toast('На этой глубине ничего не нашлось — расширь «Ближе» / «Дальше»'); return; }
+    const full=mk(doc.w,doc.h), fx=ctx2(full); fx.imageSmoothingQuality='high'; fx.drawImage(c,0,0,doc.w,doc.h);
+    const before=snapshotSel(), segs=marchingSegs(a8,m.w,m.h,127,sx,sy), box=clipRect(x0*sx-4,y0*sy-4,(x1-x0+1)*sx+8,(y1-y0+1)*sy+8);
+    const mode = sel ? S.selMode : 'new';
+    if (mode==='new' || !sel) sel={mask:full, polys:[], inverted:false, segs, box};
+    else { const mm=ctx2(sel.mask); mm.globalCompositeOperation = mode==='sub' ? 'destination-out' : 'source-over'; mm.drawImage(full,0,0); mm.globalCompositeOperation='source-over';
+      const joined=new Float32Array((sel.segs?sel.segs.length:0)+segs.length); if(sel.segs) joined.set(sel.segs); joined.set(segs,sel.segs?sel.segs.length:0); sel.segs=joined; sel.box=selBBox(); }
+    pushSelHist(before); depthClose(); updateSelBar(); requestRender(); toast('Выделено по глубине. Край мягкий — подправь краем выделения или лассо',3200);
+    return;
+  }
+  if (t.mode==='haze'){
+    let L; try{ L=newLayer('Дымка'); }catch(e){ toast('Не хватает памяти'); return; }
+    L.ctx.fillStyle=S.color; L.ctx.fillRect(0,0,doc.w,doc.h);
+    const {c}=depthSmallMask(v=>depHazeW(v,t)); L.mask=newMask(L); L.mask.ctx.clearRect(0,0,doc.w,doc.h); L.mask.ctx.imageSmoothingQuality='high'; L.mask.ctx.drawImage(c,0,0,doc.w,doc.h);
+    depthClose(); topInsert(L,'Дымка добавлена слоем с маской — маску можно докрасить, силу менять прозрачностью'); markDirty(); requestRender(); return;
+  }
+  // blur: full resolution, in horizontal bands so memory stays small
+  busy(true,'Размываю по глубине…'); await nextFrame();
+  try{
+    const src=flatten(1), sx=ctx2(src,{willReadFrequently:true}), maxR=Math.max(0.5,t.blur*0.02*Math.max(doc.w,doc.h)), mg=Math.ceil(maxR*1.6)+2, BAND=256;
+    let L; L=newLayer('Размытие по глубине');
+    for (let y0=0; y0<doc.h; y0+=BAND){ const y1=Math.min(doc.h,y0+BAND), a=Math.max(0,y0-mg), b=Math.min(doc.h,y1+mg), H=b-a;
+      const dta=sx.getImageData(0,a,doc.w,H).data, out=blurMix(dta,doc.w,H,(x,y)=>depRadius(depthAt(depthMap,x+0.5,a+y+0.5),t,maxR),maxR);
+      L.ctx.putImageData(new ImageData(out.subarray((y0-a)*doc.w*4,(y1-a)*doc.w*4),doc.w,y1-y0),0,y0);
+      busy(true,'Размываю по глубине… '+Math.round(y1/doc.h*100)+'%'); await nextFrame(); }
+    depthClose(); topInsert(L,'Размытие легло новым слоем сверху — лишнее можно стереть или скрыть маской'); markDirty();
+  }catch(e){ console.error(e); toast('Не хватило памяти на размытие'); }
+  busy(false); requestRender();
+}
 /* ============ adjustment layers: curves, levels, hue/saturation, colour balance ============
    A layer of kind 'adj' has no pixels (a 1×1 stub canvas). When the tree is composited it takes what lies
    under it, passes it through a 64³ colour LUT (WebGL2; CPU fallback) and mixes the result back through
@@ -2903,7 +3044,7 @@ $('#lyClose').onclick=()=>showLayers(false);
 /* ============ tools & options UI ============ */
 function setTool(t, internal){
   if (xf && t!=='transform' && !internal){ toast('Сначала примени или отмени трансформ'); return; }
-  const prev=S.tool; S.tool=t; if (t!=='tap') tapSess=null; if (t==='picker' && prev!=='picker' && !internal) pickerBack=(prev==='brush'||prev==='eraser'||prev==='clone'||prev==='heal')?prev:'brush'; retouchCache=null; if (t!=='wand'){ wandCache=null; wandPrev=null; } else if (prev!=='wand' && !internal) toast('Тап — выделить по цвету. Тап и тянуть вбок — допуск на лету',3200);
+  const prev=S.tool; if (prev==='depth' && t!=='depth' && dep) depthClose(); S.tool=t; if (t==='depth' && !dep) setTimeout(depthOpen,0); if (t!=='tap') tapSess=null; if (t==='picker' && prev!=='picker' && !internal) pickerBack=(prev==='brush'||prev==='eraser'||prev==='clone'||prev==='heal')?prev:'brush'; retouchCache=null; if (t!=='wand'){ wandCache=null; wandPrev=null; } else if (prev!=='wand' && !internal) toast('Тап — выделить по цвету. Тап и тянуть вбок — допуск на лету',3200);
   if (t!==prev && !internal){ if (t==='remove') toast('Закрась то, что убрать, и отпусти — нейросеть дорисует фон. Первый раз скачает модель ~28 МБ',4200);
     else if (t==='spot') toast('Мажь по пятнышку, пылинке, прыщику — заполнится текстурой вокруг',3200);
     else if (t==='patch') toast('Обведи дефект (или выдели чем угодно), потом потяни выделение на чистое место',3600);
@@ -2920,7 +3061,7 @@ document.querySelectorAll('#rail [data-tool]').forEach(b=>b.onclick=()=>setTool(
 const TOOL_GROUPS = {
   paint:{ title:'Рисование', items:[['brush','Кисть','B'],['eraser','Ластик','E'],['picker','Пипетка','I']] },
   sel:  { title:'Выделение', items:[['lasso','Лассо','L'],['rect','Прямоугольник','M'],['wand','Волшебная палочка','W']] },
-  ai:   { title:'Умное выделение', items:[['@subject','Выделить объект',''],['tap','Тап по объекту','T']] },
+  ai:   { title:'Умное выделение и глубина', items:[['@subject','Выделить объект',''],['tap','Тап по объекту','T'],['depth','Глубина','D']] },
   tone: { title:'Тон и резкость', items:[['dodge','Осветление','O'],['burn','Затемнение',''],['sponge','Губка',''],['blur','Размытие',''],['sharpen','Резкость',''],['smudge','Палец','']] },
   fix:  { title:'Ретушь', items:[['remove','Удаление · нейросеть','R'],['spot','Точечная восст. кисть','Y'],['patch','Заплатка','J'],['heal','Восстанавливающая кисть','H'],['clone','Штамп','S']] },
 };
@@ -3014,6 +3155,8 @@ function renderOpts0(){
     const seg=document.createElement('div'); seg.className='seg';
     for (const [k,l] of [['new','Новое'],['add','＋ Добавить'],['sub','− Вычесть']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.selMode===k?'on':''; b.onclick=()=>setSelMode(k); seg.append(b); }
     o.append(seg);
+  } else if (S.tool==='depth'){
+    const h=document.createElement('span'); h.className='opt'; h.textContent='Глубина: выделение, дымка и размытие — в панели снизу. Тап по картинке задаёт глубину'; o.append(h);
   } else if (S.tool==='tap'){
     const seg=document.createElement('div'); seg.className='seg';
     for (const [k,l] of [['new','Новое'],['add','＋ Добавить'],['sub','− Вычесть']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.selMode===k?'on':''; b.onclick=()=>{ S.selMode=k; renderOpts(); syncSelModes(); }; seg.append(b); }
@@ -3136,6 +3279,7 @@ function showHelp(){
    <dt>Удаление · нейросеть (R)</dt><dd>Закрась карандашом лишний объект или мусор и отпусти — нейросеть прямо на iPad дорисует фон. Первый раз скачивается модель ~28 МБ, дальше работает без интернета. Для выделения — кнопка «Убрать нейросетью» на нижней панели.</dd>
    <dt>Точечная восстанавливающая кисть (Y)</dt><dd>Без источника: мажь по пятну, пылинке, прыщику — заполнится текстурой вокруг. Быстро и без нейросети.</dd>
    <dt>Осветление (O), затемнение, губка, размытие, резкость, палец</dt><dd>Группа «Тон и резкость». Работают кистью, мазки накапливаются — прошёл ещё раз, эффект сильнее. Осветление и затемнение: диапазон Тени / Средние / Света, «Экспозиция», «Сохранять цвет» (без пересвета и грязи). «＋ Серый слой» — неразрушающий вариант: слой 50% серого в «Мягком свете»; на нём осветление рисует светлым, затемнение — тёмным, картинка не трогается, а слабить можно прозрачностью слоя. Губка: «Приглушить» / «Насытить» — насыщенность под кистью; «Беречь яркие» не даёт пересытить и так яркие цвета. Палец размазывает, «Сила» — как далеко тянется краска. «Все слои» — берёт видимую картинку со всех слоёв и кладёт результат на текущий слой: удобно на пустом слое сверху.</dd>
+   <dt>Глубина (D)</dt><dd>Группа «Умное выделение и глубина». Нейросеть прямо на iPad строит карту глубины (первый раз скачает модель ~27 МБ). «Выделение» — тап по объекту выделяет всё на его глубине, «Ближе» / «Дальше» расширяют диапазон. «Дымка» — новый слой цвета кисти с маской по глубине: чем дальше, тем гуще. «Размытие» — тап по тому, что должно остаться резким; дальнее и ближнее размоется, результат ложится новым слоем сверху. «Карта» — показать саму карту глубины.</dd>
    <dt>Корректирующие слои</dt><dd>Панель слоёв → «+ Корректирующий слой»: кривые, уровни, цветовой тон / насыщенность, цветовой баланс. Меняют всё, что под ними, не трогая пиксели; настройки можно поменять в любой момент — тап по значку слоя. Кисть и ластик на таком слое рисуют его маску. «Только на слой ниже» — эффект только на слой прямо под ним (как обтравочная маска). Внутри группы с обычным наложением действует только на группу. «Слить вниз» впечатывает коррекцию в слой. В PSD уходят настоящими корректирующими слоями. Кривые: тап по линии — новая точка, тянуть — двигать, утащить за край — удалить.</dd>
    <dt>Гармонизация</dt><dd>Панель слоёв → «Гармонизация — цвет под фон». Подгоняет свет и цвет вставленного фрагмента под то, что под ним, как гармонизация в фотошопе. Без выделения берётся весь слой, с выделением — только выделенное (подойдёт и для склеенной картинки). «Ориентир»: «Вокруг» — смотрит на полосу фона вокруг фрагмента, «Весь фон» — на всю картинку под слоем. «Свет» и «Цвет» — что именно подгонять, «Насыщенность» — добавить или убрать сочности после подгонки.</dd>
    <dt>Заплатка (J)</dt><dd>Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение.</dd>
@@ -3339,7 +3483,7 @@ stage.addEventListener('pointerdown', e=>{
     const p=stagePos(e); touches.set(e.pointerId,{x:p[0],y:p[1],x0:p[0],y0:p[1]}); capture(e);
     clearTimeout(holdT);
     if (touches.size===1){
-      if (S.fingerDraw || (S.tool==='transform' && xf) || S.tool==='tap' || S.tool==='wand'){ fingerTool=true; toolDown(e,p); }
+      if (S.fingerDraw || (S.tool==='transform' && xf) || S.tool==='tap' || S.tool==='depth' || S.tool==='wand'){ fingerTool=true; toolDown(e,p); }
       else { onePan={x:p[0],y:p[1],vx:view.x,vy:view.y,moved:false};
         holdT=setTimeout(()=>{ if(onePan&&!onePan.moved&&touches.size===1){ onePan.pick=true; eyeStart(p,true); } },320); }
       gesture={t0:Date.now(), max:1, moved:false, start:null};
@@ -3432,7 +3576,7 @@ function toolDown(e,p){
   if (t==='wand'){ wandDown(p); return; }
   else if (t==='transform'){ if(xf) xfDown(p[0],p[1]); }
   else if (t==='picker'){ eyeStart(p,false); }
-  else if (t==='tap'){ tapDown=p; }
+  else if (t==='tap' || t==='depth'){ tapDown=p; }
   if ((t==='brush'||t==='eraser') && S.penHoldPick && e.pointerType==='pen' && stroke){ penHold={p0:p, T:setTimeout(()=>{ if(!penHold||!stroke) return; strokeEnd(true); activeTool='picker'; penHold.picking=true; eyeStart(penHold.p0,false); }, 450)}; }
 }
 let tapDown=null, penHold=null;
@@ -3500,6 +3644,7 @@ function toolUp(e){
   else if (t==='transform' && xf) xf.drag=null;
   else if (t==='picker'){ eyeEnd(false); if (penHold && penHold.picking){ /* back to the brush */ } else if (S.tool==='picker' && pickerBack){ setTool(pickerBack); } }
   else if (t==='wand' && wandDrag) wandUp();
+  else if (t==='depth' && tapDown){ const q=stagePos(e); if (Math.hypot(q[0]-tapDown[0],q[1]-tapDown[1])<12){ const [dx,dy]=toDoc(...tapDown); depthTap(dx,dy); } tapDown=null; }
   else if (t==='tap' && tapDown){ const q=stagePos(e); if (Math.hypot(q[0]-tapDown[0],q[1]-tapDown[1])<12){ const [dx,dy]=toDoc(...tapDown); tapSelect(dx,dy); } tapDown=null; }
   if (tmpMode){ S.selMode=tmpMode; tmpMode=null; }
   if (e.pointerType!=='touch') hover=stagePos(e);
@@ -3523,7 +3668,7 @@ document.addEventListener('keydown', e=>{
   if (mod && k==='g'){ e.preventDefault(); e.shiftKey?ungroup():makeGroup(); return; }
   if (mod && k==='j'){ e.preventDefault(); sel?selCopyToLayer():dupLayer(); return; }
   if (mod) return;
-  const map={b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap',w:'wand',j:'patch',h:'heal',s:'clone',r:'remove',y:'spot',o:'dodge'};
+  const map={d:'depth',b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap',w:'wand',j:'patch',h:'heal',s:'clone',r:'remove',y:'spot',o:'dodge'};
   if (map[k]){ setTool(map[k]); return; }
   if (k==='['||k===']'){ const f=k===']'?1.15:1/1.15; const s=clamp(Math.round(curSize()*f+(k===']'?1:-1)),1,SIZE_MAX); if(S.tool==='eraser') S.eraserSize=s; else S.size=s; spriteKey=''; syncSliders(); return; }
   if (edge && k==='enter'){ edgeApply(); return; }
@@ -3557,6 +3702,7 @@ function resetDocState(){
   if (typeof edge!=='undefined' && edge) edgeClose();
   if (typeof harm!=='undefined' && harm) harmClose();
   if (typeof adjEdit!=='undefined' && adjEdit){ adjEdit=null; $('#adjbar').hidden=true; }
+  if (typeof dep!=='undefined'){ if (dep) depthClose(); depthMap=null; }
   if (typeof thumbs!=='undefined') thumbs.clear();
   $('#xfbar').hidden=true; contentVer++;
 }
@@ -3732,7 +3878,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №26 корректирующие слои'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №27 глубина'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
