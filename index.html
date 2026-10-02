@@ -83,11 +83,11 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .hs .hk{position:absolute;top:6px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--fg);box-shadow:0 1px 4px rgba(0,0,0,.5)}
 .row .hs{flex:1;width:auto}
 #opts.tight{gap:8px} #opts.tight .hs{width:80px} #opts.tight .opt{gap:5px}
-#adjbar .seg,#depthbar .seg{align-self:flex-start} #adjbar .er{grid-template-columns:150px 1fr 52px} #adjbar canvas.curve{width:100%;aspect-ratio:1.6;max-height:240px;border-radius:10px;touch-action:none;display:block} #adjbar canvas.lv{aspect-ratio:auto;height:64px}
+#adjbar .seg,#depthbar .seg{align-self:flex-start} #adjbar .er{grid-template-columns:172px 1fr 52px} #adjbar canvas.curve{width:100%;aspect-ratio:1.6;max-height:240px;border-radius:10px;touch-action:none;display:block} #adjbar canvas.lv{aspect-ratio:auto;height:64px}
 #optMore{min-width:36px;font-size:16px;letter-spacing:1px}
 #optPop{position:absolute;z-index:45;display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);max-width:min(420px,calc(100vw - 32px))}
 #optPop .opt{justify-content:space-between} #optPop .hs{width:150px} #optPop .seg{align-self:flex-start}
-.opt .v{font-family:var(--mono);color:var(--fg);min-width:30px;font-size:12px;font-variant-numeric:tabular-nums}
+.opt .hs{margin:0 9px} .opt .v{font-family:var(--mono);color:var(--fg);min-width:34px;font-size:12px;font-variant-numeric:tabular-nums}
 .seg{display:inline-flex;background:var(--panel-2);border-radius:8px;padding:2px}
 .seg button{height:30px;padding:0 10px;border-radius:6px;font-size:13px}
 .seg button.on{background:var(--accent);color:var(--accent-ink)}
@@ -2114,7 +2114,7 @@ function harmOpen(){
     let x0=sw,y0=sh,x1=-1,y1=-1; for (let y=0;y<sh;y++) for (let x=0;x<sw;x++) if (a[(y*sw+x)*4+3]>8){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
     if (x1<0){ toast('Слой пустой'); return; }
     box=clipRect(x0/k-2, y0/k-2, (x1-x0+1)/k+4, (y1-y0+1)/k+4);
-    if (box.w*box.h > doc.w*doc.h*0.97 && !doc.layers.slice(0,idx).some(l=>!isGroup(l)&&l.visible)){ toast('Под слоем ничего нет — не с чем сравнивать'); return; } }
+    if (box.w*box.h > doc.w*doc.h*0.97 && !doc.layers.slice(0,idx).some(l=>!isGroup(l)&&l.visible)){ toast('Под слоем ничего нет. Выдели вставленный кусок и запусти ещё раз — он подгонится под окружение',3600); return; } }
   harm={ layer:L, idx, useSel, box, t:Object.assign({},HARM_DEF), prev:null };
   harmAnalyze();
   if (!harm) return;
@@ -3987,7 +3987,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №27.6 маска чёрным и белым'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №27.7 причёска'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
