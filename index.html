@@ -4029,6 +4029,10 @@ $('#lyBlend').innerHTML = blendOptions(false);
 // the name field stays read-only until tapped, so Pencil strokes on nearby controls never turn into handwriting
 $('#lyName').addEventListener('click',e=>{ const i=e.target; if(i.readOnly){ i.readOnly=false; i.focus(); i.select(); } });
 $('#lyName').addEventListener('blur',e=>{ e.target.readOnly=true; });
+// Scribble: when the Pencil hovers over (or touches) the name field it unlocks, so handwriting and strike-through work right on it
+{ const unlock=e=>{ const i=$('#lyName'); if (e.pointerType==='pen' && i.readOnly){ i.readOnly=false; } };
+  for (const ev of ['pointerover','pointermove','pointerdown']) $('#lyName').addEventListener(ev, unlock, {passive:true});
+  $('#lyName').addEventListener('pointerleave', e=>{ const i=e.target; if (e.pointerType==='pen' && document.activeElement!==i) i.readOnly=true; }); }
 $('#lyName').addEventListener('keydown',e=>{ if(e.key==='Enter') e.target.blur(); });
 $('#lyName').addEventListener('change',e=>{ setProp(AL(),'name',e.target.value||'Слой'); layersChanged(); });
 let opacStart=null;
@@ -4960,7 +4964,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №34 оптимизация: кэш слоёв, фоновое сохранение'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №34.1 имя слоя пишется карандашом'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
