@@ -469,6 +469,7 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
     <button class="tb" data-tool="sponge" aria-label="Губка"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="4"/><path d="M8.5 10h.01M12 12.5h.01M15.5 10h.01M9.5 14.5h.01M15 14.5h.01"/></svg></button>
     <button class="tb" data-tool="blur" aria-label="Размытие"><svg viewBox="0 0 24 24"><path d="M12 3c3 4 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 3-7 6-11z"/></svg></button>
     <button class="tb" data-tool="sharpen" aria-label="Резкость"><svg viewBox="0 0 24 24"><path d="M12 3 18 21H6z"/><path d="M12 9v6"/></svg></button>
+    <button class="tb" data-tool="liquify" aria-label="Пластика"><svg viewBox="0 0 24 24"><path d="M3 7c3 0 4 2 6.5 2S14 5 17 5s3 1.5 4 2"/><path d="M3 12.5c3 0 4.5 3 7.5 3s4-4.5 6.5-4.5 3 1 4 1.5"/><path d="M3 18c3 0 4 1.5 7 1.5s4.5-2 7-2 3 .5 4 1"/></svg></button>
     <button class="tb" data-tool="smudge" aria-label="Палец"><svg viewBox="0 0 24 24"><path d="M9 21v-6.5L6.5 12a1.6 1.6 0 0 1 2.3-2.3L10 11V4.5a1.5 1.5 0 0 1 3 0V10l4 .8a2 2 0 0 1 1.6 2.2L18 17.5c-.3 2-1.6 3.5-3.6 3.5"/><path d="M3 5.5c1.5-1 3-1 4.5 0"/></svg></button>
     <button class="tb" data-tool="patch" aria-label="Заплатка (J)"><svg viewBox="0 0 24 24"><rect x="3.5" y="8" width="17" height="8" rx="4" transform="rotate(-35 12 12)"/><path d="M10.5 10.5h.01M13.5 13.5h.01M13.5 10.5h.01M10.5 13.5h.01"/></svg></button>
     <button class="tb" data-tool="spot" aria-label="Точечная восстанавливающая кисть (Y)"><svg viewBox="0 0 24 24"><path d="M14.5 4.5 19.5 9.5 10 19c-1.5 1.5-4 1.8-6 1 .8-2-.5-4.5 1-6z"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></button>
@@ -702,7 +703,8 @@ const S = {
   pSize:true, pOpac:true, eraserSize:80, selMode:'new', fingerDraw:false, xfFree:false,
   wandTol:0.13, wandContig:true, wandSoft:true, wandAll:false,
   retouchAll:false, cloneAligned:true, cloneFlow:1, penHoldPick:true,
-  dbRange:'mid', dbExp:0.35, dbProtect:true, blurAmt:0.35, sharpAmt:0.4, fxFlow:0.6, spMode:'desat', spAmt:0.4, spVib:true, smudge:0.6, fxAll:false
+  dbRange:'mid', dbExp:0.35, dbProtect:true, blurAmt:0.35, sharpAmt:0.4, fxFlow:0.6, spMode:'desat', spAmt:0.4, spVib:true, smudge:0.6, fxAll:false,
+  liqMode:'push', liqSize:260, liqAmt:0.6
 };
 let doc = null;          // {w,h,name,layers:[], active, editMask}
 let view = {x:0,y:0,s:1,r:0};
@@ -954,10 +956,10 @@ function renderOverlay(){ if(!doc) return;
   }
   if (wandPrev){ const m=viewM(); ox.save(); ox.setTransform(dpr*m[0],dpr*m[1],dpr*m[2],dpr*m[3],dpr*m[4],dpr*m[5]); ox.imageSmoothingEnabled=true; ox.drawImage(wandPrev,0,0,doc.w,doc.h); ox.restore(); ox.setTransform(dpr,0,0,dpr,0,0); }
   if (tapSess && S.tool==='tap'){ for (const [x,y,l] of tapSess.points){ const [a,b]=toScr(x,y); ox.beginPath(); ox.arc(a,b,7,0,7); ox.fillStyle=l?'#3fb950':'#f85149'; ox.fill(); ox.lineWidth=2; ox.strokeStyle='#fff'; ox.stroke(); ox.fillStyle='#fff'; ox.fillRect(a-3.5,b-1,7,2); if(l) ox.fillRect(a-1,b-3.5,2,7); } }
-  const cur = stroke ? stroke.cursor : hover;
+  const cur = stroke ? stroke.cursor : liqStroke ? liqStroke.scr : hover;
   retouchOverlay(cur);
   if (eye){ drawEye(); return; }
-  if (cur && (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove'||FX_TOOLS.includes(S.tool))){
+  if (cur && (S.tool==='liquify'||S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove'||FX_TOOLS.includes(S.tool))){
     const r = Math.max(1.5, curSize()/2*view.s);
     ox.beginPath(); ox.arc(cur[0],cur[1],r,0,Math.PI*2); ox.strokeStyle='rgba(0,0,0,.7)'; ox.lineWidth=2.5; ox.stroke(); ox.strokeStyle='rgba(255,255,255,.9)'; ox.lineWidth=1; ox.stroke();
   }
@@ -997,8 +999,8 @@ function pxEntry(canvas, x,y,w,h, before){
   return { undo:swap, redo:swap, bytes:w*h*4 };
 }
 const compound = (...es) => ({ undo(){ for(let i=es.length-1;i>=0;i--) es[i].undo(); }, redo(){ for(const e of es) e.redo(); }, bytes: es.reduce((a,e)=>a+(e.bytes||0),0) });
-function undo(){ if(edge){ edgeCancel(); return; } if (adjEdit) adjClose(); if(stroke||xf) return; const e=undoStack.pop(); if(!e){ toast('Нечего отменять'); return; } e.undo(); redoStack.push(e); afterHist('Отменено', e.sel); }
-function redo(){ if (adjEdit) adjClose(); if(stroke||xf) return; const e=redoStack.pop(); if(!e){ toast("Нечего возвращать"); return; } e.redo(); undoStack.push(e); afterHist("Возвращено", e.sel); }
+function undo(){ if(edge){ edgeCancel(); return; } if (adjEdit) adjClose(); if(stroke||xf||liqStroke) return; const e=undoStack.pop(); if(!e){ toast('Нечего отменять'); return; } e.undo(); redoStack.push(e); afterHist('Отменено', e.sel); if (e.liq && liq===e.liq) liq.cv=contentVer; }
+function redo(){ if (adjEdit) adjClose(); if(stroke||xf||liqStroke) return; const e=redoStack.pop(); if(!e){ toast("Нечего возвращать"); return; } e.redo(); undoStack.push(e); afterHist("Возвращено", e.sel); if (e.liq && liq===e.liq) liq.cv=contentVer; }
 function afterHist(msg, selOnly){ if(selOnly){ requestRender(); toast(msg,900); return; } doc.active=clamp(doc.active,0,doc.layers.length-1); if(!AL().mask) doc.editMask=false; doc.layers.forEach(L=>L.dirty=true); layersChanged(); requestRender(); markDirty(); toast(msg,900); }
 function grab(canvas,r){ return ctx2(canvas).getImageData(r.x,r.y,r.w,r.h); }
 function clipRect(x,y,w,h){ const x0=clamp(Math.floor(x),0,doc.w), y0=clamp(Math.floor(y),0,doc.h), x1=clamp(Math.ceil(x+w),0,doc.w), y1=clamp(Math.ceil(y+h),0,doc.h); return {x:x0,y:y0,w:x1-x0,h:y1-y0}; }
@@ -1016,7 +1018,7 @@ function getSprite(color){
   x.fillStyle=g; x.fillRect(0,0,big,big); sprite=c; spriteKey=key; return c;
 }
 function hexA(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
-const curSize = () => S.tool==='eraser' ? S.eraserSize : S.size;
+const curSize = () => S.tool==='eraser' ? S.eraserSize : S.tool==='liquify' ? S.liqSize : S.size;
 
 function strokeBegin(p){
   if (filt){ toast('Сначала примени или отмени фильтр'); return false; }
@@ -1989,6 +1991,164 @@ async function filtApply(){
     pushHist(pxEntry(L.canvas,r.x,r.y,r.w,r.h,before)); L.dirty=true; thumbSoon(L); markDirty();
   }catch(e){ console.error(e); toast('Не хватило памяти — попробуй с выделением'); }
   busy(false); filtClose();
+}
+/* ============ liquify («Пластика»): push, bloat, pinch, twirl and reconstruct with the Pencil ============
+   A session keeps the layer as it was when liquify started plus a displacement field (a coarse grid of offsets);
+   every stroke edits the field and the layer is redrawn from the untouched original on the GPU, so many strokes
+   never smear the picture more than one. Each stroke is one undo step (it keeps only the changed piece of the field).
+   The selection works as a freeze mask: outside it nothing moves. */
+let liq=null, liqStroke=null, liqRaf=0;
+const LQ={};
+function lqGet(){
+  if (LQ.failed) return null; if (LQ.gl && !LQ.gl.isContextLost()) return LQ;
+  try{
+    const c=document.createElement('canvas'); c.width=c.height=1;
+    const gl=c.getContext('webgl2',{premultipliedAlpha:true, preserveDrawingBuffer:true, antialias:false, alpha:true, depth:false, stencil:false});
+    if (!gl) throw new Error('no webgl2');
+    const lin=!!gl.getExtension('OES_texture_float_linear');
+    const sh=(type,src)=>{ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const pr=gl.createProgram();
+    gl.attachShader(pr, sh(gl.VERTEX_SHADER, `#version 300 es
+in vec2 p; void main(){ gl_Position=vec4(p,0.0,1.0); }`));
+    gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, `#version 300 es
+precision highp float;
+uniform sampler2D src; uniform sampler2D fld; uniform vec2 size; out vec4 o;
+void main(){
+  vec2 pos=vec2(gl_FragCoord.x, size.y-gl_FragCoord.y);          // document pixels, y down
+  vec2 d=texture(fld, pos/size).rg;                                // where this pixel takes its colour from
+  o=texture(src, (pos+d)/size);                                    // premultiplied, trilinear (squeezed areas use the mips)
+}`));
+    gl.linkProgram(pr); if (!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+    gl.useProgram(pr);
+    const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+    const loc=gl.getAttribLocation(pr,'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+    const tex=(unit,minF,magF)=>{ const t=gl.createTexture(); gl.activeTexture(gl.TEXTURE0+unit); gl.bindTexture(gl.TEXTURE_2D,t);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,minF); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,magF);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE); return t; };
+    const tSrc=tex(0,gl.LINEAR_MIPMAP_LINEAR,gl.LINEAR), tFld=tex(1,gl.LINEAR,gl.LINEAR);
+    const U={src:gl.getUniformLocation(pr,'src'), fld:gl.getUniformLocation(pr,'fld'), size:gl.getUniformLocation(pr,'size')};
+    gl.uniform1i(U.src,0); gl.uniform1i(U.fld,1);
+    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+    c.addEventListener('webglcontextlost', e=>{ e.preventDefault(); LQ.gl=null; LQ.sess=null; });
+    Object.assign(LQ,{gl, canvas:c, tSrc, tFld, U, ffmt: lin ? gl.RG32F : gl.RG16F, sess:null}); return LQ;
+  }catch(e){ console.warn('liquify: no WebGL2', e); LQ.failed=true; return null; }
+}
+function lqBind(s){ // make the GPU hold this session's original layer and its whole field
+  const G=lqGet(); if (!G) return null; const gl=G.gl;
+  if (G.sess===s) return G;
+  if (G.canvas.width!==doc.w || G.canvas.height!==doc.h){ G.canvas.width=doc.w; G.canvas.height=doc.h; }
+  gl.viewport(0,0,doc.w,doc.h); gl.uniform2f(G.U.size,doc.w,doc.h);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,G.tSrc);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,s.src); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,G.tFld);
+  gl.texImage2D(gl.TEXTURE_2D,0,G.ffmt,s.fw,s.fh,0,gl.RG,gl.FLOAT,s.f);
+  G.sess=s; return G;
+}
+// redraw the field cells [x0,x1)×[y0,y1) of session s into its layer
+function lqRender(s, x0,y0,x1,y1){
+  const G=lqBind(s); if (!G) return false; const gl=G.gl;
+  x0=Math.max(0,x0-1); y0=Math.max(0,y0-1); x1=Math.min(s.fw,x1+1); y1=Math.min(s.fh,y1+1); if (x1<=x0||y1<=y0) return true;
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,G.tFld);
+  gl.pixelStorei(gl.UNPACK_ROW_LENGTH,s.fw); gl.pixelStorei(gl.UNPACK_SKIP_PIXELS,x0); gl.pixelStorei(gl.UNPACK_SKIP_ROWS,y0);
+  gl.texSubImage2D(gl.TEXTURE_2D,0,x0,y0,x1-x0,y1-y0,gl.RG,gl.FLOAT,s.f);
+  gl.pixelStorei(gl.UNPACK_ROW_LENGTH,0); gl.pixelStorei(gl.UNPACK_SKIP_PIXELS,0); gl.pixelStorei(gl.UNPACK_SKIP_ROWS,0);
+  // document pixels touched: the cells plus half a cell of interpolation around
+  const px=Math.max(0,Math.floor((x0-0.5)*s.cx)), py=Math.max(0,Math.floor((y0-0.5)*s.cy)), qx=Math.min(doc.w,Math.ceil((x1+0.5)*s.cx)), qy=Math.min(doc.h,Math.ceil((y1+0.5)*s.cy));
+  const w=qx-px, h=qy-py; if (w<=0||h<=0) return true;
+  gl.enable(gl.SCISSOR_TEST); gl.scissor(px, doc.h-qy, w, h); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES,0,3); gl.disable(gl.SCISSOR_TEST);
+  const c=s.layer.ctx; c.save(); c.globalAlpha=1; c.globalCompositeOperation='copy'; c.beginPath(); c.rect(px,py,w,h); c.clip(); c.drawImage(G.canvas,px,py,w,h,px,py,w,h); c.restore();
+  s.layer.dirty=true; return true;
+}
+function lqSession(L){
+  if (liq && liq.layer===L && liq.cv===contentVer && liq.w===doc.w && liq.h===doc.h) return liq;
+  const g=Math.max(1, Math.max(doc.w,doc.h)/1280), fw=Math.max(2,Math.round(doc.w/g)), fh=Math.max(2,Math.round(doc.h/g));
+  const src=mk(doc.w,doc.h); ctx2(src).drawImage(L.canvas,0,0);
+  liq={layer:L, src, w:doc.w, h:doc.h, fw, fh, cx:doc.w/fw, cy:doc.h/fh, f:new Float32Array(fw*fh*2), cv:contentVer};
+  return liq;
+}
+const LIQ_MODES=[['push','Сдвиг'],['bloat','Вздутие'],['pinch','Сжатие'],['twirl','Скручивание'],['rec','Восстановление']];
+function liqBegin(p, pressure){
+  if (filt||harm){ toast('Сначала примени или отмени фильтр'); return false; }
+  if (!pixelOnly()) return false; const L=AL();
+  if (L.kind==='adj'){ toast('Пластика работает на обычном слое'); return false; }
+  if (doc.editMask){ toast('Пластика двигает картинку, а не маску — тапни миниатюру слоя'); return false; }
+  if (!shown(L)){ toast('Слой скрыт, включи видимость'); return false; }
+  if (!lqGet()){ toast('Пластике нужен WebGL2'); return false; }
+  const s=lqSession(L);
+  let selW=null; if (sel){ const m=mk(s.fw,s.fh), mx=ctx2(m,{willReadFrequently:true}); mx.imageSmoothingQuality='high'; mx.drawImage(sel.mask,0,0,s.fw,s.fh);
+    const md=mx.getImageData(0,0,s.fw,s.fh).data; selW=new Float32Array(s.fw*s.fh); for (let i=0;i<selW.length;i++) selW[i]=md[i*4+3]/255; }
+  const [x,y]=toDoc(...p);
+  liqStroke={s, start:s.f.slice(), selW, last:[x,y], cur:[x,y], pr:pressure, box:[1e9,1e9,-1e9,-1e9], dirty:null, mode:S.liqMode, hold:null, scr:p, acc:0};
+  if (S.liqMode!=='push'){ liqDab(x,y,pressure,null); liqStroke.hold=setInterval(()=>{ if(liqStroke){ liqDab(liqStroke.cur[0],liqStroke.cur[1],liqStroke.pr,null); } },33); }
+  return true;
+}
+function liqMove(p, pressure){
+  const ls=liqStroke; if(!ls) return; const [x,y]=toDoc(...p); ls.scr=p; ls.cur=[x,y]; ls.pr=pressure;
+  const R=S.liqSize/2;
+  if (ls.mode==='push'){ // dabs along the path, each pushing by the distance travelled since the last
+    const dx=x-ls.last[0], dy=y-ls.last[1], d=Math.hypot(dx,dy), step=Math.max(1,R*0.12);
+    if (d<step) return; const n=Math.ceil(d/step);
+    for (let i=1;i<=n;i++){ const ax=ls.last[0]+dx*i/n, ay=ls.last[1]+dy*i/n; liqDab(ax,ay,pressure,[dx/n,dy/n]); }
+    ls.last=[x,y];
+  } else { const d=Math.hypot(x-ls.last[0],y-ls.last[1]); if (d>R*0.25){ liqDab(x,y,pressure,null); ls.last=[x,y]; } }
+}
+// one dab of the brush on the field
+function liqDab(x,y,pressure,v){
+  const ls=liqStroke, s=ls.s, f=s.f, R=S.liqSize/2, amt=S.liqAmt*(0.15+0.85*clamp(pressure,0,1));
+  const cx=s.cx, cy=s.cy, gx=x/cx-0.5, gy=y/cy-0.5, rx=R/cx, ry=R/cy;
+  let x0=Math.max(0,Math.floor(gx-rx)), x1=Math.min(s.fw-1,Math.ceil(gx+rx)), y0=Math.max(0,Math.floor(gy-ry)), y1=Math.min(s.fh-1,Math.ceil(gy+ry));
+  if (x1<x0||y1<y0) return;
+  const mode=ls.mode, sw=ls.selW, fw=s.fw;
+  // every dab reads the field as it was before it (writing in place would feed back into itself)
+  let old=null, ox0=0, oy0=0, ow=0, oh=0;
+  if (mode!=='rec'){ const m=Math.ceil(mode==='push' ? Math.hypot(v[0]/cx,v[1]/cy) : R*0.1/Math.min(cx,cy))+2; ox0=Math.max(0,x0-m); oy0=Math.max(0,y0-m); const ox1=Math.min(s.fw-1,x1+m), oy1=Math.min(s.fh-1,y1+m); ow=ox1-ox0+1; oh=oy1-oy0+1;
+    old=new Float32Array(ow*oh*2); for (let j=0;j<oh;j++) old.set(f.subarray(((oy0+j)*fw+ox0)*2, ((oy0+j)*fw+ox0+ow)*2), j*ow*2); }
+  const samp=(px,py,out)=>{ // bilinear read of the old field at cell coords
+    let fx=clamp(px-ox0,0,ow-1), fy=clamp(py-oy0,0,oh-1); const ix=Math.min(ow-2,Math.floor(fx)), iy=Math.min(oh-2,Math.floor(fy)); const tx=fx-ix, ty=fy-iy;
+    if (ow<2||oh<2){ const k=(iy*ow+ix)*2; out[0]=old[k]; out[1]=old[k+1]; return; }
+    const a=(iy*ow+ix)*2, b=a+2, c=a+ow*2, d=c+2;
+    out[0]=(old[a]*(1-tx)+old[b]*tx)*(1-ty)+(old[c]*(1-tx)+old[d]*tx)*ty; out[1]=(old[a+1]*(1-tx)+old[b+1]*tx)*(1-ty)+(old[c+1]*(1-tx)+old[d+1]*tx)*ty; };
+  const tmp=[0,0];
+  const k = mode==='push' ? Math.min(1, amt*1.25) : mode==='rec' ? amt*0.22 : amt*0.035; // per-dab strength
+  for (let j=y0;j<=y1;j++) for (let i=x0;i<=x1;i++){
+    const px=(i+0.5)*cx, py=(j+0.5)*cy, ddx=px-x, ddy=py-y, r2=(ddx*ddx+ddy*ddy)/(R*R); if (r2>=1) continue;
+    let w=(1-r2); w*=w; const idx=j*fw+i; if (sw) w*=sw[idx]; if (w<1e-4) continue;
+    const q=idx*2;
+    if (mode==='rec'){ const t=Math.min(1,k*w); f[q]-=f[q]*t; f[q+1]-=f[q+1]*t; continue; }
+    let mx, my; // how far the content under this point moves during this dab
+    if (mode==='push'){ mx=v[0]*k*w; my=v[1]*k*w; }
+    else if (mode==='bloat'){ mx=ddx*k*w; my=ddy*k*w; }
+    else if (mode==='pinch'){ mx=-ddx*k*w; my=-ddy*k*w; }
+    else { const a=k*w*1.8, c=Math.cos(a), sn=Math.sin(a); mx=ddx*c-ddy*sn-ddx; my=ddx*sn+ddy*c-ddy; }
+    samp((px-mx)/cx-0.5, (py-my)/cy-0.5, tmp); f[q]=tmp[0]-mx; f[q+1]=tmp[1]-my;   // new(p) = old(p − m) − m, read from the field as it was before this dab
+  }
+  const b=ls.box; b[0]=Math.min(b[0],x0); b[1]=Math.min(b[1],y0); b[2]=Math.max(b[2],x1+1); b[3]=Math.max(b[3],y1+1);
+  const dd=ls.dirty||(ls.dirty=[1e9,1e9,-1e9,-1e9]); dd[0]=Math.min(dd[0],x0); dd[1]=Math.min(dd[1],y0); dd[2]=Math.max(dd[2],x1+1); dd[3]=Math.max(dd[3],y1+1);
+  if (!liqRaf) liqRaf=requestAnimationFrame(liqFlush);
+}
+function liqFlush(){ liqRaf=0; const ls=liqStroke; if (!ls||!ls.dirty) return; const d=ls.dirty; ls.dirty=null; lqRender(ls.s,d[0],d[1],d[2],d[3]); requestRender(); }
+function liqEnd(cancel){
+  const ls=liqStroke; if (!ls) return; clearInterval(ls.hold); liqStroke=null; if (liqRaf){ cancelAnimationFrame(liqRaf); liqRaf=0; }
+  const s=ls.s, b=ls.box; if (b[2]<=b[0]) return;
+  const piece=(arr)=>{ const w=b[2]-b[0], h=b[3]-b[1], o=new Float32Array(w*h*2); for (let j=0;j<h;j++) o.set(arr.subarray(((b[1]+j)*s.fw+b[0])*2, ((b[1]+j)*s.fw+b[2])*2), j*w*2); return o; };
+  const put=(o)=>{ const w=b[2]-b[0], h=b[3]-b[1]; for (let j=0;j<h;j++) s.f.set(o.subarray(j*w*2,(j+1)*w*2), ((b[1]+j)*s.fw+b[0])*2); };
+  const before=piece(ls.start);
+  if (cancel){ put(before); lqRender(s,b[0],b[1],b[2],b[3]); requestRender(); return; }
+  lqRender(s,b[0],b[1],b[2],b[3]);
+  const after=piece(s.f), L=s.layer;
+  const keep=()=>{};
+  pushHist({ liq:s, undo(){ put(before); lqRender(s,b[0],b[1],b[2],b[3]); keep(); }, redo(){ put(after); lqRender(s,b[0],b[1],b[2],b[3]); keep(); }, bytes:before.byteLength*2 });
+  thumbSoon(L); s.cv=contentVer; requestRender();
+}
+function liqLeave(){ if (liqStroke) liqEnd(false); liq=null; if (LQ.gl && LQ.canvas){ LQ.sess=null; LQ.canvas.width=LQ.canvas.height=1; const gl=LQ.gl; gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,LQ.tSrc); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4)); } }
+function liqReset(){ // the whole session back to how the layer was
+  const s=liq; if (!s || s.layer!==AL() || s.cv!==contentVer){ toast('Пластика на этом слое ещё не применялась',1600); return; }
+  const before=s.f.slice(); if (!before.some(v=>v!==0)){ toast('Нечего сбрасывать',1200); return; }
+  const set=a=>{ s.f.set(a); lqRender(s,0,0,s.fw,s.fh); };
+  set(new Float32Array(s.f.length)); thumbSoon(s.layer);
+  pushHist({ liq:s, undo(){ set(before); }, redo(){ set(new Float32Array(s.f.length)); }, bytes:before.byteLength });
+  s.cv=contentVer; requestRender(); toast('Пластика сброшена',1200);
 }
 function filtMenu(){
   dialog('<h3>Фильтр на слой</h3><p>Действует на весь активный слой, а если есть выделение — только на выделенное, с мягким краем.</p>',
@@ -3320,7 +3480,7 @@ function layersChanged(){
     $('#lyCount').textContent = doc.layers.filter(x=>!isGroup(x)).length;
     $('#lyGroup').textContent = g ? '+ Группа' : 'В группу';
   }
-  if (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove'||FX_TOOLS.includes(S.tool)) renderOpts();
+  if (S.tool==='liquify'||S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove'||FX_TOOLS.includes(S.tool)) renderOpts();
   updateStatus();
 }
 $('#lyBlend').innerHTML = BLENDS.map(b=>`<option value="${b[0]}">${b[1]}</option>`).join('');
@@ -3363,8 +3523,9 @@ $('#lyClose').onclick=()=>showLayers(false);
 /* ============ tools & options UI ============ */
 function setTool(t, internal){
   if (xf && t!=='transform' && !internal){ toast('Сначала примени или отмени трансформ'); return; }
-  const prev=S.tool; if (prev==='depth' && t!=='depth' && dep) depthClose(); S.tool=t; if (t==='depth' && !dep) setTimeout(depthOpen,0); if (t!=='tap') tapSess=null; if (t==='picker' && prev!=='picker' && !internal) pickerBack=(prev==='brush'||prev==='eraser'||prev==='clone'||prev==='heal')?prev:'brush'; retouchCache=null; if (t!=='wand'){ wandCache=null; wandPrev=null; } else if (prev!=='wand' && !internal) toast('Тап — выделить по цвету. Тап и тянуть вбок — допуск на лету',3200);
+  const prev=S.tool; if (prev==='depth' && t!=='depth' && dep) depthClose(); if (prev==='liquify' && t!=='liquify') liqLeave(); S.tool=t; if (t==='depth' && !dep) setTimeout(depthOpen,0); if (t!=='tap') tapSess=null; if (t==='picker' && prev!=='picker' && !internal) pickerBack=(prev==='brush'||prev==='eraser'||prev==='clone'||prev==='heal')?prev:'brush'; retouchCache=null; if (t!=='wand'){ wandCache=null; wandPrev=null; } else if (prev!=='wand' && !internal) toast('Тап — выделить по цвету. Тап и тянуть вбок — допуск на лету',3200);
   if (t!==prev && !internal){ if (t==='remove') toast('Закрась то, что убрать, и отпусти — нейросеть дорисует фон. Первый раз скачает модель ~28 МБ',4200);
+    else if (t==='liquify') toast('Пластика: веди карандашом — картинка тянется за ним. Режимы сверху, размер и сила — слева',3600);
     else if (t==='spot') toast('Мажь по пятнышку, пылинке, прыщику — заполнится текстурой вокруг',3200);
     else if (t==='patch') toast('Обведи дефект (или выдели чем угодно), потом потяни выделение на чистое место',3600);
     else if ((t==='clone'||t==='heal') && !cloneSrc && doc){ const st=$('#stage').getBoundingClientRect(), [x,y]=toDoc(st.width*0.35, st.height*0.45);
@@ -3381,7 +3542,7 @@ const TOOL_GROUPS = {
   paint:{ title:'Рисование', items:[['brush','Кисть','B'],['eraser','Ластик','E'],['picker','Пипетка','I']] },
   sel:  { title:'Выделение', items:[['lasso','Лассо','L'],['rect','Прямоугольник','M'],['wand','Волшебная палочка','W']] },
   ai:   { title:'Умное выделение и глубина', items:[['@subject','Выделить объект',''],['tap','Тап по объекту','T'],['depth','Глубина','D']] },
-  tone: { title:'Тон и резкость', items:[['dodge','Осветление','O'],['burn','Затемнение',''],['sponge','Губка',''],['blur','Размытие',''],['sharpen','Резкость',''],['smudge','Палец','']] },
+  tone: { title:'Тон, резкость, пластика', items:[['dodge','Осветление','O'],['burn','Затемнение',''],['sponge','Губка',''],['blur','Размытие',''],['sharpen','Резкость',''],['smudge','Палец',''],['liquify','Пластика','']] },
   fix:  { title:'Ретушь', items:[['remove','Удаление · нейросеть','R'],['spot','Точечная восст. кисть','Y'],['patch','Заплатка','J'],['heal','Восстанавливающая кисть','H'],['clone','Штамп','S']] },
 };
 const toolIcon = t => (t==='@subject' ? $('#bSubject') : $(`#toolSrc [data-tool="${t}"]`)).innerHTML;
@@ -3506,6 +3667,12 @@ function renderOpts0(){
     o.append(rng('Жёсткость','hardness',0,100,pct));
     if (!onDB) o.append(segOf('fxAll',[[false,'Слой'],[true,'Все слои']]));
     o.append(chk('Нажим → размер','pSize'));
+  } else if (S.tool==='liquify'){
+    const seg=document.createElement('div'); seg.className='seg';
+    for (const [k,l] of LIQ_MODES){ const b=document.createElement('button'); b.textContent=l; b.className=S.liqMode===k?'on':''; b.onclick=()=>{ S.liqMode=k; savePrefs(); renderOpts(); }; seg.append(b); }
+    const rs=document.createElement('button'); rs.className='chk'; rs.textContent='↺ Сбросить всё'; rs.title='Вернуть слой к виду до пластики (одним шагом отмены)'; rs.onclick=liqReset;
+    const h=document.createElement('span'); h.className='opt'; h.textContent=sel?'Двигается только выделенное':'Нажим — сила, слева — размер и сила';
+    o.append(seg, rs, h);
   } else if (S.tool==='spot'||S.tool==='remove'){
     const src=document.createElement('div'); src.className='seg';
     for (const [k,l] of [[false,'Слой'],[true,'Все слои → новый слой']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.retouchAll===k?'on':''; b.onclick=()=>{ S.retouchAll=k; retouchCache=null; savePrefs(); renderOpts(); }; src.append(b); }
@@ -3540,9 +3707,9 @@ function vslider(el, get, set, label){
 }
 const SIZE_MAX=1000;
 const sizeToV = s => Math.pow((s-1)/(SIZE_MAX-1),1/2.2), vToSize = v => Math.max(1,Math.round(1+(SIZE_MAX-1)*Math.pow(v,2.2)));
-const drawSize = vslider($('#vsSize'), ()=>sizeToV(curSize()), v=>{ const s=vToSize(v); if(S.tool==='eraser') S.eraserSize=s; else S.size=s; spriteKey=''; },
+const drawSize = vslider($('#vsSize'), ()=>sizeToV(curSize()), v=>{ const s=vToSize(v); if(S.tool==='eraser') S.eraserSize=s; else if(S.tool==='liquify') S.liqSize=Math.max(8,s); else S.size=s; spriteKey=''; },
   ()=>{ $('#lSize').textContent=curSize(); hover=hover||null; renderOverlay(); });
-const drawOpac = vslider($('#vsOpac'), ()=>S.opacity, v=>{ S.opacity=Math.max(0.01,v); }, ()=>{ $('#lOpac').textContent=Math.round(S.opacity*100)+'%'; });
+const drawOpac = vslider($('#vsOpac'), ()=>S.tool==='liquify'?S.liqAmt:S.opacity, v=>{ if(S.tool==='liquify') S.liqAmt=Math.max(0.02,v); else S.opacity=Math.max(0.01,v); }, ()=>{ $('#lOpac').textContent=Math.round((S.tool==='liquify'?S.liqAmt:S.opacity)*100)+'%'; });
 function syncSliders(){ drawSize(); drawOpac(); }
 
 /* ============ colour picker ============ */
@@ -3903,6 +4070,7 @@ function toolDown(e,p){
   if ((t==='clone'||t==='heal') && (altDown || clonePick)){ const [x,y]=toDoc(...p); setCloneSrc(x,y); toolPtr=null; return; }
   if ((t==='clone'||t==='heal') && cloneSrc && srcHit(p)){ const [x,y]=toDoc(...p); try{ retouchSource(); }catch(_){} srcDrag={gx:cloneSrc.x-x, gy:cloneSrc.y-y, p}; renderOverlay(); return; }
   if (t==='patch'){ patchDown(p); return; }
+  if (t==='liquify'){ if(!liqBegin(p,penPressure(e))) toolPtr=null; return; }
   if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e)); }
   else if (t==='lasso'){ lassoPts=[toDoc(...p)]; }
   else if (t==='rect'){ const [x,y]=toDoc(...p); rectSel={x0:x,y0:y,x1:x,y1:y}; }
@@ -3923,6 +4091,7 @@ function toolMove(e){
     if (srcDrag){ const [x,y]=toDoc(...p); cloneSrc={x:clamp(x+srcDrag.gx,0,doc.w-1), y:clamp(y+srcDrag.gy,0,doc.h-1)}; srcDrag.p=p; }
     else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)) strokeMove(p[0],p[1],penPressure(ev));
     else if (t==='patch') patchMove(p);
+    else if (t==='liquify') liqMove(p,penPressure(ev));
     else if (t==='lasso' && lassoPts){ const q=toDoc(...p), l=lassoPts[lassoPts.length-1]; if(Math.hypot(q[0]-l[0],q[1]-l[1])*view.s>2) lassoPts.push(q); }
     else if (t==='rect' && rectSel){ const [x,y]=toDoc(...p); rectSel.x1=x; rectSel.y1=y; }
     else if (t==='transform' && xf) xfMove(p[0],p[1]);
@@ -3961,7 +4130,7 @@ function updateCursor(){
   if (panDrag) st.cursor='grabbing';
   else if (spaceDown) st.cursor='grab';
   else if (altDown && S.tool!=='transform') st.cursor='crosshair';
-  else st.cursor = (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove'||FX_TOOLS.includes(S.tool)) ? 'none' : (S.tool==='transform' ? 'move' : 'crosshair');
+  else st.cursor = (S.tool==='liquify'||S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove'||FX_TOOLS.includes(S.tool)) ? 'none' : (S.tool==='transform' ? 'move' : 'crosshair');
 }
 document.addEventListener('keyup', e=>{
   if (e.key===' '){ spaceDown=false; updateCursor(); }
@@ -3973,6 +4142,7 @@ function toolUp(e){
   if (srcDrag){ srcDrag=null; cloneOff=null; renderOverlay(); toast('Источник на месте. Рисуй карандашом',1300); }
   else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)) strokeEnd(false);
   else if (t==='patch') patchUp();
+  else if (t==='liquify') liqEnd(false);
   else if (t==='lasso' && lassoPts){ const pts=lassoPts; lassoPts=null; if(pts.length<3){ if(S.selMode==='new') deselect(); } else applySelPoly(pts); }
   else if (t==='rect' && rectSel){ const r=normRect(rectSel); rectSel=null; if(r.w*view.s<4||r.h*view.s<4){ if(S.selMode==='new') deselect(); } else applySelPoly([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); }
   else if (t==='transform' && xf) xf.drag=null;
@@ -3984,7 +4154,7 @@ function toolUp(e){
   if (e.pointerType!=='touch') hover=stagePos(e);
   renderOverlay();
 }
-function toolCancel(){ toolPtr=null; if(penHold){ clearTimeout(penHold.T); penHold=null; } if(eye) eyeEnd(true); srcDrag=null; if(patchDrag){ patchDrag=null; patchPrev=null; } if(t_patchLasso()) lassoPts=null; wandDrag=null; wandPrev=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
+function toolCancel(){ toolPtr=null; if(liqStroke) liqEnd(true); if(penHold){ clearTimeout(penHold.T); penHold=null; } if(eye) eyeEnd(true); srcDrag=null; if(patchDrag){ patchDrag=null; patchPrev=null; } if(t_patchLasso()) lassoPts=null; wandDrag=null; wandPrev=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
 
 /* keyboard */
 document.addEventListener('keydown', e=>{
@@ -4004,7 +4174,7 @@ document.addEventListener('keydown', e=>{
   if (mod) return;
   const map={d:'depth',b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap',w:'wand',j:'patch',h:'heal',s:'clone',r:'remove',y:'spot',o:'dodge'};
   if (map[k]){ setTool(map[k]); return; }
-  if (k==='['||k===']'){ const f=k===']'?1.15:1/1.15; const s=clamp(Math.round(curSize()*f+(k===']'?1:-1)),1,SIZE_MAX); if(S.tool==='eraser') S.eraserSize=s; else S.size=s; spriteKey=''; syncSliders(); return; }
+  if (k==='['||k===']'){ const f=k===']'?1.15:1/1.15; const s=clamp(Math.round(curSize()*f+(k===']'?1:-1)),1,SIZE_MAX); if(S.tool==='eraser') S.eraserSize=s; else if(S.tool==='liquify') S.liqSize=Math.max(8,s); else S.size=s; spriteKey=''; syncSliders(); return; }
   if (edge && k==='enter'){ edgeApply(); return; }
   if (edge && k==='escape'){ edgeCancel(); return; }
   if (k==='enter' && xf){ xfApply(); return; }
@@ -4015,7 +4185,7 @@ document.addEventListener('gesturestart', e=>e.preventDefault());
 document.addEventListener('contextmenu', e=>e.preventDefault());
 
 /* ============ prefs & autosave ============ */
-function savePrefs(){ try{ localStorage.setItem('kadr.prefs', JSON.stringify({color:S.color,size:S.size,eraserSize:S.eraserSize,opacity:S.opacity,hardness:S.hardness,flow:S.flow,smooth:S.smooth,pSize:S.pSize,pOpac:S.pOpac,fingerDraw:S.fingerDraw,wandTol:S.wandTol,wandContig:S.wandContig,wandSoft:S.wandSoft,wandAll:S.wandAll,retouchAll:S.retouchAll,cloneAligned:S.cloneAligned,cloneFlow:S.cloneFlow,penHoldPick:S.penHoldPick,dbRange:S.dbRange,dbExp:S.dbExp,dbProtect:S.dbProtect,blurAmt:S.blurAmt,sharpAmt:S.sharpAmt,fxFlow:S.fxFlow,spMode:S.spMode,spAmt:S.spAmt,spVib:S.spVib,smudge:S.smudge,fxAll:S.fxAll,recent})); }catch(e){} }
+function savePrefs(){ try{ localStorage.setItem('kadr.prefs', JSON.stringify({color:S.color,size:S.size,eraserSize:S.eraserSize,opacity:S.opacity,hardness:S.hardness,flow:S.flow,smooth:S.smooth,pSize:S.pSize,pOpac:S.pOpac,fingerDraw:S.fingerDraw,wandTol:S.wandTol,wandContig:S.wandContig,wandSoft:S.wandSoft,wandAll:S.wandAll,retouchAll:S.retouchAll,cloneAligned:S.cloneAligned,cloneFlow:S.cloneFlow,penHoldPick:S.penHoldPick,dbRange:S.dbRange,dbExp:S.dbExp,dbProtect:S.dbProtect,blurAmt:S.blurAmt,sharpAmt:S.sharpAmt,fxFlow:S.fxFlow,spMode:S.spMode,spAmt:S.spAmt,spVib:S.spVib,smudge:S.smudge,fxAll:S.fxAll,liqMode:S.liqMode,liqSize:S.liqSize,liqAmt:S.liqAmt,recent})); }catch(e){} }
 function loadPrefs(){ try{ const p=JSON.parse(localStorage.getItem('kadr.prefs')||'null'); if(p){ const {recent:r,...rest}=p; Object.assign(S,rest); if(r) recent.push(...r); } }catch(e){} }
 const DB='kadr', STORE='doc';
 function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB,1); r.onupgradeneeded=()=>r.result.createObjectStore(STORE); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
@@ -4213,7 +4383,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №29.2 сильнее кошачий глаз'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №30 пластика'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
