@@ -2069,6 +2069,7 @@ function lqSession(L){
 }
 const LIQ_MODES=[['push','Сдвиг'],['bloat','Вздутие'],['pinch','Сжатие'],['twirl','Скручивание'],['rec','Восстановление']];
 function liqBegin(p, pressure){
+  if (liqStroke) liqEnd(false);
   if (filt||harm){ toast('Сначала примени или отмени фильтр'); return false; }
   if (!pixelOnly()) return false; const L=AL();
   if (L.kind==='adj'){ toast('Пластика работает на обычном слое'); return false; }
@@ -3998,7 +3999,7 @@ stage.addEventListener('pointerdown', e=>{
   // pen / mouse
   if ((spaceDown || e.button===1) && toolPtr===null){ panDrag={id:e.pointerId,x:e.clientX,y:e.clientY,vx:view.x,vy:view.y}; capture(e); updateCursor(); return; }
   lastPenT=Date.now();
-  if (toolPtr!==null) return;
+  if (toolPtr!==null){ if (fingerTool) return; toolUp(e); } // there is only one pen: an old stroke still open means Safari lost its pointerup — finish it, then start the new one
   capture(e);
   toolDown(e, stagePos(e));
 });
@@ -4018,7 +4019,7 @@ stage.addEventListener('pointermove', e=>{
     return;
   }
   if (panDrag && e.pointerId===panDrag.id){ navStart(); view.x=panDrag.vx+e.clientX-panDrag.x; view.y=panDrag.vy+e.clientY-panDrag.y; requestRender(); return; }
-  if (e.pointerId===toolPtr){ lastPenT=Date.now(); toolMove(e); return; }
+  if (e.pointerId===toolPtr){ if (e.buttons===0 && e.pointerType!=='touch'){ toolUp(e); hover=stagePos(e); renderOverlay(); return; } lastPenT=Date.now(); toolMove(e); return; } // pen already lifted (lost pointerup, Pencil hover)
   if (e.pointerType==='pen' || e.pointerType==='mouse'){ hover = (e.buttons===0) ? stagePos(e) : null; renderOverlay(); }
 });
 function endTouch(e){
@@ -4037,6 +4038,7 @@ function endTouch(e){
   else if (touches.size===1){ gesture && (gesture.start=null); const [t]=touches.values(); onePan={x:t.x,y:t.y,vx:view.x,vy:view.y,moved:true}; }
 }
 stage.addEventListener('pointerup', e=>{ if(e.pointerType==='touch'){ endTouch(e); return; } if(panDrag && e.pointerId===panDrag.id){ panDrag=null; navEnd(); updateCursor(); return; } if(e.pointerId===toolPtr) toolUp(e); });
+stage.addEventListener('lostpointercapture', e=>{ if (e.pointerType!=='touch' && e.pointerId===toolPtr && !fingerTool) toolUp(e); });
 stage.addEventListener('auxclick', e=>e.preventDefault());
 stage.addEventListener('pointercancel', e=>{ if(e.pointerType==='touch'){ endTouch(e); return; } if(e.pointerId===toolPtr) toolCancel(); });
 stage.addEventListener('pointerleave', e=>{ if(e.pointerType!=='touch' && toolPtr===null){ hover=null; renderOverlay(); } });
@@ -4383,7 +4385,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №30 пластика'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №30.1 пластика не залипает'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
