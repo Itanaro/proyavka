@@ -168,7 +168,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .row{display:flex;align-items:center;gap:8px}
 .row label{font-size:12px;color:var(--muted);width:78px;flex:none}
 .row input[type=text],.row select{flex:1;min-width:0;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--bg);padding:0 8px}
-#lyName[readonly]{cursor:pointer}
+#lyName[readonly],#hex[readonly]{cursor:pointer}
 .btns{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
 .btns button{height:34px;border-radius:8px;background:var(--panel-2);font-size:12px}
 .btns button:active{background:var(--line)}
@@ -582,7 +582,7 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
   <div class="pop" id="picker" hidden>
     <canvas id="sv" width="236" height="236"></canvas>
     <canvas id="hue" width="236" height="22"></canvas>
-    <div class="row"><label for="hex" style="width:auto">HEX</label><input type="text" id="hex" maxlength="7" style="font-family:var(--mono)"></div>
+    <div class="row"><label for="hex" style="width:auto">HEX</label><input type="text" id="hex" maxlength="7" style="font-family:var(--mono)" readonly autocomplete="off" spellcheck="false"></div>
     <div id="recent"></div>
   </div>
 
@@ -3287,6 +3287,10 @@ function drawPicker(){
 function dragOn(el, fn){ let on=false; el.addEventListener('pointerdown',e=>{on=true; el.setPointerCapture(e.pointerId); fn(e);}); el.addEventListener('pointermove',e=>{ if(on) fn(e); }); el.addEventListener('pointerup',()=>{on=false; pushRecent(S.color);}); }
 dragOn($('#sv'), e=>{ const r=$('#sv').getBoundingClientRect(); hsv[1]=clamp((e.clientX-r.left)/r.width,0,1); hsv[2]=clamp(1-(e.clientY-r.top)/r.height,0,1); setColor(hsvToHex(...hsv),true); });
 dragOn($('#hue'), e=>{ const r=$('#hue').getBoundingClientRect(); hsv[0]=clamp((e.clientX-r.left)/r.width,0,0.9999)*360; setColor(hsvToHex(...hsv),true); });
+/* Scribble (iPad handwriting) wakes up near editable text fields: the HEX field stays read-only until it is tapped */
+$('#hex').addEventListener('click',e=>{ const i=e.target; if(i.readOnly){ i.readOnly=false; i.focus(); i.select(); } });
+$('#hex').addEventListener('blur',e=>{ e.target.readOnly=true; });
+$('#hex').addEventListener('keydown',e=>{ if(e.key==='Enter') e.target.blur(); });
 $('#hex').addEventListener('change',e=>{ let v=e.target.value.trim(); if(!v.startsWith('#')) v='#'+v; if(/^#[0-9a-f]{6}$/i.test(v)){ setColor(v); pushRecent(S.color); drawPicker(); } else toast('Нужен формат #RRGGBB'); });
 $('#swatch').onclick=e=>{ e.stopPropagation(); closePops('picker'); const p=$('#picker'); p.style.top=p.style.left=p.style.right=''; p.hidden=!p.hidden; if(!p.hidden){ hsv=rgbToHsv(...hexToRgb(S.color)); drawPicker(); } };
 function openPickerAt(el){ // the same colour picker, opened next to the control that asked for it
@@ -3921,7 +3925,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №27.2 цвет дымки'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №27.3 палитра без рукописного ввода'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
