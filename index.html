@@ -2138,7 +2138,7 @@ $('#edReset').onclick=()=>{ if(!edge) return; edge.t={smooth:0,feather:0,shift:0
    The map is computed once per picture state from the visible composite (long side 518 px), then reused:
    near ∈ [0..1], 1 = closest to the camera. */
 let depthMap=null, depthBelowMap=null, depthLoading=null, dep=null, depPrev=null, depRaf=0;
-const DEP_DEF={oref:null, otol:0.02, osoft:0.04, lx:null, ly:null, lstr:0.7, lh:0.35, lrad:0.6, lrel:0.5, lrim:false, mode:'sel', ref:null, href:null, htol:0.25, grow:0.4, pickColor:false, near:0.08, far:0.08, soft:0.06, start:0.45, dens:0.75, hsoft:0.5, blur:0.5, dof:0.06, bright:0.45, blades:0, cat:0, show:false};
+const DEP_DEF={oref:null, otol:0.02, osoft:0.04, lx:null, ly:null, lstr:0.7, lh:0.35, lrad:0.6, lrel:0.5, lrim:false, lshad:0.85, lsoft:0.03, lspec:0.25, mode:'sel', ref:null, href:null, htol:0.25, grow:0.4, pickColor:false, near:0.08, far:0.08, soft:0.06, start:0.45, dens:0.75, hsoft:0.5, blur:0.5, dof:0.06, bright:0.45, blades:0, cat:0, show:false};
 // below: a layer — the depth is taken from the picture under it (for putting that layer behind things)
 async function depthCompute(below){
   const idx = below ? doc.layers.indexOf(below) : -1, key=contentVer+'|'+idx, have = below ? depthBelowMap : depthMap;
@@ -2285,7 +2285,8 @@ function depthBuild(){
     const sg=document.createElement('div'); sg.className='er'; sg.innerHTML='<label>Свет</label><div class="seg"></div><span></span>';
     for (const [k,l] of [[false,'Спереди'],[true,'Контровой']]){ const b=document.createElement('button'); b.textContent=l; b.className=t.lrim===k?'on':''; b.onclick=()=>{ t.lrim=k; depthBuild(); depthPreview(); }; sg.children[1].append(b); }
     box.append(sg);
-    row('Сила','lstr',0.05,1,pc); row('Высота','lh',0,1,pc); row('Дальность','lrad',0.05,1.5,pc); row('Рельеф','lrel',0,1,pc); colorRow(); }
+    row('Сила','lstr',0.05,1,pc); row('Высота','lh',0,1,pc); row('Дальность','lrad',0.05,1.5,pc); row('Рельеф','lrel',0,1,pc);
+    if (!t.lrim){ row('Тени','lshad',0,1,pc); row('Размер источника','lsoft',0,0.2,pc); row('Блики','lspec',0,1,pc); } colorRow(); }
   else { row('Сила','blur',0.05,1,pc); row('Резкая зона','dof',0,0.5,pc); row('Блики','bright',0,1,pc); row('Кошачий глаз','cat',0,1,pc);
     const sg=document.createElement('div'); sg.className='er'; sg.innerHTML='<label>Диафрагма</label><div class="seg"></div><span></span>';
     for (const [k,l] of [[0,'Круг'],[6,'6 лепестков'],[8,'8']]){ const b=document.createElement('button'); b.textContent=l; b.className=t.blades===k?'on':''; b.onclick=()=>{ t.blades=k; depthBuild(); depthPreview(); }; sg.children[1].append(b); }
@@ -2393,15 +2394,78 @@ function lightMap(){ const m=depthMap, t=dep.t, W=m.w, H=m.h, n=lightNormals(), 
     else { const e=1-nz, hl=Math.hypot(nx,ny)||1, dl=Math.hypot(dx,dy)||1, side=Math.max(0,(nx*dx+ny*dy)/(hl*dl)); I=Math.pow(e,0.7)*side*att*3*smooth01(Lz,Lz+0.02,Z); }
     out[i]=clamp(I*t.lstr*1.6,0,1); }
   return out; }
+/* physical-ish light on the GPU: Lambert + Blinn-Phong highlight, inverse-square falloff, and shadows — for every pixel a
+   ray is marched over the depth map toward the light (several points of a sized source → soft penumbra) */
+const LTG={};
+function ltgGet(){
+  if (LTG.failed) return null; if (LTG.gl && !LTG.gl.isContextLost()) return LTG;
+  try{ const c=document.createElement('canvas'); c.width=c.height=1;
+    const gl=c.getContext('webgl2',{premultipliedAlpha:false, preserveDrawingBuffer:true, antialias:false, alpha:true, depth:false, stencil:false}); if(!gl) throw new Error('no webgl2');
+    const sh=(type,src)=>{ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const pr=gl.createProgram();
+    gl.attachShader(pr, sh(gl.VERTEX_SHADER, `#version 300 es
+in vec2 p; out vec2 uv; void main(){ uv=vec2(p.x*0.5+0.5, 0.5-p.y*0.5); gl_Position=vec4(p,0.0,1.0); }`));
+    gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, `#version 300 es
+precision highp float;
+uniform sampler2D dep; uniform vec2 px; uniform float asp, zs, rel, range, str, rim, soft, spec, shad; uniform vec3 Lp; in vec2 uv; out vec4 o;
+float Z(vec2 q){ vec4 t=texture(dep,clamp(q,vec2(0.0),vec2(1.0))); return (t.r+t.g/255.0)*zs; }
+void main(){
+  float z=Z(uv);
+  float gx=(Z(uv+vec2(px.x,0.0))-Z(uv-vec2(px.x,0.0)))/(2.0*px.x), gy=(Z(uv+vec2(0.0,px.y))-Z(uv-vec2(0.0,px.y)))/(2.0*px.y*asp);
+  vec3 N=normalize(vec3(-gx*rel,-gy*rel,1.0)), P=vec3(uv.x,uv.y*asp,z), D=Lp-P; float d=max(length(D),1e-4); vec3 l=D/d;
+  float att=1.0/(1.0+(d/range)*(d/range)), I=0.0;
+  if (rim<0.5){
+    float vis=1.0;
+    if (shad>0.0){ float acc=0.0;
+      float rot=fract(sin(dot(uv,vec2(12.9898,78.233)))*43758.5453)*6.2832, jit=fract(sin(dot(uv,vec2(39.35,11.13)))*24634.63);
+      for (int k=0;k<9;k++){ float a=float(k)*2.39996+rot, r=soft*sqrt((float(k)+0.5)/9.0); vec3 Lk=Lp+vec3(cos(a),sin(a),0.0)*r; float v=1.0;
+        for (int i=1;i<=40;i++){ float t=(float(i)-jit)/41.0; vec3 Q=mix(P,Lk,t); vec2 qu=vec2(Q.x,Q.y/asp);
+          if (qu.x<0.0||qu.y<0.0||qu.x>1.0||qu.y>1.0) break;
+          float h=Z(qu)-Q.z; if (h>0.006){ v=0.0; break; } }
+        acc+=v; }
+      vis=mix(1.0, acc/9.0, shad); }
+    float diff=max(0.0,dot(N,l)); vec3 H=normalize(l+vec3(0.0,0.0,1.0)); float sp=pow(max(dot(N,H),0.0),48.0)*spec*3.0;
+    I=(diff+sp)*vis*att;
+  } else {
+    float e=1.0-N.z, hl=max(length(N.xy),1e-4), dl=max(length(D.xy),1e-4), side=max(0.0,dot(N.xy/hl, D.xy/dl));
+    I=pow(e,0.7)*side*att*3.0*smoothstep(Lp.z,Lp.z+0.02,z);
+  }
+  o=vec4(1.0,1.0,1.0,clamp(I*str*1.6,0.0,1.0));
+}`));
+    gl.linkProgram(pr); if (!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr)); gl.useProgram(pr);
+    const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+    const loc=gl.getAttribLocation(pr,'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+    const tex=gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,tex);
+    for (const [k,v] of [[gl.TEXTURE_MIN_FILTER,gl.NEAREST],[gl.TEXTURE_MAG_FILTER,gl.NEAREST],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D,k,v);
+    const U={}; for (const n of ['dep','px','asp','zs','rel','range','str','rim','soft','spec','shad','Lp']) U[n]=gl.getUniformLocation(pr,n);
+    gl.uniform1i(U.dep,0); c.addEventListener('webglcontextlost', e=>{ e.preventDefault(); LTG.gl=null; });
+    Object.assign(LTG,{gl,canvas:c,tex,U,key:null}); return LTG;
+  }catch(e){ console.warn('light: no WebGL2',e); LTG.failed=true; return null; }
+}
+function lightGL(){
+  const G=ltgGet(); if (!G) return null; const gl=G.gl, m=depthMap, t=dep.t, W=m.w, H=m.h, n=lightNormals(), ZS=0.25;
+  if (G.canvas.width!==W || G.canvas.height!==H){ G.canvas.width=W; G.canvas.height=H; }
+  gl.viewport(0,0,W,H); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,G.tex);
+  if (G.key!==m.ver+'|'+W){ const d=new Uint8Array(W*H*4); for (let i=0;i<W*H;i++){ const v=clamp(n.z[i],0,1)*255, hi=Math.floor(v); d[i*4]=hi; d[i*4+1]=Math.round((v-hi)*255); d[i*4+3]=255; }
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,W,H,0,gl.RGBA,gl.UNSIGNED_BYTE,d); G.key=m.ver+'|'+W; }
+  const U=G.U, asp=H/W, base=depthAt(m,t.lx,t.ly)*ZS, Lz = t.lrim ? base-0.03-t.lh*0.25 : base+0.02+t.lh*0.6;
+  gl.uniform2f(U.px,1/W,1/H); gl.uniform1f(U.asp,asp); gl.uniform1f(U.zs,ZS); gl.uniform1f(U.rel,t.lrel*2); gl.uniform1f(U.range,t.lrad); gl.uniform1f(U.str,t.lstr);
+  gl.uniform1f(U.rim,t.lrim?1:0); gl.uniform1f(U.soft,t.lsoft); gl.uniform1f(U.spec,t.lspec); gl.uniform1f(U.shad,t.lshad); gl.uniform3f(U.Lp,t.lx/doc.w,t.ly/doc.h*asp,Lz);
+  gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES,0,3); return G.canvas;
+}
 function lightUpdate(){ const t=dep.t; if (t.lx==null) return;
   let L=dep.lightL; const m=depthMap;
-  if (!L){ try{ L=newLayer('Свет'); }catch(e){ toast('Не хватает памяти'); return; } L.blend='screen'; L.mask=newMask(L); doc.layers.push(L); L.parent=null; dep.lightL=L; dep.lightCol=null; }
-  if (dep.lightCol!==S.color){ L.ctx.fillStyle=S.color; L.ctx.fillRect(0,0,doc.w,doc.h); dep.lightCol=S.color; }
-  const a=lightMap(), small=depthMaskFrom(m,(v,i)=>a[i]); const mx=L.mask.ctx; mx.clearRect(0,0,doc.w,doc.h); mx.imageSmoothingQuality='high'; mx.drawImage(small,0,0,doc.w,doc.h);
+  if (!L){ try{ dep.lightAlb=dep.lightAlb||flatten(1); L=newLayer('Свет'); }catch(e){ toast('Не хватает памяти'); return; }
+    L.blend='lighter'; L.mask=newMask(L); doc.layers.push(L); L.parent=null; dep.lightL=L; dep.lightCol=null; }
+  if (dep.lightCol!==S.color){ // light that lands on a surface takes on its colour: picture × light colour, added on top («Линейный осветлитель»)
+    const x=L.ctx; x.save(); x.globalCompositeOperation='copy'; x.drawImage(dep.lightAlb,0,0); x.globalCompositeOperation='multiply'; x.fillStyle=S.color; x.fillRect(0,0,doc.w,doc.h);
+    x.globalCompositeOperation='destination-in'; x.drawImage(dep.lightAlb,0,0); x.restore(); dep.lightCol=S.color; }
+  const g=lightGL(), lm = g ? null : lightMap(), small = g || depthMaskFrom(m,(v,i)=>lm[i]); let src=small; if (g){ const b=mk(Math.max(1,small.width>>1),Math.max(1,small.height>>1)), bx=ctx2(b); bx.imageSmoothingQuality='high'; bx.drawImage(small,0,0,b.width,b.height); src=b; } // half size: melts the sampling grain of soft shadows
+  const mx=L.mask.ctx; mx.clearRect(0,0,doc.w,doc.h); mx.imageSmoothingQuality='high'; mx.drawImage(src,0,0,doc.w,doc.h);
   requestRender(); }
 function lightDrop(){ if (!dep || !dep.lightL) return; const i=doc.layers.indexOf(dep.lightL); if (i>=0) doc.layers.splice(i,1); dep.lightL=null; requestRender(); }
 function lightApply(){ const t=dep.t; if (t.lx==null || !dep.lightL){ toast('Сначала тапни, откуда идёт свет'); return; }
-  const L=dep.lightL; dep.lightL=null; doc.layers.splice(doc.layers.indexOf(L),1); depthClose(); topInsert(L,'Свет лёг слоем «Экран» с маской — силу меняй прозрачностью, лишнее стирай маской'); L.dirty=true; L.saved=false; markDirty(); requestRender(); }
+  const L=dep.lightL; dep.lightL=null; doc.layers.splice(doc.layers.indexOf(L),1); depthClose(); topInsert(L,'Свет лёг слоем «Линейный осветлитель» с маской — силу меняй прозрачностью, лишнее стирай маской'); dep=null; L.dirty=true; L.saved=false; markDirty(); requestRender(); }
 function topInsert(L, msg){ insertLayer(L, doc.layers.length, msg); L.parent=null; layersChanged(); }
 async function depthApply(){
   if (!dep||!depthMap) return; const m=depthMap, t=dep.t;
@@ -5051,7 +5115,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №35 глубина: за объект, коррекция, свет'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №35.1 физичный свет: тени, блики, цвет поверхности'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
