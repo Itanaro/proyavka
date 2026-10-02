@@ -295,6 +295,7 @@ body{-webkit-font-smoothing:antialiased}
 #lyProps{gap:10px;padding:12px}
 .row label{width:84px}
 .row input[type=text],.row select{height:34px;border-radius:9px;background:var(--bg);border-color:var(--line);padding:0 10px}
+.row .bstep{flex:none;width:30px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--fg,inherit);font-size:18px;line-height:1;padding:0;margin-left:-2px}
 .row select{-webkit-appearance:none;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 15px) 15px,calc(100% - 10px) 15px;background-size:5px 5px;background-repeat:no-repeat;padding-right:26px}
 #lyOpacV{min-width:34px;text-align:right;margin-left:4px}
 .btns{gap:5px}
@@ -542,7 +543,7 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
       <div id="lyProps">
         <div class="row"><label for="lyName">Имя</label><input type="text" id="lyName" autocomplete="off" readonly></div>
         <div class="row"><label>Непрозр.</label><div id="lyOpac" aria-label="Непрозрачность слоя"></div><span class="kbd" id="lyOpacV">100</span></div>
-        <div class="row"><label for="lyBlend">Наложение</label><select id="lyBlend"></select></div>
+        <div class="row"><label for="lyBlend">Наложение</label><select id="lyBlend"></select><button class="bstep" id="lyBlendPrev" aria-label="Предыдущий режим наложения">‹</button><button class="bstep" id="lyBlendNext" aria-label="Следующий режим наложения">›</button></div>
         <div class="btns">
           <button id="lyAdd">+ Слой</button>
           <button id="lyGroup">В группу</button>
@@ -686,12 +687,16 @@ let quietBusy=false;
 function busy(on, msg='Работаю…'){ if (quietBusy && on) return; let b=$('#busy'); if(on){ if(!b){b=document.createElement('div');b.id='busy';$('#app').appendChild(b);} b.textContent=msg; b.hidden=false; } else if(b) b.hidden=true; }
 const nextFrame = () => new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));
 
+// layer blend modes in Photoshop's order; [key, name, ag-psd name, group]. Keys the canvas cannot do itself are drawn by blendDraw on the GPU
 const BLENDS = [
-  ['source-over','Обычный','normal'],['multiply','Умножение','multiply'],['screen','Экран','screen'],
-  ['overlay','Перекрытие','overlay'],['soft-light','Мягкий свет','soft light'],['hard-light','Жёсткий свет','hard light'],
-  ['color-dodge','Осветление основы','color dodge'],['lighter','Линейный осветлитель','linear dodge'],['color-burn','Затемнение основы','color burn'],
-  ['darken','Затемнение','darken'],['lighten','Замена светлым','lighten'],['difference','Разница','difference'],['exclusion','Исключение','exclusion'],
-  ['hue','Цветовой тон','hue'],['saturation','Насыщенность','saturation'],['color','Цветность','color'],['luminosity','Яркость','luminosity']];
+  ['source-over','Обычный','normal',0],['dissolve','Растворение','dissolve',0],
+  ['darken','Затемнение','darken',1],['multiply','Умножение','multiply',1],['color-burn','Затемнение основы','color burn',1],['linear-burn','Линейный затемнитель','linear burn',1],['darker-color','Темнее','darker color',1],
+  ['lighten','Замена светлым','lighten',2],['screen','Экран','screen',2],['color-dodge','Осветление основы','color dodge',2],['lighter','Линейный осветлитель (добавить)','linear dodge',2],['lighter-color','Светлее','lighter color',2],
+  ['overlay','Перекрытие','overlay',3],['soft-light','Мягкий свет','soft light',3],['hard-light','Жёсткий свет','hard light',3],['vivid-light','Яркий свет','vivid light',3],['linear-light','Линейный свет','linear light',3],['pin-light','Точечный свет','pin light',3],['hard-mix','Жёсткое смешение','hard mix',3],
+  ['difference','Разница','difference',4],['exclusion','Исключение','exclusion',4],['subtract','Вычитание','subtract',4],['divide','Разделить','divide',4],
+  ['hue','Цветовой тон','hue',5],['saturation','Насыщенность','saturation',5],['color','Цветность','color',5],['luminosity','Яркость','luminosity',5]];
+const BLEND_GROUPS=['Обычные','Затемнение','Осветление','Контраст','Сравнение','Компоненты'];
+const blendOptions = withPass => (withPass?'<option value="pass">Сквозной</option>':'')+BLEND_GROUPS.map((g,i)=>`<optgroup label="${g}">`+BLENDS.filter(b=>b[3]===i).map(b=>`<option value="${b[0]}">${b[1]}</option>`).join('')+'</optgroup>').join('');
 const blendToPsd = b => (BLENDS.find(x=>x[0]===b)||BLENDS[0])[2];
 const psdToBlend = p => (BLENDS.find(x=>x[2]===p)||BLENDS[0])[0];
 
@@ -764,6 +769,76 @@ function pixelOnly(maskOk){ const L=AL();
   if (L.kind==='adj'){ if (maskOk && doc.editMask && L.mask) return true; toast('Это корректирующий слой: на нём рисуется только маска (кисть и ластик)',2600); return false; }
   if(!isGroup(L)) return true; if(maskOk && doc.editMask && L.mask) return true;
   toast(L.mask?'Выбрана группа. Выбери слой внутри или миниатюру маски группы':'Выбрана группа. Выбери слой внутри неё',2400); return false; }
+/* ============ Photoshop blend modes the canvas does not have (dissolve, linear burn, darker/lighter colour,
+   vivid / linear / pin light, hard mix, subtract, divide) — computed on the GPU against what is already drawn ============ */
+const GPU_BLENDS={'dissolve':1,'linear-burn':2,'darker-color':3,'lighter-color':4,'vivid-light':5,'linear-light':6,'pin-light':7,'hard-mix':8,'subtract':9,'divide':10};
+const BGL={}; let blendTmp=null;
+function bglGet(){
+  if (BGL.failed) return null; if (BGL.gl && !BGL.gl.isContextLost()) return BGL;
+  try{
+    const c=document.createElement('canvas'); c.width=c.height=1;
+    const gl=c.getContext('webgl2',{premultipliedAlpha:true, preserveDrawingBuffer:true, antialias:false, alpha:true, depth:false, stencil:false});
+    if (!gl) throw new Error('no webgl2');
+    const sh=(type,src)=>{ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const pr=gl.createProgram();
+    gl.attachShader(pr, sh(gl.VERTEX_SHADER, `#version 300 es
+in vec2 p; out vec2 uv; void main(){ uv=vec2(p.x*0.5+0.5, 0.5-p.y*0.5); gl_Position=vec4(p,0.0,1.0); }`));
+    gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, `#version 300 es
+precision highp float;
+uniform sampler2D bd; uniform sampler2D sc; uniform float op; uniform int mode; in vec2 uv; out vec4 o;
+float burn(float b,float s){ return b>=1.0 ? 1.0 : s<=0.0 ? 0.0 : 1.0-min(1.0,(1.0-b)/s); }
+float dodge(float b,float s){ return b<=0.0 ? 0.0 : s>=1.0 ? 1.0 : min(1.0,b/(1.0-s)); }
+float vivid(float b,float s){ return s<=0.5 ? burn(b,2.0*s) : dodge(b,2.0*(s-0.5)); }
+float hash(vec2 p){ p=fract(p*vec2(443.897,441.423)); p+=dot(p,p.yx+19.19); return fract((p.x+p.y)*p.x); }
+void main(){
+  vec4 B=texture(bd,uv), S=texture(sc,uv);                    // straight (not premultiplied) colours
+  float as=S.a*op; vec3 cb=B.rgb, cs=S.rgb, r=cs;
+  if (mode==1){ as = hash(floor(gl_FragCoord.xy)) < as ? 1.0 : 0.0; }
+  else if (mode==2) r=max(cb+cs-1.0,0.0);
+  else if (mode==3) r = dot(cs,vec3(1.0)) < dot(cb,vec3(1.0)) ? cs : cb;
+  else if (mode==4) r = dot(cs,vec3(1.0)) > dot(cb,vec3(1.0)) ? cs : cb;
+  else if (mode==5) r=vec3(vivid(cb.r,cs.r),vivid(cb.g,cs.g),vivid(cb.b,cs.b));
+  else if (mode==6) r=clamp(cb+2.0*cs-1.0,0.0,1.0);
+  else if (mode==7) r=mix(min(cb,2.0*cs), max(cb,2.0*cs-1.0), step(0.5,cs));
+  else if (mode==8) r=step(1.0,cb+cs);
+  else if (mode==9) r=max(cb-cs,0.0);
+  else if (mode==10) r=vec3(cs.r<=0.0?1.0:min(1.0,cb.r/cs.r), cs.g<=0.0?1.0:min(1.0,cb.g/cs.g), cs.b<=0.0?1.0:min(1.0,cb.b/cs.b));
+  vec3 mixd=(1.0-B.a)*cs + B.a*r;                               // where the backdrop is empty the layer shows as it is
+  float ao=as+B.a*(1.0-as);
+  o=vec4(as*mixd + (1.0-as)*B.a*cb, ao);                        // premultiplied out
+}`));
+    gl.linkProgram(pr); if (!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+    gl.useProgram(pr);
+    const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+    const loc=gl.getAttribLocation(pr,'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+    const tex=unit=>{ const t=gl.createTexture(); gl.activeTexture(gl.TEXTURE0+unit); gl.bindTexture(gl.TEXTURE_2D,t);
+      for (const [k,v] of [[gl.TEXTURE_MIN_FILTER,gl.NEAREST],[gl.TEXTURE_MAG_FILTER,gl.NEAREST],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D,k,v); return t; };
+    const tB=tex(0), tS=tex(1);
+    const U={bd:gl.getUniformLocation(pr,'bd'), sc:gl.getUniformLocation(pr,'sc'), op:gl.getUniformLocation(pr,'op'), mode:gl.getUniformLocation(pr,'mode')};
+    gl.uniform1i(U.bd,0); gl.uniform1i(U.sc,1);
+    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+    c.addEventListener('webglcontextlost', e=>{ e.preventDefault(); BGL.gl=null; });
+    Object.assign(BGL,{gl, canvas:c, tB, tS, U}); return BGL;
+  }catch(e){ console.warn('blend modes: no WebGL2', e); BGL.failed=true; return null; }
+}
+// ctx.drawImage(...args) with a layer blend mode; uses ctx's current transform and globalAlpha
+function blendDraw(ctx, mode, ...args){
+  const m=GPU_BLENDS[mode];
+  if (!m){ ctx.globalCompositeOperation=mode||'source-over'; ctx.drawImage(...args); return; }
+  const G=bglGet(); if (!G){ ctx.globalCompositeOperation='source-over'; ctx.drawImage(...args); return; }
+  const dst=ctx.canvas, W=dst.width, H=dst.height, op=ctx.globalAlpha;
+  if (!blendTmp) blendTmp=document.createElement('canvas');
+  if (blendTmp.width!==W || blendTmp.height!==H){ blendTmp.width=W; blendTmp.height=H; }
+  const t=blendTmp.getContext('2d'); t.setTransform(1,0,0,1,0,0); t.globalAlpha=1; t.globalCompositeOperation='source-over'; t.clearRect(0,0,W,H);
+  t.imageSmoothingEnabled=ctx.imageSmoothingEnabled; t.imageSmoothingQuality=ctx.imageSmoothingQuality; t.setTransform(ctx.getTransform()); t.drawImage(...args); t.setTransform(1,0,0,1,0,0);
+  const gl=G.gl; if (G.canvas.width!==W || G.canvas.height!==H){ G.canvas.width=W; G.canvas.height=H; } gl.viewport(0,0,W,H);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,G.tB); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,dst);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,G.tS); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,blendTmp);
+  gl.uniform1f(G.U.op,op); gl.uniform1i(G.U.mode,m); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES,0,3);
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=1; ctx.globalCompositeOperation='copy'; ctx.drawImage(G.canvas,0,0); ctx.restore();
+  if (W*H>4e6){ t.clearRect(0,0,W,H); }
+}
+
 /* composite the tree: pass-through groups at 100% draw straight through, others are flattened on a temp canvas first */
 let grpPool=[];
 // opt.map(ctx, docCanvas, item) draws a document-sized canvas with the same mapping the leaves use (needed for group masks)
@@ -781,12 +856,12 @@ function composeTree(ctx, leaf, opt={}, P=opt.P||null, depth=0){
     tx.imageSmoothingEnabled=ctx.imageSmoothingEnabled; tx.imageSmoothingQuality=ctx.imageSmoothingQuality; tx.setTransform(ctx.getTransform());
     composeTree(tx, leaf, opt, L, depth+1);
     if (gm){ tx.save(); tx.setTransform(1,0,0,1,0,0); tx.globalAlpha=1; tx.globalCompositeOperation='destination-in'; (opt.map||mapIdentity)(tx, L.mask.canvas, L); tx.restore(); }
-    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity; ctx.globalCompositeOperation=L.blend==='pass'?'source-over':L.blend; ctx.drawImage(t,0,0); ctx.restore();
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity; blendDraw(ctx, L.blend==='pass'?'source-over':L.blend, t,0,0); ctx.restore();
   }
 }
 function leafFull(x,L){ let src=L.canvas;
   if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const t=ctx2(src); t.drawImage(L.canvas,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0); }
-  x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0); x.globalAlpha=1; x.globalCompositeOperation='source-over'; }
+  x.globalAlpha=L.opacity; blendDraw(x, L.blend, src,0,0); x.globalAlpha=1; x.globalCompositeOperation='source-over'; }
 /* structural edits are undone by restoring the whole order + parents (cheap: only references) */
 function structSnap(){ return { list:doc.layers.slice(), par:doc.layers.map(x=>x.parent), act:doc.active }; }
 function structLoad(st){ doc.layers=st.list.slice(); st.list.forEach((x,i)=>x.parent=st.par[i]); doc.active=st.act; doc.editMask=false; }
@@ -844,7 +919,7 @@ function getPreview(){
   let tmp=null;
   composeTree(x, (x,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ tmp=tmp||mk(w,h); const t=ctx2(tmp); t.globalCompositeOperation='source-over'; t.clearRect(0,0,w,h); t.drawImage(L.canvas,0,0,w,h); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0,w,h); src=tmp; }
-    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,w,h); }, {map:(c,cv)=>c.drawImage(cv,0,0,w,h)});
+    x.globalAlpha=L.opacity; blendDraw(x, L.blend, src,0,0,w,h); }, {map:(c,cv)=>c.drawImage(cv,0,0,w,h)});
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; previewVer=contentVer; return preview;
 }
 function render(){
@@ -897,7 +972,7 @@ function drawLayer(cc, L){
   const isStroke = stroke && stroke.layer===L, isXf = xf && (xf.parts ? xf.parts.has(L) : xf.layer===L), xff = isXf && (xf.parts ? xf.parts.get(L) : xf.float);
   const hasMask = L.mask && L.mask.enabled, hasHarm = !!(harm && harm.layer===L && harm.prev) || !!(filt && filt.layer===L && filt.prev);
   if (!isStroke && !isXf && !hasMask && !hasHarm){
-    setVT(cc); cc.globalAlpha=L.opacity; cc.globalCompositeOperation=L.blend; cc.drawImage(L.canvas,0,0);
+    setVT(cc); cc.globalAlpha=L.opacity; blendDraw(cc, L.blend, L.canvas,0,0);
     cc.globalAlpha=1; cc.globalCompositeOperation='source-over'; return;
   }
   const t=ctx2(tLayer); t.setTransform(1,0,0,1,0,0); t.clearRect(0,0,tLayer.width,tLayer.height);
@@ -915,7 +990,7 @@ function drawLayer(cc, L){
     if (isStroke && stroke.target==='mask') applyStrokePreview(m);
     t.setTransform(1,0,0,1,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(tMask,0,0); t.globalCompositeOperation='source-over';
   }
-  cc.setTransform(1,0,0,1,0,0); cc.globalAlpha=L.opacity; cc.globalCompositeOperation=L.blend; cc.drawImage(tLayer,0,0);
+  cc.setTransform(1,0,0,1,0,0); cc.globalAlpha=L.opacity; blendDraw(cc, L.blend, tLayer,0,0);
   cc.globalAlpha=1; cc.globalCompositeOperation='source-over';
 }
 function applyStrokePreview(t){
@@ -1116,7 +1191,7 @@ function samplePixel(x,y){
   composeTree(cx, (cx,L)=>{
     tx.clearRect(0,0,1,1); tx.globalCompositeOperation='source-over'; tx.drawImage(L.canvas,x,y,1,1,0,0,1,1);
     if (L.mask&&L.mask.enabled){ tx.globalCompositeOperation='destination-in'; tx.drawImage(L.mask.canvas,x,y,1,1,0,0,1,1); }
-    cx.globalAlpha=L.opacity; cx.globalCompositeOperation=L.blend; cx.drawImage(t,0,0); }, {map:(c,cv)=>c.drawImage(cv,x,y,1,1,0,0,1,1)});
+    cx.globalAlpha=L.opacity; blendDraw(cx, L.blend, t,0,0); }, {map:(c,cv)=>c.drawImage(cv,x,y,1,1,0,0,1,1)});
   const d=cx.getImageData(0,0,1,1).data; if(d[3]===0) return null;
   return '#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
@@ -1373,7 +1448,7 @@ function samGeom(){ const k=1024/Math.max(doc.w,doc.h); return {k, w:Math.round(
 function compositeTo(ctx, w, h){
   composeTree(ctx, (ctx,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const t=ctx2(src); t.drawImage(L.canvas,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0); }
-    ctx.globalAlpha=L.opacity; ctx.globalCompositeOperation=L.blend; ctx.drawImage(src,0,0,w,h); }, {map:(c,cv)=>c.drawImage(cv,0,0,w,h)});
+    ctx.globalAlpha=L.opacity; blendDraw(ctx, L.blend, src,0,0,w,h); }, {map:(c,cv)=>c.drawImage(cv,0,0,w,h)});
   ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
 }
 async function samEmbed(){
@@ -2481,8 +2556,8 @@ function compositeBelow(r, cw, ch, idx){ // like compositeRegion, but only layer
   const below = (L)=>doc.layers.indexOf(L)>=idx && !isGroup(L);
   composeTree(x, (x,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ const t=mk(r.w,r.h), tx=ctx2(t); tx.drawImage(L.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h); tx.globalCompositeOperation='destination-in'; tx.drawImage(L.mask.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
-      x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(t,0,0,cw,ch); return; }
-    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,r.x,r.y,r.w,r.h,0,0,cw,ch); }, {map:(c,cv)=>c.drawImage(cv,r.x,r.y,r.w,r.h,0,0,cw,ch), skip:below});
+      x.globalAlpha=L.opacity; blendDraw(x, L.blend, t,0,0,cw,ch); return; }
+    x.globalAlpha=L.opacity; blendDraw(x, L.blend, src,r.x,r.y,r.w,r.h,0,0,cw,ch); }, {map:(c,cv)=>c.drawImage(cv,r.x,r.y,r.w,r.h,0,0,cw,ch), skip:below});
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; return c;
 }
 function smallRGBA(src, r, sw, sh, maskCanvas){ const c=mk(sw,sh), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high'; x.drawImage(src,r.x,r.y,r.w,r.h,0,0,sw,sh);
@@ -2974,7 +3049,7 @@ async function selectSubject(){
     const N=SEG_SIZE, c=mk(N,N), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high';
     composeTree(x, (x,L)=>{ let src=L.canvas;
       if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const t=ctx2(src); t.drawImage(L.canvas,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0); }
-      x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,N,N); }, {map:(c,cv)=>c.drawImage(cv,0,0,N,N)});
+      x.globalAlpha=L.opacity; blendDraw(x, L.blend, src,0,0,N,N); }, {map:(c,cv)=>c.drawImage(cv,0,0,N,N)});
     const px=x.getImageData(0,0,N,N).data, inp=new Float32Array(3*N*N);
     for (let i=0,j=0;i<N*N;i++,j+=4){ inp[i]=px[j]/255-.5; inp[i+N*N]=px[j+1]/255-.5; inp[i+2*N*N]=px[j+2]/255-.5; }
     const res=await sess.run({[sess.inputNames[0]]: new ort.Tensor('float32',inp,[1,3,N,N])});
@@ -3009,8 +3084,8 @@ function compositeRegion(r, cw, ch){
   const c=mk(cw,ch), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high';
   composeTree(x, (x,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ const t=mk(r.w,r.h), tx=ctx2(t); tx.drawImage(L.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h); tx.globalCompositeOperation='destination-in'; tx.drawImage(L.mask.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
-      x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(t,0,0,cw,ch); return; }
-    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,r.x,r.y,r.w,r.h,0,0,cw,ch); }, {map:(c,cv)=>c.drawImage(cv,r.x,r.y,r.w,r.h,0,0,cw,ch)});
+      x.globalAlpha=L.opacity; blendDraw(x, L.blend, t,0,0,cw,ch); return; }
+    x.globalAlpha=L.opacity; blendDraw(x, L.blend, src,r.x,r.y,r.w,r.h,0,0,cw,ch); }, {map:(c,cv)=>c.drawImage(cv,r.x,r.y,r.w,r.h,0,0,cw,ch)});
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; return c;
 }
 async function contentAwareFill(){
@@ -3363,7 +3438,7 @@ function mergeDown(){
     lo.dirty=true; thumbSoon(lo); layersChanged(); requestRender(); toast('Коррекция впечатана в слой',1400); return; }
   let src=up.canvas;
   if (up.mask&&up.mask.enabled){ src=mk(doc.w,doc.h); const s=ctx2(src); s.drawImage(up.canvas,0,0); s.globalCompositeOperation='destination-in'; s.drawImage(up.mask.canvas,0,0); }
-  if (up.visible){ lo.ctx.save(); lo.ctx.globalAlpha=up.opacity; lo.ctx.globalCompositeOperation=up.blend; lo.ctx.drawImage(src,0,0); lo.ctx.restore(); }
+  if (up.visible){ lo.ctx.save(); lo.ctx.globalAlpha=up.opacity; blendDraw(lo.ctx, up.blend, src,0,0); lo.ctx.restore(); }
   const px=pxEntry(lo.canvas,0,0,doc.w,doc.h,before);
   doc.layers.splice(i,1); doc.active=i-1; doc.editMask=false;
   pushHist(compound(px,{undo(){doc.layers.splice(i,0,up);doc.active=i;},redo(){doc.layers.splice(i,1);doc.active=i-1;}}));
@@ -3471,7 +3546,7 @@ function layersChanged(){
       list.append(row);
     }
     const L=AL(), g=isGroup(L); $('#lyName').value=L.name;  drawLyOpac(); $('#lyOpacV').textContent=Math.round(L.opacity*100);
-    if ($('#lyBlend').dataset.g!==String(g)){ $('#lyBlend').dataset.g=String(g); $('#lyBlend').innerHTML=(g?'<option value="pass">Сквозной</option>':'')+BLENDS.map(b=>`<option value="${b[0]}">${b[1]}</option>`).join(''); }
+    if ($('#lyBlend').dataset.g!==String(g)){ $('#lyBlend').dataset.g=String(g); $('#lyBlend').innerHTML=blendOptions(g); }
     $('#lyBlend').value=L.blend;
     $('#lyMask').textContent = L.mask ? 'Маска…' : (g ? '+ Маска группы' : '+ Маска');
     $('#lyMask').style.gridColumn = L.mask ? 'span 2' : '1/-1';
@@ -3484,7 +3559,7 @@ function layersChanged(){
   if (S.tool==='liquify'||S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove'||FX_TOOLS.includes(S.tool)) renderOpts();
   updateStatus();
 }
-$('#lyBlend').innerHTML = BLENDS.map(b=>`<option value="${b[0]}">${b[1]}</option>`).join('');
+$('#lyBlend').innerHTML = blendOptions(false);
 // the name field stays read-only until tapped, so Pencil strokes on nearby controls never turn into handwriting
 $('#lyName').addEventListener('click',e=>{ const i=e.target; if(i.readOnly){ i.readOnly=false; i.focus(); i.select(); } });
 $('#lyName').addEventListener('blur',e=>{ e.target.readOnly=true; });
@@ -3496,6 +3571,15 @@ const drawLyOpac = hslider($('#lyOpac'), {min:0, max:1, get:()=>doc?AL().opacity
   set:x=>{ AL().opacity=Math.round(x*100)/100; $('#lyOpacV').textContent=Math.round(x*100); bumpContent(); requestRender(); },
   end:()=>{ const L=AL(), v=L.opacity, o=opacStart??v; opacStart=null; if(o!==v) pushHist({undo(){L.opacity=o;},redo(){L.opacity=v;}}); layersChanged(); }});
 $('#lyBlend').addEventListener('change',e=>{ setProp(AL(),'blend',e.target.value); layersChanged(); });
+// step through the blend modes like Shift+/Shift− in Photoshop — watch the picture while tapping
+let blendStepH=null;
+function blendStep(d){ const L=AL(); if(!L || L.kind==='adj') return; const keys=(isGroup(L)?['pass']:[]).concat(BLENDS.map(b=>b[0]));
+  const i=keys.indexOf(L.blend), k=keys[(i+d+keys.length)%keys.length];
+  const h=blendStepH; if (h && h.L===L && undoStack[undoStack.length-1]===h.e){ L.blend=k; h.val=k; L.dirty=true; markDirty(); requestRender(); } // a run of taps is one undo step
+  else { const old=L.blend, e={undo(){ L.blend=old; }, redo(){ L.blend=blendStepH&&blendStepH.e===e?blendStepH.val:k; }}; L.blend=k; pushHist(e); L.dirty=true; requestRender(); blendStepH={L,e,val:k}; }
+  layersChanged();
+  toast(k==='pass'?'Сквозной':(BLENDS.find(b=>b[0]===k)||BLENDS[0])[1], 900); }
+$('#lyBlendPrev').onclick=()=>blendStep(-1); $('#lyBlendNext').onclick=()=>blendStep(1);
 $('#lyAdd').onclick=()=>insertLayer(newLayer('Слой '+(doc.layers.filter(x=>!isGroup(x)).length)), doc.active+1);
 $('#lyGroup').onclick=makeGroup;
 $('#lyDup').onclick=dupLayer; $('#lyDel').onclick=deleteLayer; $('#lyUp').onclick=()=>moveLayer(1); $('#lyDown').onclick=()=>moveLayer(-1);
@@ -3879,7 +3963,7 @@ function flatten(scale=1, white){
   x.imageSmoothingQuality='high'; if (white){ x.fillStyle='#fff'; x.fillRect(0,0,w,h); }
   composeTree(x, (x,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const s=ctx2(src); s.drawImage(L.canvas,0,0); s.globalCompositeOperation='destination-in'; s.drawImage(L.mask.canvas,0,0); }
-    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,0,0,w,h); }, {map:(c,cv)=>c.drawImage(cv,0,0,w,h)});
+    x.globalAlpha=L.opacity; blendDraw(x, L.blend, src,0,0,w,h); }, {map:(c,cv)=>c.drawImage(cv,0,0,w,h)});
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; return c;
 }
 const toBlob=(c,type,q)=>new Promise(r=>c.toBlob(r,type,q));
@@ -4176,6 +4260,7 @@ document.addEventListener('keydown', e=>{
   if (mod) return;
   const map={d:'depth',b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap',w:'wand',j:'patch',h:'heal',s:'clone',r:'remove',y:'spot',o:'dodge'};
   if (map[k]){ setTool(map[k]); return; }
+  if (e.shiftKey && (e.code==='Equal'||e.code==='Minus'||k==='+'||k==='_') && doc && !e.metaKey && !e.ctrlKey){ e.preventDefault(); blendStep(e.code==='Minus'||k==='_'?-1:1); return; }
   if (k==='['||k===']'){ const f=k===']'?1.15:1/1.15; const s=clamp(Math.round(curSize()*f+(k===']'?1:-1)),1,SIZE_MAX); if(S.tool==='eraser') S.eraserSize=s; else if(S.tool==='liquify') S.liqSize=Math.max(8,s); else S.size=s; spriteKey=''; syncSliders(); return; }
   if (edge && k==='enter'){ edgeApply(); return; }
   if (edge && k==='escape'){ edgeCancel(); return; }
@@ -4385,7 +4470,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №30.1 пластика не залипает'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №31 все режимы наложения'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
