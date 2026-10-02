@@ -83,6 +83,9 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .hs .hk{position:absolute;top:6px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--fg);box-shadow:0 1px 4px rgba(0,0,0,.5)}
 .row .hs{flex:1;width:auto}
 #opts.tight{gap:8px} #opts.tight .hs{width:80px} #opts.tight .opt{gap:5px}
+#optMore{min-width:36px;font-size:16px;letter-spacing:1px}
+#optPop{position:absolute;z-index:45;display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);max-width:min(420px,calc(100vw - 32px))}
+#optPop .opt{justify-content:space-between} #optPop .hs{width:150px} #optPop .seg{align-self:flex-start}
 .opt .v{font-family:var(--mono);color:var(--fg);min-width:30px;font-size:12px;font-variant-numeric:tabular-nums}
 .seg{display:inline-flex;background:var(--panel-2);border-radius:8px;padding:2px}
 .seg button{height:30px;padding:0 10px;border-radius:6px;font-size:13px}
@@ -271,7 +274,7 @@ body{-webkit-font-smoothing:antialiased}
 .vs .knob{height:6px;left:-4px;right:-4px;box-shadow:0 1px 4px rgba(0,0,0,.6)}
 .vlabel{margin-top:2px}
 /* glass for floating surfaces */
-#layers,.fbar,.pop,#flyout,#toast,.dlg{background:var(--glass);-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2);border-color:var(--line);box-shadow:var(--shadow)}
+#layers,.fbar,.pop,#flyout,#toast,.dlg,#optPop{background:var(--glass);-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2);border-color:var(--line);box-shadow:var(--shadow)}
 .scrim{-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 /* layers panel */
 #layers{width:296px;border-radius:16px}
@@ -1209,7 +1212,7 @@ function selToMask(){
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
 }
-function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge; $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; syncSelModes(); }
+function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge; $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
 function quickDeselect(){ if(!sel) return; deselect(); toast('Выделение снято · вернуть — тап двумя пальцами',1500); }
 function syncSelModes(){ document.querySelectorAll('#selModes button').forEach(b=>b.classList.toggle('on', b.dataset.mode===S.selMode)); }
 function setSelMode(k){ S.selMode=k; if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
@@ -2546,8 +2549,24 @@ function rng(label, key, min, max, fmt){
   return w;
 }
 function chk(label,key){ const b=document.createElement('button'); b.className='chk'+(S[key]?' on':''); b.textContent=label; b.onclick=()=>{ S[key]=!S[key]; b.classList.toggle('on',S[key]); savePrefs(); }; return b; }
-function fitOpts(){ const o=$('#opts'); if(!o) return; o.classList.remove('tight'); if (o.scrollWidth>o.clientWidth+1) o.classList.add('tight'); }
-function renderOpts(){ renderOpts0(); requestAnimationFrame(fitOpts); }
+/* options bar: when it does not fit, sliders get narrower; what still does not fit goes under the «⋯» button */
+let optMoved=[];
+function closeOptPop(){ const p=$('#optPop'); if(p) p.hidden=true; const b=$('#optMore'); if(b) b.classList.remove('on'); }
+function fitOpts(){ const o=$('#opts'); if(!o) return;
+  const old=$('#optMore'); if (old) old.remove();
+  for (const el of optMoved) o.append(el); optMoved=[]; closeOptPop();
+  o.classList.remove('tight'); if (o.scrollWidth<=o.clientWidth+1) return;
+  o.classList.add('tight'); if (o.scrollWidth<=o.clientWidth+1) return;
+  const more=document.createElement('button'); more.id='optMore'; more.className='chk'; more.textContent='⋯'; more.setAttribute('aria-label','Ещё настройки'); o.append(more);
+  while (o.scrollWidth>o.clientWidth+1 && o.children.length>2){ const el=more.previousElementSibling; optMoved.unshift(el); el.remove(); }
+  let pop=$('#optPop'); if(!pop){ pop=document.createElement('div'); pop.id='optPop'; pop.hidden=true; $('#app').appendChild(pop);
+    document.addEventListener('pointerdown', e=>{ const p=$('#optPop'); if(p && !p.hidden && !p.contains(e.target) && e.target.id!=='optMore') closeOptPop(); }, true); }
+  pop.textContent=''; for (const el of optMoved) pop.append(el);
+  more.onclick=()=>{ if(!pop.hidden){ closeOptPop(); return; } pop.hidden=false; more.classList.add('on');
+    const r=more.getBoundingClientRect(), a=$('#app').getBoundingClientRect(), w=pop.offsetWidth;
+    pop.style.top=(r.bottom-a.top+8)+'px'; pop.style.left=Math.max(8, Math.min(a.width-w-8, r.right-a.left-w))+'px'; };
+}
+function renderOpts(){ optMoved=[]; const p=$('#optPop'); if(p){ p.textContent=''; p.hidden=true; } renderOpts0(); requestAnimationFrame(fitOpts); }
 function renderOpts0(){
   const o=$('#opts'); o.textContent='';
   const pct=v=>Math.round(v*100)+'%';
@@ -2577,14 +2596,15 @@ function renderOpts0(){
       if (onDB){ const h=document.createElement('span'); h.className='opt'; h.textContent='Серый слой'; h.title='Рисую '+(S.tool==='dodge'?'светлым':'тёмным')+' по серому слою';
         o.append(h, rng('Экспозиция','dbExp',2,100,pct)); }
       else { const nl=document.createElement('button'); nl.className='chk'; nl.textContent='＋ Серый слой'; nl.title='Неразрушающее осветление/затемнение: слой 50% серого в режиме «Мягкий свет»'; nl.onclick=addDBLayer;
-        o.append(nl, segOf('dbRange',[['shadow','Тени'],['mid','Средние'],['high','Света']]), rng('Экспозиция','dbExp',2,100,pct), chk('Сохранять цвет','dbProtect')); }
+        o.append(segOf('dbRange',[['shadow','Тени'],['mid','Средние'],['high','Света']]), rng('Экспозиция','dbExp',2,100,pct), rng('Нажим','fxFlow',5,100,pct), nl, chk('Сохранять цвет','dbProtect')); }
     } else if (S.tool==='sponge') o.append(segOf('spMode',[['desat','Приглушить'],['sat','Насытить']]), rng('Сила','spAmt',2,100,pct), chk('Беречь яркие','spVib'));
     else if (S.tool==='blur') o.append(rng('Сила','blurAmt',2,100,pct));
     else if (S.tool==='sharpen') o.append(rng('Сила','sharpAmt',2,100,pct));
     else o.append(rng('Сила','smudge',2,100,pct));
+    if (S.tool!=='smudge' && !(S.tool==='dodge'||S.tool==='burn') || onDB) o.append(rng('Нажим','fxFlow',5,100,pct));
+    o.append(rng('Жёсткость','hardness',0,100,pct));
     if (!onDB) o.append(segOf('fxAll',[[false,'Слой'],[true,'Все слои']]));
-    if (S.tool!=='smudge') o.append(rng('Нажим','fxFlow',5,100,pct));
-    o.append(rng('Жёсткость','hardness',0,100,pct), chk('Нажим → размер','pSize'));
+    o.append(chk('Нажим → размер','pSize'));
   } else if (S.tool==='spot'||S.tool==='remove'){
     const src=document.createElement('div'); src.className='seg';
     for (const [k,l] of [[false,'Слой'],[true,'Все слои → новый слой']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.retouchAll===k?'on':''; b.onclick=()=>{ S.retouchAll=k; retouchCache=null; savePrefs(); renderOpts(); }; src.append(b); }
@@ -3246,7 +3266,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №23.4 без стрелок'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №23.5 панель настроек ⋯'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
