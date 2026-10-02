@@ -2797,7 +2797,27 @@ function flatten(scale=1, white){
 }
 const toBlob=(c,type,q)=>new Promise(r=>c.toBlob(r,type,q));
 let dl=null; const dlReady=(async()=>{ try{ dl=await window.claude?.use?.('downloads'); }catch(e){ dl=null; } })();
+/* inside the native app: the file goes to the iPad share sheet through the shell, in chunks */
+const nativeApp = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.proyavka);
+async function nativeSave(name, data){
+  const h=window.webkit.messageHandlers.proyavka, blob = data instanceof Blob ? data : new Blob([data]);
+  h.postMessage({op:'begin', name});
+  const step=3*1024*1024;
+  for (let o=0; o<blob.size; o+=step){
+    const buf=new Uint8Array(await blob.slice(o, o+step).arrayBuffer()); let bin='';
+    for (let i=0;i<buf.length;i+=0x8000) bin+=String.fromCharCode.apply(null, buf.subarray(i,i+0x8000));
+    h.postMessage({op:'chunk', b64:btoa(bin)});
+  }
+  h.postMessage({op:'end'});
+}
+window.pvShareDone = ok => toast(ok ? 'Готово' : 'Сохранение отменено', 1600);
+/* Apple Pencil (in the app): double-tap — eraser and back, like Procreate; squeeze — undo */
+let pencilBack=null;
+window.pvPencil = kind => { if (!doc) return;
+  if (kind==='squeeze'){ undo(); return; }
+  if (S.tool==='eraser'){ setTool(pencilBack||'brush'); } else { pencilBack=S.tool; setTool('eraser'); } };
 async function saveFile(name, data){
+  if (nativeApp){ try{ await nativeSave(name, data); }catch(e){ console.error(e); toast('Не удалось передать файл'); } return; }
   await dlReady;
   if (!dl){
     const blob = data instanceof Blob ? data : new Blob([data]);
@@ -3266,7 +3286,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №23.6 тон без «Нажима»'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №24 мост к приложению'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
