@@ -920,7 +920,7 @@ function applyStrokePreview(t){
   if (sel){ s.globalCompositeOperation='destination-in'; s.drawImage(sel.mask,0,0); s.globalCompositeOperation='source-over'; }
   if (stroke.lerp){ t.setTransform(1,0,0,1,0,0); t.globalAlpha=stroke.opacity; t.globalCompositeOperation='destination-out'; t.drawImage(tStroke,0,0); }
   if (stroke.clone){ s.globalCompositeOperation='source-in'; s.drawImage(stroke.clone.src,-stroke.clone.ox,-stroke.clone.oy); s.globalCompositeOperation='source-over'; }
-  t.setTransform(1,0,0,1,0,0); t.globalAlpha=stroke.opacity; t.globalCompositeOperation=stroke.lerp?'lighter':stroke.op; t.drawImage(tStroke,0,0);
+  t.setTransform(1,0,0,1,0,0); t.globalAlpha=stroke.opacity*(stroke.lerpK??1); t.globalCompositeOperation=stroke.lerp?'lighter':stroke.op; t.drawImage(tStroke,0,0);
   t.globalAlpha=1; t.globalCompositeOperation='source-over'; setVT(t);
 }
 let antsPhase=0;
@@ -1042,6 +1042,8 @@ function strokeBegin(p){
   const sb=ctx2(strokeBuf); sb.setTransform(1,0,0,1,0,0); sb.clearRect(0,0,doc.w,doc.h);
   stroke = { layer:L, target, op, opacity:S.opacity, sprite:getSprite(target==='mask'||cloning?'#ffffff':S.color),
     last:null, carry:0, bbox:null, sm:null, cursor:null, size:curSize() };
+  if (target==='mask'){ // like Photoshop: on a mask the brush paints its grey — black hides, white shows; the eraser shows
+    const c=hexRGB(S.color), g = erase ? 1 : (0.299*c[0]+0.587*c[1]+0.114*c[2])/255; stroke.lerp=true; stroke.lerpK=g; }
   if (dbPaint){ stroke.sprite=getSprite(S.tool==='dodge'?'#ffffff':'#000000'); stroke.opacity=S.dbExp; stroke.db=true; }
   if (fxing){ stroke.opacity=1; stroke.lerp=true;
     try{ stroke.clone={ src:mk(doc.w,doc.h), ox:0, oy:0, heal:false, fx:S.tool, tiles:new Set(), layer:L, all:S.fxAll }; }catch(e){ stroke=null; toast('Не хватает памяти'); return false; }
@@ -1096,7 +1098,8 @@ function strokeEnd(cancel){
     if (c.heal){ try{ healRegion(rx, r, c); }catch(e){ console.error(e); toast('Смешивание не удалось, оставила как штамп'); c.heal=false; } }
     if (!c.heal){ if (st.lerp){ const tx0=ctx2(tgt); tx0.save(); tx0.globalAlpha=st.opacity; tx0.globalCompositeOperation='destination-out'; tx0.drawImage(reg,r.x,r.y); tx0.restore(); }
       rx.globalCompositeOperation='source-in'; rx.drawImage(c.src, -(r.x+c.ox), -(r.y+c.oy)); rx.globalCompositeOperation='source-over'; } }
-  const tx=ctx2(tgt); tx.save(); tx.globalAlpha=st.opacity; tx.globalCompositeOperation=st.lerp?'lighter':st.op; tx.drawImage(reg,r.x,r.y); tx.restore();
+  if (st.lerp && !st.clone){ const tx0=ctx2(tgt); tx0.save(); tx0.globalAlpha=st.opacity; tx0.globalCompositeOperation='destination-out'; tx0.drawImage(reg,r.x,r.y); tx0.restore(); }
+  const tx=ctx2(tgt); tx.save(); tx.globalAlpha=st.opacity*(st.lerpK??1); tx.globalCompositeOperation=st.lerp?'lighter':st.op; tx.drawImage(reg,r.x,r.y); tx.restore();
   pushHist(pxEntry(tgt, r.x,r.y,r.w,r.h, before));
   st.layer.dirty=true; thumbSoon(st.layer); requestRender();
 }
@@ -2943,7 +2946,7 @@ function dupLayer(){
 }
 function toggleMask(){
   const L=AL();
-  if (!L.mask){ const m=newMask(L, !!sel); L.mask=m; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=m;}}); if(sel) deselect(); toast('Маска добавлена: кисть скрывает, ластик возвращает',3200); }
+  if (!L.mask){ const m=newMask(L, !!sel); L.mask=m; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=m;}}); if(sel) deselect(); toast('Маска добавлена: чёрный скрывает, белый и ластик возвращают',3200); }
   layersChanged(); requestRender();
 }
 function invertMask(){
@@ -3060,7 +3063,7 @@ function layersChanged(){
         const n=doc.layers.filter(x=>isDesc(x,L)&&!isGroup(x)).length;
         const nm=document.createElement('div'); nm.style.minWidth='0'; let mcg=null;
         if (L.mask){ mcg=thumbFor(L,true); mcg.classList.toggle('sel', i===doc.active && doc.editMask); mcg.style.opacity=L.mask.enabled?1:.4;
-          mcg.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); toast('Рисуешь по маске группы: кисть скрывает, ластик возвращает',2600); }; }
+          mcg.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); toast('Рисуешь по маске группы: чёрный скрывает, белый и ластик возвращают',2600); }; }
         else nm.style.gridColumn='span 2';
         nm.innerHTML='<div class="nm"></div><div class="meta"></div>';
         nm.firstChild.textContent=L.name; nm.lastChild.textContent=n+' сл. · '+Math.round(L.opacity*100)+'% · '+(L.blend==='pass'?'Сквозной':(BLENDS.find(b=>b[0]===L.blend)||BLENDS[0])[1]);
@@ -3072,7 +3075,7 @@ function layersChanged(){
       tc.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); if (L.kind==='adj') adjOpen(L); };
       row.append(eye, tc);
       if (L.mask){ const mc=thumbFor(L,true); mc.classList.toggle('sel', i===doc.active && doc.editMask); mc.style.opacity=L.mask.enabled?1:.4;
-        mc.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); toast('Рисуешь по маске: кисть скрывает, ластик возвращает',2600); };
+        mc.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); toast('Рисуешь по маске: чёрный скрывает, белый и ластик возвращают',2600); };
         row.append(mc); }
       const nm=document.createElement('div'); nm.style.minWidth='0'; if (!L.mask) nm.style.gridColumn='span 2';
       nm.innerHTML='<div class="nm"></div><div class="meta"></div>';
@@ -3115,7 +3118,7 @@ $('#lyMerge').onclick=mergeDown; $('#lyMaskInv').onclick=invertMask; $('#lyClear
 $('#lyMask').onclick=()=>{ if(!AL().mask){ toggleMask(); return; } openMaskMenu(); };
 function openMaskMenu(){
   const L=AL(), onMask=doc.editMask, g=isGroup(L);
-  const items=[[onMask?(g?'Закончить с маской':'Рисовать по слою'):'Рисовать по маске', ()=>{ doc.editMask=!onMask; layersChanged(); if(!onMask) toast('Рисуешь по маске: кисть скрывает, ластик возвращает',2600); }, '', onMask?(g?'Вернуться к группе':'Кисть снова рисует по картинке'):'Кисть скрывает, ластик возвращает'],
+  const items=[[onMask?(g?'Закончить с маской':'Рисовать по слою'):'Рисовать по маске', ()=>{ doc.editMask=!onMask; layersChanged(); if(!onMask) toast('Рисуешь по маске: чёрный скрывает, белый и ластик возвращают',2600); }, '', onMask?(g?'Вернуться к группе':'Кисть снова рисует по картинке'):'Кисть скрывает, ластик возвращает'],
      ['Инвертировать', ()=>invertMask(), '', 'Скрытое станет видимым и наоборот · ⌘I'],
      [L.mask.enabled?'Выключить маску':'Включить маску', ()=>{ setProp(L.mask,'enabled',!L.mask.enabled); layersChanged(); }, '', L.mask.enabled?(g?'Временно показать группу целиком':'Временно показать слой целиком'):'Снова скрыть замаскированное'],
      ...(g?[]:[['Применить к слою', ()=>removeMask(true), '', 'Скрытое стирается со слоя, маска исчезает']]),
@@ -3242,7 +3245,10 @@ function renderOpts0(){
   const pct=v=>Math.round(v*100)+'%';
   if (S.tool==='brush'||S.tool==='eraser'){
     o.append(rng('Жёсткость','hardness',0,100,pct), rng('Поток','flow',2,100,pct), rng('Сглаж.','smooth',0,100,pct), chk('Нажим → размер','pSize'), chk('Нажим → поток','pOpac'));
-    if (doc&&doc.editMask) { const s=document.createElement('span'); s.className='opt'; s.textContent='· рисуешь по маске'; s.style.color='var(--accent)'; o.append(s); }
+    if (doc&&doc.editMask) { const seg=document.createElement('div'); seg.className='seg'; seg.title='Маска: чёрный скрывает, белый показывает, серый — частично';
+      const lum=(()=>{ const c=hexRGB(S.color); return (0.299*c[0]+0.587*c[1]+0.114*c[2])/255; })();
+      for (const [col,l] of [['#000000','■ Скрыть'],['#ffffff','□ Показать']]){ const b=document.createElement('button'); b.textContent=l; b.className=(col==='#000000'?lum<0.02:lum>0.98)&&S.tool==='brush'?'on':''; b.onclick=()=>{ setColor(col,false); if(S.tool!=='brush') setTool('brush'); renderOpts(); }; seg.append(b); }
+      o.prepend(seg); }
   } else if (S.tool==='lasso'||S.tool==='rect'){
     const seg=document.createElement('div'); seg.className='seg';
     for (const [k,l] of [['new','Новое'],['add','＋ Добавить'],['sub','− Вычесть']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.selMode===k?'on':''; b.onclick=()=>setSelMode(k); seg.append(b); }
@@ -3981,7 +3987,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №27.5 дымка и размытие без ореола'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №27.6 маска чёрным и белым'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
