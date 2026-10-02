@@ -1053,8 +1053,10 @@ function strokeCacheBuild(L){
   return { layer:L };
 }
 // all layers into cc (which already has the view transform and the document clip)
+function liveCacheFree(){ strokeCache=null; liveDirty=null; for (const c of [scBelow,scAbove]) if (c && c.width>1){ c.width=c.height=1; } }
 function composeAll(cc){
   const L=liveLayer(), C = L && liveCache(L);
+  if (!L && scBelow && scBelow.width>1) liveCacheFree();   // two screen-sized canvases go back as soon as the live edit ends
   if (!C){ composeTree(cc, drawLayer, {map:renderGroupMask}); return; }
   cc.save(); cc.setTransform(1,0,0,1,0,0); cc.globalAlpha=1; cc.globalCompositeOperation='source-over'; cc.drawImage(scBelow,0,0); cc.restore();
   if (L.visible) drawLayer(cc, L);
@@ -1693,7 +1695,17 @@ function applySelPoly(pts){
   sel.polys.push(pts);
   pushSelHist(before); updateSelBar(); requestRender();
 }
-function snapshotSel(){ if(!sel) return null; const c=mk(doc.w,doc.h); ctx2(c).drawImage(sel.mask,0,0); return {mask:c, polys:sel.polys.slice(), inverted:sel.inverted, box:sel.box, segs:sel.segs, outline:sel.outline}; }
+/* Selection history keeps the mask packed: only its alpha, deflated (a lasso mask of a 3000×4000 picture is tens of KB
+   instead of a 48 MB canvas — every selection step used to keep two full canvases and Safari ran out of memory).
+   .mask unpacks a fresh canvas on demand, so a restored selection never shares pixels with the history. */
+function snapshotSel(){ if(!sel) return null; const w=doc.w, h=doc.h;
+  let z=null; try{ const d=ctx2(sel.mask).getImageData(0,0,w,h).data, a=new Uint8Array(w*h); for (let i=0,j=3;i<a.length;i++,j+=4) a[i]=d[j]; z=fflate.deflateSync(a,{level:1}); }catch(e){ console.warn('sel pack',e); }
+  const snap={w, h, z, polys:sel.polys.slice(), inverted:sel.inverted, box:sel.box, segs:sel.segs, outline:sel.outline};
+  if (!z){ const c=mk(w,h); ctx2(c).drawImage(sel.mask,0,0); snap.raw=c; }
+  Object.defineProperty(snap,'mask',{get(){ return selUnpack(this); }}); return snap; }
+function selUnpack(b){ const c=mk(b.w,b.h), x=ctx2(c); if (b.raw){ x.drawImage(b.raw,0,0); return c; }
+  const a=fflate.inflateSync(b.z), id=x.createImageData(b.w,b.h), d=id.data; for (let i=0,j=0;i<a.length;i++,j+=4){ d[j]=d[j+1]=d[j+2]=255; d[j+3]=a[i]; } x.putImageData(id,0,0); return c; }
+const selBytes = b => b ? (b.z ? b.z.length : b.w*b.h*4) : 0;
 const selFrom = b => b ? {mask:b.mask, polys:b.polys.slice(), inverted:b.inverted, box:b.box, segs:b.segs, outline:b.outline} : null;
 /* one outline for the whole selection, traced from the actual mask, so added pieces merge into a single border like in Photoshop */
 function refreshSelOutline(){
@@ -1739,7 +1751,7 @@ function pushSelHist(before){
   const after = snapshotSel();
   pushHist({ undo(){ sel = selFrom(before); updateSelBar(); },
              redo(){ sel = selFrom(after); updateSelBar(); }, sel:true,
-             bytes: (before?doc.w*doc.h*4:0) });
+             bytes: selBytes(before)+selBytes(after) });
 }
 function deselect(silent){ if(!sel) return; const b=snapshotSel(); sel=null; if(!silent) pushSelHist(b); updateSelBar(); requestRender(); }
 function invertSel(){
@@ -2125,16 +2137,19 @@ $('#edReset').onclick=()=>{ if(!edge) return; edge.t={smooth:0,feather:0,shift:0
 /* ============ depth map (Depth Anything V2 Small, on the iPad): select by depth, haze, depth blur ============
    The map is computed once per picture state from the visible composite (long side 518 px), then reused:
    near ∈ [0..1], 1 = closest to the camera. */
-let depthMap=null, depthLoading=null, dep=null, depPrev=null, depRaf=0;
-const DEP_DEF={mode:'sel', ref:null, href:null, htol:0.25, grow:0.4, pickColor:false, near:0.08, far:0.08, soft:0.06, start:0.45, dens:0.75, hsoft:0.5, blur:0.5, dof:0.06, bright:0.45, blades:0, cat:0, show:false};
-async function depthCompute(){
-  if (depthMap && depthMap.ver===contentVer && depthMap.w0===doc.w && depthMap.h0===doc.h) return depthMap;
-  if (depthLoading) return depthLoading;
+let depthMap=null, depthBelowMap=null, depthLoading=null, dep=null, depPrev=null, depRaf=0;
+const DEP_DEF={oref:null, otol:0.02, osoft:0.04, lx:null, ly:null, lstr:0.7, lh:0.35, lrad:0.6, lrel:0.5, lrim:false, mode:'sel', ref:null, href:null, htol:0.25, grow:0.4, pickColor:false, near:0.08, far:0.08, soft:0.06, start:0.45, dens:0.75, hsoft:0.5, blur:0.5, dof:0.06, bright:0.45, blades:0, cat:0, show:false};
+// below: a layer — the depth is taken from the picture under it (for putting that layer behind things)
+async function depthCompute(below){
+  const idx = below ? doc.layers.indexOf(below) : -1, key=contentVer+'|'+idx, have = below ? depthBelowMap : depthMap;
+  if (have && have.key===key && have.w0===doc.w && have.h0===doc.h) return have;
+  if (depthLoading){ await depthLoading.catch(()=>{}); return depthCompute(below); }
+  const flatFn = below ? (k=>{ const w=Math.max(1,Math.round(doc.w*k)), h=Math.max(1,Math.round(doc.h*k)), c=mk(w,h), x=ctx2(c); x.fillStyle='#fff'; x.fillRect(0,0,w,h); x.drawImage(compositeBelow({x:0,y:0,w:doc.w,h:doc.h},w,h,idx),0,0); return c; }) : (k=>flatten(k,true));
   depthLoading=(async()=>{
     const sess=await mlSession('depth', MODELS.depth, 'Загружаю модель глубины (один раз, ~27 МБ)', false);
     busy(true,'Считаю глубину…'); await nextFrame();
     const k=518/Math.max(doc.w,doc.h), w=Math.max(14,Math.round(doc.w*k/14)*14), h=Math.max(14,Math.round(doc.h*k/14)*14), N=w*h;
-    const c=mk(w,h), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high'; x.drawImage(flatten(Math.min(1,2*k),true),0,0,w,h);
+    const c=mk(w,h), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high'; x.drawImage(flatFn(Math.min(1,2*k)),0,0,w,h);
     const d=x.getImageData(0,0,w,h).data, inp=new Float32Array(3*N), M=[0.485,0.456,0.406], SD=[0.229,0.224,0.225];
     for (let i=0;i<N;i++) for (let ch=0;ch<3;ch++) inp[ch*N+i]=(d[i*4+ch]/255-M[ch])/SD[ch];
     const res=await sess.run({[sess.inputNames[0]]: new ort.Tensor('float32',inp,[1,3,h,w])});
@@ -2142,8 +2157,9 @@ async function depthCompute(){
     const smp=Float32Array.from(y).sort(), lo=smp[Math.floor(N*0.01)], hi=smp[Math.floor(N*0.995)], near=new Float32Array(N);
     for (let i=0;i<N;i++) near[i]=clamp((y[i]-lo)/Math.max(1e-6,hi-lo),0,1);
     busy(true,'Уточняю края по картинке…'); await nextFrame();
-    depthMap=Object.assign({ver:contentVer, w0:doc.w, h0:doc.h}, depthRefine(near,w,h));
-    busy(false); return depthMap;
+    const dm=Object.assign({ver:contentVer, key, w0:doc.w, h0:doc.h}, depthRefine(near,w,h,flatFn));
+    if (below) depthBelowMap=dm; else depthMap=dm;
+    busy(false); return dm;
   })();
   try{ return await depthLoading; } finally{ depthLoading=null; }
 }
@@ -2171,9 +2187,9 @@ function depthJBU(near,w,h,gLow,W,H,gHigh){
       out[y*W+x] = wl>0 ? 0.35*m+0.65*(vl/wl) : m; } }
   return out;
 }
-function depthRefine(near,w,h){
+function depthRefine(near,w,h,flatFn){
   const k=Math.min(1,1024/Math.max(doc.w,doc.h)), W=Math.max(1,Math.round(doc.w*k)), H=Math.max(1,Math.round(doc.h*k)), N=W*H;
-  const flat=flatten(k,true), gd=ctx2(flat,{willReadFrequently:true}).getImageData(0,0,W,H).data;
+  const flat=(flatFn||(q=>flatten(q,true)))(k), gd=ctx2(flat,{willReadFrequently:true}).getImageData(0,0,W,H).data;
   const lc=mk(w,h), lx=ctx2(lc,{willReadFrequently:true}); lx.imageSmoothingQuality='high'; lx.drawImage(flat,0,0,w,h);
   const p=depthJBU(near,w,h,lx.getImageData(0,0,w,h).data,W,H,gd);
   // guide: the picture itself (luminance with a bit of chroma so a blue cloth on a dark wall still has an edge)
@@ -2225,25 +2241,37 @@ async function depthOpen(){
   if (S.tool!=='depth') return;
   const m=depthMap; if (m.focusGuess==null){ let best=0; for (let i=0;i<m.near.length;i++) if (m.near[i]>best) best=m.near[i]; m.focusGuess=best*0.92; }
   dep={ t:Object.assign({}, DEP_DEF, dep?{mode:dep.t.mode}:{}), pv:null };
-  $('#depthbar').hidden=false; depthBuild(); depthPreview(); updateSelBar();
+  $('#depthbar').hidden=false; if (dep.t.mode==='occl') occlLoad(); depthBuild(); depthPreview(); updateSelBar();
 }
-function depthClose(){ dep=null; depPrev=null; $('#depthbar').hidden=true; updateSelBar(); renderOverlay(); }
+function depthClose(){ lightDrop(); dep=null; depPrev=null; $('#depthbar').hidden=true; updateSelBar(); renderOverlay(); }
 function depthTap(dx,dy){ if(!dep){ depthOpen().then(()=>{ if(dep) depthTap(dx,dy); }); return; } if(!depthMap) return;
   if (dep.t.mode==='haze'){
     if (dep.t.pickColor){ const c=samplePixel(dx,dy); dep.t.pickColor=false; if(c){ setColor(c,false); pushRecent(S.color); toast('Цвет дымки взят с картинки',1200); } depthBuild(); return; }
-    dep.t.href=depthAt(depthMap,dx,dy); dep.t.hx=dx; dep.t.hy=dy; depthBuild(); depthPreview(); return; } dep.t.ref=depthAt(depthMap,dx,dy); depthBuild(); depthPreview(); }
+    dep.t.href=depthAt(depthMap,dx,dy); dep.t.hx=dx; dep.t.hy=dy; depthBuild(); depthPreview(); return; }
+  if (dep.t.mode==='occl'){ if (!dep.occ) return; dep.t.oref=depthAt(dep.occ,dx,dy); depthBuild(); depthPreview(); return; }
+  if (dep.t.mode==='light'){
+    if (dep.t.pickColor){ const c=samplePixel(dx,dy); dep.t.pickColor=false; if(c){ setColor(c,false); pushRecent(S.color); toast('Цвет света взят с картинки',1200); } depthBuild(); return; }
+    dep.t.lx=dx; dep.t.ly=dy; depthBuild(); depthPreview(); return; }
+  dep.t.ref=depthAt(depthMap,dx,dy); depthBuild(); depthPreview(); }
 function depthBuild(){
   const box=$('#depthbar'), t=dep.t; box.textContent='';
+  if (t.mode==='occl' && occlOk() && dep.occL!==AL()) occlLoad();
   const head=document.createElement('div'); head.className='eh'; head.innerHTML='Глубина <span></span>';
-  head.lastChild.textContent = t.mode==='sel' ? (t.ref==null?'тапни по объекту — выделится всё на его глубине':'тап по другому месту — новая глубина')
+  head.lastChild.textContent = t.mode==='occl' ? (!occlOk() ? 'выбери слой со вставленным объектом (не нижний)' : !dep.occ ? 'считаю глубину под слоем…' : t.oref==null ? 'тапни туда, где объект стоит (опора, ноги, низ)' : 'красным — где объект уйдёт за ближние предметы')
+    : t.mode==='light' ? (t.pickColor ? 'тапни по картинке — возьму оттуда цвет' : t.lx==null ? 'тапни, откуда идёт свет' : 'тап — передвинуть источник') : t.mode==='sel' ? (t.ref==null?'тапни по объекту — выделится всё на его глубине':'тап по другому месту — новая глубина')
     : t.mode==='haze' ? (t.pickColor ? 'тапни по картинке — возьму оттуда цвет' : t.href==null ? 'тап по объекту — дымка встанет сразу за ним' : 'дымка прилегает к объекту; тап по другому — сменить') : (t.ref==null?'тапни по тому, что должно остаться резким':'тап — другая точка фокуса');
   box.append(head);
   const seg=document.createElement('div'); seg.className='seg';
-  for (const [k,l] of [['sel','Выделение'],['haze','Дымка'],['blur','Размытие']]){ const b=document.createElement('button'); b.textContent=l; b.className=t.mode===k?'on':''; b.onclick=()=>{ t.mode=k; depthBuild(); depthPreview(); }; seg.append(b); }
+  for (const [k,l] of [['sel','Выделение'],['haze','Дымка'],['blur','Размытие'],['occl','За объект'],['light','Свет']]){ const b=document.createElement('button'); b.textContent=l; b.className=t.mode===k?'on':''; b.onclick=()=>{ if (t.mode==='light' && k!=='light') lightDrop(); t.mode=k; if (k==='occl') occlLoad(); depthBuild(); depthPreview(); }; seg.append(b); }
   box.append(seg);
   const row=(label,key,min,max,fmt)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label></label><div></div><span class="v"></span>'; r.firstChild.textContent=label;
     const v=r.lastChild, show=()=>v.textContent=fmt(t[key]); show();
     hslider(r.children[1], {min, max, get:()=>t[key], set:x=>{ t[key]=x; show(); if(!depRaf) depRaf=requestAnimationFrame(depthPreview); }}); box.append(r); };
+  const colorRow=()=>{ const sw=document.createElement('div'); sw.className='er'; sw.innerHTML='<label>Цвет</label><div style="display:flex;gap:6px"><button id="dpSwatch" class="pickHere" aria-label="Выбрать цвет" style="flex:1"></button><button class="chk" id="dpPick">Пипетка</button></div><span></span>';
+    const b=sw.querySelector('#dpSwatch'); b.style.cssText+='height:30px;border-radius:8px;border:1px solid var(--line);background:'+S.color;
+    b.onclick=e=>{ e.stopPropagation(); openPickerAt(b); };
+    const pk=sw.querySelector('#dpPick'); pk.classList.toggle('on',!!t.pickColor); pk.onclick=()=>{ t.pickColor=!t.pickColor; depthBuild(); };
+    box.append(sw); };
   const pc=x=>Math.round(x*100)+'%';
   if (t.mode==='sel'){ row('Ближе','near',0,0.6,pc); row('Дальше','far',0,0.6,pc); row('Мягкость края','soft',0,0.3,pc); }
   else if (t.mode==='haze'){
@@ -2251,11 +2279,13 @@ function depthBuild(){
     else { row('Захват объекта','htol',0,0.6,pc); row('Плотность','dens',0.05,1,pc); row('Нарастание','grow',0,1,pc);
       const rr=document.createElement('div'); rr.className='er'; rr.innerHTML='<label>Объект</label><button class="chk">Сбросить — дымка по всей глубине</button><span></span>';
       rr.children[1].onclick=()=>{ t.href=null; depthBuild(); depthPreview(); }; box.append(rr); }
-    const sw=document.createElement('div'); sw.className='er'; sw.innerHTML='<label>Цвет</label><div style="display:flex;gap:6px"><button id="dpSwatch" class="pickHere" aria-label="Выбрать цвет дымки" style="flex:1"></button><button class="chk" id="dpPick">Пипетка</button></div><span></span>';
-    const b=sw.querySelector('#dpSwatch'); b.style.cssText+='height:30px;border-radius:8px;border:1px solid var(--line);background:'+S.color;
-    b.onclick=e=>{ e.stopPropagation(); openPickerAt(b); };
-    const pk=sw.querySelector('#dpPick'); pk.classList.toggle('on',!!t.pickColor); pk.onclick=()=>{ t.pickColor=!t.pickColor; depthBuild(); };
-    box.append(sw); }
+    colorRow(); }
+  else if (t.mode==='occl'){ if (dep.occ && t.oref!=null){ row('Запас','otol',0,0.2,pc); row('Мягкость края','osoft',0.005,0.2,pc); } }
+  else if (t.mode==='light'){
+    const sg=document.createElement('div'); sg.className='er'; sg.innerHTML='<label>Свет</label><div class="seg"></div><span></span>';
+    for (const [k,l] of [[false,'Спереди'],[true,'Контровой']]){ const b=document.createElement('button'); b.textContent=l; b.className=t.lrim===k?'on':''; b.onclick=()=>{ t.lrim=k; depthBuild(); depthPreview(); }; sg.children[1].append(b); }
+    box.append(sg);
+    row('Сила','lstr',0.05,1,pc); row('Высота','lh',0,1,pc); row('Дальность','lrad',0.05,1.5,pc); row('Рельеф','lrel',0,1,pc); colorRow(); }
   else { row('Сила','blur',0.05,1,pc); row('Резкая зона','dof',0,0.5,pc); row('Блики','bright',0,1,pc); row('Кошачий глаз','cat',0,1,pc);
     const sg=document.createElement('div'); sg.className='er'; sg.innerHTML='<label>Диафрагма</label><div class="seg"></div><span></span>';
     for (const [k,l] of [[0,'Круг'],[6,'6 лепестков'],[8,'8']]){ const b=document.createElement('button'); b.textContent=l; b.className=t.blades===k?'on':''; b.onclick=()=>{ t.blades=k; depthBuild(); depthPreview(); }; sg.children[1].append(b); }
@@ -2264,12 +2294,22 @@ function depthBuild(){
   const mapB=document.createElement('button'); mapB.className='chk'+(t.show?' on':''); mapB.textContent='Карта'; mapB.onclick=()=>{ t.show=!t.show; mapB.classList.toggle('on',t.show); depthPreview(); };
   const sp=document.createElement('span'); sp.style.flex='1';
   const cancel=document.createElement('button'); cancel.textContent='Закрыть'; cancel.onclick=()=>{ depthClose(); setTool('tap'); };
-  const ok=document.createElement('button'); ok.className='pri'; ok.textContent = t.mode==='sel' ? 'Выделить' : t.mode==='haze' ? 'Добавить дымку' : 'Размыть'; ok.onclick=depthApply;
-  foot.append(mapB, sp, cancel, ok); box.append(foot);
+  const ok=document.createElement('button'); ok.className='pri'; ok.textContent = t.mode==='sel' ? 'Выделить' : t.mode==='haze' ? 'Добавить дымку' : t.mode==='occl' ? 'Спрятать за ближним' : t.mode==='light' ? 'Добавить свет' : 'Размыть'; ok.onclick=depthApply;
+  foot.append(mapB, sp);
+  if (t.mode==='sel'){ const adj=document.createElement('button'); adj.textContent='＋ Коррекция'; adj.title='Корректирующий слой с маской по этой глубине'; adj.onclick=()=>{ if(t.ref==null){ toast('Сначала тапни по объекту'); return; }
+      dialog('<h3>Коррекция по глубине</h3><p>Корректирующий слой ляжет сверху с маской по выбранной глубине — её можно докрасить.</p>',
+        [['Кривые',()=>depthAdj('curves'),false,'свет и контраст'],['Цветовой баланс',()=>depthAdj('balance'),false,'тёплее / холоднее'],['Цветовой тон / Насыщенность',()=>depthAdj('hue'),false,'приглушить или оживить цвет'],['Уровни',()=>depthAdj('levels'),false,'чёрная и белая точки'],['Отмена',null]],{list:true}); };
+    foot.append(adj); }
+  foot.append(cancel, ok); box.append(foot);
 }
 function depthPreview(){ depRaf=0; if(!dep||!depthMap) return; const m=depthMap, t=dep.t, N=m.w*m.h;
   if (t.show){ const c=mk(m.w,m.h), x=ctx2(c), id=x.createImageData(m.w,m.h); for (let i=0;i<N;i++){ const g=m.near[i]*255; id.data[i*4]=id.data[i*4+1]=id.data[i*4+2]=g; id.data[i*4+3]=235; } x.putImageData(id,0,0); depPrev=c; renderOverlay(); return; }
   if (t.mode==='blur'){ depPrev=depthBlurPreview(); renderOverlay(); return; }
+  if (t.mode==='light'){ depPrev=null; lightUpdate(); renderOverlay(); return; }
+  if (t.mode==='occl'){ const o=dep.occ; if (!o || t.oref==null || !occlOk()){ depPrev=null; renderOverlay(); return; }
+    const la=occlLayerAlpha(o), c2=mk(o.w,o.h), x2=ctx2(c2), id2=x2.createImageData(o.w,o.h), d2=id2.data;
+    for (let i=0;i<o.w*o.h;i++){ const h=1-occlW(o.near[i],t); d2[i*4]=235; d2[i*4+1]=50; d2[i*4+2]=50; d2[i*4+3]=h*la[i]*170; }
+    x2.putImageData(id2,0,0); depPrev=c2; renderOverlay(); return; }
   const c=mk(m.w,m.h), x=ctx2(c), id=x.createImageData(m.w,m.h), d=id.data;
   if (t.mode==='sel'){ if (t.ref==null){ depPrev=null; renderOverlay(); return; }
     for (let i=0;i<N;i++){ const w=depSelW(m.near[i],t); d[i*4]=235; d[i*4+1]=50; d[i*4+2]=50; d[i*4+3]=(1-w)*140; } }
@@ -2317,6 +2357,51 @@ function depthSmallMask(fn, fillHoles){ const m=depthMap, c=mk(m.w,m.h), x=ctx2(
     const r=Math.max(2,Math.round(Math.max(m.w,m.h)/450)); F=minmax(minmax(F,m.w,m.h,r,true),m.w,m.h,r,false); gauss(F,m.w,m.h,0.8); }
   for (let i=0;i<N;i++){ const v=Math.round(clamp(F[i],0,1)*255); a8[i]=v; id.data[i*4]=id.data[i*4+1]=id.data[i*4+2]=255; id.data[i*4+3]=v; }
   x.putImageData(id,0,0); return {c,a8}; }
+/* ---- «За объект»: the active layer goes behind whatever in the picture under it is nearer than where it stands ---- */
+function occlOk(){ const L=doc && AL(); return !!L && !isGroup(L) && L.kind!=='adj' && doc.layers.indexOf(L)>0; }
+function occlLoad(){ if (!dep || !occlOk()) return; const L=AL(); if (dep.occ && dep.occL===L) return; dep.occ=null; dep.occL=L; dep.t.oref=null;
+  depthCompute(L).then(m=>{ if (dep && dep.occL===L){ dep.occ=m; dep.occA=null; depthBuild(); depthPreview(); } }).catch(e=>{ console.error(e); busy(false); toast('Глубина под слоем не посчиталась'); }); }
+const occlW=(v,t)=>1-smooth01(t.oref+t.otol, t.oref+t.otol+t.osoft, v);   // 1 = the layer stays visible
+function occlLayerAlpha(o){ if (dep.occA && dep.occA.ver===contentVer) return dep.occA.a;
+  const c=mk(o.w,o.h), x=ctx2(c,{willReadFrequently:true}); x.drawImage(dep.occL.canvas,0,0,o.w,o.h); const d=x.getImageData(0,0,o.w,o.h).data, a=new Float32Array(o.w*o.h); for (let i=0;i<a.length;i++) a[i]=d[i*4+3]/255;
+  dep.occA={ver:contentVer,a}; return a; }
+function depthMaskFrom(o, fn){ const c=mk(o.w,o.h), x=ctx2(c), id=x.createImageData(o.w,o.h); for (let i=0;i<o.w*o.h;i++){ id.data[i*4]=id.data[i*4+1]=id.data[i*4+2]=255; id.data[i*4+3]=Math.round(clamp(fn(o.near[i],i),0,1)*255); } x.putImageData(id,0,0); return c; }
+function occlApply(){
+  const t=dep.t, o=dep.occ, L=dep.occL; if (!o || !L || t.oref==null){ toast('Сначала тапни туда, где стоит объект'); return; }
+  const small=depthMaskFrom(o, v=>occlW(v,t));
+  if (L.mask){ const m=L.mask.canvas, before=grab(m,{x:0,y:0,w:doc.w,h:doc.h}), mx=L.mask.ctx; mx.save(); mx.globalCompositeOperation='destination-in'; mx.imageSmoothingQuality='high'; mx.drawImage(small,0,0,doc.w,doc.h); mx.restore();
+    pushHist(pxEntry(m,0,0,doc.w,doc.h,before)); }
+  else { const m=newMask(L); m.ctx.clearRect(0,0,doc.w,doc.h); m.ctx.imageSmoothingQuality='high'; m.ctx.drawImage(small,0,0,doc.w,doc.h); L.mask=m; pushHist({undo(){ L.mask=null; layersChanged(); }, redo(){ L.mask=m; layersChanged(); }, bytes:doc.w*doc.h*4}); }
+  L.dirty=true; thumbSoon(L); depthClose(); doc.editMask=false; layersChanged(); markDirty(); requestRender();
+  toast('Слой ушёл за ближние предметы — это маска, её можно докрасить',3000); }
+/* ---- «Коррекция»: an adjustment layer masked by the chosen depth ---- */
+function depthAdj(type){ if (!dep||!depthMap) return; const t=dep.t, small=depthMaskFrom(depthMap, v=>depSelW(v,t));
+  const L=newAdj(type, ADJ_NAMES[type]+' · глубина'); L.mask=newMask(L); L.mask.ctx.clearRect(0,0,doc.w,doc.h); L.mask.ctx.imageSmoothingQuality='high'; L.mask.ctx.drawImage(small,0,0,doc.w,doc.h);
+  depthClose(); topInsert(L,'Коррекция по глубине'); markDirty(); adjOpen(L); }
+/* ---- «Свет»: light that follows the shape of the scene — surfaces are read from the depth map ---- */
+function lightNormals(){ const m=depthMap; if (dep.nrm && dep.nrm.ver===m.ver) return dep.nrm;
+  const W=m.w, H=m.h, z=Float32Array.from(m.near); gauss(z,W,H,1.6); const gx=new Float32Array(W*H), gy=new Float32Array(W*H);
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const i=y*W+x; gx[i]=(z[y*W+Math.min(W-1,x+1)]-z[y*W+Math.max(0,x-1)])*0.5; gy[i]=(z[Math.min(H-1,y+1)*W+x]-z[Math.max(0,y-1)*W+x])*0.5; }
+  dep.nrm={ver:m.ver, gx, gy, z}; return dep.nrm; }
+function lightMap(){ const m=depthMap, t=dep.t, W=m.w, H=m.h, n=lightNormals(), out=new Float32Array(W*H), ZS=0.25, sc=W; // X,Y in widths, Z = near·ZS
+  const rel=t.lrel*2*ZS*sc, Lx=t.lx/doc.w, Ly=t.ly/doc.w, base=depthAt(m,t.lx,t.ly)*ZS, Lz = t.lrim ? base-0.03-t.lh*0.25 : base+0.02+t.lh*0.6, R=t.lrad;
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const i=y*W+x;
+    let nx=-n.gx[i]*rel, ny=-n.gy[i]*rel, nz=1; const nl=Math.hypot(nx,ny,nz); nx/=nl; ny/=nl; nz/=nl;
+    const X=(x+0.5)/W, Y=(y+0.5)/W, Z=n.z[i]*ZS, dx=Lx-X, dy=Ly-Y, dz=Lz-Z, d=Math.hypot(dx,dy,dz)||1e-4, att=1/(1+(d/R)*(d/R));
+    let I;
+    if (!t.lrim) I=Math.max(0,(nx*dx+ny*dy+nz*dz)/d)*att;
+    else { const e=1-nz, hl=Math.hypot(nx,ny)||1, dl=Math.hypot(dx,dy)||1, side=Math.max(0,(nx*dx+ny*dy)/(hl*dl)); I=Math.pow(e,0.7)*side*att*3*smooth01(Lz,Lz+0.02,Z); }
+    out[i]=clamp(I*t.lstr*1.6,0,1); }
+  return out; }
+function lightUpdate(){ const t=dep.t; if (t.lx==null) return;
+  let L=dep.lightL; const m=depthMap;
+  if (!L){ try{ L=newLayer('Свет'); }catch(e){ toast('Не хватает памяти'); return; } L.blend='screen'; L.mask=newMask(L); doc.layers.push(L); L.parent=null; dep.lightL=L; dep.lightCol=null; }
+  if (dep.lightCol!==S.color){ L.ctx.fillStyle=S.color; L.ctx.fillRect(0,0,doc.w,doc.h); dep.lightCol=S.color; }
+  const a=lightMap(), small=depthMaskFrom(m,(v,i)=>a[i]); const mx=L.mask.ctx; mx.clearRect(0,0,doc.w,doc.h); mx.imageSmoothingQuality='high'; mx.drawImage(small,0,0,doc.w,doc.h);
+  requestRender(); }
+function lightDrop(){ if (!dep || !dep.lightL) return; const i=doc.layers.indexOf(dep.lightL); if (i>=0) doc.layers.splice(i,1); dep.lightL=null; requestRender(); }
+function lightApply(){ const t=dep.t; if (t.lx==null || !dep.lightL){ toast('Сначала тапни, откуда идёт свет'); return; }
+  const L=dep.lightL; dep.lightL=null; doc.layers.splice(doc.layers.indexOf(L),1); depthClose(); topInsert(L,'Свет лёг слоем «Экран» с маской — силу меняй прозрачностью, лишнее стирай маской'); L.dirty=true; L.saved=false; markDirty(); requestRender(); }
 function topInsert(L, msg){ insertLayer(L, doc.layers.length, msg); L.parent=null; layersChanged(); }
 async function depthApply(){
   if (!dep||!depthMap) return; const m=depthMap, t=dep.t;
@@ -2334,6 +2419,8 @@ async function depthApply(){
     pushSelHist(before); depthClose(); updateSelBar(); requestRender(); toast('Выделено по глубине. Край мягкий — подправь краем выделения или лассо',3200);
     return;
   }
+  if (t.mode==='occl'){ occlApply(); return; }
+  if (t.mode==='light'){ lightApply(); return; }
   if (t.mode==='haze'){
     let L; try{ L=newLayer('Дымка'); }catch(e){ toast('Не хватает памяти'); return; }
     L.ctx.fillStyle=S.color; L.ctx.fillRect(0,0,doc.w,doc.h);
@@ -3159,7 +3246,7 @@ function patchDown(p){
   const b=sel.box&&sel.box.w?sel.box:{x:0,y:0,w:doc.w,h:doc.h};
   let src; try{ src=retouchSource(); }catch(e){ toast('Не хватает памяти'); toolPtr=null; return; }
   const k=Math.min(1, 700/Math.max(b.w,b.h)), pw=Math.max(1,Math.round(b.w*k)), ph=Math.max(1,Math.round(b.h*k));
-  const mk_=mk(pw,ph); ctx2(mk_).drawImage(sel.mask,b.x,b.y,b.w,b.h,0,0,pw,ph);
+  const selMask=sel.mask, mk_=mk(pw,ph); ctx2(mk_).drawImage(selMask,b.x,b.y,b.w,b.h,0,0,pw,ph);
   const Mh=ctx2(mk_,{willReadFrequently:true}).getImageData(0,0,pw,ph).data;
   // small grid for the colour/light correction: region with a margin, so the border ring exists
   const mg=Math.max(4,Math.round(Math.max(b.w,b.h)*0.04)), rb=clipRect(b.x-mg,b.y-mg,b.w+2*mg,b.h+2*mg), ks=Math.min(1,150/Math.max(rb.w,rb.h)), sw=Math.max(4,Math.round(rb.w*ks)), sh=Math.max(4,Math.round(rb.h*ks));
@@ -3167,7 +3254,7 @@ function patchDown(p){
   const Msd=ctx2(ms,{willReadFrequently:true}).getImageData(0,0,sw,sh).data, Ms=new Uint8Array(sw*sh); for(let i=0;i<Ms.length;i++) Ms[i]=Msd[i*4+3];
   const dc=S.retouchAll ? compositeRegion(rb,sw,sh) : (()=>{ const c=mk(sw,sh); ctx2(c).drawImage(AL().canvas,rb.x,rb.y,rb.w,rb.h,0,0,sw,sh); return c; })();
   const Ds=ctx2(dc,{willReadFrequently:true}).getImageData(0,0,sw,sh).data;
-  patchDrag={x0:x,y0:y,dx:0,dy:0,b,src,k,pw,ph,mask:mk_,Mh,rb,sw,sh,Ms,Ds}; patchPrev=mk(pw,ph); patchPreview();
+  patchDrag={x0:x,y0:y,dx:0,dy:0,b,src,k,pw,ph,mask:mk_,Mh,rb,sw,sh,Ms,Ds,selMask}; patchPrev=mk(pw,ph); patchPreview();
 }
 function patchMove(p){ if(lassoPts){ const q=toDoc(...p), l=lassoPts[lassoPts.length-1]; if(Math.hypot(q[0]-l[0],q[1]-l[1])*view.s>2) lassoPts.push(q); return; }
   if(!patchDrag) return; const [x,y]=toDoc(...p); patchDrag.dx=x-patchDrag.x0; patchDrag.dy=y-patchDrag.y0; patchPreview(); }
@@ -3199,7 +3286,7 @@ async function patchUp(){
   busy(true,'Ставлю заплатку…'); await nextFrame();
   try{
     const r=clipRect(P.b.x-6,P.b.y-6,P.b.w+12,P.b.h+12), N=r.w*r.h;
-    const Md=regionPixels(sel.mask,r.x,r.y,r.w,r.h), M=new Uint8Array(N); for(let i=0;i<N;i++) M[i]=Md[i*4+3];
+    const Md=regionPixels(P.selMask,r.x,r.y,r.w,r.h), M=new Uint8Array(N); // the mask the drag started with (an undo meanwhile may have cleared sel) for(let i=0;i<N;i++) M[i]=Md[i*4+3];
     const Sd=regionPixels(P.src, r.x+dx, r.y+dy, r.w, r.h), Dd=destPixels(r), out=seamless(Sd,Dd,M,r.w,r.h);
     const res=new ImageData(r.w,r.h), d=res.data;
     if (S.retouchAll){
@@ -4276,7 +4363,7 @@ function rgbToHsv(r,g,b){ r/=255;g/=255;b/=255; const mx=Math.max(r,g,b), mn=Mat
 function hsvToHex(h,s,v){ const f=n=>{ const k=(n+h/60)%6; return v-v*s*Math.max(0,Math.min(k,4-k,1)); }; return '#'+[f(5),f(3),f(1)].map(x=>Math.round(x*255).toString(16).padStart(2,'0')).join(''); }
 function setColor(hex, fromPicker){
   S.color=hex.toLowerCase(); $('#swatch').style.background=S.color; spriteKey='';
-  if (typeof dep!=='undefined' && dep && dep.t.mode==='haze'){ const d=$('#dpSwatch'); if(d) d.style.background=S.color; if(!depRaf) depRaf=requestAnimationFrame(depthPreview); }
+  if (typeof dep!=='undefined' && dep && (dep.t.mode==='haze'||dep.t.mode==='light')){ const d=$('#dpSwatch'); if(d) d.style.background=S.color; if(!depRaf) depRaf=requestAnimationFrame(depthPreview); }
   if(!fromPicker){ hsv=rgbToHsv(...hexToRgb(S.color)); }
   if(!$('#picker').hidden) drawPicker();
   savePrefs();
@@ -4964,7 +5051,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №34.1 имя слоя пишется карандашом'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №35 глубина: за объект, коррекция, свет'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
