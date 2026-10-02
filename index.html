@@ -18,7 +18,25 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png?v=2">
 <link rel="icon" href="icons/icon-180.png?v=2">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} html,body{margin:0;background:#17181b;color:#e6e7ea} [hidden]{display:none!important}</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} html,body{margin:0;background:#17181b;color:#e6e7ea} [hidden]{display:none!important}
+.brushBtn{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px 0 6px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);flex:none;max-width:220px}
+.brushBtn .bpv{width:84px;height:26px;flex:none}
+.brushBtn span{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#brushPop{z-index:46;width:340px;max-height:min(78vh,720px);display:flex;flex-direction:column;gap:6px;padding:10px 12px}
+#brushPop .bhead{display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:2px 2px 4px}
+#brushPop .blist{overflow-y:auto;flex:1 1 auto;min-height:120px;margin:0 -4px;padding:0 4px;-webkit-overflow-scrolling:touch}
+#brushPop .bset{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:10px 2px 4px}
+#brushPop .brow{display:flex;align-items:center;gap:10px;padding:5px 6px;border-radius:10px;cursor:pointer;position:relative}
+#brushPop .brow canvas{width:150px;height:34px;flex:none}
+#brushPop .brow span{font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#brushPop .brow.on{background:var(--panel-3);box-shadow:inset 0 0 0 1px var(--accent)}
+#brushPop .bdel{width:26px;height:26px;border-radius:8px;border:0;background:transparent;color:var(--muted);flex:none}
+#brushPop .er{display:grid;grid-template-columns:96px 1fr 44px;align-items:center;gap:8px;font-size:12px}
+#brushPop .er label{color:var(--muted)} #brushPop .er .v{text-align:right;font-variant-numeric:tabular-nums}
+#brushPop .er .seg{grid-column:2 / span 2;flex-wrap:wrap}
+#brushPop .btog{background:none;border:0;text-align:left;cursor:pointer} #brushPop .er .hs{width:auto;margin:0 9px}
+#brushPop .bfoot{display:flex;padding-top:6px} #brushPop .bfoot button{flex:1;height:36px;border-radius:10px}
+</style>
 <script>
 // show any startup error on screen instead of a blank page
 window.addEventListener('error', function(e){ try{ var d=document.getElementById('bootErr')||document.createElement('div'); d.id='bootErr';
@@ -709,7 +727,7 @@ const S = {
   wandTol:0.13, wandContig:true, wandSoft:true, wandAll:false,
   retouchAll:false, cloneAligned:true, cloneFlow:1, penHoldPick:true,
   dbRange:'mid', dbExp:0.35, dbProtect:true, blurAmt:0.35, sharpAmt:0.4, fxFlow:0.6, spMode:'desat', spAmt:0.4, spVib:true, smudge:0.6, fxAll:false,
-  liqMode:'push', liqSize:260, liqAmt:0.6
+  liqMode:'push', liqSize:260, liqAmt:0.6, brushId:'round', eraserBrush:'round'
 };
 let doc = null;          // {w,h,name,layers:[], active, editMask}
 let view = {x:0,y:0,s:1,r:0};
@@ -897,7 +915,26 @@ function toScr(x,y,extra){ if(extra){ const [a,b,c,d,e,f]=extra; const nx=a*x+c*
 
 /* ============ rendering ============ */
 let needRender=false;
-function requestRender(){ if(!needRender){ needRender=true; requestAnimationFrame(render); } }
+function requestRender(){ fullPending=true; if(!needRender){ needRender=true; requestAnimationFrame(render); } }
+function requestStrokeRender(){ if(!needRender){ needRender=true; requestAnimationFrame(render); } }
+/* while a brush stroke runs, everything under and over the painted layer is cached in screen space and only the
+   piece under the new dabs is redrawn — the line keeps up with the Pencil even on heavy documents */
+let fullPending=true, strokeCache=null, RCLIP=null, scBelow=null, scAbove=null;
+function strokeCacheDrop(){ strokeCache=null; }
+function strokeCacheBuild(){
+  const st=stroke, L=st.layer; if (xf || isGroup(L)) return null;
+  for (let g=L.parent; g; g=g.parent) if (g.blend!=='pass' || g.opacity<1 || (g.mask&&g.mask.enabled)) return null;
+  const idx=doc.layers.indexOf(L), anc=new Set(); for (let g=L.parent; g; g=g.parent) anc.add(g);
+  for (let i=idx+1;i<doc.layers.length;i++){ const X=doc.layers[i]; if (anc.has(X) || !shown(X)) continue;
+    if (X.kind==='adj') return null; if (isGroup(X) ? !['pass','source-over'].includes(X.blend) : X.blend!=='source-over') return null; }
+  const W=comp.width, H=comp.height;
+  for (const k of ['scBelow','scAbove']){ let c = k==='scBelow' ? scBelow : scAbove; if (!c || c.width!==W || c.height!==H){ c=mk(W,H); if (k==='scBelow') scBelow=c; else scAbove=c; } }
+  const bi=X=>isGroup(X) ? blockStart(X)>idx : doc.layers.indexOf(X)>=idx, ai=X=>isGroup(X) ? doc.layers.indexOf(X)<idx : doc.layers.indexOf(X)<=idx;
+  for (const [c,skip] of [[scBelow,bi],[scAbove,ai]]){ const x=ctx2(c); x.setTransform(1,0,0,1,0,0); x.globalAlpha=1; x.globalCompositeOperation='source-over'; x.clearRect(0,0,W,H);
+    x.imageSmoothingEnabled=view.s<2.5; x.imageSmoothingQuality=view.s<1?'medium':'low';
+    x.save(); setVT(x); x.beginPath(); x.rect(0,0,doc.w,doc.h); x.clip(); composeTree(x, drawLayer, {map:renderGroupMask, skip}); x.restore(); }
+  return { v:view.x+'|'+view.y+'|'+view.s+'|'+view.r+'|'+W+'|'+H, layer:L };
+}
 let checker=null;
 function getChecker(){
   if(checker) return checker;
@@ -922,8 +959,29 @@ function getPreview(){
     x.globalAlpha=L.opacity; blendDraw(x, L.blend, src,0,0,w,h); }, {map:(c,cv)=>c.drawImage(cv,0,0,w,h)});
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; previewVer=contentVer; return preview;
 }
+function renderStrokePart(){
+  const st=stroke, W=vc.width, H=vc.height; if (comp.width!==W || comp.height!==H) return false;
+  const key=view.x+'|'+view.y+'|'+view.s+'|'+view.r+'|'+W+'|'+H;
+  if (!strokeCache || strokeCache.layer!==st.layer || strokeCache.v!==key){ strokeCache=strokeCacheBuild(); if (!strokeCache) return false; st.dirty=st.bbox?{...st.bbox}:null; }
+  const d=st.dirty; st.dirty=null; if (!d){ renderOverlay(); return true; }
+  const m=viewM(), pts=[[d.x0,d.y0],[d.x1,d.y0],[d.x0,d.y1],[d.x1,d.y1]].map(([x,y])=>[(m[0]*x+m[2]*y+m[4])*dpr,(m[1]*x+m[3]*y+m[5])*dpr]);
+  const x0=Math.max(0,Math.floor(Math.min(...pts.map(q=>q[0])))-2), y0=Math.max(0,Math.floor(Math.min(...pts.map(q=>q[1])))-2), x1=Math.min(W,Math.ceil(Math.max(...pts.map(q=>q[0])))+2), y1=Math.min(H,Math.ceil(Math.max(...pts.map(q=>q[1])))+2);
+  if (x1<=x0||y1<=y0){ renderOverlay(); return true; }
+  const R=[x0,y0,x1-x0,y1-y0]; RCLIP=R;
+  const cc=ctx2(comp); cc.save(); cc.setTransform(1,0,0,1,0,0); cc.globalAlpha=1; cc.globalCompositeOperation='source-over'; cc.beginPath(); cc.rect(...R); cc.clip(); cc.clearRect(...R);
+  const smooth = view.s < 2.5; for (const c of [cc, ctx2(tLayer), ctx2(tMask), ctx2(tStroke)]){ c.imageSmoothingEnabled = smooth; c.imageSmoothingQuality = view.s<1 ? 'medium' : 'low'; }
+  cc.drawImage(scBelow,0,0); cc.save(); setVT(cc); cc.beginPath(); cc.rect(0,0,doc.w,doc.h); cc.clip(); if (st.layer.visible) drawLayer(cc, st.layer); cc.restore();
+  cc.setTransform(1,0,0,1,0,0); cc.globalAlpha=1; cc.globalCompositeOperation='source-over'; cc.drawImage(scAbove,0,0); cc.restore();
+  RCLIP=null;
+  vx.save(); vx.setTransform(1,0,0,1,0,0); vx.globalAlpha=1; vx.globalCompositeOperation='source-over'; vx.beginPath(); vx.rect(...R); vx.clip();
+  vx.fillStyle=BG; vx.fillRect(...R); setVT(vx); const pat=getChecker(); try{ pat.setTransform(new DOMMatrix().scale(1/view.s)); }catch(e){} vx.fillStyle=pat; vx.fillRect(0,0,doc.w,doc.h);
+  vx.setTransform(1,0,0,1,0,0); vx.drawImage(comp,0,0); vx.restore();
+  renderOverlay(); return true;
+}
 function render(){
   needRender=false; if(!doc) return;
+  if (stroke && !fullPending && renderStrokePart()) return;
+  fullPending=false;
   const W=vc.width, H=vc.height;
   vx.setTransform(1,0,0,1,0,0); vx.globalAlpha=1; vx.globalCompositeOperation='source-over';
   vx.fillStyle=BG; vx.fillRect(0,0,W,H);
@@ -975,7 +1033,7 @@ function drawLayer(cc, L){
     setVT(cc); cc.globalAlpha=L.opacity; blendDraw(cc, L.blend, L.canvas,0,0);
     cc.globalAlpha=1; cc.globalCompositeOperation='source-over'; return;
   }
-  const t=ctx2(tLayer); t.setTransform(1,0,0,1,0,0); t.clearRect(0,0,tLayer.width,tLayer.height);
+  const t=ctx2(tLayer); t.setTransform(1,0,0,1,0,0); t.save(); if (RCLIP){ t.beginPath(); t.rect(...RCLIP); t.clip(); } t.clearRect(0,0,tLayer.width,tLayer.height);
   t.imageSmoothingQuality = cc.imageSmoothingQuality;
   setVT(t);
   if (isXf && xf.target==='content'){
@@ -985,22 +1043,25 @@ function drawLayer(cc, L){
   if (hasHarm){ const h = harm && harm.layer===L && harm.prev ? harm : filt; const b=h.box; t.clearRect(b.x,b.y,b.w,b.h); t.drawImage(h.prev,b.x,b.y,b.w,b.h); }
   if (isStroke && stroke.target==='content') applyStrokePreview(t);
   if (hasMask || (isStroke && stroke.target==='mask')){
-    const m=ctx2(tMask); m.setTransform(1,0,0,1,0,0); m.clearRect(0,0,tMask.width,tMask.height);
+    const m=ctx2(tMask); m.setTransform(1,0,0,1,0,0); m.save(); if (RCLIP){ m.beginPath(); m.rect(...RCLIP); m.clip(); } m.clearRect(0,0,tMask.width,tMask.height);
     setVT(m); if (maskMoving(L)) movedMaskInto(m,L); else m.drawImage(L.mask.canvas,0,0);
     if (isStroke && stroke.target==='mask') applyStrokePreview(m);
+    m.restore();
     t.setTransform(1,0,0,1,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(tMask,0,0); t.globalCompositeOperation='source-over';
   }
+  t.restore();
   cc.setTransform(1,0,0,1,0,0); cc.globalAlpha=L.opacity; blendDraw(cc, L.blend, tLayer,0,0);
   cc.globalAlpha=1; cc.globalCompositeOperation='source-over';
 }
 function applyStrokePreview(t){
-  const s=ctx2(tStroke); s.setTransform(1,0,0,1,0,0); s.clearRect(0,0,tStroke.width,tStroke.height);
+  const s=ctx2(tStroke); s.setTransform(1,0,0,1,0,0); s.save(); if (RCLIP){ s.beginPath(); s.rect(...RCLIP); s.clip(); } s.clearRect(0,0,tStroke.width,tStroke.height);
   setVT(s); s.drawImage(strokeBuf,0,0);
+  if (stroke.grain){ const pat=s.createPattern(stroke.grain,'repeat'); try{ pat.setTransform(new DOMMatrix().scale(stroke.grainScale)); }catch(e){} s.globalCompositeOperation='destination-in'; s.fillStyle=pat; s.fillRect(0,0,doc.w,doc.h); s.globalCompositeOperation='source-over'; }
   if (sel){ s.globalCompositeOperation='destination-in'; s.drawImage(sel.mask,0,0); s.globalCompositeOperation='source-over'; }
   if (stroke.lerp){ t.setTransform(1,0,0,1,0,0); t.globalAlpha=stroke.opacity; t.globalCompositeOperation='destination-out'; t.drawImage(tStroke,0,0); }
   if (stroke.clone){ s.globalCompositeOperation='source-in'; s.drawImage(stroke.clone.src,-stroke.clone.ox,-stroke.clone.oy); s.globalCompositeOperation='source-over'; }
   t.setTransform(1,0,0,1,0,0); t.globalAlpha=stroke.opacity*(stroke.lerpK??1); t.globalCompositeOperation=stroke.lerp?'lighter':stroke.op; t.drawImage(tStroke,0,0);
-  t.globalAlpha=1; t.globalCompositeOperation='source-over'; setVT(t);
+  t.globalAlpha=1; t.globalCompositeOperation='source-over'; setVT(t); s.restore();
 }
 let antsPhase=0;
 function renderOverlay(){ if(!doc) return;
@@ -1082,18 +1143,255 @@ function clipRect(x,y,w,h){ const x0=clamp(Math.floor(x),0,doc.w), y0=clamp(Math
 
 /* ============ brush ============ */
 let sprite=null, spriteKey='';
-function getSprite(color){
-  const big = curSize()>256 ? 512 : 256;
-  const key = color+'|'+S.hardness+'|'+big; if (key===spriteKey) return sprite;
+function getSprite(color, hard){
+  const big = curSize()>256 ? 512 : 256, hd=hard??S.hardness;
+  const key = color+'|'+hd+'|'+big; if (key===spriteKey) return sprite;
   const c=mk(big,big), x=ctx2(c), r=big/2, g=x.createRadialGradient(r,r,0,r,r,r);
-  const h=clamp(S.hardness,0,0.98);
+  const h=clamp(hd,0,0.98);
   g.addColorStop(0, color); g.addColorStop(h, color);
-  // smooth falloff
-  for (let i=1;i<=6;i++){ const t=i/6, a=Math.pow(1-t,1.8)*(1-0)*1; g.addColorStop(h+(1-h)*t, hexA(color, i===6?0:Math.max(0,(Math.cos(t*Math.PI)+1)/2))); }
+  for (let i=1;i<=6;i++){ const t=i/6; g.addColorStop(h+(1-h)*t, hexA(color, i===6?0:Math.max(0,(Math.cos(t*Math.PI)+1)/2))); }
   x.fillStyle=g; x.fillRect(0,0,big,big); sprite=c; spriteKey=key; return c;
 }
 function hexA(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
 const curSize = () => S.tool==='eraser' ? S.eraserSize : S.tool==='liquify' ? S.liqSize : S.size;
+function penAzimuth(ev, prev){ if (!ev || ev.pointerType!=='pen') return prev;
+  let a = typeof ev.azimuthAngle==='number' ? ev.azimuthAngle : (ev.tiltX||ev.tiltY ? Math.atan2(ev.tiltY||0, ev.tiltX||0) : null);
+  return a==null ? prev : a-view.r; }
+
+/* ============ brush library: built-in brushes, imported Photoshop (.abr) and Procreate (.brush / .brushset) brushes ============
+   A brush = a tip (alpha mask; null = the round brush with the «Жёсткость» slider) + dynamics + an optional grain.
+   The grain is «texturized» like in Procreate: it stays fixed on the canvas and the stroke reveals it. */
+const BRUSH_DEF={ spacing:0.08, scatter:0, rot:'fixed', angle:0, sizeMin:0.12, opMin:0.15, taper:0, jitterSize:0, jitterOp:0, grainScale:1, grainDepth:0 };
+let brushLib=[], brushLibReady=false, brushTint={key:'',c:null};
+function rngSeed(a){ return ()=>{ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function alphaCanvas(w,h,fn){ const c=mk(w,h), x=ctx2(c), id=x.createImageData(w,h), d=id.data; for(let y=0;y<h;y++) for(let i=0;i<w;i++){ const k=(y*w+i)*4, a=fn(i,y); d[k]=d[k+1]=d[k+2]=255; d[k+3]=clamp(Math.round(a*255),0,255); } x.putImageData(id,0,0); return c; }
+function tileNoise(N, oct, seed, base=4){ // seamless value noise 0..1
+  const R=rngSeed(seed), layers=[]; for(let o=0;o<oct;o++){ const g=Math.min(N,base<<o), v=new Float32Array(g*g); for(let i=0;i<v.length;i++) v[i]=R(); layers.push([g,v]); }
+  const out=new Float32Array(N*N); let tot=0;
+  layers.forEach(([g,v],o)=>{ const amp=Math.pow(0.55,o); tot+=amp; for(let y=0;y<N;y++){ const fy=y/N*g, iy=Math.floor(fy), ty=fy-iy, sy=ty*ty*(3-2*ty); for(let x=0;x<N;x++){ const fx=x/N*g, ix=Math.floor(fx), tx=fx-ix, sx=tx*tx*(3-2*tx);
+    const a=v[iy%g*g+ix%g], b=v[iy%g*g+(ix+1)%g], c=v[(iy+1)%g*g+ix%g], d=v[(iy+1)%g*g+(ix+1)%g]; out[y*N+x]+=amp*((a*(1-sx)+b*sx)*(1-sy)+(c*(1-sx)+d*sx)*sy); } } });
+  for(let i=0;i<out.length;i++) out[i]/=tot; return out; }
+function builtinBrushes(){
+  const paper=(()=>{ const N=256, n=tileNoise(N,3,7,32), m=tileNoise(N,2,8,8), R=rngSeed(11); return {w:N,h:N,f:(x,y)=>clamp((n[y*N+x]-0.5)*3.2+0.62+(m[y*N+x]-0.5)*0.5+(R()-0.5)*0.35,0,1)}; })();
+  const canvasGrain=(()=>{ const N=256, n=tileNoise(N,3,23); return {w:N,h:N,f:(x,y)=>{ const w=0.5+0.5*Math.sin(x*Math.PI/4)*Math.sin(y*Math.PI/4); return clamp(0.25+0.6*w+0.5*(n[y*N+x]-0.5),0,1); }}; })();
+  const pencilTip=(()=>{ const N=64, R=rngSeed(3); return alphaCanvas(N,N,(x,y)=>{ const r=Math.hypot(x-N/2+0.5,y-N/2+0.5)/(N/2); return r>1?0:(R()<0.55?1:0.35)*Math.min(1,(1-r)*4); }); })();
+  const chalkTip=(()=>{ const N=128, n=tileNoise(N,4,5); return alphaCanvas(N,N,(x,y)=>{ const r=Math.hypot(x-N/2,y-N/2)/(N/2)+(n[y*N+x]-0.5)*0.55; return r>1?0:clamp((n[(y*3%N)*N+(x*3%N)]-0.25)*2.2,0,1)*Math.min(1,(1-r)*3); }); })();
+  const bristle=(()=>{ const N=160, R=rngSeed(17), c=mk(N,N), x=ctx2(c); x.fillStyle='#fff';
+    for(let i=0;i<70;i++){ const a=R()*Math.PI*2, rr=Math.sqrt(R()); const px=N/2+Math.cos(a)*rr*N*0.46, py=N/2+Math.sin(a)*rr*N*0.16; x.globalAlpha=0.35+R()*0.65; x.beginPath(); x.arc(px,py,1.2+R()*3.2,0,7); x.fill(); } return c; })();
+  const cloud=(()=>{ const N=256, R=rngSeed(29), n=tileNoise(N,5,31), c=alphaCanvas(N,N,(x,y)=>{ const r=Math.hypot(x-N/2,y-N/2)/(N/2); const e=Math.max(0,1-r); return clamp(e*e*1.4*(0.35+n[y*N+x]*1.1)-0.08,0,1); }); return c; })();
+  const g=(o)=>({ ...BRUSH_DEF, ...o });
+  return [
+    {id:'round', name:'Круглая', set:'Стандартные', builtin:true, p:g({spacing:0.08}), tip:null},
+    {id:'airbrush', name:'Аэрограф', set:'Стандартные', builtin:true, p:g({spacing:0.05, hardness:0, sizeMin:0.6, opMin:0.02}), tip:null},
+    {id:'ink', name:'Чернила', set:'Стандартные', builtin:true, p:g({spacing:0.04, hardness:0.92, sizeMin:0.05, opMin:1, taper:0.6}), tip:null},
+    {id:'pencil', name:'Карандаш', set:'Стандартные', builtin:true, p:g({spacing:0.12, rot:'random', sizeMin:0.5, opMin:0.08, grainDepth:0.75, grainScale:0.6}), tip:pencilTip, grain:paper},
+    {id:'chalk', name:'Мел', set:'Стандартные', builtin:true, p:g({spacing:0.14, rot:'random', sizeMin:0.4, opMin:0.2, grainDepth:0.85, grainScale:1.2, jitterSize:0.15}), tip:chalkTip, grain:paper},
+    {id:'dry', name:'Сухая кисть', set:'Стандартные', builtin:true, p:g({spacing:0.03, rot:'stroke', angle:90, sizeMin:0.55, opMin:0.3, grainDepth:0.35, grainScale:1.5}), tip:bristle, grain:canvasGrain},
+    {id:'soft-tex', name:'Мягкая текстурная', set:'Стандартные', builtin:true, p:g({spacing:0.06, hardness:0.1, sizeMin:0.4, opMin:0.05, grainDepth:0.6, grainScale:2}), tip:null, grain:paper},
+    {id:'cloud', name:'Облака и дым', set:'Стандартные', builtin:true, p:g({spacing:0.22, rot:'random', scatter:0.35, sizeMin:0.45, opMin:0.05, jitterSize:0.35, jitterOp:0.4}), tip:cloud},
+  ];
+}
+function brushInit(){
+  if (brushLibReady) return; brushLibReady=true;
+  brushLib=builtinBrushes();
+  try{ const over=JSON.parse(localStorage.getItem('proyavka.brushOver')||'{}'); for (const b of brushLib) if (over[b.id]) Object.assign(b.p, over[b.id]); }catch(e){}
+  idbGet('brushlib').then(list=>{ if(!Array.isArray(list)) return; for (const it of list){ brushLib.push(brushFromStore(it)); } if (!$('#brushPop')?.hidden) brushPopRender(); renderOpts(); }).catch(()=>{});
+}
+function brushFromStore(it){ const toC=t=>{ if(!t) return null; const c=mk(t.w,t.h), x=ctx2(c), id=x.createImageData(t.w,t.h); for(let i=0;i<t.w*t.h;i++){ id.data[i*4]=id.data[i*4+1]=id.data[i*4+2]=255; id.data[i*4+3]=t.a[i]; } x.putImageData(id,0,0); return c; };
+  return {id:it.id, name:it.name, set:it.set, p:{...BRUSH_DEF, ...it.p}, tip:toC(it.tip), grain: it.grain ? {w:it.grain.w,h:it.grain.h,a:it.grain.a} : null}; }
+function brushToStore(b){ const fromC=c=>{ if(!c) return null; const d=ctx2(c,{willReadFrequently:true}).getImageData(0,0,c.width,c.height).data, a=new Uint8Array(c.width*c.height); for(let i=0;i<a.length;i++) a[i]=d[i*4+3]; return {w:c.width,h:c.height,a}; };
+  return {id:b.id, name:b.name, set:b.set, p:b.p, tip:fromC(b.tip), grain:b.grain && b.grain.a ? b.grain : null}; }
+async function brushSaveLib(){ try{ await idbPut({brushlib: brushLib.filter(b=>!b.builtin).map(brushToStore)}); }catch(e){ console.warn(e); toast('Не получилось сохранить кисти'); } }
+function brushSaveOver(b){ if (!b.builtin){ brushSaveLib(); return; } try{ const o=JSON.parse(localStorage.getItem('proyavka.brushOver')||'{}'); o[b.id]=b.p; localStorage.setItem('proyavka.brushOver',JSON.stringify(o)); }catch(e){} }
+const brushKey = () => S.tool==='eraser' ? 'eraserBrush' : 'brushId';
+function curBrush(tool){ brushInit(); const id = (tool||S.tool)==='eraser' ? S.eraserBrush : S.brushId; return brushLib.find(b=>b.id===id) || brushLib[0]; }
+// grain → a canvas whose alpha is how much paint passes (depth baked in)
+function grainCanvas(b){ const g=b.grain; if(!g) return null; const dep=b.p.grainDepth; if (dep<=0.001) return null;
+  const key=dep.toFixed(3); if (g.cache && g.cache.key===key) return g.cache.c;
+  const c = g.f ? alphaCanvas(g.w,g.h,(x,y)=>1-dep*(1-g.f(x,y))) : alphaCanvas(g.w,g.h,(x,y)=>1-dep*(1-g.a[y*g.w+x]/255));
+  g.cache={key,c}; return c; }
+function grainPattern(ctx, b){ const gc=grainCanvas(b); if(!gc) return null; const p=ctx.createPattern(gc,'repeat'); return p; }
+function tintTip(b, color){ const key=b.id+'|'+color+'|'+b.tip.width; if (brushTint.key===key) return brushTint.c;
+  const c=mk(b.tip.width,b.tip.height), x=ctx2(c); x.fillStyle=color; x.fillRect(0,0,c.width,c.height); x.globalCompositeOperation='destination-in'; x.drawImage(b.tip,0,0);
+  brushTint={key,c}; return c; }
+
+/* ---------- small strokes for previews ---------- */
+function brushPreview(b, W, H, color){
+  const c=mk(W,H), x=ctx2(c), d=H*0.62, hard=b.p.hardness??S.hardness;
+  let spr; if (b.tip){ spr=mk(b.tip.width,b.tip.height); const sx=ctx2(spr); sx.fillStyle=color; sx.fillRect(0,0,spr.width,spr.height); sx.globalCompositeOperation='destination-in'; sx.drawImage(b.tip,0,0); }
+  else { const n=128; spr=mk(n,n); const sx=ctx2(spr), r=n/2, gg=sx.createRadialGradient(r,r,0,r,r,r), h=clamp(hard,0,0.98); gg.addColorStop(0,color); gg.addColorStop(h,color); for(let i=1;i<=6;i++){ const t=i/6; gg.addColorStop(h+(1-h)*t, hexA(color, i===6?0:(Math.cos(t*Math.PI)+1)/2)); } sx.fillStyle=gg; sx.fillRect(0,0,n,n); }
+  const R=rngSeed(5), N=160; let last=null, carry=0, travel=0;
+  const P=t=>[W*0.06+t*W*0.88, H/2+Math.sin(t*Math.PI*2)*H*0.18], pr=t=>Math.sin(Math.PI*Math.min(1,t*1.05))*0.9+0.1;
+  for (let i=0;i<=N;i++){ const t=i/N, [px,py]=P(t), p=pr(t);
+    if (last){ const dist=Math.hypot(px-last[0],py-last[1]); let pos=0;
+      while(true){ const size=d*(b.p.sizeMin+(1-b.p.sizeMin)*p), sp=Math.max(0.5,size*b.p.spacing), need=sp-carry; if (pos+need>dist){ carry+=dist-pos; break; } pos+=need; carry=0; travel+=need;
+        const g=pos/dist, qx=last[0]+(px-last[0])*g, qy=last[1]+(py-last[1])*g, ang=Math.atan2(py-last[1],px-last[0]);
+        dabTo(x, spr, b, qx, qy, size, (b.p.opMin+(1-b.p.opMin)*p)*0.9, ang, null, R, travel, d); } }
+    last=[px,py]; }
+  const pat=grainPattern(x,b); if (pat){ try{ pat.setTransform(new DOMMatrix().scale(b.p.grainScale*0.5)); }catch(e){} x.globalCompositeOperation='destination-in'; x.fillStyle=pat; x.fillRect(0,0,W,H); }
+  return c; }
+// one dab of brush b on ctx (shared by the preview and the real stroke)
+function dabTo(x, spr, b, cx, cy, size, a, moveAng, az, R, travel, base){
+  const p=b.p; if (p.taper>0){ const tl=p.taper*base*3; if (travel<tl) size*=0.2+0.8*travel/tl; }
+  if (p.jitterSize) size*=1-p.jitterSize*R();
+  if (p.jitterOp) a*=1-p.jitterOp*R();
+  if (p.scatter){ const s=(R()*2-1)*p.scatter*size*1.5, n=moveAng+Math.PI/2; cx+=Math.cos(n)*s; cy+=Math.sin(n)*s; }
+  let ang=p.angle*Math.PI/180; if (p.rot==='stroke') ang+=moveAng; else if (p.rot==='random') ang+=R()*Math.PI*2; else if (p.rot==='azimuth' && az!=null) ang+=az;
+  const w=spr.width>=spr.height ? size : size*spr.width/spr.height, h=spr.width>=spr.height ? size*spr.height/spr.width : size;
+  x.globalAlpha=clamp(a,0,1);
+  if (ang){ const c=Math.cos(ang), s=Math.sin(ang); const T=x.getTransform(); x.transform(c,s,-s,c,cx,cy); x.drawImage(spr,-w/2,-h/2,w,h); x.setTransform(T); }
+  else x.drawImage(spr,cx-w/2,cy-h/2,w,h);
+  return Math.max(w,h)*(ang?0.71:0.5)+1; // radius for the dirty box
+}
+
+/* ---------- import ---------- */
+function abrParse(buf){
+  const dv=new DataView(buf), u8=new Uint8Array(buf); let o=0; const out=[];
+  const u16=()=>{ const v=dv.getUint16(o); o+=2; return v; }, u32=()=>{ const v=dv.getUint32(o); o+=4; return v; }, i32=()=>{ const v=dv.getInt32(o); o+=4; return v; }, i16=()=>{ const v=dv.getInt16(o); o+=2; return v; };
+  const rle=(w,h,depth)=>{ const bpp=depth>>3, rowB=w*bpp, counts=[]; for(let i=0;i<h;i++) counts.push(u16()); const data=new Uint8Array(rowB*h); let p=0;
+    for(let y=0;y<h;y++){ const end=o+counts[y]; while(o<end && p<(y+1)*rowB){ let n=dv.getInt8(o++); if(n>=0){ n++; data.set(u8.subarray(o,o+n),p); p+=n; o+=n; } else if(n>-128){ n=1-n; data.fill(u8[o++],p,p+n); p+=n; } } o=end; p=(y+1)*rowB; } return data; };
+  const toTip=(w,h,depth,data)=>{ if(w<=0||h<=0||w>6000||h>6000) return null; const bpp=depth>>3; return {w,h,a:Uint8Array.from({length:w*h},(_,i)=>data[i*bpp])}; };
+  const ver=u16();
+  if (ver===1||ver===2){ const n=u16();
+    for (let i=0;i<n;i++){ const type=u16(), size=u32(), next=o+size;
+      if (type===2){ o+=4; const spacing=u16(); let name='';
+        if (ver===2){ const len=u32(); for(let k=0;k<len;k++){ const ch=u16(); if(ch) name+=String.fromCharCode(ch); } }
+        o+=1; o+=8; const top=i32(), left=i32(), bottom=i32(), right=i32(), depth=u16(), comp=u8[o++]; const w=right-left, h=bottom-top;
+        const data = comp ? rle(w,h,depth) : u8.slice(o,o+w*h*(depth>>3));
+        const t=toTip(w,h,depth,data); if (t) out.push({name:name||('Кисть '+(out.length+1)), tip:t, spacing:spacing/100||0.25}); }
+      o=next; }
+    return out; }
+  // v6+: 8BIM sections
+  const sub=dv.getUint16(2); o=4; const samples=[]; let desc=null;
+  while (o+12<=buf.byteLength){ const sig=String.fromCharCode(...u8.subarray(o,o+4)); if (sig!=='8BIM') break; o+=4; const key=String.fromCharCode(...u8.subarray(o,o+4)); o+=4; const len=u32(), end=o+len;
+    if (key==='samp'){ while (o<end-4){ const bl=u32(), bend=o+((bl+3)&~3); try{ const idLen=u8[o]; const id=String.fromCharCode(...u8.subarray(o+1,o+1+idLen)); o+=1+idLen;
+          // then 10 (subversion 1) or 264 (subversion 2) bytes of metadata, the bounds (4×int32), depth (2) and compression (1)
+          let found=false; for (const s of [o+(sub===1?10:264), o+(sub===1?264:10), ...Array.from({length:400},(_,k)=>o+k)]){ if (s+19>bend) continue; const t=dv.getInt32(s), l=dv.getInt32(s+4), b2=dv.getInt32(s+8), r=dv.getInt32(s+12), dp=dv.getUint16(s+16), cm=u8[s+18];
+            if (t>=0&&l>=0&&b2>t&&r>l&&b2-t<=6000&&r-l<=6000&&(dp===8||dp===16)&&(cm===0||cm===1)){ o=s+19; const w=r-l, h=b2-t; const data= cm ? rle(w,h,dp) : u8.slice(o,o+w*h*(dp>>3)); const tip=toTip(w,h,dp,data); if(tip) samples.push({id,tip}); found=true; break; } }
+        }catch(e){} o=bend; } }
+    else if (key==='desc') desc=u8.slice(o,end);
+    o=end; }
+  // presets from the descriptor: names, spacing, sample ids (in order)
+  const presets=[]; if (desc){ const D=new DataView(desc.buffer); let cur=null; const str4=i=>String.fromCharCode(...desc.subarray(i,i+4));
+    for (let i=0;i<desc.length-12;i++){
+      if (str4(i)==='Nm  ' && str4(i+4)==='TEXT'){ const n=D.getUint32(i+8); let s=''; for(let k=0;k<n;k++){ const ch=D.getUint16(i+12+k*2); if(ch) s+=String.fromCharCode(ch); }
+        if (cur && cur.inBrush && !cur.sid && !cur.computed && !cur.inner){ cur.inner=true; } // the name of the brush object inside the preset
+        else { cur={name:s}; presets.push(cur); } i+=12+n*2-1; continue; }
+      if (cur && str4(i)==='Brsh' && str4(i+4)==='Objc'){ cur.inBrush=true; continue; }
+      if (cur && str4(i)==='Hrdn' && str4(i+4)==='UntF'){ cur.computed=true; continue; }
+      if (cur && str4(i)==='Spcn' && str4(i+4)==='UntF'){ cur.spacing=D.getFloat64(i+12)/100; i+=19; continue; }
+      if (cur && str4(i)==='Angl' && str4(i+4)==='UntF'){ cur.angle=D.getFloat64(i+12); i+=19; continue; }
+      if (cur && i>=8 && String.fromCharCode(...desc.subarray(i,i+11))==='sampledData' && str4(i+11)==='TEXT'){ const n=D.getUint32(i+15); let s=''; for(let k=0;k<n;k++){ const ch=D.getUint16(i+19+k*2); if(ch) s+=String.fromCharCode(ch); } cur.sid=s; i+=19+n*2-1; continue; }
+    } }
+  const used=new Set();
+  for (const pr of presets){ if (!pr.sid) continue; const sm=samples.find(s=>s.id===pr.sid); if(!sm) continue; used.add(sm); out.push({name:pr.name||('Кисть '+(out.length+1)), tip:sm.tip, spacing:pr.spacing||0.25, angle:pr.angle||0}); }
+  for (const sm of samples) if (!used.has(sm)) out.push({name:'Кисть '+(out.length+1), tip:sm.tip, spacing:0.25});
+  return out;
+}
+function bplistParse(u8){ // binary plist → JS (UIDs as {uid:n})
+  const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength), L=u8.length; if (String.fromCharCode(...u8.subarray(0,6))!=='bplist') throw new Error('не plist');
+  const offSize=u8[L-26], refSize=u8[L-25], num=Number(dv.getBigUint64(L-24)), top=Number(dv.getBigUint64(L-16)), tbl=Number(dv.getBigUint64(L-8));
+  const rdN=(p,n)=>{ let v=0; for(let i=0;i<n;i++) v=v*256+u8[p+i]; return v; };
+  const offs=[]; for(let i=0;i<num;i++) offs.push(rdN(tbl+i*offSize,offSize));
+  const cache=new Map();
+  const obj=i=>{ if (cache.has(i)) return cache.get(i); let p=offs[i]; const m=u8[p], t=m>>4, inf=m&15; p++;
+    const len=()=>{ if (inf!==15) return inf; const im=u8[p]&15; p++; const n=1<<im, v=rdN(p,n); p+=n; return v; };
+    let r;
+    if (t===0) r = inf===8?false:inf===9?true:null;
+    else if (t===1){ const n=1<<inf; r = n===8 ? Number(dv.getBigInt64(p)) : rdN(p,n); }
+    else if (t===2) r = inf===2 ? dv.getFloat32(p) : dv.getFloat64(p);
+    else if (t===3) r = dv.getFloat64(p);
+    else if (t===4){ const n=len(); r=u8.slice(p,p+n); }
+    else if (t===5){ const n=len(); r=String.fromCharCode(...u8.subarray(p,p+n)); }
+    else if (t===6){ const n=len(); let s=''; for(let k=0;k<n;k++) s+=String.fromCharCode(dv.getUint16(p+k*2)); r=s; }
+    else if (t===8){ r={uid:rdN(p,inf+1)}; }
+    else if (t===10){ const n=len(); r=[]; cache.set(i,r); for(let k=0;k<n;k++) r.push(obj(rdN(p+k*refSize,refSize))); }
+    else if (t===13){ const n=len(); r={}; cache.set(i,r); for(let k=0;k<n;k++){ const kk=obj(rdN(p+k*refSize,refSize)); r[kk]=obj(rdN(p+(n+k)*refSize,refSize)); } }
+    else r=null;
+    cache.set(i,r); return r; };
+  return obj(top);
+}
+function keyedRoot(pl){ const objs=pl.$objects||[], rootRef=pl.$top && (pl.$top.root||pl.$top.$0); const res=v=>v && typeof v==='object' && 'uid' in v ? objs[v.uid] : v;
+  const root=res(rootRef)||{}; const out={}; for (const [k,v] of Object.entries(root)){ const r=res(v); out[k]= r && typeof r==='object' && 'NS.string' in r ? r['NS.string'] : r; } return out; }
+async function imgAlpha(bytes, invert){ const bm=await createImageBitmap(new Blob([bytes])); let w=bm.width, h=bm.height; const k=Math.min(1,512/Math.max(w,h)); w=Math.max(1,Math.round(w*k)); h=Math.max(1,Math.round(h*k));
+  const c=mk(w,h), x=ctx2(c,{willReadFrequently:true}); x.drawImage(bm,0,0,w,h); bm.close&&bm.close(); const d=x.getImageData(0,0,w,h).data, a=new Uint8Array(w*h);
+  let opaque=true; for(let i=0;i<w*h;i++) if(d[i*4+3]<250){ opaque=false; break; }
+  for(let i=0;i<w*h;i++){ const l=(d[i*4]*0.299+d[i*4+1]*0.587+d[i*4+2]*0.114); let v = opaque ? l : d[i*4+3]*(l/255); if (invert) v=255-v; a[i]=v; } return {w,h,a}; }
+async function procreateParse(u8, fileName){
+  const files=fflate.unzipSync(u8), out=[]; const dirs=new Map();
+  for (const [path,data] of Object.entries(files)){ const m=path.match(/^(.*?)([^/]+)$/); const dir=m[1], base=m[2]; if(!dirs.has(dir)) dirs.set(dir,{}); dirs.get(dir)[base]=data; }
+  for (const [dir,f] of dirs){ if (!f['Brush.archive']) continue;
+    let r={}; try{ r=keyedRoot(bplistParse(f['Brush.archive'])); }catch(e){ console.warn('brush archive',e); }
+    const num=(k,d)=>typeof r[k]==='number'&&isFinite(r[k]) ? r[k] : d;
+    const shapeF=f['Shape.png']||Object.entries(f).find(([k])=>/^shape/i.test(k)&&/\.png$/i.test(k))?.[1];
+    const grainF=f['Grain.png']||Object.entries(f).find(([k])=>/^grain/i.test(k)&&/\.png$/i.test(k))?.[1];
+    let tip=null, grain=null; try{ if (shapeF) tip=await imgAlpha(shapeF, !!r.shapeInverted); }catch(e){} try{ if (grainF) grain=await imgAlpha(grainF, !!r.textureInverted); }catch(e){}
+    const name=(typeof r.name==='string'&&r.name) || dir.replace(/\/$/,'').split('/').pop() || fileName.replace(/\.\w+$/,'');
+    const rot = r.shapeAzimuth ? 'azimuth' : (num('shapeOrientation',0)===1||r.shapeRotation===1 ? 'stroke' : (num('shapeRandomise',0)? 'random':'fixed'));
+    out.push({ name, tip, grain, spacing: clamp(num('plotSpacing',0.1),0.01,2), scatter: clamp(num('plotJitter',0),0,2), rot,
+      sizeMin: clamp(1-num('dynamicsPressureSize',0.8),0,1), opMin: clamp(1-num('dynamicsPressureOpacity',0.5),0,1), grainDepth: grain ? clamp(num('textureDepth',num('textureOpacity',0.8)),0,1) : 0, grainScale: clamp(num('textureScale',0.5)*2,0.1,4), jitterSize: clamp(num('dynamicsJitterSize',0),0,1), jitterOp: clamp(num('dynamicsJitterOpacity',0),0,1) }); }
+  return out;
+}
+async function brushImportFiles(files){
+  brushInit(); let added=0, failed=[];
+  busy(true,'Загружаю кисти…'); await nextFrame();
+  for (const file of files){ const ext=(file.name.split('.').pop()||'').toLowerCase(), set=file.name.replace(/\.[^.]+$/,'');
+    try{ const buf=await file.arrayBuffer(); let list=[];
+      if (ext==='abr') list=abrParse(buf).map(b=>({ ...b, set }));
+      else if (ext==='brush'||ext==='brushset'||ext==='zip') list=(await procreateParse(new Uint8Array(buf), file.name)).map(b=>({ ...b, set: ext==='brush' ? 'Procreate' : set }));
+      else { failed.push(file.name); continue; }
+      if (!list.length){ failed.push(file.name); continue; }
+      for (const it of list){ let tip=it.tip; if (tip && Math.max(tip.w,tip.h)>512){ const k=512/Math.max(tip.w,tip.h), c=brushFromStore({id:'t',name:'',set:'',p:{},tip}).tip, w=Math.max(1,Math.round(tip.w*k)), h=Math.max(1,Math.round(tip.h*k)); const s=mk(w,h); const sx=ctx2(s); sx.imageSmoothingQuality='high'; sx.drawImage(c,0,0,w,h); tip=brushToStore({tip:s}).tip; }
+        const st={ id:'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,7), name:it.name, set:it.set,
+          p:{ ...BRUSH_DEF, spacing:clamp(it.spacing??0.25,0.01,3), scatter:it.scatter||0, rot:it.rot||'fixed', angle:it.angle||0, sizeMin:it.sizeMin??0.3, opMin:it.opMin??0.25, grainDepth:it.grainDepth||0, grainScale:it.grainScale||1, jitterSize:it.jitterSize||0, jitterOp:it.jitterOp||0 },
+          tip, grain: it.grain||null };
+        brushLib.push(brushFromStore(st)); added++; }
+    }catch(e){ console.warn('brush import', file.name, e); failed.push(file.name); }
+    await nextFrame(); }
+  await brushSaveLib(); busy(false);
+  toast((added?'Добавлено кистей: '+added:'Кисти не нашлись')+(failed.length?' · не прочитала: '+failed.join(', '):''), 3200);
+  if ($('#brushPop') && !$('#brushPop').hidden) brushPopRender(); renderOpts();
+}
+
+/* ---------- library popover ---------- */
+function brushButton(){ const b=curBrush(), btn=document.createElement('button'); btn.className='brushBtn'; btn.id='brushBtn'; btn.title='Библиотека кистей';
+  const pv=brushPreview(b, 84, 26, cssVar('--fg')||'#e9e9ea'); pv.className='bpv'; const nm=document.createElement('span'); nm.textContent=b.name;
+  btn.append(pv,nm); btn.onclick=e=>{ e.stopPropagation(); const p=$('#brushPop'); if (p && !p.hidden){ p.hidden=true; return; } brushPopOpen(btn); }; return btn; }
+function brushPopOpen(anchor){
+  let p=$('#brushPop'); if (!p){ p=document.createElement('div'); p.id='brushPop'; p.className='pop'; p.hidden=true; $('#app').appendChild(p);
+    document.addEventListener('pointerdown', e=>{ const q=$('#brushPop'); if (q && !q.hidden && !q.contains(e.target) && !e.target.closest('#brushBtn')) q.hidden=true; }, true); }
+  p.hidden=false; brushPopRender();
+  const r=anchor.getBoundingClientRect(), ar=$('#app').getBoundingClientRect(); p.style.left=Math.max(8, Math.min(r.left-ar.left, ar.width-p.offsetWidth-8))+'px'; p.style.top=(r.bottom-ar.top+8)+'px';
+}
+let brushSetOpen=false;
+function brushPopRender(){
+  const p=$('#brushPop'); if(!p) return; const keep=p.querySelector('.blist')?.scrollTop||0; p.textContent=''; const cur=curBrush(), fg=cssVar('--fg')||'#e9e9ea';
+  const head=document.createElement('div'); head.className='bhead'; head.innerHTML='<b></b>'; head.firstChild.textContent = S.tool==='eraser' ? 'Кисть ластика' : 'Кисти'; p.append(head);
+  const list=document.createElement('div'); list.className='blist';
+  const sets=[]; for (const b of brushLib) if (!sets.includes(b.set)) sets.push(b.set);
+  for (const s of sets){ const h=document.createElement('div'); h.className='bset'; h.textContent=s; list.append(h);
+    for (const b of brushLib.filter(x=>x.set===s)){ const row=document.createElement('div'); row.className='brow'+(b===cur?' on':'');
+      const pv=brushPreview(b, 150, 34, fg); const nm=document.createElement('span'); nm.textContent=b.name; row.append(pv,nm);
+      if (!b.builtin){ const del=document.createElement('button'); del.className='bdel'; del.textContent='✕'; del.title='Удалить кисть'; del.onclick=ev=>{ ev.stopPropagation(); if(!confirm('Удалить кисть «'+b.name+'»?')) return; brushLib.splice(brushLib.indexOf(b),1); if (S.brushId===b.id) S.brushId='round'; if (S.eraserBrush===b.id) S.eraserBrush='round'; brushSaveLib(); savePrefs(); brushPopRender(); renderOpts(); }; row.append(del); }
+      row.onclick=()=>{ S[brushKey()]=b.id; savePrefs(); spriteKey=''; brushPopRender(); renderOpts(); };
+      list.append(row); } }
+  p.append(list); list.scrollTop=keep;
+  // settings of the current brush
+  const st=document.createElement('button'); st.className='bset btog'; st.textContent=(brushSetOpen?'▾ ':'▸ ')+'Настройки «'+cur.name+'»'; st.onclick=()=>{ brushSetOpen=!brushSetOpen; brushPopRender(); }; p.append(st);
+  const foot=document.createElement('div'); foot.className='bfoot';
+  const imp=document.createElement('button'); imp.className='pri'; imp.textContent='＋ Импорт: .abr, .brush, .brushset';
+  imp.onclick=()=>{ const i=document.createElement('input'); i.type='file'; i.multiple=true; i.onchange=()=>{ if(i.files.length) brushImportFiles([...i.files]); }; i.click(); };
+  foot.append(imp);
+  if (!brushSetOpen){ p.append(foot); return; }
+  const row=(label,key,min,max,fmt)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label></label><div></div><span class="v"></span>'; r.firstChild.textContent=label; const v=r.lastChild, show=()=>v.textContent=fmt(cur.p[key]); show();
+    hslider(r.children[1],{min,max,get:()=>cur.p[key],set:x=>{ cur.p[key]=x; show(); },end:()=>{ brushSaveOver(cur); const pv=p.querySelector('.brow.on canvas'); if(pv){ const n=brushPreview(cur,150,34,fg); pv.replaceWith(n); } renderOpts(); }}); p.append(r); };
+  const pc=x=>Math.round(x*100)+'%';
+  row('Интервал','spacing',0.01,1,pc); row('Разброс','scatter',0,1,pc); row('Мин. размер','sizeMin',0,1,pc); row('Мин. поток','opMin',0,1,pc);
+  if (cur.grain) row('Текстура','grainDepth',0,1,pc), row('Масштаб текст.','grainScale',0.1,4,x=>x.toFixed(1)+'×');
+  const sg=document.createElement('div'); sg.className='er'; sg.innerHTML='<label>Поворот</label><div class="seg"></div><span></span>';
+  for (const [k,l] of [['fixed','Нет'],['stroke','По штриху'],['random','Случайно'],['azimuth','Наклон пера']]){ const b=document.createElement('button'); b.textContent=l; b.className=cur.p.rot===k?'on':''; b.onclick=()=>{ cur.p.rot=k; brushSaveOver(cur); brushPopRender(); }; sg.children[1].append(b); }
+  p.append(sg, foot);
+}
 
 function strokeBegin(p){
   if (filt){ toast('Сначала примени или отмени фильтр'); return false; }
@@ -1120,8 +1418,10 @@ function strokeBegin(p){
   else op = erase ? 'source-over' : 'destination-out'; // mask: brush hides, eraser reveals
   if (!strokeBuf || strokeBuf.width!==doc.w || strokeBuf.height!==doc.h){ strokeBuf=mk(doc.w,doc.h); if(!ctx2(strokeBuf)){ toast('Не хватает памяти для кисти'); strokeBuf=null; return false; } }
   const sb=ctx2(strokeBuf); sb.setTransform(1,0,0,1,0,0); sb.clearRect(0,0,doc.w,doc.h);
-  stroke = { layer:L, target, op, opacity:S.opacity, sprite:getSprite(target==='mask'||cloning?'#ffffff':S.color),
-    last:null, carry:0, bbox:null, sm:null, cursor:null, size:curSize() };
+  const usesLib = S.tool==='brush'||S.tool==='eraser', B = usesLib ? curBrush() : null, col = target==='mask'||cloning ? '#ffffff' : S.color;
+  stroke = { layer:L, target, op, opacity:S.opacity, sprite: B && B.tip ? tintTip(B, col) : getSprite(col, B ? B.p.hardness : undefined),
+    last:null, carry:0, bbox:null, sm:null, cursor:null, size:curSize(), brush:B, spacing: B ? B.p.spacing : 0.09, R:rngSeed((Math.random()*1e9)|0), travel:0, pts:null, m:null, az:null, pr:null,
+    grain: B ? grainCanvas(B) : null, grainScale: B ? B.p.grainScale : 1 };
   if (target==='mask'){ // like Photoshop: on a mask the brush paints its grey — black hides, white shows; the eraser shows
     const c=hexRGB(S.color), g = erase ? 1 : (0.299*c[0]+0.587*c[1]+0.114*c[2])/255; stroke.lerp=true; stroke.lerpK=g; }
   if (dbPaint){ stroke.sprite=getSprite(S.tool==='dodge'?'#ffffff':'#000000'); stroke.opacity=S.dbExp; stroke.db=true; }
@@ -1134,36 +1434,64 @@ function strokeBegin(p){
     try{ stroke.clone={ src:retouchSource(), ox:Math.round(cloneOff[0]), oy:Math.round(cloneOff[1]), heal:S.tool==='heal' }; }catch(e){ stroke=null; toast('Не хватает памяти'); return false; } }
   return true;
 }
-function strokeMove(px,py,pressure){
+function strokeMove(px,py,pressure,ev){
   if (!stroke) return;
   stroke.cursor=[px,py];
-  let [x,y]=toDoc(px,py);
+  let [x,y]=toDoc(px,py); stroke.raw=[x,y];
+  stroke.az=penAzimuth(ev, stroke.az);
+  const p=clamp(pressure,0,1); stroke.pr = stroke.pr==null ? p : stroke.pr+(p-stroke.pr)*0.55;   // Pencil pressure is a little jumpy: smooth it
   if (stroke.sm){ const k=S.smooth*0.85; x=stroke.sm[0]+(x-stroke.sm[0])*(1-k); y=stroke.sm[1]+(y-stroke.sm[1])*(1-k); }
   stroke.sm=[x,y];
-  const p = clamp(pressure,0,1);
-  const sizeK = S.pSize ? 0.12+0.88*p : 1;
-  const fxStroke = !!(stroke.clone && stroke.clone.fx) || !!stroke.db; // tone tools: the pencil alone doses the effect
-  const alpha = stroke.inpaint ? 1 : (stroke.clone ? (stroke.clone.fx==='smudge' ? 1 : stroke.clone.fx ? FX_FLOW : S.cloneFlow) : stroke.db ? FX_FLOW : S.flow) * ((S.pOpac || fxStroke) ? clamp(0.15+0.85*p,0,1) : 1);
-  const d = Math.max(1, stroke.size*sizeK);
-  const sb=ctx2(strokeBuf);
-  const dab=(dx,dy,dd,a)=>{ const r=dd/2; if (stroke.clone && stroke.clone.fx){ fxEnsure(stroke.clone, dx-r-2, dy-r-2, dx+r+2, dy+r+2); if (stroke.clone.fx==='smudge'){ smudgeDab(stroke.clone, dx, dy, dd, a); a=1; } } sb.globalAlpha=a; sb.drawImage(stroke.sprite,dx-r,dy-r,dd,dd);
-    const b=stroke.bbox; if(!b) stroke.bbox={x0:dx-r,y0:dy-r,x1:dx+r,y1:dy+r}; else { b.x0=Math.min(b.x0,dx-r); b.y0=Math.min(b.y0,dy-r); b.x1=Math.max(b.x1,dx+r); b.y1=Math.max(b.y1,dy+r);} };
-  if (!stroke.last){ dab(x,y,d,alpha); stroke.last={x,y,d,a:alpha}; requestRender(); return; }
-  const L0=stroke.last, dist=Math.hypot(x-L0.x,y-L0.y);
-  let pos=0, carry=stroke.carry||0;
+  strokeFeed(x,y,stroke.pr);
+  requestStrokeRender();
+}
+// smoothed points → a curve through their midpoints (no corners on fast strokes) → dabs
+function strokeFeed(x,y,p){
+  const st=stroke, q={x,y,p}; let P=st.pts;
+  if (!P){ st.pts=[q]; strokeDabs(q,q,true); return; }
+  const a=P[P.length-1]; if (Math.hypot(x-a.x,y-a.y)<0.25){ a.p=p; return; }
+  P.push(q); if (P.length>3) P.shift();
+  if (P.length===2){ const m=pmid(P[0],P[1]); strokeDabs(P[0],m); st.m=m; }
+  else { const m=pmid(P[1],P[2]), a0=st.m, c=P[1], len=Math.hypot(c.x-a0.x,c.y-a0.y)+Math.hypot(m.x-c.x,m.y-c.y), n=Math.max(1,Math.ceil(len/2.5));
+    let prev=a0; for (let i=1;i<=n;i++){ const t=i/n, u=1-t, pt={x:u*u*a0.x+2*u*t*c.x+t*t*m.x, y:u*u*a0.y+2*u*t*c.y+t*t*m.y, p:u*u*a0.p+2*u*t*c.p+t*t*m.p}; strokeDabs(prev,pt); prev=pt; }
+    st.m=m; }
+}
+const pmid=(a,b)=>({x:(a.x+b.x)/2, y:(a.y+b.y)/2, p:(a.p+b.p)/2});
+function strokeFinish(){ // the pen is lifted: let the smoothing catch up with it and close the curve
+  const st=stroke; if (!st || !st.pts || !st.raw) return;
+  if (S.smooth>0 && st.sm){ const k=S.smooth*0.85; for (let i=0;i<60;i++){ const x=st.sm[0]+(st.raw[0]-st.sm[0])*(1-k), y=st.sm[1]+(st.raw[1]-st.sm[1])*(1-k); st.sm=[x,y]; strokeFeed(x,y,st.pr); if (Math.hypot(st.raw[0]-x,st.raw[1]-y)<0.4) break; } }
+  const P=st.pts, last=P[P.length-1]; if (st.m && P.length>1) strokeDabs(st.m,last);
+}
+function strokeDabs(a,b,first){
+  const st=stroke, sb=ctx2(strokeBuf), B=st.brush;
+  const fxStroke = !!(st.clone && st.clone.fx) || !!st.db; // tone tools: the pencil alone doses the effect
+  const baseA = st.inpaint ? 1 : (st.clone ? (st.clone.fx==='smudge' ? 1 : st.clone.fx ? FX_FLOW : S.cloneFlow) : st.db ? FX_FLOW : S.flow);
+  const sMin = B ? B.p.sizeMin : 0.12, oMin = B ? B.p.opMin : 0.15;
+  const sizeAt = p => Math.max(1, st.size*(S.pSize ? sMin+(1-sMin)*p : 1));
+  const alphaAt = p => st.inpaint ? 1 : baseA*((S.pOpac || fxStroke) ? clamp(oMin+(1-oMin)*p,0,1) : 1);
+  const fancy = B && (B.tip || B.p.rot!=='fixed' || B.p.scatter || B.p.jitterSize || B.p.jitterOp || B.p.taper);
+  const ang = Math.atan2(b.y-a.y, b.x-a.x); if (!first) st.ang=ang;
+  const dab=(dx,dy,dd,al)=>{ let r=dd/2;
+    if (st.clone && st.clone.fx){ fxEnsure(st.clone, dx-r-2, dy-r-2, dx+r+2, dy+r+2); if (st.clone.fx==='smudge'){ smudgeDab(st.clone, dx, dy, dd, al); al=1; } }
+    if (fancy){ const sc=B.p.scatter?dd*B.p.scatter*1.5:0; r=dabTo(sb, st.sprite, B, dx, dy, dd, al, st.ang??0, st.az, st.R, st.travel, st.size)+sc; }
+    else { sb.globalAlpha=al; sb.drawImage(st.sprite,dx-r,dy-r,dd,dd); }
+    const bx=st.bbox; if(!bx) st.bbox={x0:dx-r,y0:dy-r,x1:dx+r,y1:dy+r}; else { bx.x0=Math.min(bx.x0,dx-r); bx.y0=Math.min(bx.y0,dy-r); bx.x1=Math.max(bx.x1,dx+r); bx.y1=Math.max(bx.y1,dy+r); }
+    const dr=st.dirty; if(!dr) st.dirty={x0:dx-r,y0:dy-r,x1:dx+r,y1:dy+r}; else { dr.x0=Math.min(dr.x0,dx-r); dr.y0=Math.min(dr.y0,dy-r); dr.x1=Math.max(dr.x1,dx+r); dr.y1=Math.max(dr.y1,dy+r); } };
+  if (first){ const d=sizeAt(b.p); dab(b.x,b.y,d,alphaAt(b.p)); st.last={x:b.x,y:b.y}; return; }
+  const dist=Math.hypot(b.x-a.x,b.y-a.y); if (dist<=0) return;
+  let pos=0, carry=st.carry||0;
   while (true){
-    const f=dist>0?pos/dist:0, curD=L0.d+(d-L0.d)*f, spacing=Math.max(0.6, curD*0.09), need=spacing-carry;
+    const f=pos/dist, d=sizeAt(a.p+(b.p-a.p)*f), spacing=Math.max(0.6, d*st.spacing), need=spacing-carry;
     if (pos+need>dist){ carry+=dist-pos; break; }
-    pos+=need; carry=0; const g=dist>0?pos/dist:0;
-    dab(L0.x+(x-L0.x)*g, L0.y+(y-L0.y)*g, L0.d+(d-L0.d)*g, L0.a+(alpha-L0.a)*g);
+    pos+=need; carry=0; st.travel+=need; const g=pos/dist, pp=a.p+(b.p-a.p)*g;
+    dab(a.x+(b.x-a.x)*g, a.y+(b.y-a.y)*g, sizeAt(pp), alphaAt(pp));
   }
-  stroke.carry=carry;
-  stroke.last={x,y,d,a:alpha};
-  requestRender();
+  st.carry=carry; st.last={x:b.x,y:b.y};
 }
 function strokeEnd(cancel){
   if (!stroke) return;
-  const st=stroke; stroke=null;
+  if (!cancel) strokeFinish();
+  const st=stroke; stroke=null; strokeCacheDrop();
   if (cancel || !st.bbox){ requestRender(); return; }
   const r=clipRect(st.bbox.x0-2, st.bbox.y0-2, st.bbox.x1-st.bbox.x0+4, st.bbox.y1-st.bbox.y0+4);
   if (r.w<1||r.h<1){ requestRender(); return; }
@@ -1171,6 +1499,7 @@ function strokeEnd(cancel){
   const tgt = st.target==='mask' ? st.layer.mask.canvas : st.layer.canvas;
   const before = grab(tgt,r);
   const reg=mk(r.w,r.h), rx=ctx2(reg); rx.drawImage(strokeBuf, r.x,r.y,r.w,r.h, 0,0,r.w,r.h);
+  if (st.grain){ const pat=rx.createPattern(st.grain,'repeat'); try{ pat.setTransform(new DOMMatrix().translate(-r.x,-r.y).scale(st.grainScale)); }catch(e){} rx.globalCompositeOperation='destination-in'; rx.fillStyle=pat; rx.fillRect(0,0,r.w,r.h); rx.globalCompositeOperation='source-over'; }
   if (sel){ rx.globalCompositeOperation='destination-in'; rx.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,r.w,r.h); }
   if (st.clone) setTimeout(()=>{ if(!stroke) retouchCache=null; }, 0);
   if (st.clone && !st.clone.fx && S.cloneAligned && st.last) cloneSrc={x:clamp(st.last.x+st.clone.ox,0,doc.w-1), y:clamp(st.last.y+st.clone.oy,0,doc.h-1)};
@@ -3714,7 +4043,9 @@ function renderOpts0(){
   const o=$('#opts'); o.textContent='';
   const pct=v=>Math.round(v*100)+'%';
   if (S.tool==='brush'||S.tool==='eraser'){
-    o.append(rng('Жёсткость','hardness',0,100,pct), rng('Поток','flow',2,100,pct), rng('Сглаж.','smooth',0,100,pct), chk('Нажим → размер','pSize'), chk('Нажим → поток','pOpac'));
+    const B=curBrush(); o.append(brushButton());
+    if (!B.tip && B.p.hardness==null) o.append(rng('Жёсткость','hardness',0,100,pct));
+    o.append(rng('Поток','flow',2,100,pct), rng('Сглаж.','smooth',0,100,pct), chk('Нажим → размер','pSize'), chk('Нажим → поток','pOpac'));
     if (doc&&doc.editMask) { const seg=document.createElement('div'); seg.className='seg'; seg.title='Маска: чёрный скрывает, белый показывает, серый — частично';
       const lum=(()=>{ const c=hexRGB(S.color); return (0.299*c[0]+0.587*c[1]+0.114*c[2])/255; })();
       for (const [col,l] of [['#000000','■ Скрыть'],['#ffffff','□ Показать']]){ const b=document.createElement('button'); b.textContent=l; b.className=(col==='#000000'?lum<0.02:lum>0.98)&&S.tool==='brush'?'on':''; b.onclick=()=>{ setColor(col,false); if(S.tool!=='brush') setTool('brush'); renderOpts(); }; seg.append(b); }
@@ -4157,7 +4488,7 @@ function toolDown(e,p){
   if ((t==='clone'||t==='heal') && cloneSrc && srcHit(p)){ const [x,y]=toDoc(...p); try{ retouchSource(); }catch(_){} srcDrag={gx:cloneSrc.x-x, gy:cloneSrc.y-y, p}; renderOverlay(); return; }
   if (t==='patch'){ patchDown(p); return; }
   if (t==='liquify'){ if(!liqBegin(p,penPressure(e))) toolPtr=null; return; }
-  if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e)); }
+  if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e),e); }
   else if (t==='lasso'){ lassoPts=[toDoc(...p)]; }
   else if (t==='rect'){ const [x,y]=toDoc(...p); rectSel={x0:x,y0:y,x1:x,y1:y}; }
   if ((t==='lasso'||t==='rect'||t==='wand') && e.shiftKey && sel){ tmpMode=S.selMode; S.selMode='add'; }
@@ -4175,7 +4506,7 @@ function toolMove(e){
   for (const ev of list){
     const p=stagePos(ev);
     if (srcDrag){ const [x,y]=toDoc(...p); cloneSrc={x:clamp(x+srcDrag.gx,0,doc.w-1), y:clamp(y+srcDrag.gy,0,doc.h-1)}; srcDrag.p=p; }
-    else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)) strokeMove(p[0],p[1],penPressure(ev));
+    else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)) strokeMove(p[0],p[1],penPressure(ev),ev);
     else if (t==='patch') patchMove(p);
     else if (t==='liquify') liqMove(p,penPressure(ev));
     else if (t==='lasso' && lassoPts){ const q=toDoc(...p), l=lassoPts[lassoPts.length-1]; if(Math.hypot(q[0]-l[0],q[1]-l[1])*view.s>2) lassoPts.push(q); }
@@ -4272,7 +4603,7 @@ document.addEventListener('gesturestart', e=>e.preventDefault());
 document.addEventListener('contextmenu', e=>e.preventDefault());
 
 /* ============ prefs & autosave ============ */
-function savePrefs(){ try{ localStorage.setItem('kadr.prefs', JSON.stringify({color:S.color,size:S.size,eraserSize:S.eraserSize,opacity:S.opacity,hardness:S.hardness,flow:S.flow,smooth:S.smooth,pSize:S.pSize,pOpac:S.pOpac,fingerDraw:S.fingerDraw,wandTol:S.wandTol,wandContig:S.wandContig,wandSoft:S.wandSoft,wandAll:S.wandAll,retouchAll:S.retouchAll,cloneAligned:S.cloneAligned,cloneFlow:S.cloneFlow,penHoldPick:S.penHoldPick,dbRange:S.dbRange,dbExp:S.dbExp,dbProtect:S.dbProtect,blurAmt:S.blurAmt,sharpAmt:S.sharpAmt,fxFlow:S.fxFlow,spMode:S.spMode,spAmt:S.spAmt,spVib:S.spVib,smudge:S.smudge,fxAll:S.fxAll,liqMode:S.liqMode,liqSize:S.liqSize,liqAmt:S.liqAmt,recent})); }catch(e){} }
+function savePrefs(){ try{ localStorage.setItem('kadr.prefs', JSON.stringify({color:S.color,size:S.size,eraserSize:S.eraserSize,opacity:S.opacity,hardness:S.hardness,flow:S.flow,smooth:S.smooth,pSize:S.pSize,pOpac:S.pOpac,fingerDraw:S.fingerDraw,wandTol:S.wandTol,wandContig:S.wandContig,wandSoft:S.wandSoft,wandAll:S.wandAll,retouchAll:S.retouchAll,cloneAligned:S.cloneAligned,cloneFlow:S.cloneFlow,penHoldPick:S.penHoldPick,dbRange:S.dbRange,dbExp:S.dbExp,dbProtect:S.dbProtect,blurAmt:S.blurAmt,sharpAmt:S.sharpAmt,fxFlow:S.fxFlow,spMode:S.spMode,spAmt:S.spAmt,spVib:S.spVib,smudge:S.smudge,fxAll:S.fxAll,liqMode:S.liqMode,liqSize:S.liqSize,liqAmt:S.liqAmt,brushId:S.brushId,eraserBrush:S.eraserBrush,recent})); }catch(e){} }
 function loadPrefs(){ try{ const p=JSON.parse(localStorage.getItem('kadr.prefs')||'null'); if(p){ const {recent:r,...rest}=p; Object.assign(S,rest); if(r) recent.push(...r); } }catch(e){} }
 const DB='kadr', STORE='doc';
 function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB,1); r.onupgradeneeded=()=>r.result.createObjectStore(STORE); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
@@ -4470,7 +4801,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №31 все режимы наложения'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №32 кисти: библиотека, импорт ABR и Procreate, отзывчивость'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
