@@ -968,7 +968,8 @@ let undoStack=[], redoStack=[], histBytes=0;
 const HIST_LIMIT = 260*1048576; // Safari on iPad kills the tab well before the device runs out of RAM
 function clearHistory(){ undoStack=[]; redoStack=[]; histBytes=0; }
 function layersMB(){ if(!doc) return 0; let n=0; for (const L of doc.layers){ if(!isGroup(L)) n++; if (L.mask) n++; } return n*doc.w*doc.h*4/1048576; }
-function histLimit(){ return Math.min(HIST_LIMIT, Math.max(60, 350-layersMB())*1048576); }
+function histLimit(){ // while the neural compartment is open it holds ~180 MB of its own — undo history gives way
+  return Math.min(HIST_LIMIT, Math.max(60, 350-layersMB()-(typeof ML!=='undefined'&&ML.w?180:0))*1048576); }
 function trimHistory(maxMB){ while (histBytes>maxMB*1048576 && undoStack.length>1){ const o=undoStack.shift(); histBytes-=o.bytes||0; } }
 function pushHist(e){
   e.bytes = e.bytes||0; undoStack.push(e); histBytes+=e.bytes;
@@ -1854,9 +1855,10 @@ function mlClose(){
   // sessions that pointed into the worker are gone; the SAM picture embedding stays (it lives here)
   segSess=null; samEnc=null; samDec=null;
 }
-function mlIdle(){ clearTimeout(ML.T); ML.T=setTimeout(()=>{ if(!ML.pending.size) mlClose(); }, ML_IDLE_MS); }
+function mlIdle(){ clearTimeout(ML.T); const heavy = doc && memMB()>220; // big document: give the memory back sooner
+  ML.T=setTimeout(()=>{ if(!ML.pending.size) mlClose(); }, heavy ? 12000 : ML_IDLE_MS); }
 async function mlWorker(){
-  clearTimeout(ML.T);
+  clearTimeout(ML.T); if (!ML.w) trimHistory(histLimit()/1048576);
   if (ML.ready) return ML.ready;
   ML.ready=(async()=>{
     const rt=await downloadAll(MODELS.runtime,'Готовлю нейросети'); const wasm=joinParts(rt).buffer;
@@ -3425,7 +3427,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №25 гармонизация'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №25.1 память с нейросетями'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
