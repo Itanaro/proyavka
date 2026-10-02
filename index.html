@@ -1846,12 +1846,15 @@ void main(){
     vec3 acc=vec3(0.0); float ah=0.0, cov=0.0, wsum=0.0;
     float seg = blades>=3.0 ? 6.2831853/blades : 0.0;
     vec2 pn=(uv-0.5)*2.0*(aspect>=1.0 ? vec2(1.0,1.0/aspect) : vec2(aspect,1.0)); // position in the frame, -1..1 on the long side
-    vec2 shift=cat*0.9*pn;                                                          // cat's eye: the aperture is cut by the lens barrel towards the edges
+    float pl=length(pn); vec2 pd = pl>1e-4 ? pn/pl : vec2(1.0,0.0);                 // cat's eye: the aperture is cut by the lens barrel towards the edges
+    float cd=min(1.7, cat*1.7*pow(pl,1.4));                                          // distance between the two cutting circles (0 = round)
+    float ca=1.0-cd*0.5, cb=sqrt(max(0.0,1.0-cd*cd*0.25));                             // the cut shape is a lens: narrow along the radius, long across it
     for (int i=0;i<256;i++){ if (i>=N) break;
       float t=(float(i)+0.5)/float(N), rr=sqrt(t), a=float(i)*2.39996323;
       float k=1.0; if (seg>0.0){ float ang=mod(a+rot,seg)-seg*0.5; k=cos(seg*0.5)/cos(ang); }
       vec2 un=vec2(cos(a),sin(a))*rr*k;
-      if (cat>0.0 && length(un+shift)>1.0) continue;
+      if (cd>0.0){ float ur=dot(un,pd), ut=dot(un,vec2(-pd.y,pd.x)); un=pd*ur*ca+vec2(-pd.y,pd.x)*ut*cb;   // squeeze the samples into the lens so none are wasted
+        if (length(un-pd*cd*0.5)>1.0 || length(un+pd*cd*0.5)>1.0) continue; }
       vec2 off=un*rc;
       vec2 q=uv+off*texel;
       vec4 s=textureLod(src, q, lod);
@@ -4210,7 +4213,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №29.1 кошачий глаз и дымка у объекта'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №29.2 сильнее кошачий глаз'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
