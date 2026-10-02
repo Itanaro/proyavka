@@ -1607,16 +1607,31 @@ function boxMean(src,W,H,r){ const t=new Float32Array(W*H), o=new Float32Array(W
   for (let x=0;x<W;x++){ let acc=0; for (let y=-r-1;y<r;y++) acc+= t[(y<0?0:y>=H?H-1:y)*W+x];
     for (let y=0;y<H;y++){ const a=Math.min(H-1,y+r), b=y-r-1; acc+= t[a*W+x] - t[(b<0?0:b)*W+x]; o[y*W+x]=acc/(2*r+1); } }
   return o; }
+/* joint bilateral upsampling with a "farther" bias: each pixel takes the depth of nearby low-res samples that look like it
+   (similar colour), leaning to the far ones. The network smears a figure's depth onto the background around it; background
+   pixels there look like background, so they get the background's depth back — no clearing in the haze, no glow in the blur */
+function depthJBU(near,w,h,gLow,W,H,gHigh){
+  const out=new Float32Array(W*H), R=8, ST=2, ss=2*5*5, sr=2*0.07*0.07, sx=w/W, sy=h/H, vals=new Float32Array(100), wts=new Float32Array(100);
+  for (let y=0;y<H;y++){ const fy=(y+0.5)*sy-0.5, cy=Math.round(fy);
+    for (let x=0;x<W;x++){ const fx=(x+0.5)*sx-0.5, cx=Math.round(fx), j=(y*W+x)*4, r0=gHigh[j]/255, g0=gHigh[j+1]/255, b0=gHigh[j+2]/255;
+      let ws=0, vs=0, n=0;
+      for (let dy=-R; dy<=R; dy+=ST){ const yy=cy+dy; if (yy<0||yy>=h) continue;
+        for (let dx=-R; dx<=R; dx+=ST){ const xx=cx+dx; if (xx<0||xx>=w) continue; const q=yy*w+xx, k=q*4;
+          const dr=gLow[k]/255-r0, dg=gLow[k+1]/255-g0, db=gLow[k+2]/255-b0, ddx=xx-fx, ddy=yy-fy;
+          const wt=Math.exp(-(ddx*ddx+ddy*ddy)/ss-(dr*dr+dg*dg+db*db)/sr)+1e-6; ws+=wt; vs+=wt*near[q]; vals[n]=near[q]; wts[n]=wt; n++; } }
+      const m=vs/ws; let wl=0, vl=0; for (let i=0;i<n;i++) if (vals[i]<=m){ wl+=wts[i]; vl+=wts[i]*vals[i]; }
+      out[y*W+x] = wl>0 ? 0.35*m+0.65*(vl/wl) : m; } }
+  return out;
+}
 function depthRefine(near,w,h){
-  const k=Math.min(1,1536/Math.max(doc.w,doc.h)), W=Math.max(1,Math.round(doc.w*k)), H=Math.max(1,Math.round(doc.h*k)), N=W*H;
-  // depth, smoothly upscaled
-  const sc=mk(w,h), sx=ctx2(sc), sid=sx.createImageData(w,h); for (let i=0;i<w*h;i++){ const v=near[i]*255; sid.data[i*4]=sid.data[i*4+1]=sid.data[i*4+2]=v; sid.data[i*4+3]=255; } sx.putImageData(sid,0,0);
-  const uc=mk(W,H), ux=ctx2(uc,{willReadFrequently:true}); ux.imageSmoothingQuality='high'; ux.drawImage(sc,0,0,W,H);
-  const ud=ux.getImageData(0,0,W,H).data, p=new Float32Array(N); for (let i=0;i<N;i++) p[i]=ud[i*4]/255;
+  const k=Math.min(1,1024/Math.max(doc.w,doc.h)), W=Math.max(1,Math.round(doc.w*k)), H=Math.max(1,Math.round(doc.h*k)), N=W*H;
+  const flat=flatten(k,true), gd=ctx2(flat,{willReadFrequently:true}).getImageData(0,0,W,H).data;
+  const lc=mk(w,h), lx=ctx2(lc,{willReadFrequently:true}); lx.imageSmoothingQuality='high'; lx.drawImage(flat,0,0,w,h);
+  const p=depthJBU(near,w,h,lx.getImageData(0,0,w,h).data,W,H,gd);
   // guide: the picture itself (luminance with a bit of chroma so a blue cloth on a dark wall still has an edge)
-  const gd=ctx2(flatten(k,true),{willReadFrequently:true}).getImageData(0,0,W,H).data, I=new Float32Array(N);
+  const I=new Float32Array(N);
   for (let i=0;i<N;i++){ const r=gd[i*4]/255, g=gd[i*4+1]/255, b=gd[i*4+2]/255; I[i]=0.5*(0.299*r+0.587*g+0.114*b)+0.25*(b-r+1)*0.5+0.25*(r-g+1)*0.5; }
-  const R=Math.max(4,Math.round(Math.max(W,H)/110)), eps=0.0012;
+  const R=Math.max(3,Math.round(Math.max(W,H)/150)), eps=0.0012;
   const mI=boxMean(I,W,H,R), mP=boxMean(p,W,H,R), II=new Float32Array(N), IP=new Float32Array(N);
   for (let i=0;i<N;i++){ II[i]=I[i]*I[i]; IP[i]=I[i]*p[i]; }
   const mII=boxMean(II,W,H,R), mIP=boxMean(IP,W,H,R), A=new Float32Array(N), B=new Float32Array(N);
@@ -1632,6 +1647,7 @@ function depthAt(m, dx, dy){ // bilinear, doc coords
 function depSelW(v,t){ const r=t.ref??0.5; return smooth01(r-t.far-t.soft-0.001, r-t.far, v) * (1-smooth01(r+t.near, r+t.near+t.soft+0.001, v)); }
 function depHazeW(v,t){ const f=1-v, a=t.start, b=a+(1-a)*t.hsoft+0.02; return t.dens*smooth01(a,b,f); }
 function depRadius(v,t,maxR){ const r=t.ref??depthMap.focusGuess; return maxR*smooth01(t.dof, t.dof+0.3, Math.abs(v-r)); }
+function depBg(v,t){ const r=t.ref??depthMap.focusGuess; return v < r-t.dof-0.04 ? 1 : 0; }
 async function depthOpen(){
   if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   try{ await depthCompute(); }
@@ -1685,13 +1701,19 @@ function depthPreview(){ depRaf=0; if(!dep||!depthMap) return; const m=depthMap,
 }
 function hexRGB(h){ const v=parseInt(String(h).replace('#',''),16); return [(v>>16)&255,(v>>8)&255,v&255]; }
 /* depth blur: a few blur levels (premultiplied), per pixel mixed by the radius its depth asks for */
-function blurMix(src, W, H, radiusAt, maxR){
+function blurMix(src, W, H, radiusAt, maxR, bgAt){
   const N=W*H, lv=[0, maxR/4, maxR/2, maxR], P=[0,1,2,3].map(()=>new Float32Array(N));
   for (let i=0;i<N;i++){ const a=src[i*4+3]/255; P[0][i]=src[i*4]*a; P[1][i]=src[i*4+1]*a; P[2][i]=src[i*4+2]*a; P[3][i]=src[i*4+3]; }
   const L=lv.map((s,l)=> l===0 ? P : P.map(ch=>gauss(Float32Array.from(ch),W,H,s/2)));
+  // background behind the sharp subject is blurred only from background (normalised convolution) — the subject does not glow into it
+  let LB=null, BG=null;
+  if (bgAt){ BG=new Float32Array(N); for (let y=0;y<H;y++) for (let x=0;x<W;x++) BG[y*W+x]=bgAt(x,y);
+    LB=lv.map((s,l)=>{ if (l===0) return P; const wb=gauss(Float32Array.from(BG),W,H,s/2);
+      return P.map(ch=>{ const t=new Float32Array(N); for (let i=0;i<N;i++) t[i]=ch[i]*BG[i]; gauss(t,W,H,s/2); for (let i=0;i<N;i++) t[i]= wb[i]>0.02 ? t[i]/wb[i] : ch[i]; return t; }); }); }
   const out=new Uint8ClampedArray(N*4);
   for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const i=y*W+x, r=Math.min(maxR, radiusAt(x,y)); let l=0; while (l<lv.length-2 && r>lv[l+1]) l++;
-    const t = lv[l+1]>lv[l] ? clamp((r-lv[l])/(lv[l+1]-lv[l]),0,1) : 0, A=L[l], B=L[l+1];
+    const LL = BG && BG[i]>0.5 ? LB : L;
+    const t = lv[l+1]>lv[l] ? clamp((r-lv[l])/(lv[l+1]-lv[l]),0,1) : 0, A=LL[l], B=LL[l+1];
     const a=A[3][i]+(B[3][i]-A[3][i])*t, ia=a>0.5?255/a:0;
     out[i*4]=(A[0][i]+(B[0][i]-A[0][i])*t)*ia; out[i*4+1]=(A[1][i]+(B[1][i]-A[1][i])*t)*ia; out[i*4+2]=(A[2][i]+(B[2][i]-A[2][i])*t)*ia; out[i*4+3]=a; }
   return out;
@@ -1699,7 +1721,7 @@ function blurMix(src, W, H, radiusAt, maxR){
 function depthBlurPreview(){ const m=depthMap, t=dep.t;
   if (!dep.pv){ const k=Math.min(1,900/Math.max(doc.w,doc.h)), c=flatten(k); dep.pv={k, w:c.width, h:c.height, data:ctx2(c,{willReadFrequently:true}).getImageData(0,0,c.width,c.height).data}; }
   const {k,w,h,data}=dep.pv, maxR=t.blur*0.02*Math.max(doc.w,doc.h)*k;
-  const out=blurMix(data,w,h,(x,y)=>depRadius(depthAt(m,(x+0.5)/k,(y+0.5)/k),t,maxR),Math.max(0.5,maxR));
+  const out=blurMix(data,w,h,(x,y)=>depRadius(depthAt(m,(x+0.5)/k,(y+0.5)/k),t,maxR),Math.max(0.5,maxR),(x,y)=>depBg(depthAt(m,(x+0.5)/k,(y+0.5)/k),t));
   const c=mk(w,h); ctx2(c).putImageData(new ImageData(out,w,h),0,0); return c;
 }
 function minmax(f,W,H,r,max){ const t=new Float32Array(f.length), o=new Float32Array(f.length), pick=max?Math.max:Math.min;
@@ -1741,7 +1763,7 @@ async function depthApply(){
     const src=flatten(1), sx=ctx2(src,{willReadFrequently:true}), maxR=Math.max(0.5,t.blur*0.02*Math.max(doc.w,doc.h)), mg=Math.ceil(maxR*1.6)+2, BAND=256;
     let L; L=newLayer('Размытие по глубине');
     for (let y0=0; y0<doc.h; y0+=BAND){ const y1=Math.min(doc.h,y0+BAND), a=Math.max(0,y0-mg), b=Math.min(doc.h,y1+mg), H=b-a;
-      const dta=sx.getImageData(0,a,doc.w,H).data, out=blurMix(dta,doc.w,H,(x,y)=>depRadius(depthAt(depthMap,x+0.5,a+y+0.5),t,maxR),maxR);
+      const dta=sx.getImageData(0,a,doc.w,H).data, out=blurMix(dta,doc.w,H,(x,y)=>depRadius(depthAt(depthMap,x+0.5,a+y+0.5),t,maxR),maxR,(x,y)=>depBg(depthAt(depthMap,x+0.5,a+y+0.5),t));
       L.ctx.putImageData(new ImageData(out.subarray((y0-a)*doc.w*4,(y1-a)*doc.w*4),doc.w,y1-y0),0,y0);
       busy(true,'Размываю по глубине… '+Math.round(y1/doc.h*100)+'%'); await nextFrame(); }
     depthClose(); topInsert(L,'Размытие легло новым слоем сверху — лишнее можно стереть или скрыть маской'); markDirty();
@@ -3959,7 +3981,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №27.4 края по глубине'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №27.5 дымка и размытие без ореола'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
