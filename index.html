@@ -1285,9 +1285,7 @@ async function loadSeg(){
   if (segLoading) return segLoading;
   segLoading=(async()=>{
     busy(true,'Загружаю модель выделения…'); await nextFrame();
-    const [model]=[joinParts(await ensureOrt(MODELS.isnet,'Загружаю модель выделения'))];
-    busy(true,'Готовлю модель…'); await nextFrame();
-    segSess=await makeSession(model,false);
+    segSess=await mlSession('isnet', MODELS.isnet, 'Загружаю модель выделения', false);
     return segSess;
   })();
   try{ return await segLoading; } finally{ segLoading=null; }
@@ -1296,15 +1294,13 @@ async function loadSeg(){
 /* ============ tap to select object (MobileSAM: encoder once per picture, decoder per tap) ============ */
 let samEnc=null, samDec=null, samLoading=null, samEmb=null, tapSess=null;
 async function loadSam(){
-  if (samEnc&&samDec) return;
+  if (samDec && (samEnc || (samEmb && samEmb.ver===contentVer && samEmb.w===doc.w && samEmb.h===doc.h))) return;
   if (samLoading) return samLoading;
   samLoading=(async()=>{
     busy(true,'Загружаю модель «тап по объекту»…'); await nextFrame();
-    const parts=await ensureOrt([...MODELS.sam_enc, ...MODELS.sam_dec],'Загружаю модель «тап по объекту»');
-    const ne=MODELS.sam_enc.length;
-    busy(true,'Готовлю модель…'); await nextFrame();
-    samEnc=await makeSession(joinParts(parts.slice(0,ne)), true);
-    samDec=await makeSession(joinParts(parts.slice(ne)), false);
+    // the decoder is small and enough for new taps on the same picture; the encoder only when the picture changed
+    if (!samDec) samDec=await mlSession('sam_dec', MODELS.sam_dec, 'Загружаю модель «тап по объекту»', false);
+    if (!samEnc && !(samEmb && samEmb.ver===contentVer && samEmb.w===doc.w && samEmb.h===doc.h)) samEnc=await mlSession('sam_enc', MODELS.sam_enc, 'Загружаю модель «тап по объекту»', true);
   })();
   try{ return await samLoading; } finally{ samLoading=null; }
 }
@@ -1317,6 +1313,7 @@ function compositeTo(ctx, w, h){
 }
 async function samEmbed(){
   if (samEmb && samEmb.ver===contentVer && samEmb.w===doc.w && samEmb.h===doc.h) return samEmb.t;
+  if (!samEnc) samEnc=await mlSession('sam_enc', MODELS.sam_enc, 'Загружаю модель «тап по объекту»', true);
   busy(true, samEnc.__ep==='webgpu' ? 'Разбираю кадр на видеокарте…' : 'Разбираю кадр…'); await nextFrame();
   const g=samGeom(), c=mk(1024,1024), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high';
   compositeTo(x, g.w, g.h);
@@ -1326,9 +1323,9 @@ async function samEmbed(){
     const a=px[j+3]/255; inp[i]=px[j]*a; inp[i+N]=px[j+1]*a; inp[i+2*N]=px[j+2]*a; }
   let out;
   try{ out=(await samEnc.run({image:new ort.Tensor('float32',inp,[1,3,1024,1024])})).embeddings; }
-  catch(e){ if(samEnc.__ep!=='webgpu') throw e; console.warn(e); samEnc=null; await loadSam(); return samEmbed(); }
+  catch(e){ if(samEnc.__ep!=='webgpu') throw e; console.warn(e); gpuOK=false; samEnc=null; await mlDropGPU(); return samEmbed(); }
   const d=out.data; let bad=false; for(let i=0;i<d.length;i+=997){ if(!Number.isFinite(d[i])){ bad=true; break; } }
-  if (bad && samEnc.__ep==='webgpu'){ gpuOK=false; samEnc=null; await loadSam(); return samEmbed(); }
+  if (bad && samEnc.__ep==='webgpu'){ gpuOK=false; samEnc=null; await mlDropGPU(); return samEmbed(); }
   const t=new ort.Tensor('float32', new Float32Array(d), [1,256,64,64]);
   samEmb={ver:contentVer, w:doc.w, h:doc.h, t}; return t;
 }
@@ -1664,51 +1661,86 @@ function drawLoupe(sx,sy,a,b){ // magnified view of the source spot, placed away
 }
 /* ============ removal: neural (MI-GAN, on device) and content-aware (PatchMatch) ============ */
 let miganSess=null, miganLoading=null, inpaintBusy=false;
-/* the network runs in its own worker; after a pause the worker is closed and Safari gets all of its memory back */
-let miganW=null, miganWT=null, miganWReady=null, miganWBroken=false;
-const MIGAN_WORKER=`let sess=null;
+/* ---- all neural networks live in one disposable worker ("ML compartment"). After a pause it is closed
+   and Safari gets every byte of its memory back; the next use quietly reopens it from the local model cache. ---- */
+const ML_IDLE_MS=40000;
+const ML_WORKER=`let sessions={}, inited=false;
 onmessage=async e=>{ const m=e.data;
   try{
-    if(m.type==='init'){ importScripts(m.ortUrl); ort.env.wasm.numThreads=1; ort.env.wasm.proxy=false; ort.env.wasm.wasmPaths={mjs:m.mjs}; ort.env.wasm.wasmBinary=m.wasm;
-      sess=await ort.InferenceSession.create(m.model,{executionProviders:['wasm'],graphOptimizationLevel:'all'}); postMessage({type:'ready'}); }
-    else if(m.type==='run'){ const r=await sess.run({image:new ort.Tensor('uint8',m.img,[1,3,m.h,m.w]), mask:new ort.Tensor('uint8',m.msk,[1,1,m.h,m.w])});
-      const o=r[sess.outputNames[0]].data; postMessage({type:'out',o},[o.buffer]); }
-  }catch(err){ postMessage({type:'err',msg:String(err&&err.message||err)}); } };`;
-function miganWorkerClose(){ clearTimeout(miganWT); if (miganW){ miganW.terminate(); miganW=null; } miganWReady=null; }
-async function miganWorker(){
-  clearTimeout(miganWT);
-  if (miganWReady) return miganWReady;
-  miganWReady=(async()=>{
-    busy(true,'Загружаю нейросеть удаления…'); await nextFrame();
-    const parts=await downloadAll([...MODELS.runtime, ...MODELS.migan],'Загружаю нейросеть удаления');
-    const nrt=MODELS.runtime.length, wasm=joinParts(parts.slice(0,nrt)).buffer, model=joinParts(parts.slice(nrt));
-    busy(true,'Готовлю нейросеть…'); await nextFrame();
-    const w=new Worker(URL.createObjectURL(new Blob([MIGAN_WORKER],{type:'text/javascript'})));
-    await new Promise((res,rej)=>{ w.onmessage=e=>{ if(e.data.type==='ready') res(); else if(e.data.type==='err') rej(new Error(e.data.msg)); }; w.onerror=e=>rej(new Error(e.message||'worker')); 
-      w.postMessage({type:'init', ortUrl:new URL('vendor/ort.min.js',location.href).href, mjs:new URL('vendor/ort-wasm-simd-threaded.jsep.mjs',location.href).href, wasm, model},[wasm, model.buffer]); });
-    miganW=w; return w;
+    if(m.type==='init'){ if(!inited){ importScripts(m.ortUrl); ort.env.wasm.numThreads=1; ort.env.wasm.proxy=false; ort.env.wasm.wasmPaths={mjs:m.mjs}; ort.env.wasm.wasmBinary=m.wasm; inited=true; } postMessage({id:m.id}); }
+    else if(m.type==='load'){ let sess=null, ep='wasm';
+      if(m.gpu && self.navigator && navigator.gpu){ try{ sess=await ort.InferenceSession.create(m.model,{executionProviders:['webgpu'],graphOptimizationLevel:'all'}); ep='webgpu'; }catch(_){ sess=null; } }
+      if(!sess) sess=await ort.InferenceSession.create(m.model,{executionProviders:['wasm'],graphOptimizationLevel:'all'});
+      sessions[m.name]=sess; postMessage({id:m.id, inputNames:sess.inputNames, outputNames:sess.outputNames, ep}); }
+    else if(m.type==='drop'){ const s=sessions[m.name]; if(s){ try{ await s.release(); }catch(_){ } delete sessions[m.name]; } postMessage({id:m.id}); }
+    else if(m.type==='run'){ const sess=sessions[m.name], feeds={};
+      for(const k in m.feeds){ const f=m.feeds[k]; feeds[k]=new ort.Tensor(f.type,f.data,f.dims); }
+      const r=await sess.run(feeds), out={}, tr=[];
+      for(const k in r){ const t=r[k]; let d=(t.location&&t.location!=='cpu')?await t.getData():t.data; out[k]={type:t.type,data:d,dims:Array.from(t.dims)}; tr.push(d.buffer); }
+      postMessage({id:m.id,out},tr); }
+  }catch(err){ postMessage({id:m.id, err:String(err&&err.message||err)}); } };`;
+const ML={w:null, ready:null, sess:{}, T:null, pending:new Map(), seq:0, broken:false};
+function mlCall(msg, transfer){ return new Promise((res,rej)=>{ const id=++ML.seq; ML.pending.set(id,{res,rej}); ML.w.postMessage(Object.assign({},msg,{id}), transfer||[]); }); }
+function mlClose(){
+  clearTimeout(ML.T); if (ML.w) ML.w.terminate(); ML.w=null; ML.ready=null; ML.sess={};
+  for (const p of ML.pending.values()) p.rej(new Error('closed')); ML.pending.clear();
+  // sessions that pointed into the worker are gone; the SAM picture embedding stays (it lives here)
+  segSess=null; samEnc=null; samDec=null;
+}
+function mlIdle(){ clearTimeout(ML.T); ML.T=setTimeout(()=>{ if(!ML.pending.size) mlClose(); }, ML_IDLE_MS); }
+async function mlWorker(){
+  clearTimeout(ML.T);
+  if (ML.ready) return ML.ready;
+  ML.ready=(async()=>{
+    const rt=await downloadAll(MODELS.runtime,'Готовлю нейросети'); const wasm=joinParts(rt).buffer;
+    const w=new Worker(URL.createObjectURL(new Blob([ML_WORKER],{type:'text/javascript'})));
+    w.onmessage=e=>{ const p=ML.pending.get(e.data.id); if(!p) return; ML.pending.delete(e.data.id); e.data.err ? p.rej(new Error(e.data.err)) : p.res(e.data); };
+    w.onerror=e=>{ const err=new Error(e.message||'worker'); for (const p of ML.pending.values()) p.rej(err); ML.pending.clear(); };
+    ML.w=w;
+    await mlCall({type:'init', ortUrl:new URL('vendor/ort.min.js',location.href).href, mjs:new URL('vendor/ort-wasm-simd-threaded.jsep.mjs',location.href).href, wasm},[wasm]);
+    return w;
   })();
-  try{ return await miganWReady; }catch(e){ miganWReady=null; throw e; }
+  try{ return await ML.ready; }catch(e){ if(ML.w) ML.w.terminate(); ML.w=null; ML.ready=null; throw e; }
+}
+function mlProxy(name, info){
+  return { inputNames:info.inputNames, outputNames:info.outputNames, __ep:info.ep,
+    async run(feeds){
+      clearTimeout(ML.T); const f={}, tr=[];
+      for (const k in feeds){ const t=feeds[k], data=t.data.slice(); f[k]={type:t.type, data, dims:Array.from(t.dims)}; tr.push(data.buffer); }
+      try{ return (await mlCall({type:'run', name, feeds:f}, tr)).out; } finally{ mlIdle(); } } };
+}
+// returns a session-like object; models load from the local cache, so reopening after an idle close is fast
+async function mlSession(name, files, label, gpu){
+  if (!window.ort) await loadScript('vendor/ort.min.js');
+  if (!ML.broken){
+    try{
+      await mlWorker();
+      if (ML.sess[name]) return ML.sess[name];
+      const parts=await downloadAll(files,label); const model=joinParts(parts);
+      busy(true,'Готовлю нейросеть…'); await nextFrame();
+      const info=await mlCall({type:'load', name, model, gpu:!!gpu},[model.buffer]);
+      ML.sess[name]=mlProxy(name, info); mlIdle(); return ML.sess[name];
+    }catch(e){ if (e.message==='cancel' || e.message==='stall' || /fetch|network|Load failed/i.test(e.message)) throw e;
+      console.warn('ML worker failed, main thread fallback', e); memNote('нейросети в отсеке не запустились: '+e.message); mlClose(); ML.broken=true; }
+  }
+  const parts=await ensureOrt(files,label); busy(true,'Готовлю нейросеть…'); await nextFrame();
+  return await makeSession(joinParts(parts), gpu);
+}
+async function mlDropGPU(){ // encoder misbehaved on the GPU: reload it on the CPU
+  if (ML.w && ML.sess.sam_enc){ try{ await mlCall({type:'drop', name:'sam_enc'}); }catch(_){ } delete ML.sess.sam_enc; }
+  samEnc=await (async()=>{ const p=await downloadAll(MODELS.sam_enc,'Перезапускаю модель'); const m=joinParts(p);
+    if (ML.w){ const info=await mlCall({type:'load', name:'sam_enc', model:m, gpu:false},[m.buffer]); return ML.sess.sam_enc=mlProxy('sam_enc',info); }
+    return await makeSession(m,false); })();
 }
 async function miganRun(img, msk, w, h){
-  if (!miganWBroken){
-    try{
-      const W=await miganWorker();
-      const o=await new Promise((res,rej)=>{ W.onmessage=e=>{ if(e.data.type==='out') res(e.data.o); else if(e.data.type==='err') rej(new Error(e.data.msg)); }; W.onerror=e=>rej(new Error(e.message||'worker'));
-        W.postMessage({type:'run', img, msk, w, h},[img.buffer, msk.buffer]); });
-      clearTimeout(miganWT); miganWT=setTimeout(miganWorkerClose, 25000);
-      return o;
-    }catch(e){ console.warn('migan worker failed, main thread fallback', e); miganWorkerClose(); miganWBroken=true; memNote('migan worker: '+e.message); }
-  }
   const sess=await loadMigan();
   const res=await sess.run({image:new ort.Tensor('uint8',img,[1,3,h,w]), mask:new ort.Tensor('uint8',msk,[1,1,h,w])});
   return res[sess.outputNames[0]].data;
 }
 async function loadMigan(){
-  if (miganSess) return miganSess; if (miganLoading) return miganLoading;
+  if (miganLoading) return miganLoading;
   miganLoading=(async()=>{ busy(true,'Загружаю нейросеть удаления…'); await nextFrame();
-    const parts=await ensureOrt(MODELS.migan,'Загружаю нейросеть удаления'); busy(true,'Готовлю нейросеть…'); await nextFrame();
-    miganSess=await makeSession(joinParts(parts), false); return miganSess; })();
+    return await mlSession('migan', MODELS.migan, 'Загружаю нейросеть удаления', false); })();
   try{ return await miganLoading; } finally{ miganLoading=null; }
 }
 // hole: Uint8 0..255 over region r. returns generated RGBA (r-sized) — only meaningful inside the hole
@@ -3090,7 +3122,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-01 · №20 резервная копия'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №21 отсек нейросетей'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
@@ -3118,11 +3150,11 @@ async function storeReport(){
 /* ============ boot ============ */
 /* restart detector: if the page comes back while the previous run never said goodbye, Safari closed it (almost always memory) */
 function memNote(s){ try{ const a=JSON.parse(localStorage.getItem('proyavka.trail')||'[]'); a.push(new Date().toLocaleTimeString('ru-RU')+' '+s); while(a.length>25) a.shift(); localStorage.setItem('proyavka.trail', JSON.stringify(a)); }catch(_){} }
-function crumb(){ try{ sessionStorage.setItem('proyavka.alive', JSON.stringify({t:Date.now(), tool:S.tool, mem:doc?memMB():0, size:doc?doc.w+'×'+doc.h:'', layers:doc?doc.layers.length:0, ai:!!miganW, sam:!!samEnc})); }catch(_){} }
+function crumb(){ try{ sessionStorage.setItem('proyavka.alive', JSON.stringify({t:Date.now(), tool:S.tool, mem:doc?memMB():0, size:doc?doc.w+'×'+doc.h:'', layers:doc?doc.layers.length:0, ai:!!ML.w, sam:!!samEnc})); }catch(_){} }
 setInterval(crumb, 2000);
 window.addEventListener('pagehide', ()=>{ try{ sessionStorage.removeItem('proyavka.alive'); }catch(_){} });
 let crashedBefore=null; try{ crashedBefore=JSON.parse(sessionStorage.getItem('proyavka.alive')||'null'); }catch(_){}
-if (crashedBefore){ const c=crashedBefore; memNote(`перезапуск · инструмент ${c.tool} · документ ≈${c.mem} МБ · ${c.size} · слоёв ${c.layers}${c.ai?' · нейросеть удаления':''}${c.sam?' · тап по объекту':''}`); }
+if (crashedBefore){ const c=crashedBefore; memNote(`перезапуск · инструмент ${c.tool} · документ ≈${c.mem} МБ · ${c.size} · слоёв ${c.layers}${c.ai?' · нейросети были открыты':''}`); }
 (async function boot(){
   loadPrefs(); $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл';
   setColor(S.color); sizeStage();
