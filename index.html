@@ -83,6 +83,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .hs .hk{position:absolute;top:6px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--fg);box-shadow:0 1px 4px rgba(0,0,0,.5)}
 .row .hs{flex:1;width:auto}
 #opts.tight{gap:8px} #opts.tight .hs{width:80px} #opts.tight .opt{gap:5px}
+#adjbar .seg{align-self:flex-start} #adjbar .er{grid-template-columns:150px 1fr 52px} #adjbar canvas.curve{width:100%;aspect-ratio:1.6;max-height:240px;border-radius:10px;touch-action:none;display:block} #adjbar canvas.lv{aspect-ratio:auto;height:64px}
 #optMore{min-width:36px;font-size:16px;letter-spacing:1px}
 #optPop{position:absolute;z-index:45;display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);max-width:min(420px,calc(100vw - 32px))}
 #optPop .opt{justify-content:space-between} #optPop .hs{width:150px} #optPop .seg{align-self:flex-start}
@@ -131,15 +132,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .fbar button{height:36px;padding:0 12px;border-radius:8px;white-space:nowrap;font-size:13px}
 .fbar button:active{background:var(--panel-2)}
 .fbar .pri{background:var(--accent);color:var(--accent-ink);font-weight:600}
-#edgebar,#harmbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
-#edgebar .eh,#harmbar .eh{font-weight:600;font-size:14px}
-#edgebar .eh span,#harmbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
-#edgebar .er,#harmbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
-#edgebar .er label,#harmbar .er label{color:var(--muted)}
-#edgebar .er .v,#harmbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
-#edgebar .er .hs,#harmbar .er .hs{height:32px;width:auto}
+#edgebar,#harmbar,#adjbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
+#edgebar .eh,#harmbar .eh,#adjbar .eh{font-weight:600;font-size:14px}
+#edgebar .eh span,#harmbar .eh span,#adjbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+#edgebar .er,#harmbar .er,#adjbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
+#edgebar .er label,#harmbar .er label,#adjbar .er label{color:var(--muted)}
+#edgebar .er .v,#harmbar .er .v,#adjbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
+#edgebar .er .hs,#harmbar .er .hs,#adjbar .er .hs{height:32px;width:auto}
 #edShift::after{content:"";position:absolute;left:50%;top:9px;width:2px;height:12px;margin-left:-1px;background:var(--muted);border-radius:1px}
-#edgebar .eb,#harmbar .eb{display:flex;gap:6px;margin-top:2px}
+#edgebar .eb,#harmbar .eb,#adjbar .eb{display:flex;gap:6px;margin-top:2px}
 
 /* layers */
 #layers{position:absolute;top:8px;right:8px;bottom:8px;width:290px;max-width:calc(100% - 16px);background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;box-shadow:0 10px 36px rgba(0,0,0,.5);z-index:5}
@@ -511,6 +512,7 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
       <div class="er"><label>Сузить ↔ Расширить</label><div id="edShift"></div><span class="v" id="edShiftV">0</span></div>
       <div class="eb"><button id="edReset">Сброс</button><span style="flex:1"></span><button id="edCancel">Отмена</button><button id="edApply" class="pri">Применить</button></div>
     </div>
+    <div class="fbar" id="adjbar" hidden></div>
     <div class="fbar" id="harmbar" hidden>
       <div class="eh">Гармонизация <span id="hmHint"></span></div>
       <div class="er"><label>Сила</label><div id="hm_str"></div><span class="v" id="hm_strV"></span></div>
@@ -547,6 +549,7 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
           <button id="lyMerge">Слить вниз</button>
           <button id="lyClear">Очистить</button>
           <button id="lyMask" style="grid-column:1/-1">+ Маска</button>
+          <button id="lyAdj" style="grid-column:1/-1">+ Корректирующий слой</button>
           <button id="lyHarm" style="grid-column:1/-1">Гармонизация — цвет под фон</button>
           <button id="lyMaskInv" style="grid-column:span 2" hidden>Инвертировать маску</button>
         </div>
@@ -751,7 +754,9 @@ function isDesc(x,G){ for(let p=x.parent;p;p=p.parent) if(p===G) return true; re
 function depthOf(x){ let d=0; for(let p=x.parent;p;p=p.parent) d++; return d; }
 function shown(x){ for(let p=x;p;p=p.parent) if(!p.visible) return false; return true; }
 function blockStart(X){ let s=doc.layers.indexOf(X); while(s>0 && isDesc(doc.layers[s-1],X)) s--; return s; }
-function pixelOnly(maskOk){ const L=AL(); if(!isGroup(L)) return true; if(maskOk && doc.editMask && L.mask) return true;
+function pixelOnly(maskOk){ const L=AL();
+  if (L.kind==='adj'){ if (maskOk && doc.editMask && L.mask) return true; toast('Это корректирующий слой: на нём рисуется только маска (кисть и ластик)',2600); return false; }
+  if(!isGroup(L)) return true; if(maskOk && doc.editMask && L.mask) return true;
   toast(L.mask?'Выбрана группа. Выбери слой внутри или миниатюру маски группы':'Выбрана группа. Выбери слой внутри неё',2400); return false; }
 /* composite the tree: pass-through groups at 100% draw straight through, others are flattened on a temp canvas first */
 let grpPool=[];
@@ -759,6 +764,8 @@ let grpPool=[];
 const mapIdentity=(c,cv)=>c.drawImage(cv,0,0);
 function composeTree(ctx, leaf, opt={}, P=opt.P||null, depth=0){
   for (const L of doc.layers){ if (L.parent!==P || !L.visible) continue;
+    if (opt.skip && opt.skip(L)) continue;
+    if (L.kind==='adj'){ adjComposite(ctx, L, opt); continue; }
     if (!isGroup(L)){ leaf(ctx,L); continue; }
     const gm = L.mask && L.mask.enabled;
     if (L.blend==='pass' && L.opacity>=1 && !gm){ composeTree(ctx, leaf, opt, L, depth+1); continue; }
@@ -786,7 +793,7 @@ function moveBlock(X, to, P){
   const blk=doc.layers.splice(s,n); if (to>e) to-=n; doc.layers.splice(to,0,...blk); X.parent=P; doc.active=doc.layers.indexOf(X); return true;
 }
 function memMB(){
-  let n = 0; for (const L of doc.layers){ if(isGroup(L)) continue; n++; if (L.mask) n++; }
+  let n = 0; for (const L of doc.layers){ if(isGroup(L)) continue; if (L.kind!=='adj') n++; if (L.mask) n++; }
   if (strokeBuf) n++; if (sel) n++;
   return Math.round(n*doc.w*doc.h*4/1048576 + histBytes/1048576);
 }
@@ -967,7 +974,7 @@ function updateStatus(){
 let undoStack=[], redoStack=[], histBytes=0;
 const HIST_LIMIT = 260*1048576; // Safari on iPad kills the tab well before the device runs out of RAM
 function clearHistory(){ undoStack=[]; redoStack=[]; histBytes=0; }
-function layersMB(){ if(!doc) return 0; let n=0; for (const L of doc.layers){ if(!isGroup(L)) n++; if (L.mask) n++; } return n*doc.w*doc.h*4/1048576; }
+function layersMB(){ if(!doc) return 0; let n=0; for (const L of doc.layers){ if(!isGroup(L) && L.kind!=='adj') n++; if (L.mask) n++; } return n*doc.w*doc.h*4/1048576; }
 function histLimit(){ // while the neural compartment is open it holds ~180 MB of its own — undo history gives way
   return Math.min(HIST_LIMIT, Math.max(60, 350-layersMB()-(typeof ML!=='undefined'&&ML.w?180:0))*1048576); }
 function trimHistory(maxMB){ while (histBytes>maxMB*1048576 && undoStack.length>1){ const o=undoStack.shift(); histBytes-=o.bytes||0; } }
@@ -985,8 +992,8 @@ function pxEntry(canvas, x,y,w,h, before){
   return { undo:swap, redo:swap, bytes:w*h*4 };
 }
 const compound = (...es) => ({ undo(){ for(let i=es.length-1;i>=0;i--) es[i].undo(); }, redo(){ for(const e of es) e.redo(); }, bytes: es.reduce((a,e)=>a+(e.bytes||0),0) });
-function undo(){ if(edge){ edgeCancel(); return; } if(stroke||xf) return; const e=undoStack.pop(); if(!e){ toast('Нечего отменять'); return; } e.undo(); redoStack.push(e); afterHist('Отменено', e.sel); }
-function redo(){ if(stroke||xf) return; const e=redoStack.pop(); if(!e){ toast("Нечего возвращать"); return; } e.redo(); undoStack.push(e); afterHist("Возвращено", e.sel); }
+function undo(){ if(edge){ edgeCancel(); return; } if (adjEdit) adjClose(); if(stroke||xf) return; const e=undoStack.pop(); if(!e){ toast('Нечего отменять'); return; } e.undo(); redoStack.push(e); afterHist('Отменено', e.sel); }
+function redo(){ if (adjEdit) adjClose(); if(stroke||xf) return; const e=redoStack.pop(); if(!e){ toast("Нечего возвращать"); return; } e.redo(); undoStack.push(e); afterHist("Возвращено", e.sel); }
 function afterHist(msg, selOnly){ if(selOnly){ requestRender(); toast(msg,900); return; } doc.active=clamp(doc.active,0,doc.layers.length-1); if(!AL().mask) doc.editMask=false; doc.layers.forEach(L=>L.dirty=true); layersChanged(); requestRender(); markDirty(); toast(msg,900); }
 function grab(canvas,r){ return ctx2(canvas).getImageData(r.x,r.y,r.w,r.h); }
 function clipRect(x,y,w,h){ const x0=clamp(Math.floor(x),0,doc.w), y0=clamp(Math.floor(y),0,doc.h), x1=clamp(Math.ceil(x+w),0,doc.w), y1=clamp(Math.ceil(y+h),0,doc.h); return {x:x0,y:y0,w:x1-x0,h:y1-y0}; }
@@ -1007,6 +1014,9 @@ function hexA(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${n>>16&25
 const curSize = () => S.tool==='eraser' ? S.eraserSize : S.size;
 
 function strokeBegin(p){
+  { const A=AL(); if (A && A.kind==='adj' && (S.tool==='brush'||S.tool==='eraser')){
+      if (!A.mask){ const m=newMask(A); A.mask=m; A.dirty=true; pushHist({undo(){A.mask=null;}, redo(){A.mask=m;}}); }
+      if (!doc.editMask){ doc.editMask=true; layersChanged(); } } }
   if (harm){ toast('Сначала примени или отмени гармонизацию'); return false; }
   if (!pixelOnly(true)) return false;
   const L=AL();
@@ -1226,7 +1236,7 @@ function selToMask(){
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
 }
-function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
+function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
 function quickDeselect(){ if(!sel) return; deselect(); toast('Выделение снято · вернуть — тап двумя пальцами',1500); }
 function syncSelModes(){ document.querySelectorAll('#selModes button').forEach(b=>b.classList.toggle('on', b.dataset.mode===S.selMode)); }
 function setSelMode(k){ S.selMode=k; if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
@@ -1558,8 +1568,282 @@ for (const [key,id,min] of [['smooth','edSmooth',0],['feather','edFeather',0],['
   edgeSl[key]=hslider($('#'+id), {min, max:1, get:()=>edge?edge.t[key]:0,
     set:v=>{ if(!edge) return; if (key==='shift' && Math.abs(v)<0.04) v=0; edge.t[key]=v; $('#'+id+'V').textContent=edgeVal(v,EDGE_MAX[key])+' px'; if(!edgeRaf) edgeRaf=requestAnimationFrame(edgePreview); }});
 }
-$('#lyHarm').onclick=()=>harmOpen(); $('#edApply').onclick=edgeApply; $('#edCancel').onclick=edgeCancel;
+$('#lyHarm').onclick=()=>harmOpen(); $('#lyAdj').onclick=()=>adjMenu(); $('#edApply').onclick=edgeApply; $('#edCancel').onclick=edgeCancel;
 $('#edReset').onclick=()=>{ if(!edge) return; edge.t={smooth:0,feather:0,shift:0}; edgeDraw(); edgePreview(); };
+/* ============ adjustment layers: curves, levels, hue/saturation, colour balance ============
+   A layer of kind 'adj' has no pixels (a 1×1 stub canvas). When the tree is composited it takes what lies
+   under it, passes it through a 64³ colour LUT (WebGL2; CPU fallback) and mixes the result back through
+   its mask × opacity (optionally clipped to the layer right below). Parameters use ag-psd's format,
+   so PSD export / import keeps them as real Photoshop adjustment layers. */
+const isAdj = L => !!L && L.kind==='adj';
+const ADJ_NAMES={curves:'Кривые', levels:'Уровни', hue:'Цветовой тон', balance:'Цветовой баланс'};
+const ADJ_PSD={curves:'curves', levels:'levels', hue:'hue/saturation', balance:'color balance'};
+const ADJ_FROM_PSD={'curves':'curves','levels':'levels','hue/saturation':'hue','color balance':'balance'};
+const LV0=()=>({shadowInput:0, highlightInput:255, shadowOutput:0, highlightOutput:255, midtoneInput:1});
+const CV0=()=>[{input:0,output:0},{input:255,output:255}];
+const CB0=()=>({cyanRed:0, magentaGreen:0, yellowBlue:0});
+function adjDefaults(t){
+  if (t==='curves') return {type:'curves', rgb:CV0(), red:CV0(), green:CV0(), blue:CV0()};
+  if (t==='levels') return {type:'levels', rgb:LV0(), red:LV0(), green:LV0(), blue:LV0()};
+  if (t==='hue') return {type:'hue/saturation', master:{hue:0, saturation:0, lightness:0}};
+  return {type:'color balance', shadows:CB0(), midtones:CB0(), highlights:CB0(), preserveLuminosity:true};
+}
+function adjNormalize(a){ // fill the gaps of a PSD-read adjustment
+  const t=ADJ_FROM_PSD[a&&a.type]; if(!t) return null; const d=adjDefaults(t);
+  if (t==='curves'){ for (const k of ['rgb','red','green','blue']) if (Array.isArray(a[k]) && a[k].length>=2) d[k]=a[k].map(p=>({input:p.input,output:p.output})).sort((p,q)=>p.input-q.input); }
+  else if (t==='levels'){ for (const k of ['rgb','red','green','blue']) if (a[k]) d[k]=Object.assign(LV0(), a[k]); }
+  else if (t==='hue'){ if (a.master) d.master=Object.assign(d.master, a.master); }
+  else { for (const k of ['shadows','midtones','highlights']) if (a[k]) d[k]=Object.assign(CB0(), a[k]); d.preserveLuminosity = a.preserveLuminosity!==false; }
+  return d;
+}
+const adjType = L => ADJ_FROM_PSD[L.adj.type];
+function newAdj(t, name){ const c=mk(1,1);
+  return { id:uid++, kind:'adj', name:name||ADJ_NAMES[t], canvas:c, ctx:ctx2(c), visible:true, opacity:1, blend:'source-over', mask:null, parent:null, dirty:true, saved:false, adj:adjDefaults(t), clip:false }; }
+
+/* ---- the colour function of each kind ---- */
+function curveTable(pts){ // monotone cubic through the points → 256 values 0..1
+  const P=pts.slice().sort((a,b)=>a.input-b.input), n=P.length, out=new Float32Array(256);
+  if (n<2){ for (let i=0;i<256;i++) out[i]=i/255; return out; }
+  const x=P.map(p=>p.input), y=P.map(p=>p.output), d=[], m=new Array(n);
+  for (let i=0;i<n-1;i++) d.push((y[i+1]-y[i])/Math.max(1e-6,x[i+1]-x[i]));
+  m[0]=d[0]; m[n-1]=d[n-2]; for (let i=1;i<n-1;i++) m[i]= d[i-1]*d[i]<=0 ? 0 : (d[i-1]+d[i])/2;
+  for (let i=0;i<n-1;i++){ if (d[i]===0){ m[i]=0; m[i+1]=0; continue; } const a=m[i]/d[i], b=m[i+1]/d[i], s=a*a+b*b; if (s>9){ const t=3/Math.sqrt(s); m[i]=t*a*d[i]; m[i+1]=t*b*d[i]; } }
+  for (let v=0; v<256; v++){
+    let y0;
+    if (v<=x[0]) y0=y[0]; else if (v>=x[n-1]) y0=y[n-1];
+    else { let i=0; while (v>x[i+1]) i++; const h=x[i+1]-x[i], t=(v-x[i])/h, t2=t*t, t3=t2*t;
+      y0=(2*t3-3*t2+1)*y[i]+(t3-2*t2+t)*h*m[i]+(-2*t3+3*t2)*y[i+1]+(t3-t2)*h*m[i+1]; }
+    out[v]=clamp(y0,0,255)/255; }
+  return out;
+}
+function levelsTable(c){ const out=new Float32Array(256), lo=c.shadowInput, hi=Math.max(lo+1,c.highlightInput), g=clamp(c.midtoneInput||1,0.1,9.99);
+  for (let v=0; v<256; v++){ const t=clamp((v-lo)/(hi-lo),0,1); out[v]=(c.shadowOutput+(c.highlightOutput-c.shadowOutput)*Math.pow(t,1/g))/255; } return out; }
+const tab = (T,v) => { const f=clamp(v,0,1)*255, i=Math.min(254,f|0), r=f-i; return T[i]+(T[i+1]-T[i])*r; };
+function rgb2hsl(r,g,b,o){ const mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2; let h=0,s=0;
+  if (mx>mn){ const d=mx-mn; s = l>0.5 ? d/(2-mx-mn) : d/(mx+mn); h = mx===r ? (g-b)/d+(g<b?6:0) : mx===g ? (b-r)/d+2 : (r-g)/d+4; h/=6; } o[0]=h; o[1]=s; o[2]=l; }
+function hue2c(p,q,t){ if(t<0)t+=1; if(t>1)t-=1; return t<1/6 ? p+(q-p)*6*t : t<1/2 ? q : t<2/3 ? p+(q-p)*(2/3-t)*6 : p; }
+function hsl2rgb(h,s,l,o){ if (!s){ o[0]=o[1]=o[2]=l; return; } const q = l<0.5 ? l*(1+s) : l+s-l*s, p=2*l-q; o[0]=hue2c(p,q,h+1/3); o[1]=hue2c(p,q,h); o[2]=hue2c(p,q,h-1/3); }
+function adjFn(a){ // → f(rgb 0..1 in place)
+  const t=ADJ_FROM_PSD[a.type];
+  if (t==='curves' || t==='levels'){
+    const mk_ = t==='curves' ? curveTable : levelsTable, M=mk_(a.rgb), R=mk_(a.red), G=mk_(a.green), B=mk_(a.blue);
+    return o=>{ o[0]=tab(M,tab(R,o[0])); o[1]=tab(M,tab(G,o[1])); o[2]=tab(M,tab(B,o[2])); };
+  }
+  if (t==='hue'){ const hu=(a.master.hue||0)/360, sa=(a.master.saturation||0)/100, li=(a.master.lightness||0)/100, h=[0,0,0];
+    return o=>{ rgb2hsl(o[0],o[1],o[2],h); let s=h[1];
+      if (sa<0) s*=1+sa; else if (sa>0) s = s + (1-s)*sa*Math.min(1,s*3);
+      hsl2rgb((h[0]+hu+1)%1, clamp(s,0,1), h[2], o);
+      if (li>0) for (let c=0;c<3;c++) o[c]=o[c]+(1-o[c])*li; else if (li<0) for (let c=0;c<3;c++) o[c]*=1+li; };
+  }
+  const S=a.shadows, Mi=a.midtones, H=a.highlights, keep=a.preserveLuminosity!==false, k=0.0045;
+  return o=>{ const L=0.299*o[0]+0.587*o[1]+0.114*o[2], ws=(1-L)*(1-L), wm=4*L*(1-L), wh=L*L;
+    o[0]+=k*(ws*S.cyanRed+wm*Mi.cyanRed+wh*H.cyanRed); o[1]+=k*(ws*S.magentaGreen+wm*Mi.magentaGreen+wh*H.magentaGreen); o[2]+=k*(ws*S.yellowBlue+wm*Mi.yellowBlue+wh*H.yellowBlue);
+    if (keep){ const L2=0.299*o[0]+0.587*o[1]+0.114*o[2], dl=L-L2; o[0]+=dl; o[1]+=dl; o[2]+=dl; } };
+}
+const ADJ_N=64;
+function adjLut(L){
+  const key=JSON.stringify(L.adj); if (L._lutKey===key) return L._lut;
+  const f=adjFn(L.adj), N=ADJ_N, out=new Uint8Array(N*N*N*4), o=[0,0,0]; let p=0;
+  for (let b=0;b<N;b++) for (let g=0;g<N;g++) for (let r=0;r<N;r++){ o[0]=r/(N-1); o[1]=g/(N-1); o[2]=b/(N-1); f(o);
+    out[p++]=clamp(o[0],0,1)*255+0.5; out[p++]=clamp(o[1],0,1)*255+0.5; out[p++]=clamp(o[2],0,1)*255+0.5; out[p++]=255; }
+  L._lut={bytes:out, key:key+'#'+L.id}; L._lutKey=key; return L._lut;
+}
+function lutApplyCPU(d, n, lut){ const N=ADJ_N, S=(N-1)/255, N2=N*N;
+  for (let i=0;i<n;i++){ const j=i*4; if (!d[j+3]) continue;
+    const fr=d[j]*S, fg=d[j+1]*S, fb=d[j+2]*S, r0=Math.min(N-2,fr|0), g0=Math.min(N-2,fg|0), b0=Math.min(N-2,fb|0), dr=fr-r0, dg=fg-g0, db=fb-b0;
+    for (let c=0;c<3;c++){ const v=(x,y,z)=>lut[((z*N2+y*N+x)<<2)+c];
+      const c00=v(r0,g0,b0)+(v(r0+1,g0,b0)-v(r0,g0,b0))*dr, c10=v(r0,g0+1,b0)+(v(r0+1,g0+1,b0)-v(r0,g0+1,b0))*dr, c01=v(r0,g0,b0+1)+(v(r0+1,g0,b0+1)-v(r0,g0,b0+1))*dr, c11=v(r0,g0+1,b0+1)+(v(r0+1,g0+1,b0+1)-v(r0,g0+1,b0+1))*dr;
+      d[j+c]=(c00+(c10-c00)*dg)*(1-db)+(c01+(c11-c01)*dg)*db; } } }
+
+/* ---- WebGL2: one small program, reused ---- */
+const AGL={};
+function aglGet(){
+  if (AGL.failed) return null; if (AGL.gl) return AGL;
+  try{
+    const c=document.createElement('canvas'); c.width=c.height=1;
+    const gl=c.getContext('webgl2',{premultipliedAlpha:false, preserveDrawingBuffer:true, antialias:false, alpha:true, depth:false, stencil:false});
+    if (!gl) throw new Error('no webgl2');
+    const sh=(type,src)=>{ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const pr=gl.createProgram();
+    gl.attachShader(pr, sh(gl.VERTEX_SHADER, `#version 300 es
+in vec2 p; out vec2 uv; void main(){ uv=vec2(p.x*0.5+0.5, 0.5-p.y*0.5); gl_Position=vec4(p,0.0,1.0); }`));
+    gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, `#version 300 es
+precision highp float; precision highp sampler3D;
+uniform sampler2D src; uniform sampler3D lut; in vec2 uv; out vec4 o;
+void main(){ vec4 c=texture(src,uv); if (c.a<=0.0){ o=vec4(0.0); return; }
+  vec3 t=c.rgb*(${ADJ_N-1}.0/${ADJ_N}.0)+0.5/${ADJ_N}.0; o=vec4(texture(lut,t).rgb, c.a); }`));
+    gl.linkProgram(pr); if (!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+    gl.useProgram(pr);
+    const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+    const loc=gl.getAttribLocation(pr,'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+    const src=gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,src);
+    for (const [k,v] of [[gl.TEXTURE_MIN_FILTER,gl.NEAREST],[gl.TEXTURE_MAG_FILTER,gl.NEAREST],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D,k,v);
+    const lut=gl.createTexture(); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D,lut);
+    for (const [k,v] of [[gl.TEXTURE_MIN_FILTER,gl.LINEAR],[gl.TEXTURE_MAG_FILTER,gl.LINEAR],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_R,gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_3D,k,v);
+    gl.uniform1i(gl.getUniformLocation(pr,'src'),0); gl.uniform1i(gl.getUniformLocation(pr,'lut'),1);
+    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+    c.addEventListener('webglcontextlost', e=>{ e.preventDefault(); AGL.gl=null; });
+    Object.assign(AGL,{gl, canvas:c, lutKey:null}); return AGL;
+  }catch(e){ console.warn('adjustments: no WebGL2, CPU path', e); AGL.failed=true; return null; }
+}
+function aglRun(srcCanvas, lut){
+  const A=AGL, gl=A.gl, w=srcCanvas.width, h=srcCanvas.height;
+  if (A.canvas.width!==w || A.canvas.height!==h){ A.canvas.width=w; A.canvas.height=h; }
+  gl.viewport(0,0,w,h);
+  gl.activeTexture(gl.TEXTURE0); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,srcCanvas);
+  if (A.lutKey!==lut.key){ gl.activeTexture(gl.TEXTURE1); gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA8,ADJ_N,ADJ_N,ADJ_N,0,gl.RGBA,gl.UNSIGNED_BYTE,lut.bytes); A.lutKey=lut.key; }
+  gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES,0,3);
+  return A.canvas;
+}
+function aglShrink(){ const A=AGL; if(!A.gl) return; const gl=A.gl; A.canvas.width=A.canvas.height=1;
+  gl.activeTexture(gl.TEXTURE0); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4)); }
+const adjPool=[];
+function adjBuf(i,w,h){ // screen-size buffers are kept, other sizes are throwaway (big exports must not stay in memory)
+  const keep = typeof comp!=='undefined' && comp && w===comp.width && h===comp.height;
+  if (keep){ let c=adjPool[i]; if(!c||c.width!==w||c.height!==h){ c=mk(w,h); adjPool[i]=c; } return c; }
+  return mk(w,h);
+}
+function clipBase(L){ const i=doc.layers.indexOf(L);
+  for (let j=i-1;j>=0;j--){ const b=doc.layers[j]; if (b.parent!==L.parent) continue; if (isAdj(b)) continue; return isGroup(b) ? null : b; }
+  return null; }
+function adjComposite(ctx, L, opt){
+  const cw=ctx.canvas.width, ch=ctx.canvas.height; if (!cw||!ch) return;
+  const lut=adjLut(L), g=aglGet(), map=opt.map||mapIdentity, screen = typeof comp!=='undefined' && comp && cw===comp.width && ch===comp.height;
+  const t=adjBuf(0,cw,ch), tx=ctx2(t); tx.setTransform(1,0,0,1,0,0); tx.globalAlpha=1;
+  if (g){ tx.globalCompositeOperation='copy'; tx.drawImage(aglRun(ctx.canvas,lut),0,0); if (!screen) aglShrink(); }
+  else { const id=ctx2(ctx.canvas,{willReadFrequently:true}).getImageData(0,0,cw,ch); lutApplyCPU(id.data,cw*ch,lut.bytes); tx.globalCompositeOperation='copy'; tx.putImageData(id,0,0); }
+  tx.globalCompositeOperation='source-over';
+  let m=null; const base = L.clip ? clipBase(L) : null;
+  if ((L.mask && L.mask.enabled) || base){
+    m=adjBuf(1,cw,ch); const mx=ctx2(m); mx.setTransform(1,0,0,1,0,0); mx.globalAlpha=1; mx.globalCompositeOperation='source-over'; mx.clearRect(0,0,cw,ch);
+    if (L.mask && L.mask.enabled) map(mx, L.mask.canvas, L); else { mx.fillStyle='#fff'; mx.fillRect(0,0,cw,ch); }
+    if (base){ for (const cv of [base.canvas, base.mask&&base.mask.enabled?base.mask.canvas:null]){ if(!cv) continue;
+      mx.save(); mx.setTransform(1,0,0,1,0,0); mx.globalCompositeOperation='destination-in'; map(mx, cv, base); mx.restore(); } }
+    mx.setTransform(1,0,0,1,0,0); mx.globalCompositeOperation='source-over';
+    tx.globalCompositeOperation='destination-in'; tx.drawImage(m,0,0); tx.globalCompositeOperation='source-over';
+  }
+  // replace what is under the layer by the adjusted version, weighted by mask × opacity
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity;
+  ctx.globalCompositeOperation='destination-out'; if (m) ctx.drawImage(m,0,0); else { ctx.fillStyle='#000'; ctx.fillRect(0,0,cw,ch); }
+  ctx.globalCompositeOperation='lighter'; ctx.drawImage(t,0,0);
+  ctx.restore();
+}
+
+/* ---- creating and editing ---- */
+let adjEdit=null;
+function addAdj(t){
+  if (!doc || xf) return; const L=newAdj(t, ADJ_NAMES[t]+' '+(doc.layers.filter(x=>isAdj(x)&&adjType(x)===t).length+1));
+  if (sel){ L.mask=newMask(L,true); }
+  insertLayer(L, doc.active+1); markDirty(); adjOpen(L);
+}
+function adjMenu(){
+  dialog('<h3>Корректирующий слой</h3><p>Меняет всё, что под ним, не трогая пиксели. Маской можно оставить эффект только там, где нужно.</p>',
+    [['Кривые', ()=>addAdj('curves'), false, 'свет и контраст по точкам, по каналам'], ['Уровни', ()=>addAdj('levels'), false, 'чёрная, белая точка и гамма'],
+     ['Цветовой тон / Насыщенность', ()=>addAdj('hue'), false, 'сдвиг оттенка, сочность, яркость'], ['Цветовой баланс', ()=>addAdj('balance'), false, 'тёплее / холоднее в тенях, средних и светах'],
+     ['Отмена', null]], {list:true});
+}
+function adjChanged(L){ L._lutKey=null; markDirty(); requestRender(); }
+const adjSnap = L => JSON.stringify({adj:L.adj, clip:!!L.clip});
+function adjOpen(L){
+  if (adjEdit) adjClose(); if (harm) harmClose();
+  adjEdit={L, before:adjSnap(L), ch:'rgb', range:'midtones', hist:null};
+  try{ adjEdit.hist=adjHistogram(L); }catch(e){ adjEdit.hist=null; }
+  adjBuild(); $('#adjbar').hidden=false; updateSelBar();
+}
+function adjClose(){
+  const e=adjEdit; if(!e) return; adjEdit=null; $('#adjbar').hidden=true;
+  const L=e.L, a=e.before, b=adjSnap(L);
+  if (a!==b && doc.layers.includes(L)){ const set=s=>{ const o=JSON.parse(s); L.adj=o.adj; L.clip=o.clip; adjChanged(L); layersChanged(); };
+    pushHist({undo(){ set(a); }, redo(){ set(b); }}); }
+  updateSelBar(); layersChanged();
+}
+function adjHistogram(L){ // of what lies under the layer, small
+  const idx=doc.layers.indexOf(L), k=Math.min(1,256/Math.max(doc.w,doc.h)), w=Math.max(1,Math.round(doc.w*k)), h=Math.max(1,Math.round(doc.h*k));
+  const d=ctx2(compositeBelow({x:0,y:0,w:doc.w,h:doc.h},w,h,idx),{willReadFrequently:true}).getImageData(0,0,w,h).data;
+  const H={rgb:new Float32Array(256), red:new Float32Array(256), green:new Float32Array(256), blue:new Float32Array(256)};
+  for (let i=0;i<d.length;i+=4){ if (d[i+3]<8) continue; H.red[d[i]]++; H.green[d[i+1]]++; H.blue[d[i+2]]++; H.rgb[Math.round(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2])]++; }
+  for (const k2 in H){ const a=H[k2]; let mx=1; for (let i=1;i<255;i++) mx=Math.max(mx,a[i]); for (let i=0;i<256;i++) a[i]=Math.min(1,Math.sqrt(a[i]/mx)); }
+  return H;
+}
+const CH_LABELS=[['rgb','RGB'],['red','К'],['green','З'],['blue','С']];
+const CH_COL={rgb:'#e6e7ea', red:'#ff6b6b', green:'#5fd38a', blue:'#5aa2ff'};
+function adjBuild(){
+  const e=adjEdit, L=e.L, t=adjType(L), box=$('#adjbar'); box.textContent=''; e.redraw=null;
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='<b></b> <span></span>'; head.firstChild.textContent=ADJ_NAMES[t]; head.lastChild.textContent='слой «'+L.name+'»';
+  box.append(head);
+  const segOf=(opts,get,set)=>{ const s=document.createElement('div'); s.className='seg'; for (const [k,l] of opts){ const b=document.createElement('button'); b.textContent=l; b.className=get()===k?'on':''; b.onclick=()=>{ set(k); adjBuild(); }; s.append(b); } return s; };
+  const row=(label, min, max, get, set, fmt)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label></label><div></div><span class="v"></span>'; r.firstChild.textContent=label;
+    const v=r.lastChild, show=()=>v.textContent=fmt(get()); show();
+    hslider(r.children[1], {min, max, get, set:x=>{ set(x); show(); adjChanged(L); if (e.redraw) e.redraw(); }}); box.append(r); return r; };
+  if (t==='curves'){
+    box.append(segOf(CH_LABELS, ()=>e.ch, k=>e.ch=k));
+    const cv=document.createElement('canvas'); cv.className='curve'; box.append(cv); curveEditor(cv); }
+  else if (t==='levels'){
+    box.append(segOf(CH_LABELS, ()=>e.ch, k=>e.ch=k));
+    const cv=document.createElement('canvas'); cv.className='curve lv'; box.append(cv);
+    const lv=()=>L.adj[e.ch], int=x=>String(Math.round(x));
+    e.redraw=()=>drawLevels(cv);
+    row('Чёрная точка',0,253, ()=>lv().shadowInput, x=>{ lv().shadowInput=Math.round(Math.min(x, lv().highlightInput-2)); }, int);
+    row('Гамма',-1,1, ()=>Math.log10(lv().midtoneInput), x=>{ lv().midtoneInput=+Math.pow(10,Math.abs(x)<0.03?0:x).toFixed(2); }, ()=>lv().midtoneInput.toFixed(2));
+    row('Белая точка',2,255, ()=>lv().highlightInput, x=>{ lv().highlightInput=Math.round(Math.max(x, lv().shadowInput+2)); }, int);
+    row('Выход: чёрный',0,255, ()=>lv().shadowOutput, x=>{ lv().shadowOutput=Math.round(x); }, int);
+    row('Выход: белый',0,255, ()=>lv().highlightOutput, x=>{ lv().highlightOutput=Math.round(x); }, int);
+    drawLevels(cv); }
+  else if (t==='hue'){ const M=L.adj.master, sg=x=>(x>0?'+':'')+Math.round(x);
+    row('Цветовой тон',-180,180, ()=>M.hue, x=>{ M.hue=Math.abs(x)<3?0:Math.round(x); }, x=>sg(x)+'°');
+    row('Насыщенность',-100,100, ()=>M.saturation, x=>{ M.saturation=Math.abs(x)<2?0:Math.round(x); }, sg);
+    row('Яркость',-100,100, ()=>M.lightness, x=>{ M.lightness=Math.abs(x)<2?0:Math.round(x); }, sg); }
+  else { const R=()=>L.adj[e.range], sg=x=>(x>0?'+':'')+Math.round(x), snap=x=>Math.abs(x)<2?0:Math.round(x);
+    box.append(segOf([['shadows','Тени'],['midtones','Средние'],['highlights','Света']], ()=>e.range, k=>e.range=k));
+    row('Голубой ↔ Красный',-100,100, ()=>R().cyanRed, x=>{ R().cyanRed=snap(x); }, sg);
+    row('Пурпурный ↔ Зелёный',-100,100, ()=>R().magentaGreen, x=>{ R().magentaGreen=snap(x); }, sg);
+    row('Жёлтый ↔ Синий',-100,100, ()=>R().yellowBlue, x=>{ R().yellowBlue=snap(x); }, sg);
+    const pl=document.createElement('button'); pl.className='chk'+(L.adj.preserveLuminosity?' on':''); pl.textContent='Сохранять яркость';
+    pl.onclick=()=>{ L.adj.preserveLuminosity=!L.adj.preserveLuminosity; pl.classList.toggle('on',L.adj.preserveLuminosity); adjChanged(L); }; box.append(pl); }
+  const foot=document.createElement('div'); foot.className='eb';
+  const clipB=document.createElement('button'); clipB.className='chk'+(L.clip?' on':''); clipB.textContent='Только на слой ниже';
+  clipB.onclick=()=>{ L.clip=!L.clip; clipB.classList.toggle('on',L.clip); adjChanged(L); layersChanged(); if (L.clip && !clipBase(L)) toast('Ниже нет обычного слоя — эффект на всё'); };
+  const rs=document.createElement('button'); rs.textContent='Сброс'; rs.onclick=()=>{ L.adj=adjDefaults(t); adjChanged(L); adjBuild(); };
+  const ok=document.createElement('button'); ok.className='pri'; ok.textContent='Готово'; ok.onclick=adjClose;
+  const sp=document.createElement('span'); sp.style.flex='1'; foot.append(clipB, sp, rs, ok); box.append(foot);
+}
+function drawHistInto(x, W, H, hist, col){ if(!hist) return; x.fillStyle=col; x.globalAlpha=0.22; x.beginPath(); x.moveTo(0,H);
+  for (let i=0;i<256;i++) x.lineTo(i/255*W, H-hist[i]*H*0.92); x.lineTo(W,H); x.closePath(); x.fill(); x.globalAlpha=1; }
+function drawLevels(cv){ const e=adjEdit; if(!e) return; const dpr2=window.devicePixelRatio||1, W=cv.clientWidth||400, H=cv.clientHeight||70;
+  cv.width=W*dpr2; cv.height=H*dpr2; const x=ctx2(cv); x.setTransform(dpr2,0,0,dpr2,0,0); x.clearRect(0,0,W,H);
+  x.fillStyle='rgba(255,255,255,.04)'; x.fillRect(0,0,W,H); drawHistInto(x,W,H,e.hist&&e.hist[e.ch],CH_COL[e.ch]);
+  const lv=e.L.adj[e.ch], mark=(v,c)=>{ x.fillStyle=c; x.fillRect(v/255*W-1,0,2,H); };
+  mark(lv.shadowInput,'#000'); mark(lv.highlightInput,'#fff');
+  const mid=lv.shadowInput+(lv.highlightInput-lv.shadowInput)*Math.pow(0.5,lv.midtoneInput); mark(mid,'#9a9ca3'); }
+function curveEditor(cv){
+  const e=adjEdit, L=e.L, pts=()=>L.adj[e.ch];
+  let drag=null;
+  const size=()=>({W:cv.clientWidth||260, H:cv.clientHeight||260});
+  const draw=()=>{ if (!adjEdit || adjEdit.L!==L || adjType(L)!=='curves') return; const dpr2=window.devicePixelRatio||1, {W,H}=size(); cv.width=W*dpr2; cv.height=H*dpr2; const x=ctx2(cv); x.setTransform(dpr2,0,0,dpr2,0,0);
+    x.clearRect(0,0,W,H); x.fillStyle='rgba(255,255,255,.04)'; x.fillRect(0,0,W,H);
+    x.strokeStyle='rgba(255,255,255,.08)'; x.lineWidth=1; for (let i=1;i<4;i++){ x.beginPath(); x.moveTo(i*W/4,0); x.lineTo(i*W/4,H); x.moveTo(0,i*H/4); x.lineTo(W,i*H/4); x.stroke(); }
+    drawHistInto(x,W,H,e.hist&&e.hist[e.ch],CH_COL[e.ch]);
+    x.strokeStyle='rgba(255,255,255,.18)'; x.beginPath(); x.moveTo(0,H); x.lineTo(W,0); x.stroke();
+    for (const [k] of CH_LABELS){ if (k===e.ch) continue; const P=L.adj[k]; if (P.length===2 && P[0].input===0&&P[0].output===0&&P[1].input===255&&P[1].output===255) continue;
+      const T=curveTable(P); x.strokeStyle=CH_COL[k]; x.globalAlpha=0.35; x.beginPath(); for (let i=0;i<256;i++){ const px=i/255*W, py=H-T[i]*H; i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); x.globalAlpha=1; }
+    const T=curveTable(pts()); x.strokeStyle=CH_COL[e.ch]; x.lineWidth=2; x.beginPath(); for (let i=0;i<256;i++){ const px=i/255*W, py=H-T[i]*H; i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke();
+    for (const p of pts()){ x.beginPath(); x.arc(p.input/255*W, H-p.output/255*H, 6, 0, 7); x.fillStyle = drag&&drag.p===p ? 'var(--accent)' : '#17181b'; x.fillStyle = drag&&drag.p===p ? '#e9a54b' : '#17181b'; x.fill(); x.strokeStyle='#e6e7ea'; x.lineWidth=1.5; x.stroke(); } };
+  const pos=ev=>{ const r=cv.getBoundingClientRect(); return [(ev.clientX-r.left)/r.width*255, (1-(ev.clientY-r.top)/r.height)*255, ev.clientX-r.left, ev.clientY-r.top, r]; };
+  cv.addEventListener('pointerdown', ev=>{ ev.preventDefault(); ev.stopPropagation(); try{ cv.setPointerCapture(ev.pointerId); }catch(_){}
+    const [vx,vy,cx,cy,r]=pos(ev), P=pts(); let best=null, bd=1e9;
+    for (const p of P){ const dx=p.input/255*r.width-cx, dy=(1-p.output/255)*r.height-cy, dd=Math.hypot(dx,dy); if (dd<bd){ bd=dd; best=p; } }
+    if (best && bd<=18) drag={p:best};
+    else { const p={input:Math.round(clamp(vx,1,254)), output:Math.round(clamp(vy,0,255))}; if (P.some(q=>Math.abs(q.input-p.input)<3)) return; P.push(p); P.sort((a,b)=>a.input-b.input); drag={p}; adjChanged(L); }
+    draw(); });
+  cv.addEventListener('pointermove', ev=>{ if(!drag) return; ev.preventDefault(); const [vx,vy,cx,cy,r]=pos(ev), P=pts(), p=drag.p, i=P.indexOf(p);
+    const end = i===0 || i===P.length-1, out = cy<-30 || cy>r.height+30 || cx<-30 || cx>r.width+30;
+    if (out && !end && P.length>2){ drag.gone=true; } else drag.gone=false;
+    const lo = i>0 ? P[i-1].input+2 : 0, hi = i<P.length-1 ? P[i+1].input-2 : 255;
+    p.input=Math.round(clamp(vx,lo,hi)); p.output=Math.round(clamp(vy,0,255)); adjChanged(L); draw(); });
+  const up=()=>{ if(!drag) return; if (drag.gone){ const P=pts(), i=P.indexOf(drag.p); if (i>0 && i<P.length-1) P.splice(i,1); adjChanged(L); } drag=null; draw(); };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  requestAnimationFrame(draw);
+}
 /* ============ harmonization: fit the colour and light of a pasted fragment to what is around it ============
    Fragment = the active layer's visible pixels (or the selection on it). Reference = what lies under / around it.
    Statistics are matched in Oklab (light: mean + contrast; colour: cast + chroma), baked into a 33³ LUT. */
@@ -1606,17 +1890,18 @@ function applyHarm(d, w, n, lut){ // in place on RGBA bytes; w: per-pixel blend 
 }
 function compositeBelow(r, cw, ch, idx){ // like compositeRegion, but only layers under index idx
   const c=mk(cw,ch), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high';
-  composeTree(x, (x,L)=>{ if (doc.layers.indexOf(L)>=idx) return; let src=L.canvas;
+  const below = (L)=>doc.layers.indexOf(L)>=idx && !isGroup(L);
+  composeTree(x, (x,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ const t=mk(r.w,r.h), tx=ctx2(t); tx.drawImage(L.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h); tx.globalCompositeOperation='destination-in'; tx.drawImage(L.mask.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
       x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(t,0,0,cw,ch); return; }
-    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,r.x,r.y,r.w,r.h,0,0,cw,ch); }, {map:(c,cv)=>c.drawImage(cv,r.x,r.y,r.w,r.h,0,0,cw,ch)});
+    x.globalAlpha=L.opacity; x.globalCompositeOperation=L.blend; x.drawImage(src,r.x,r.y,r.w,r.h,0,0,cw,ch); }, {map:(c,cv)=>c.drawImage(cv,r.x,r.y,r.w,r.h,0,0,cw,ch), skip:below});
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; return c;
 }
 function smallRGBA(src, r, sw, sh, maskCanvas){ const c=mk(sw,sh), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high'; x.drawImage(src,r.x,r.y,r.w,r.h,0,0,sw,sh);
   if (maskCanvas){ x.globalCompositeOperation='destination-in'; x.drawImage(maskCanvas,r.x,r.y,r.w,r.h,0,0,sw,sh); } return x.getImageData(0,0,sw,sh).data; }
 function harmOpen(){
   if (!doc || xf || edge || stroke || harm) return;
-  const L=AL(); if (!L || isGroup(L)){ toast('Выбери слой с вставленным фрагментом'); return; }
+  const L=AL(); if (!L || isGroup(L) || L.kind==='adj'){ toast('Выбери слой с вставленным фрагментом'); return; }
   const idx=doc.layers.indexOf(L), useSel=!!sel;
   // 1) where the fragment is
   let box;
@@ -2182,6 +2467,7 @@ function beginTransform(opts={}){
   if (xf) return;
   if (!opts.float && isGroup(AL())){ beginGroupTransform(opts); return; }
   const L=AL(); if(!shown(L)){ toast('Слой скрыт'); return; }
+  if (L.kind==='adj'){ toast('Корректирующий слой не двигается — у него нет пикселей'); return; }
   const target = doc.editMask && L.mask ? 'mask' : 'content';
   if (target==='mask'){ toast('Трансформ маски пока не поддерживается — переключись на сам слой'); return; }
   let r, float, fromSel=false, selMask=null;
@@ -2449,7 +2735,9 @@ function mergeGroup(){
 }
 function dupLayer(){
   if (isGroup(AL())){ dupGroup(); return; }
-  const s=AL(), L=newLayer(s.name+' копия'); L.ctx.drawImage(s.canvas,0,0); L.opacity=s.opacity; L.blend=s.blend; L.visible=s.visible;
+  const s=AL(), L = s.kind==='adj' ? newAdj(adjType(s), s.name+' копия') : newLayer(s.name+' копия');
+  if (s.kind==='adj'){ L.adj=JSON.parse(JSON.stringify(s.adj)); L.clip=s.clip; } else L.ctx.drawImage(s.canvas,0,0);
+  L.opacity=s.opacity; L.blend=s.blend; L.visible=s.visible;
   if (s.mask){ L.mask=newMask(L); L.mask.ctx.clearRect(0,0,doc.w,doc.h); L.mask.ctx.drawImage(s.mask.canvas,0,0); L.mask.enabled=s.mask.enabled; }
   insertLayer(L, doc.active+1, 'Слой скопирован');
 }
@@ -2477,9 +2765,14 @@ function mergeDown(){
   const i=doc.active; if(i<1){ toast('Ниже нет слоя'); return; }
   const up=doc.layers[i], lo=doc.layers[i-1];
   if (isGroup(lo)){ toast('Ниже группа — слить с ней нельзя'); return; }
+  if (lo.kind==='adj'){ toast('Ниже корректирующий слой — слить с ним нельзя'); return; }
   if (lo.parent!==up.parent){ toast('Это нижний слой в группе — ниже слить не с чем'); return; }
   if (lo.mask){ toast('У нижнего слоя маска: сначала примени её'); return; }
   const before=grab(lo.canvas,{x:0,y:0,w:doc.w,h:doc.h});
+  if (up.kind==='adj'){ if (up.visible) adjComposite(lo.ctx, up, {}); // the correction is baked into the layer below
+    const px=pxEntry(lo.canvas,0,0,doc.w,doc.h,before); doc.layers.splice(i,1); doc.active=i-1; doc.editMask=false;
+    pushHist(compound(px,{undo(){doc.layers.splice(i,0,up);doc.active=i;},redo(){doc.layers.splice(i,1);doc.active=i-1;}}));
+    lo.dirty=true; thumbSoon(lo); layersChanged(); requestRender(); toast('Коррекция впечатана в слой',1400); return; }
   let src=up.canvas;
   if (up.mask&&up.mask.enabled){ src=mk(doc.w,doc.h); const s=ctx2(src); s.drawImage(up.canvas,0,0); s.globalCompositeOperation='destination-in'; s.drawImage(up.mask.canvas,0,0); }
   if (up.visible){ lo.ctx.save(); lo.ctx.globalAlpha=up.opacity; lo.ctx.globalCompositeOperation=up.blend; lo.ctx.drawImage(src,0,0); lo.ctx.restore(); }
@@ -2506,7 +2799,10 @@ function thumbFor(L, mask){
   const k=46/Math.max(doc.w,doc.h), w=Math.max(1,Math.round(doc.w*k*2)), h=Math.max(1,Math.round(doc.h*k*2));
   if(!c||c.width!==w||c.height!==h){ c=mk(w,h); c.className='th'; thumbs.set(key,c); }
   const x=ctx2(c); x.clearRect(0,0,w,h); x.imageSmoothingQuality='high';
-  if (mask){ x.fillStyle='#000'; x.fillRect(0,0,w,h); x.drawImage(L.mask.canvas,0,0,w,h); } else x.drawImage(L.canvas,0,0,w,h);
+  if (mask){ x.fillStyle='#000'; x.fillRect(0,0,w,h); x.drawImage(L.mask.canvas,0,0,w,h); }
+  else if (L.kind==='adj'){ const r=Math.min(w,h)*0.32; x.fillStyle='#2a2c31'; x.fillRect(0,0,w,h); x.beginPath(); x.arc(w/2,h/2,r,0,7); x.fillStyle='#17181b'; x.fill();
+    x.beginPath(); x.arc(w/2,h/2,r,-Math.PI/2,Math.PI/2); x.fillStyle='#e6e7ea'; x.fill(); x.lineWidth=2; x.strokeStyle='#e6e7ea'; x.beginPath(); x.arc(w/2,h/2,r,0,7); x.stroke(); }
+  else x.drawImage(L.canvas,0,0,w,h);
   return c;
 }
 const thumbQ=new Set(); let thumbT;
@@ -2540,15 +2836,16 @@ function layersChanged(){
         row.dataset.idx=i; attachLayerDrag(row, L); list.append(row); continue;
       }
       const tc=thumbFor(L,false); tc.classList.toggle('sel', i===doc.active && !doc.editMask && !!L.mask);
-      tc.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); };
+      tc.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); if (L.kind==='adj') adjOpen(L); };
       row.append(eye, tc);
       if (L.mask){ const mc=thumbFor(L,true); mc.classList.toggle('sel', i===doc.active && doc.editMask); mc.style.opacity=L.mask.enabled?1:.4;
         mc.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); toast('Рисуешь по маске: кисть скрывает, ластик возвращает',2600); };
         row.append(mc); }
       const nm=document.createElement('div'); nm.style.minWidth='0'; if (!L.mask) nm.style.gridColumn='span 2';
       nm.innerHTML='<div class="nm"></div><div class="meta"></div>';
-      nm.firstChild.textContent=L.name; nm.lastChild.textContent=Math.round(L.opacity*100)+'% · '+(BLENDS.find(b=>b[0]===L.blend)||BLENDS[0])[1];
-      row.append(nm); row.onclick=()=>{ if (dragJustEnded) return; doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); };
+      nm.firstChild.textContent=(L.clip?'↳ ':'')+L.name; nm.lastChild.textContent= L.kind==='adj' ? ADJ_NAMES[adjType(L)]+' · '+Math.round(L.opacity*100)+'%'+(L.clip?' · на слой ниже':'') : Math.round(L.opacity*100)+'% · '+(BLENDS.find(b=>b[0]===L.blend)||BLENDS[0])[1];
+      row.append(nm); row.onclick=()=>{ if (dragJustEnded) return; const same=doc.active===doc.layers.indexOf(L); doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged();
+        if (L.kind==='adj' && (same || adjEdit)) adjOpen(L); else if (adjEdit && adjEdit.L!==L) adjClose(); };
       row.dataset.idx=i; attachLayerDrag(row, L);
       list.append(row);
     }
@@ -2839,6 +3136,7 @@ function showHelp(){
    <dt>Удаление · нейросеть (R)</dt><dd>Закрась карандашом лишний объект или мусор и отпусти — нейросеть прямо на iPad дорисует фон. Первый раз скачивается модель ~28 МБ, дальше работает без интернета. Для выделения — кнопка «Убрать нейросетью» на нижней панели.</dd>
    <dt>Точечная восстанавливающая кисть (Y)</dt><dd>Без источника: мажь по пятну, пылинке, прыщику — заполнится текстурой вокруг. Быстро и без нейросети.</dd>
    <dt>Осветление (O), затемнение, губка, размытие, резкость, палец</dt><dd>Группа «Тон и резкость». Работают кистью, мазки накапливаются — прошёл ещё раз, эффект сильнее. Осветление и затемнение: диапазон Тени / Средние / Света, «Экспозиция», «Сохранять цвет» (без пересвета и грязи). «＋ Серый слой» — неразрушающий вариант: слой 50% серого в «Мягком свете»; на нём осветление рисует светлым, затемнение — тёмным, картинка не трогается, а слабить можно прозрачностью слоя. Губка: «Приглушить» / «Насытить» — насыщенность под кистью; «Беречь яркие» не даёт пересытить и так яркие цвета. Палец размазывает, «Сила» — как далеко тянется краска. «Все слои» — берёт видимую картинку со всех слоёв и кладёт результат на текущий слой: удобно на пустом слое сверху.</dd>
+   <dt>Корректирующие слои</dt><dd>Панель слоёв → «+ Корректирующий слой»: кривые, уровни, цветовой тон / насыщенность, цветовой баланс. Меняют всё, что под ними, не трогая пиксели; настройки можно поменять в любой момент — тап по значку слоя. Кисть и ластик на таком слое рисуют его маску. «Только на слой ниже» — эффект только на слой прямо под ним (как обтравочная маска). Внутри группы с обычным наложением действует только на группу. «Слить вниз» впечатывает коррекцию в слой. В PSD уходят настоящими корректирующими слоями. Кривые: тап по линии — новая точка, тянуть — двигать, утащить за край — удалить.</dd>
    <dt>Гармонизация</dt><dd>Панель слоёв → «Гармонизация — цвет под фон». Подгоняет свет и цвет вставленного фрагмента под то, что под ним, как гармонизация в фотошопе. Без выделения берётся весь слой, с выделением — только выделенное (подойдёт и для склеенной картинки). «Ориентир»: «Вокруг» — смотрит на полосу фона вокруг фрагмента, «Весь фон» — на всю картинку под слоем. «Свет» и «Цвет» — что именно подгонять, «Насыщенность» — добавить или убрать сочности после подгонки.</dd>
    <dt>Заплатка (J)</dt><dd>Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение.</dd>
    <dt>Штамп (S) и восстанавливающая кисть (H)</dt><dd>Источник — кружок на холсте: перетащи его карандашом на чистое место (рядом появится лупа), потом рисуй. Ещё можно тапнуть пальцем или Alt + клик. Штамп копирует как есть, восстанавливающая кисть ещё и подгоняет цвет и свет под место. «Выровнять» — источник едет вместе с кистью между мазками. На клавиатуре источник — Alt + клик.</dd>
@@ -2890,6 +3188,9 @@ async function openPsd(f){
   doc.layers=[];
   for (const c of layers){
     if (isGroup(c)){ doc.layers.push(c); continue; }
+    const aj = c.adjustment && adjNormalize(c.adjustment);
+    if (aj){ const A=newAdj(ADJ_FROM_PSD[c.adjustment.type], c.name); A.adj=aj; A.clip=!!c.clipping; A.parent=c.__parent; A.visible=!c.hidden; A.opacity=c.opacity??1;
+      if (c.mask && c.mask.canvas) A.mask=psdMask(c.mask, A); doc.layers.push(A); continue; }
     const L=newLayer(c.name||'Слой'); L.parent=c.__parent;
     if (c.canvas) L.ctx.drawImage(c.canvas, c.left||0, c.top||0);
     L.visible=!c.hidden; L.opacity=c.opacity??1; L.blend=psdToBlend(c.blendMode||'normal');
@@ -2977,6 +3278,7 @@ async function exportImg(kind){
       if(!window.agPsd||!window.fflate) throw new Error('Библиотеки PSD не загрузились');
       const build=P=>kidsOf(P).map(L=>{
         const o = isGroup(L) ? {name:L.name, opacity:L.opacity, hidden:!L.visible, blendMode:L.blend==='pass'?'pass through':blendToPsd(L.blend), opened:!L.collapsed, children:build(L)}
+                : L.kind==='adj' ? {name:L.name, opacity:L.opacity, hidden:!L.visible, blendMode:'normal', clipping:!!L.clip, adjustment:JSON.parse(JSON.stringify(L.adj))}
                              : {name:L.name, canvas:L.canvas, left:0, top:0, opacity:L.opacity, hidden:!L.visible, blendMode:blendToPsd(L.blend)};
         if (L.mask){ const m=mk(doc.w,doc.h), mx=ctx2(m); mx.fillStyle='#000'; mx.fillRect(0,0,doc.w,doc.h); mx.drawImage(L.mask.canvas,0,0); o.mask={canvas:m,left:0,top:0,defaultColor:0,disabled:!L.mask.enabled}; }
         return o; });
@@ -3254,6 +3556,7 @@ function resetDocState(){
   if (typeof tapSess!=='undefined') tapSess=null; if (typeof wandCache!=='undefined'){ wandCache=null; wandPrev=null; }
   if (typeof edge!=='undefined' && edge) edgeClose();
   if (typeof harm!=='undefined' && harm) harmClose();
+  if (typeof adjEdit!=='undefined' && adjEdit){ adjEdit=null; $('#adjbar').hidden=true; }
   if (typeof thumbs!=='undefined') thumbs.clear();
   $('#xfbar').hidden=true; contentVer++;
 }
@@ -3267,11 +3570,11 @@ async function autosave(force){
     const put={}, keys=[];
     for (const L of D.layers){
       const need = L.dirty || !L.saved;
-      if (!isGroup(L)){ keys.push('c'+L.id); if (need) put[P+'c'+L.id]=await toBlob(L.canvas,'image/png'); }
+      if (!isGroup(L) && L.kind!=='adj'){ keys.push('c'+L.id); if (need) put[P+'c'+L.id]=await toBlob(L.canvas,'image/png'); }
       if (L.mask){ keys.push('m'+L.id); if (need) put[P+'m'+L.id]=await toBlob(L.mask.canvas,'image/png'); }
       L.dirty=false; L.saved=true;
     }
-    put[P+'meta']={ w:D.w, h:D.h, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
+    put[P+'meta']={ w:D.w, h:D.h, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
     try{ const k=Math.min(1,360/Math.max(D.w,D.h)); put[P+'thumb']=await toBlob(flatten(k,true),'image/jpeg',0.8); }catch(_){}
     const lib=await libGet(), e={id:D.id, name:D.name, w:D.w, h:D.h, t:Date.now(), n:D.layers.filter(x=>!isGroup(x)).length}, i=lib.findIndex(x=>x.id===D.id);
     if (i>=0) lib[i]=e; else lib.unshift(e);
@@ -3298,14 +3601,16 @@ async function restore(id){
       if (l.kind==='group'){ const G=newGroup(l.name); G.id=l.id; Object.assign(G,{visible:l.visible,opacity:l.opacity,blend:l.blend,collapsed:l.collapsed}); G.__p=l.parent; byId.set(G.id,G);
         if (l.mask){ G.mask=newMask(G); G.mask.enabled=l.mask.enabled; const mb=await idbGet(P+'m'+l.id); if(mb){ const im=await createImageBitmap(mb); G.mask.ctx.clearRect(0,0,D.w,D.h); G.mask.ctx.drawImage(im,0,0); im.close&&im.close(); } }
         G.dirty=false; G.saved=true; D.layers.push(G); continue; }
-      const L=newLayer(l.name); L.__p=l.parent; byId.set(l.id,L); L.id=l.id; Object.assign(L,{visible:l.visible,opacity:l.opacity,blend:l.blend});
-      const cb=await idbGet(P+'c'+l.id); if(cb){ const im=await createImageBitmap(cb); L.ctx.drawImage(im,0,0); im.close&&im.close(); }
+      const isA = l.kind==='adj' && l.adj && adjNormalize(l.adj);
+      const L = isA ? newAdj(ADJ_FROM_PSD[l.adj.type], l.name) : newLayer(l.name); L.__p=l.parent; byId.set(l.id,L); L.id=l.id; Object.assign(L,{visible:l.visible,opacity:l.opacity,blend:l.blend});
+      if (isA){ L.adj=adjNormalize(l.adj); L.clip=!!l.clip; }
+      else { const cb=await idbGet(P+'c'+l.id); if(cb){ const im=await createImageBitmap(cb); L.ctx.drawImage(im,0,0); im.close&&im.close(); } }
       await nextFrame();
       if (l.mask){ L.mask=newMask(L); L.mask.enabled=l.mask.enabled; const mb=await idbGet(P+'m'+l.id); if(mb){ const im=await createImageBitmap(mb); L.mask.ctx.clearRect(0,0,D.w,D.h); L.mask.ctx.drawImage(im,0,0); im.close&&im.close(); } }
       L.dirty=false; L.saved=true; D.layers.push(L);
     }
     for (const L of D.layers){ L.parent = L.__p!=null ? (byId.get(L.__p)||null) : null; delete L.__p; }
-    if (!m.keys) D.keys=D.layers.flatMap(L=>[...(isGroup(L)?[]:['c'+L.id]), ...(L.mask?['m'+L.id]:[])]);
+    if (!m.keys) D.keys=D.layers.flatMap(L=>[...(isGroup(L)||L.kind==='adj'?[]:['c'+L.id]), ...(L.mask?['m'+L.id]:[])]);
     uid=Math.max(uid, (m.uid||0)+1, ...D.layers.map(L=>L.id+1));
     D.active=clamp(m.active||0,0,D.layers.length-1);
     setCurDoc(id); dirtyDoc=false;
@@ -3427,7 +3732,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №25.1 память с нейросетями'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №26 корректирующие слои'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
