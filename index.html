@@ -1619,12 +1619,13 @@ async function depthOpen(){
   $('#depthbar').hidden=false; depthBuild(); depthPreview(); updateSelBar();
 }
 function depthClose(){ dep=null; depPrev=null; $('#depthbar').hidden=true; updateSelBar(); renderOverlay(); }
-function depthTap(dx,dy){ if(!dep){ depthOpen().then(()=>{ if(dep) depthTap(dx,dy); }); return; } if(!depthMap) return; dep.t.ref=depthAt(depthMap,dx,dy); depthBuild(); depthPreview(); }
+function depthTap(dx,dy){ if(!dep){ depthOpen().then(()=>{ if(dep) depthTap(dx,dy); }); return; } if(!depthMap) return;
+  if (dep.t.mode==='haze'){ const c=samplePixel(dx,dy); if(c){ setColor(c,false); pushRecent(S.color); toast('Цвет дымки взят с картинки',1200); } return; } dep.t.ref=depthAt(depthMap,dx,dy); depthBuild(); depthPreview(); }
 function depthBuild(){
   const box=$('#depthbar'), t=dep.t; box.textContent='';
   const head=document.createElement('div'); head.className='eh'; head.innerHTML='Глубина <span></span>';
   head.lastChild.textContent = t.mode==='sel' ? (t.ref==null?'тапни по объекту — выделится всё на его глубине':'тап по другому месту — новая глубина')
-    : t.mode==='haze' ? 'дымка ложится новым слоем текущего цвета кисти' : (t.ref==null?'тапни по тому, что должно остаться резким':'тап — другая точка фокуса');
+    : t.mode==='haze' ? 'тап по картинке — взять цвет дымки, или тап по образцу цвета' : (t.ref==null?'тапни по тому, что должно остаться резким':'тап — другая точка фокуса');
   box.append(head);
   const seg=document.createElement('div'); seg.className='seg';
   for (const [k,l] of [['sel','Выделение'],['haze','Дымка'],['blur','Размытие']]){ const b=document.createElement('button'); b.textContent=l; b.className=t.mode===k?'on':''; b.onclick=()=>{ t.mode=k; depthBuild(); depthPreview(); }; seg.append(b); }
@@ -1635,7 +1636,9 @@ function depthBuild(){
   const pc=x=>Math.round(x*100)+'%';
   if (t.mode==='sel'){ row('Ближе','near',0,0.6,pc); row('Дальше','far',0,0.6,pc); row('Мягкость края','soft',0,0.3,pc); }
   else if (t.mode==='haze'){ row('Начало','start',0,0.95,pc); row('Плотность','dens',0.05,1,pc); row('Переход','hsoft',0,1,pc);
-    const sw=document.createElement('div'); sw.className='er'; sw.innerHTML='<label>Цвет</label><div class="sw"></div><span></span>'; sw.children[1].style.cssText='height:22px;border-radius:6px;border:1px solid var(--line);background:'+S.color; box.append(sw); }
+    const sw=document.createElement('div'); sw.className='er'; sw.innerHTML='<label>Цвет</label><button id="dpSwatch" class="pickHere" aria-label="Выбрать цвет дымки"></button><span></span>';
+    const b=sw.children[1]; b.style.cssText='height:30px;border-radius:8px;border:1px solid var(--line);background:'+S.color;
+    b.onclick=e=>{ e.stopPropagation(); openPickerAt(b); }; box.append(sw); }
   else { row('Сила','blur',0.05,1,pc); row('Резкая зона','dof',0,0.5,pc); }
   const foot=document.createElement('div'); foot.className='eb';
   const mapB=document.createElement('button'); mapB.className='chk'+(t.show?' on':''); mapB.textContent='Карта'; mapB.onclick=()=>{ t.show=!t.show; mapB.classList.toggle('on',t.show); depthPreview(); };
@@ -3189,7 +3192,7 @@ function renderOpts0(){
     for (const [k,l] of [['new','Новое'],['add','＋ Добавить'],['sub','− Вычесть']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.selMode===k?'on':''; b.onclick=()=>setSelMode(k); seg.append(b); }
     o.append(seg);
   } else if (S.tool==='depth'){
-    const h=document.createElement('span'); h.className='opt'; h.textContent='Глубина: выделение, дымка и размытие — в панели снизу. Тап по картинке задаёт глубину'; o.append(h);
+    const h=document.createElement('span'); h.className='opt'; h.textContent='Глубина: выделение, дымка и размытие — в панели снизу. Тап по картинке задаёт глубину, в «Дымке» — берёт цвет'; o.append(h);
   } else if (S.tool==='tap'){
     const seg=document.createElement('div'); seg.className='seg';
     for (const [k,l] of [['new','Новое'],['add','＋ Добавить'],['sub','− Вычесть']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.selMode===k?'on':''; b.onclick=()=>{ S.selMode=k; renderOpts(); syncSelModes(); }; seg.append(b); }
@@ -3263,6 +3266,7 @@ function rgbToHsv(r,g,b){ r/=255;g/=255;b/=255; const mx=Math.max(r,g,b), mn=Mat
 function hsvToHex(h,s,v){ const f=n=>{ const k=(n+h/60)%6; return v-v*s*Math.max(0,Math.min(k,4-k,1)); }; return '#'+[f(5),f(3),f(1)].map(x=>Math.round(x*255).toString(16).padStart(2,'0')).join(''); }
 function setColor(hex, fromPicker){
   S.color=hex.toLowerCase(); $('#swatch').style.background=S.color; spriteKey='';
+  if (typeof dep!=='undefined' && dep && dep.t.mode==='haze'){ const d=$('#dpSwatch'); if(d) d.style.background=S.color; if(!depRaf) depRaf=requestAnimationFrame(depthPreview); }
   if(!fromPicker){ hsv=rgbToHsv(...hexToRgb(S.color)); }
   if(!$('#picker').hidden) drawPicker();
   savePrefs();
@@ -3284,10 +3288,16 @@ function dragOn(el, fn){ let on=false; el.addEventListener('pointerdown',e=>{on=
 dragOn($('#sv'), e=>{ const r=$('#sv').getBoundingClientRect(); hsv[1]=clamp((e.clientX-r.left)/r.width,0,1); hsv[2]=clamp(1-(e.clientY-r.top)/r.height,0,1); setColor(hsvToHex(...hsv),true); });
 dragOn($('#hue'), e=>{ const r=$('#hue').getBoundingClientRect(); hsv[0]=clamp((e.clientX-r.left)/r.width,0,0.9999)*360; setColor(hsvToHex(...hsv),true); });
 $('#hex').addEventListener('change',e=>{ let v=e.target.value.trim(); if(!v.startsWith('#')) v='#'+v; if(/^#[0-9a-f]{6}$/i.test(v)){ setColor(v); pushRecent(S.color); drawPicker(); } else toast('Нужен формат #RRGGBB'); });
-$('#swatch').onclick=e=>{ e.stopPropagation(); closePops('picker'); const p=$('#picker'); p.hidden=!p.hidden; if(!p.hidden){ hsv=rgbToHsv(...hexToRgb(S.color)); drawPicker(); } };
+$('#swatch').onclick=e=>{ e.stopPropagation(); closePops('picker'); const p=$('#picker'); p.style.top=p.style.left=p.style.right=''; p.hidden=!p.hidden; if(!p.hidden){ hsv=rgbToHsv(...hexToRgb(S.color)); drawPicker(); } };
+function openPickerAt(el){ // the same colour picker, opened next to the control that asked for it
+  closePops('picker'); const p=$('#picker'); if (!p.hidden){ p.hidden=true; return; }
+  p.hidden=false; hsv=rgbToHsv(...hexToRgb(S.color)); drawPicker();
+  const r=el.getBoundingClientRect(), a=$('#app').getBoundingClientRect(), pw=p.offsetWidth, ph=p.offsetHeight;
+  let top=r.top-a.top-ph-8; if (top<8) top=Math.min(a.height-ph-8, r.bottom-a.top+8);
+  p.style.right='auto'; p.style.left=clamp(r.left-a.left+r.width/2-pw/2, 8, a.width-pw-8)+'px'; p.style.top=top+'px'; }
 function closePops(except){ for(const id of ['menu','picker','flyout']) if(id!==except) $('#'+id).hidden=true; }
 $('#bMenu').onclick=e=>{ e.stopPropagation(); closePops('menu'); $('#menu').hidden=!$('#menu').hidden; };
-document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,.tgm')) closePops(); },true);
+document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,.tgm,.pickHere')) closePops(); },true);
 
 /* ============ dialogs ============ */
 function dialog(html, buttons, opt={}){
@@ -3911,7 +3921,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №27.1 значки коррекций'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №27.2 цвет дымки'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
