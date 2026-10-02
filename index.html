@@ -2935,14 +2935,47 @@ function setProp(L,key,val){
 
 /* ============ layers panel ============ */
 const thumbs=new Map();
+/* layer-list icon of an adjustment layer: a small picture of its own settings */
+function adjIcon(x,w,h,L){
+  x.fillStyle='#24262b'; x.fillRect(0,0,w,h);
+  const S=Math.min(w,h)*0.9, ox=(w-S)/2, oy=(h-S)/2, t=adjType(L), lw=Math.max(1.5,S/26);
+  x.save(); x.translate(ox,oy); x.lineCap='round'; x.lineJoin='round';
+  if (t==='curves'){
+    x.strokeStyle='rgba(255,255,255,.14)'; x.lineWidth=1; x.strokeRect(0.5,0.5,S-1,S-1);
+    x.beginPath(); x.moveTo(0,S); x.lineTo(S,0); x.setLineDash([2,3]); x.stroke(); x.setLineDash([]);
+    const dflt=a=>a.length===2&&a[0].input===0&&a[0].output===0&&a[1].input===255&&a[1].output===255;
+    for (const [k,col] of [['red','#ff6b6b'],['green','#5fd38a'],['blue','#5aa2ff'],['rgb','#e9a54b']]){
+      let P=L.adj[k]; if (k==='rgb' && dflt(P) && ['red','green','blue'].every(c=>dflt(L.adj[c]))) P=[{input:0,output:0},{input:70,output:45},{input:185,output:215},{input:255,output:255}];
+      else if (k!=='rgb' && dflt(P)) continue;
+      const T=curveTable(P); x.strokeStyle=col; x.lineWidth=k==='rgb'?lw*1.2:lw*0.8; x.beginPath();
+      for (let i=0;i<256;i+=3){ const px=i/255*S, py=S-T[i]*S; i?x.lineTo(px,py):x.moveTo(px,py); } x.stroke(); }
+  } else if (t==='levels'){
+    const lv=L.adj.rgb, base=S*0.66;
+    x.fillStyle='rgba(230,231,234,.55)'; const n=11; for (let i=0;i<n;i++){ const hh=base*(0.25+0.75*Math.abs(Math.sin(i*1.7+1))*Math.exp(-Math.pow((i-5)/4,2))); x.fillRect(i*S/n+1, base-hh, S/n-2, hh); }
+    const tri=(v,col)=>{ const px=v/255*S; x.beginPath(); x.moveTo(px,base+S*0.06); x.lineTo(px-S*0.11,base+S*0.3); x.lineTo(px+S*0.11,base+S*0.3); x.closePath(); x.fillStyle=col; x.fill(); x.strokeStyle='#8a8d94'; x.lineWidth=1; x.stroke(); };
+    const mid=lv.shadowInput+(lv.highlightInput-lv.shadowInput)*Math.pow(0.5,lv.midtoneInput);
+    tri(Math.max(lv.shadowInput,22),'#111'); tri(mid,'#8a8d94'); tri(Math.min(lv.highlightInput,233),'#f2f2f2');
+  } else if (t==='hue'){
+    const c=S/2, R=S*0.46, r=S*0.26, hue=(L.adj.master.hue||0)*Math.PI/180;
+    for (let a=0;a<360;a+=6){ const a0=a*Math.PI/180-Math.PI/2+hue, a1=(a+7)*Math.PI/180-Math.PI/2+hue; x.beginPath(); x.arc(c,c,R,a0,a1); x.arc(c,c,r,a1,a0,true); x.closePath(); x.fillStyle=`hsl(${a},85%,58%)`; x.fill(); }
+    const sat=(L.adj.master.saturation||0)/100, li=(L.adj.master.lightness||0)/100;
+    x.beginPath(); x.arc(c,c,r-1.5,0,7); x.fillStyle=`hsl(0,0%,${Math.round(50+li*40)}%)`; x.fill();
+    x.fillStyle = sat>=0 ? '#e9a54b' : '#8a8d94'; x.beginPath(); x.arc(c,c,r*0.45,0,7); x.fill();
+  } else {
+    const M=L.adj.midtones, rows=[['#3fd0d6','#ff5a5a',M.cyanRed],['#e05ad6','#5fd38a',M.magentaGreen],['#f0d040','#4a7dff',M.yellowBlue]];
+    rows.forEach(([a,b,v],i)=>{ const y=S*(0.2+i*0.3), g=x.createLinearGradient(0,0,S,0); g.addColorStop(0,a); g.addColorStop(1,b);
+      x.strokeStyle=g; x.lineWidth=S*0.12; x.beginPath(); x.moveTo(S*0.08,y); x.lineTo(S*0.92,y); x.stroke();
+      const kx=S*(0.5+0.42*clamp((v||0)/100,-1,1)); x.beginPath(); x.arc(kx,y,S*0.085,0,7); x.fillStyle='#e6e7ea'; x.fill(); x.strokeStyle='#17181b'; x.lineWidth=1.5; x.stroke(); });
+  }
+  x.restore();
+}
 function thumbFor(L, mask){
   const key=L.id+(mask?'m':'c'); let c=thumbs.get(key);
   const k=46/Math.max(doc.w,doc.h), w=Math.max(1,Math.round(doc.w*k*2)), h=Math.max(1,Math.round(doc.h*k*2));
   if(!c||c.width!==w||c.height!==h){ c=mk(w,h); c.className='th'; thumbs.set(key,c); }
   const x=ctx2(c); x.clearRect(0,0,w,h); x.imageSmoothingQuality='high';
   if (mask){ x.fillStyle='#000'; x.fillRect(0,0,w,h); x.drawImage(L.mask.canvas,0,0,w,h); }
-  else if (L.kind==='adj'){ const r=Math.min(w,h)*0.32; x.fillStyle='#2a2c31'; x.fillRect(0,0,w,h); x.beginPath(); x.arc(w/2,h/2,r,0,7); x.fillStyle='#17181b'; x.fill();
-    x.beginPath(); x.arc(w/2,h/2,r,-Math.PI/2,Math.PI/2); x.fillStyle='#e6e7ea'; x.fill(); x.lineWidth=2; x.strokeStyle='#e6e7ea'; x.beginPath(); x.arc(w/2,h/2,r,0,7); x.stroke(); }
+  else if (L.kind==='adj') adjIcon(x,w,h,L);
   else x.drawImage(L.canvas,0,0,w,h);
   return c;
 }
@@ -3878,7 +3911,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №27 глубина'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №27.1 значки коррекций'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
