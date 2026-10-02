@@ -432,9 +432,7 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
 </svg>Проявка</span>
     <button class="tb" id="bMenu" aria-label="Файл"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Файл</button>
     <button class="tb" id="docName" aria-label="Мои документы" title="Мои документы"><span></span><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></button>
-    <span class="pill">
-    <button class="tb" id="bUndo" aria-label="Отменить"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
-    <button class="tb" id="bRedo" aria-label="Вернуть отменённое"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+    <span class="pill" hidden>
     <button class="tb" id="bDesel" hidden aria-label="Снять выделение (⌘D)" title="Снять выделение"><svg viewBox="0 0 24 24"><path d="M4 7V4h3M10 4h4M17 4h3v3M20 10v1M4 10v4M4 17v3h3M10 20h1"/><path d="m15 15 6 6M21 15l-6 6"/></svg></button>
     </span>
     <span class="sep"></span>
@@ -1211,7 +1209,7 @@ function selToMask(){
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
 }
-function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge; $('#bDesel').hidden = !sel || !!xf || !!edge; syncSelModes(); }
+function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge; $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; syncSelModes(); }
 function quickDeselect(){ if(!sel) return; deselect(); toast('Выделение снято · вернуть — тап двумя пальцами',1500); }
 function syncSelModes(){ document.querySelectorAll('#selModes button').forEach(b=>b.classList.toggle('on', b.dataset.mode===S.selMode)); }
 function setSelMode(k){ S.selMode=k; if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
@@ -2828,7 +2826,6 @@ document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops
 document.querySelectorAll('#selbar [data-sel]').forEach(b=>b.onclick=()=>{ const a=b.dataset.sel;
   ({ai:()=>inpaintFromSel(), edge:edgeOpen, deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill})[a](); });
 $('#bDesel').onclick=()=>quickDeselect();
-$('#bUndo').onclick=()=>undo(); $('#bRedo').onclick=()=>redo();
 $('#docName').onclick=()=>openLibrary();
 $('#xfApply').onclick=xfApply; $('#xfCancel').onclick=xfCancel;
 $('#xfFlipH').onclick=()=>{ if(xf){ xf.sx*=-1; flipFix(); } }; $('#xfFlipV').onclick=()=>{ if(xf){ xf.sy*=-1; flipFix(); } };
@@ -3249,7 +3246,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №23.3 стрелки отмены'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №23.4 без стрелок'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
