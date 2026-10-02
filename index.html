@@ -341,6 +341,106 @@ body{-webkit-font-smoothing:antialiased}
 svg[data-logo]{clip-path:inset(0 round 22.5%)}
 #splash svg[data-logo]{filter:drop-shadow(0 18px 40px rgba(0,0,0,.5))}
 
+/* ---- glass pass (№33): floating rounded glass over the canvas, warm gradient accent ---- */
+:root{
+  --bg:#141518;
+  --glass-bg:linear-gradient(180deg,rgba(46,49,57,.66) 0%,rgba(27,29,34,.74) 100%);
+  --glass-solid:linear-gradient(180deg,rgba(44,47,55,.92) 0%,rgba(27,29,34,.95) 100%);
+  --glass-edge:rgba(255,255,255,.085);
+  --glass-hi:inset 0 1px 0 rgba(255,255,255,.09);
+  --glass-shadow:0 22px 60px -10px rgba(0,0,0,.55),0 4px 14px rgba(0,0,0,.28);
+  --blur:blur(28px) saturate(1.7);
+  --accent-grad:linear-gradient(180deg,#f6cd8d 0%,#eab066 48%,#d48c3e 100%);
+  --accent-grad-h:linear-gradient(90deg,#cf873b 0%,#eab066 60%,#f6cd8d 100%);
+  --accent-lift:0 6px 18px -6px rgba(234,166,86,.7),inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(120,64,12,.28);
+  --soft:rgba(255,255,255,.055); --soft-2:rgba(255,255,255,.085); --soft-3:rgba(255,255,255,.12);
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.05);
+  --panel-2:#2a2d34; --panel-3:#353941;
+}
+html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316 100%)}
+/* the canvas runs under the bars; the bars float over it */
+#stage{grid-row:1/3;grid-column:1/3;background:transparent}
+#top{grid-row:1;grid-column:1/3;z-index:8;margin:10px 10px 0;border-radius:20px;padding:6px 8px;min-height:50px;gap:6px;
+  background:var(--glass-bg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);border-bottom-color:var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow)}
+#rail{grid-row:2;grid-column:1;z-index:8;margin:10px 0 10px 10px;border-radius:24px;width:62px;padding:10px 8px;gap:6px;
+  background:var(--glass-bg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);border-right-color:var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow)}
+.hideui #stage{grid-row:1/3;grid-column:1/3}
+#layers,.fbar,.pop,#flyout,.dlg,#optPop,#toast{background:var(--glass-bg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow)}
+.pop,#flyout,#optPop,.dlg{background:var(--glass-solid)}
+#layers{top:80px;right:10px;bottom:10px;border-radius:24px}
+.hideui #layers{top:10px}
+#status{left:94px;top:84px;bottom:auto}
+#status span{background:var(--glass-bg);border:1px solid var(--glass-edge);border-radius:10px;padding:4px 9px}
+.fbar{left:calc(50% + 36px);bottom:28px;border-radius:22px;padding:7px}
+#stage.lyopen .fbar{left:calc((100% - 316px + 72px)/2);max-width:calc(100% - 316px - 72px - 32px)}
+#edgebar,#harmbar,#adjbar,#depthbar,#filtbar{padding:14px 16px;gap:11px}
+#toast{top:84px;border-radius:16px;padding:10px 18px}
+#menu{top:72px;left:10px;border-radius:20px;padding:8px}
+#picker{top:72px;right:10px;border-radius:22px}
+.pop{border-radius:20px}
+#flyout{border-radius:20px;padding:7px}
+.dlg{border-radius:26px;padding:22px}
+.scrim{background:rgba(8,9,11,.45);-webkit-backdrop-filter:blur(10px) saturate(1.2);backdrop-filter:blur(10px) saturate(1.2)}
+/* buttons */
+.tb{border-radius:13px}
+#rail .tb{width:46px;height:46px;border-radius:15px}
+.tb.on,#flyout button.on,.seg button.on,.fbar .pri,.dlg .actions .pri,#brushPop .bfoot .pri{background:var(--accent-grad);color:var(--accent-ink);box-shadow:var(--accent-lift)}
+.tb.on svg{filter:drop-shadow(0 1px 0 rgba(255,255,255,.35))}
+.tb:active:not(.on),.fbar button:active:not(.pri),#flyout button:active:not(.on),#menu button:active{background:var(--soft-3)}
+@media (hover:hover){ .tb:hover:not(.on),.fbar button:hover:not(.pri),#flyout button:hover:not(.on),.pop button:hover:not(.pri),.btns button:hover{background:var(--soft-2)} }
+.pill{background:var(--soft);border-radius:13px;box-shadow:inset 0 0 0 1px var(--line-soft)}
+.pill .tb{border-radius:11px}
+.seg{background:var(--soft);border-radius:13px;padding:3px;box-shadow:inset 0 0 0 1px var(--line-soft)}
+.seg button{border-radius:10px;height:30px}
+.chk{background:var(--soft);border-radius:11px;box-shadow:inset 0 0 0 1px var(--line-soft)}
+.chk.on{background:linear-gradient(180deg,rgba(234,176,102,.26),rgba(212,140,62,.16));box-shadow:inset 0 0 0 1px rgba(234,176,102,.75),0 4px 14px -6px rgba(234,166,86,.6)}
+.fbar button{border-radius:13px}
+.fbar .ai{color:#f1bf7a}
+.btns button{background:var(--soft);border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04),inset 0 0 0 1px var(--line-soft)}
+.btns button:active{background:var(--soft-3)}
+.dlg .actions button{border-radius:14px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft)}
+.dlg .actions.list button{border-radius:14px}
+#menu button{border-radius:12px}
+#flyout button{border-radius:14px}
+.brushBtn{background:var(--soft);border:0;border-radius:13px;box-shadow:inset 0 0 0 1px var(--line-soft)}
+#brushPop{border-radius:22px;padding:12px 14px}
+#brushPop .brow{border-radius:14px}
+#brushPop .brow.on{background:linear-gradient(90deg,rgba(234,176,102,.20),rgba(234,176,102,.05));box-shadow:inset 0 0 0 1px rgba(234,176,102,.55)}
+#brushPop .bfoot button{border-radius:14px}
+/* inputs */
+.row input[type=text],.row select,.row .bstep,.dims input{background-color:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:12px}
+#swatch{box-shadow:0 0 0 2px rgba(20,21,24,.9),0 0 0 3.5px rgba(255,255,255,.18),0 4px 12px rgba(0,0,0,.4)}
+/* sliders */
+.hs::before{height:5px;top:12.5px;border-radius:3px;background:rgba(255,255,255,.1);box-shadow:inset 0 1px 1px rgba(0,0,0,.35)}
+.hs .hf{height:5px;top:12.5px;border-radius:3px;background:var(--accent-grad-h);box-shadow:0 0 10px -2px rgba(234,166,86,.6)}
+.hs .hk{width:20px;height:20px;top:5px;margin-left:-10px;background:linear-gradient(180deg,#ffffff,#d8dade);box-shadow:0 2px 7px rgba(0,0,0,.5),0 0 0 .5px rgba(0,0,0,.4),inset 0 -1px 0 rgba(0,0,0,.08)}
+.vs{width:30px;border-radius:15px;background:rgba(255,255,255,.06);box-shadow:inset 0 1px 3px rgba(0,0,0,.4),inset 0 0 0 1px var(--line-soft)}
+.vs .fill{border-radius:15px;background:linear-gradient(0deg,rgba(255,255,255,.30),rgba(255,255,255,.14))}
+.vs .knob{left:-3px;right:-3px;height:8px;border-radius:5px;background:linear-gradient(180deg,#fff,#d6d8dd);box-shadow:0 2px 8px rgba(0,0,0,.55)}
+.rsep{background:rgba(255,255,255,.08)}
+/* layers */
+#layers header{padding:14px 14px 8px 18px}
+#lyList{padding:2px 10px 10px;gap:3px}
+.ly{border-radius:14px;position:relative}
+.ly.act{background:linear-gradient(90deg,rgba(234,176,102,.20) 0%,rgba(234,176,102,.06) 100%);box-shadow:inset 0 0 0 1px rgba(234,176,102,.28)}
+.ly.act::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:3px;background:var(--accent-grad)}
+.ly.grp{background:var(--soft)}
+.th{border-radius:10px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 2px 6px rgba(0,0,0,.3)}
+#lyProps{border-top:1px solid var(--line-soft);padding:14px}
+.lib .card{background:var(--soft);border-radius:18px} .lib .card .lth{border-radius:12px}
+.presets button{background:var(--soft);border-radius:14px}
+
+/* tactile feel: a soft press and gentle appearance */
+.tb,.fbar button,.btns button,.seg button,.chk,#flyout button,#menu button,.brushBtn,.row .bstep,.dlg .actions button,#brushPop .brow{transition:background-color .14s,box-shadow .18s,transform .12s cubic-bezier(.3,.7,.4,1)}
+.tb:active,.fbar button:active,.btns button:active,.seg button:active,.chk:active,#flyout button:active,#menu button:active,.brushBtn:active,.row .bstep:active,.dlg .actions button:active,#brushPop .brow:active{transform:scale(.955)}
+@keyframes pvIn{from{opacity:0;transform:translateY(6px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes pvSide{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+@keyframes pvBar{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+.pop:not([hidden]),#flyout:not([hidden]),#optPop:not([hidden]),.dlg{animation:pvIn .18s cubic-bezier(.2,.8,.3,1)}
+#layers:not([hidden]){animation:pvSide .22s cubic-bezier(.2,.8,.3,1)}
+.fbar:not([hidden]){animation:pvBar .2s cubic-bezier(.2,.8,.3,1)}
+#menu small{max-width:150px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
 </style>
 
 <div id="app">
@@ -900,9 +1000,13 @@ function memMB(){
 /* ============ view ============ */
 function fitView(){
   if (!doc || $('#stage').clientWidth<10 || $('#stage').clientHeight<10) return;
-  const st=$('#stage'), H=st.clientHeight, W=st.clientWidth - ($('#layers').hidden ? 0 : Math.min(306, st.clientWidth*0.5));
+  // the bars float over the canvas: fit the picture into what they leave free
+  const st=$('#stage'), sr=st.getBoundingClientRect(), ui=!document.body.classList.contains('hideui');
+  const L = ui ? Math.max(0, $('#rail').getBoundingClientRect().right - sr.left) : 0, T = ui ? Math.max(0, $('#top').getBoundingClientRect().bottom - sr.top) : 0;
+  const R = $('#layers').hidden ? 0 : Math.min(316, st.clientWidth*0.5);
+  const W=st.clientWidth-L-R, H=st.clientHeight-T;
   const s = Math.min(W/doc.w, H/doc.h)*0.92;
-  view = { s, r:0, x:(W-doc.w*s)/2, y:(H-doc.h*s)/2 };
+  view = { s, r:0, x:L+(W-doc.w*s)/2, y:T+(H-doc.h*s)/2 };
   requestRender();
 }
 function viewM(){ // doc -> CSS px
@@ -4812,7 +4916,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №32.1 импорт кистей по настоящим наборам'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №33 стекло и воздух'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
