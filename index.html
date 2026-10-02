@@ -1021,12 +1021,25 @@ function toScr(x,y,extra){ if(extra){ const [a,b,c,d,e,f]=extra; const nx=a*x+c*
 let needRender=false;
 function requestRender(){ fullPending=true; if(!needRender){ needRender=true; requestAnimationFrame(render); } }
 function requestStrokeRender(){ if(!needRender){ needRender=true; requestAnimationFrame(render); } }
-/* while a brush stroke runs, everything under and over the painted layer is cached in screen space and only the
-   piece under the new dabs is redrawn — the line keeps up with the Pencil even on heavy documents */
-let fullPending=true, strokeCache=null, RCLIP=null, scBelow=null, scAbove=null;
-function strokeCacheDrop(){ strokeCache=null; }
-function strokeCacheBuild(){
-  const st=stroke, L=st.layer; if (xf || isGroup(L)) return null;
+/* While one layer is being changed live (brush stroke, liquify, transform, filter / harmonization preview), everything
+   under and over it is cached in screen space: a frame draws 3 images instead of every layer, and during strokes only
+   the piece under the new dabs is redrawn — the line keeps up with the Pencil even on heavy documents */
+let fullPending=true, strokeCache=null, RCLIP=null, scBelow=null, scAbove=null, liveDirty=null, structVer=0;
+function strokeCacheDrop(){ strokeCache=null; liveDirty=null; }
+function addLiveDirty(x0,y0,x1,y1){ const d=liveDirty; if(!d) liveDirty={x0,y0,x1,y1}; else { d.x0=Math.min(d.x0,x0); d.y0=Math.min(d.y0,y0); d.x1=Math.max(d.x1,x1); d.y1=Math.max(d.y1,y1); } }
+function liveLayer(){
+  if (!doc) return null;
+  if (stroke) return stroke.layer;
+  if (liqStroke) return liqStroke.s.layer;
+  if (xf) return (xf.parts || (xf.maskParts && [...xf.maskParts.keys()].some(o=>o!==xf.layer))) ? null : xf.layer;
+  if (filt && filt.prev) return filt.layer;
+  if (harm && harm.prev) return harm.layer;
+  return null;
+}
+function liveKey(L){ return L.id+'|'+view.x+'|'+view.y+'|'+view.s+'|'+view.r+'|'+comp.width+'|'+comp.height+'|'+contentVer+'|'+structVer; }
+function liveCache(L){ const k=liveKey(L); if (strokeCache && strokeCache.k===k) return strokeCache; strokeCache=strokeCacheBuild(L); if (strokeCache) strokeCache.k=k; return strokeCache; }
+function strokeCacheBuild(L){
+  if (!L || isGroup(L) || L.kind==='adj') return null;
   for (let g=L.parent; g; g=g.parent) if (g.blend!=='pass' || g.opacity<1 || (g.mask&&g.mask.enabled)) return null;
   const idx=doc.layers.indexOf(L), anc=new Set(); for (let g=L.parent; g; g=g.parent) anc.add(g);
   for (let i=idx+1;i<doc.layers.length;i++){ const X=doc.layers[i]; if (anc.has(X) || !shown(X)) continue;
@@ -1037,7 +1050,15 @@ function strokeCacheBuild(){
   for (const [c,skip] of [[scBelow,bi],[scAbove,ai]]){ const x=ctx2(c); x.setTransform(1,0,0,1,0,0); x.globalAlpha=1; x.globalCompositeOperation='source-over'; x.clearRect(0,0,W,H);
     x.imageSmoothingEnabled=view.s<2.5; x.imageSmoothingQuality=view.s<1?'medium':'low';
     x.save(); setVT(x); x.beginPath(); x.rect(0,0,doc.w,doc.h); x.clip(); composeTree(x, drawLayer, {map:renderGroupMask, skip}); x.restore(); }
-  return { v:view.x+'|'+view.y+'|'+view.s+'|'+view.r+'|'+W+'|'+H, layer:L };
+  return { layer:L };
+}
+// all layers into cc (which already has the view transform and the document clip)
+function composeAll(cc){
+  const L=liveLayer(), C = L && liveCache(L);
+  if (!C){ composeTree(cc, drawLayer, {map:renderGroupMask}); return; }
+  cc.save(); cc.setTransform(1,0,0,1,0,0); cc.globalAlpha=1; cc.globalCompositeOperation='source-over'; cc.drawImage(scBelow,0,0); cc.restore();
+  if (L.visible) drawLayer(cc, L);
+  cc.save(); cc.setTransform(1,0,0,1,0,0); cc.globalAlpha=1; cc.globalCompositeOperation='source-over'; cc.drawImage(scAbove,0,0); cc.restore();
 }
 let checker=null;
 function getChecker(){
@@ -1049,7 +1070,7 @@ function getChecker(){
 let navigating=false, navT=null, contentVer=1, preview=null, previewVer=0;
 function navStart(){ navigating=true; clearTimeout(navT); }
 let pvT=null;
-function bumpContent(){ contentVer++; clearTimeout(pvT); pvT=setTimeout(()=>{ if(doc && !navigating && !stroke && !xf && toolPtr===null) getPreview(); }, 500); }
+function bumpContent(){ contentVer++; clearTimeout(pvT); pvT=setTimeout(function pv(){ if(!doc) return; if (navigating || stroke || xf || liqStroke || toolPtr!==null || hover){ pvT=setTimeout(pv,700); return; } getPreview(); }, 900); } // the navigation copy is rebuilt in a pause, not between strokes
 function navEnd(delay=90){ clearTimeout(navT); navT=setTimeout(()=>{ navigating=false; requestRender(); }, delay); }
 function getPreview(){
   if (preview && previewVer===contentVer) return preview;
@@ -1064,17 +1085,16 @@ function getPreview(){
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; previewVer=contentVer; return preview;
 }
 function renderStrokePart(){
-  const st=stroke, W=vc.width, H=vc.height; if (comp.width!==W || comp.height!==H) return false;
-  const key=view.x+'|'+view.y+'|'+view.s+'|'+view.r+'|'+W+'|'+H;
-  if (!strokeCache || strokeCache.layer!==st.layer || strokeCache.v!==key){ strokeCache=strokeCacheBuild(); if (!strokeCache) return false; st.dirty=st.bbox?{...st.bbox}:null; }
-  const d=st.dirty; st.dirty=null; if (!d){ renderOverlay(); return true; }
+  const W=vc.width, H=vc.height, L=liveLayer(); if (!L || comp.width!==W || comp.height!==H) return false;
+  if (!strokeCache || strokeCache.k!==liveKey(L)) return false;   // the next full frame builds the cache
+  const d=liveDirty; liveDirty=null; if (!d){ renderOverlay(); return true; }
   const m=viewM(), pts=[[d.x0,d.y0],[d.x1,d.y0],[d.x0,d.y1],[d.x1,d.y1]].map(([x,y])=>[(m[0]*x+m[2]*y+m[4])*dpr,(m[1]*x+m[3]*y+m[5])*dpr]);
   const x0=Math.max(0,Math.floor(Math.min(...pts.map(q=>q[0])))-2), y0=Math.max(0,Math.floor(Math.min(...pts.map(q=>q[1])))-2), x1=Math.min(W,Math.ceil(Math.max(...pts.map(q=>q[0])))+2), y1=Math.min(H,Math.ceil(Math.max(...pts.map(q=>q[1])))+2);
   if (x1<=x0||y1<=y0){ renderOverlay(); return true; }
   const R=[x0,y0,x1-x0,y1-y0]; RCLIP=R;
   const cc=ctx2(comp); cc.save(); cc.setTransform(1,0,0,1,0,0); cc.globalAlpha=1; cc.globalCompositeOperation='source-over'; cc.beginPath(); cc.rect(...R); cc.clip(); cc.clearRect(...R);
   const smooth = view.s < 2.5; for (const c of [cc, ctx2(tLayer), ctx2(tMask), ctx2(tStroke)]){ c.imageSmoothingEnabled = smooth; c.imageSmoothingQuality = view.s<1 ? 'medium' : 'low'; }
-  cc.drawImage(scBelow,0,0); cc.save(); setVT(cc); cc.beginPath(); cc.rect(0,0,doc.w,doc.h); cc.clip(); if (st.layer.visible) drawLayer(cc, st.layer); cc.restore();
+  cc.drawImage(scBelow,0,0); cc.save(); setVT(cc); cc.beginPath(); cc.rect(0,0,doc.w,doc.h); cc.clip(); if (L.visible) drawLayer(cc, L); cc.restore();
   cc.setTransform(1,0,0,1,0,0); cc.globalAlpha=1; cc.globalCompositeOperation='source-over'; cc.drawImage(scAbove,0,0); cc.restore();
   RCLIP=null;
   vx.save(); vx.setTransform(1,0,0,1,0,0); vx.globalAlpha=1; vx.globalCompositeOperation='source-over'; vx.beginPath(); vx.rect(...R); vx.clip();
@@ -1084,7 +1104,7 @@ function renderStrokePart(){
 }
 function render(){
   needRender=false; if(!doc) return;
-  if (stroke && !fullPending && renderStrokePart()) return;
+  if ((stroke||liqStroke) && !fullPending && renderStrokePart()) return;
   fullPending=false;
   const W=vc.width, H=vc.height;
   vx.setTransform(1,0,0,1,0,0); vx.globalAlpha=1; vx.globalCompositeOperation='source-over';
@@ -1104,7 +1124,7 @@ function render(){
   const smooth = view.s < 2.5;
   for (const c of [cc, ctx2(tLayer), ctx2(tMask), ctx2(tStroke)]){ c.imageSmoothingEnabled = smooth; c.imageSmoothingQuality = view.s<1 ? 'medium' : 'low'; }
   cc.save(); setVT(cc); cc.beginPath(); cc.rect(0,0,doc.w,doc.h); cc.clip();
-  composeTree(cc, drawLayer, {map:renderGroupMask});
+  composeAll(cc);
   cc.restore();
   vx.setTransform(1,0,0,1,0,0); vx.drawImage(comp,0,0);
   if (xf){ // part of the piece that hangs outside the canvas: shown faded
@@ -1167,7 +1187,8 @@ function applyStrokePreview(t){
   t.setTransform(1,0,0,1,0,0); t.globalAlpha=stroke.opacity*(stroke.lerpK??1); t.globalCompositeOperation=stroke.lerp?'lighter':stroke.op; t.drawImage(tStroke,0,0);
   t.globalAlpha=1; t.globalCompositeOperation='source-over'; setVT(t); s.restore();
 }
-let antsPhase=0;
+let antsPhase=0, ovRaf=0;
+function requestOverlay(){ if (!ovRaf) ovRaf=requestAnimationFrame(()=>{ ovRaf=0; renderOverlay(); }); } // pen hover arrives faster than the screen refreshes
 function renderOverlay(){ if(!doc) return;
   const W=oc.width,H=oc.height; ox.setTransform(1,0,0,1,0,0); ox.clearRect(0,0,W,H);
   ox.setTransform(dpr,0,0,dpr,0,0); ox.lineWidth=1;
@@ -1206,7 +1227,7 @@ function renderOverlay(){ if(!doc) return;
 }
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const BG = cssVar('--bg') || '#17181b';
-setInterval(()=>{ if(sel||lassoPts||rectSel){ antsPhase=(antsPhase+1)%10; renderOverlay(); } }, 90);
+setInterval(()=>{ if((sel||lassoPts||rectSel) && !stroke && !liqStroke && !navigating && !document.hidden){ antsPhase=(antsPhase+1)%10; renderOverlay(); } }, 100); // ants rest while painting / navigating
 const statusCache={};
 function setText(id,t){ if(statusCache[id]!==t){ statusCache[id]=t; $(id).textContent=t; } }
 function updateStatus(){
@@ -1591,7 +1612,7 @@ function strokeDabs(a,b,first){
     if (fancy){ const sc=B.p.scatter?dd*B.p.scatter*1.5:0; r=dabTo(sb, st.sprite, B, dx, dy, dd, al, st.ang??0, st.az, st.R, st.travel, st.size)+sc; }
     else { sb.globalAlpha=al; sb.drawImage(st.sprite,dx-r,dy-r,dd,dd); }
     const bx=st.bbox; if(!bx) st.bbox={x0:dx-r,y0:dy-r,x1:dx+r,y1:dy+r}; else { bx.x0=Math.min(bx.x0,dx-r); bx.y0=Math.min(bx.y0,dy-r); bx.x1=Math.max(bx.x1,dx+r); bx.y1=Math.max(bx.y1,dy+r); }
-    const dr=st.dirty; if(!dr) st.dirty={x0:dx-r,y0:dy-r,x1:dx+r,y1:dy+r}; else { dr.x0=Math.min(dr.x0,dx-r); dr.y0=Math.min(dr.y0,dy-r); dr.x1=Math.max(dr.x1,dx+r); dr.y1=Math.max(dr.y1,dy+r); } };
+    addLiveDirty(dx-r,dy-r,dx+r,dy+r); };
   if (first){ const d=sizeAt(b.p); dab(b.x,b.y,d,alphaAt(b.p)); st.last={x:b.x,y:b.y}; return; }
   const dist=Math.hypot(b.x-a.x,b.y-a.y); if (dist<=0) return;
   let pos=0, carry=st.carry||0;
@@ -2577,6 +2598,7 @@ function lqRender(s, x0,y0,x1,y1){
   const w=qx-px, h=qy-py; if (w<=0||h<=0) return true;
   gl.enable(gl.SCISSOR_TEST); gl.scissor(px, doc.h-qy, w, h); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES,0,3); gl.disable(gl.SCISSOR_TEST);
   const c=s.layer.ctx; c.save(); c.globalAlpha=1; c.globalCompositeOperation='copy'; c.beginPath(); c.rect(px,py,w,h); c.clip(); c.drawImage(G.canvas,px,py,w,h,px,py,w,h); c.restore();
+  addLiveDirty(px,py,px+w,py+h);
   s.layer.dirty=true; return true;
 }
 function lqSession(L){
@@ -2647,7 +2669,7 @@ function liqDab(x,y,pressure,v){
   const dd=ls.dirty||(ls.dirty=[1e9,1e9,-1e9,-1e9]); dd[0]=Math.min(dd[0],x0); dd[1]=Math.min(dd[1],y0); dd[2]=Math.max(dd[2],x1+1); dd[3]=Math.max(dd[3],y1+1);
   if (!liqRaf) liqRaf=requestAnimationFrame(liqFlush);
 }
-function liqFlush(){ liqRaf=0; const ls=liqStroke; if (!ls||!ls.dirty) return; const d=ls.dirty; ls.dirty=null; lqRender(ls.s,d[0],d[1],d[2],d[3]); requestRender(); }
+function liqFlush(){ liqRaf=0; const ls=liqStroke; if (!ls||!ls.dirty) return; const d=ls.dirty; ls.dirty=null; lqRender(ls.s,d[0],d[1],d[2],d[3]); requestStrokeRender(); }
 function liqEnd(cancel){
   const ls=liqStroke; if (!ls) return; clearInterval(ls.hold); liqStroke=null; if (liqRaf){ cancelAnimationFrame(liqRaf); liqRaf=0; }
   const s=ls.s, b=ls.box; if (b[2]<=b[0]) return;
@@ -3950,7 +3972,7 @@ function thumbSoon(L){ thumbQ.add(L); clearTimeout(thumbT); thumbT=setTimeout(()
 const FOLDER='<svg viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 9.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>';
 const CHEV='<svg class="chev" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>';
 const EYE='<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-function layersChanged(){
+function layersChanged(){ structVer++;
   if (!doc) return;
   if (!$('#layers').hidden){
     const list=$('#lyList'); list.textContent='';
@@ -4413,6 +4435,26 @@ function flatten(scale=1, white){
   x.globalAlpha=1; x.globalCompositeOperation='source-over'; return c;
 }
 const toBlob=(c,type,q)=>new Promise(r=>c.toBlob(r,type,q));
+/* Big layers are encoded to PNG in a background worker (OffscreenCanvas): on iPad toBlob compresses on the main thread,
+   and a 12-megapixel layer froze the brush for a noticeable moment every autosave. Falls back to toBlob. */
+let encW=null, encSeq=0; const encWait=new Map();
+function encWorker(){
+  if (encW!==null) return encW;
+  try{ if (typeof OffscreenCanvas==='undefined' || !window.createImageBitmap) throw 0;
+    const src="self.onmessage=async e=>{const{id,bm,type,q}=e.data;try{const c=new OffscreenCanvas(bm.width,bm.height);const x=c.getContext('2d');x.drawImage(bm,0,0);bm.close();const b=await c.convertToBlob({type,quality:q});self.postMessage({id,b});}catch(err){self.postMessage({id,err:String(err)});}};";
+    encW=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
+    encW.onmessage=e=>{ const w=encWait.get(e.data.id); if(!w) return; encWait.delete(e.data.id); e.data.b ? w.res(e.data.b) : w.rej(new Error(e.data.err)); };
+    encW.onerror=()=>{ for (const w of encWait.values()) w.rej(new Error('worker')); encWait.clear(); encW=false; };
+  }catch(e){ encW=false; }
+  return encW;
+}
+async function toBlobBg(c,type,q){
+  const W = c.width*c.height>=1e6 && encWorker();
+  if (!W) return toBlob(c,type,q);
+  try{ const bm=await createImageBitmap(c); const id=++encSeq;
+    return await new Promise((res,rej)=>{ encWait.set(id,{res,rej}); W.postMessage({id,bm,type,q},[bm]); setTimeout(()=>{ if(encWait.has(id)){ encWait.delete(id); rej(new Error('timeout')); } },60000); });
+  }catch(e){ console.warn('bg encode → main', e); return toBlob(c,type,q); }
+}
 let dl=null; const dlReady=(async()=>{ try{ dl=await window.claude?.use?.('downloads'); }catch(e){ dl=null; } })();
 /* inside the native app: the file goes to the iPad share sheet through the shell, in chunks */
 const nativeApp = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.proyavka);
@@ -4550,7 +4592,7 @@ stage.addEventListener('pointermove', e=>{
   }
   if (panDrag && e.pointerId===panDrag.id){ navStart(); view.x=panDrag.vx+e.clientX-panDrag.x; view.y=panDrag.vy+e.clientY-panDrag.y; requestRender(); return; }
   if (e.pointerId===toolPtr){ if (e.buttons===0 && e.pointerType!=='touch'){ toolUp(e); hover=stagePos(e); renderOverlay(); return; } lastPenT=Date.now(); toolMove(e); return; } // pen already lifted (lost pointerup, Pencil hover)
-  if (e.pointerType==='pen' || e.pointerType==='mouse'){ hover = (e.buttons===0) ? stagePos(e) : null; renderOverlay(); }
+  if (e.pointerType==='pen' || e.pointerType==='mouse'){ hover = (e.buttons===0) ? stagePos(e) : null; requestOverlay(); }
 });
 function endTouch(e){
   if (!touches.has(e.pointerId)) return;
@@ -4631,7 +4673,7 @@ function toolMove(e){
   }
   if (penHold && !penHold.picking){ const q=stagePos(e); if (Math.hypot(q[0]-penHold.p0[0],q[1]-penHold.p0[1])>5){ clearTimeout(penHold.T); penHold=null; } }
   if (t==='wand' && wandDrag) wandMove(stagePos(e));
-  if (t!=='brush'&&t!=='eraser') renderOverlay();
+  if (t!=='brush'&&t!=='eraser') requestOverlay();
 }
 /* desktop: wheel zoom / rotate, space or middle-button pan, Alt eyedropper */
 let spaceDown=false, altDown=false, panDrag=null;
@@ -4749,14 +4791,16 @@ function markDirty(){ bumpContent(); if(doc) doc.pristine=false; dirtyDoc=true; 
 async function autosave(force){
   if (!doc || doc.pristine) return;
   if (saving || (!force && (stroke || xf || toolPtr!==null))){ saveT=setTimeout(autosave,3000); return; }
-  saving=true; dirtyDoc=false; const D=doc, P=PFX(D.id);
+  saving=true; dirtyDoc=false; const D=doc, P=PFX(D.id); let cleared=[];
   try{
     const put={}, keys=[];
     for (const L of D.layers){
       const need = L.dirty || !L.saved;
-      if (!isGroup(L) && L.kind!=='adj'){ keys.push('c'+L.id); if (need) put[P+'c'+L.id]=await toBlob(L.canvas,'image/png'); }
-      if (L.mask){ keys.push('m'+L.id); if (need) put[P+'m'+L.id]=await toBlob(L.mask.canvas,'image/png'); }
-      L.dirty=false; L.saved=true;
+      L.dirty=false; L.saved=true; if (need) cleared.push(L); // cleared before encoding: an edit made meanwhile marks it dirty again
+      try{
+        if (!isGroup(L) && L.kind!=='adj'){ keys.push('c'+L.id); if (need) put[P+'c'+L.id]=await toBlobBg(L.canvas,'image/png'); }
+        if (L.mask){ keys.push('m'+L.id); if (need) put[P+'m'+L.id]=await toBlobBg(L.mask.canvas,'image/png'); }
+      }catch(e){ throw e; }
     }
     put[P+'meta']={ w:D.w, h:D.h, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
     try{ const k=Math.min(1,360/Math.max(D.w,D.h)); put[P+'thumb']=await toBlob(flatten(k,true),'image/jpeg',0.8); }catch(_){}
@@ -4765,7 +4809,7 @@ async function autosave(force){
     put.library=lib;
     const dels=(D.keys||[]).filter(k=>!keys.includes(k)).map(k=>P+k);
     await idbTx(put, dels); D.keys=keys; setCurDoc(D.id);
-  }catch(e){ console.warn('autosave', e); dirtyDoc=true; }
+  }catch(e){ console.warn('autosave', e); dirtyDoc=true; for (const X of cleared) X.dirty=true; }
   saving=false; if (dirtyDoc && doc===D) markDirty();
 }
 async function flushSave(){
@@ -4916,7 +4960,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №33 стекло и воздух'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №34 оптимизация: кэш слоёв, фоновое сохранение'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
