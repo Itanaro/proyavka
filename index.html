@@ -132,15 +132,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .fbar button{height:36px;padding:0 12px;border-radius:8px;white-space:nowrap;font-size:13px}
 .fbar button:active{background:var(--panel-2)}
 .fbar .pri{background:var(--accent);color:var(--accent-ink);font-weight:600}
-#edgebar,#harmbar,#adjbar,#depthbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
-#edgebar .eh,#harmbar .eh,#adjbar .eh,#depthbar .eh{font-weight:600;font-size:14px}
-#edgebar .eh span,#harmbar .eh span,#adjbar .eh span,#depthbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
-#edgebar .er,#harmbar .er,#adjbar .er,#depthbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
-#edgebar .er label,#harmbar .er label,#adjbar .er label,#depthbar .er label{color:var(--muted)}
-#edgebar .er .v,#harmbar .er .v,#adjbar .er .v,#depthbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
-#edgebar .er .hs,#harmbar .er .hs,#adjbar .er .hs,#depthbar .er .hs{height:32px;width:auto}
+#edgebar,#harmbar,#adjbar,#depthbar,#filtbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
+#edgebar .eh,#harmbar .eh,#adjbar .eh,#depthbar .eh,#filtbar .eh{font-weight:600;font-size:14px}
+#edgebar .eh span,#harmbar .eh span,#adjbar .eh span,#depthbar .eh span,#filtbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+#edgebar .er,#harmbar .er,#adjbar .er,#depthbar .er,#filtbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
+#edgebar .er label,#harmbar .er label,#adjbar .er label,#depthbar .er label,#filtbar .er label{color:var(--muted)}
+#edgebar .er .v,#harmbar .er .v,#adjbar .er .v,#depthbar .er .v,#filtbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
+#edgebar .er .hs,#harmbar .er .hs,#adjbar .er .hs,#depthbar .er .hs,#filtbar .er .hs{height:32px;width:auto}
 #edShift::after{content:"";position:absolute;left:50%;top:9px;width:2px;height:12px;margin-left:-1px;background:var(--muted);border-radius:1px}
-#edgebar .eb,#harmbar .eb,#adjbar .eb,#depthbar .eb{display:flex;gap:6px;margin-top:2px}
+#edgebar .eb,#harmbar .eb,#adjbar .eb,#depthbar .eb,#filtbar .eb{display:flex;gap:6px;margin-top:2px}
 
 /* layers */
 #layers{position:absolute;top:8px;right:8px;bottom:8px;width:290px;max-width:calc(100% - 16px);background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;box-shadow:0 10px 36px rgba(0,0,0,.5);z-index:5}
@@ -515,6 +515,7 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
     </div>
     <div class="fbar" id="adjbar" hidden></div>
     <div class="fbar" id="depthbar" hidden></div>
+    <div class="fbar" id="filtbar" hidden></div>
     <div class="fbar" id="harmbar" hidden>
       <div class="eh">Гармонизация <span id="hmHint"></span></div>
       <div class="er"><label>Сила</label><div id="hm_str"></div><span class="v" id="hm_strV"></span></div>
@@ -552,7 +553,8 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
           <button id="lyClear">Очистить</button>
           <button id="lyMask" style="grid-column:1/-1">+ Маска</button>
           <button id="lyAdj" style="grid-column:1/-1">+ Корректирующий слой</button>
-          <button id="lyHarm" style="grid-column:1/-1">Гармонизация — цвет под фон</button>
+          <button id="lyHarm" style="grid-column:span 2">Гармонизация</button>
+          <button id="lyFilt" style="grid-column:span 2">Размытие / резкость</button>
           <button id="lyMaskInv" style="grid-column:span 2" hidden>Инвертировать маску</button>
         </div>
       </div>
@@ -891,7 +893,7 @@ function renderGroupMask(c, cv, G){ // view-space group mask, with the live brus
 }
 function drawLayer(cc, L){
   const isStroke = stroke && stroke.layer===L, isXf = xf && (xf.parts ? xf.parts.has(L) : xf.layer===L), xff = isXf && (xf.parts ? xf.parts.get(L) : xf.float);
-  const hasMask = L.mask && L.mask.enabled, hasHarm = !!(harm && harm.layer===L && harm.prev);
+  const hasMask = L.mask && L.mask.enabled, hasHarm = !!(harm && harm.layer===L && harm.prev) || !!(filt && filt.layer===L && filt.prev);
   if (!isStroke && !isXf && !hasMask && !hasHarm){
     setVT(cc); cc.globalAlpha=L.opacity; cc.globalCompositeOperation=L.blend; cc.drawImage(L.canvas,0,0);
     cc.globalAlpha=1; cc.globalCompositeOperation='source-over'; return;
@@ -903,7 +905,7 @@ function drawLayer(cc, L){
     if (xf.fromSel){ t.drawImage(L.canvas,0,0); t.globalCompositeOperation='destination-out'; t.drawImage(xf.selMask,0,0); t.globalCompositeOperation='source-over'; }
     setVT(t, xfMatrix()); t.drawImage(xff,0,0); setVT(t);
   } else t.drawImage(L.canvas,0,0);
-  if (hasHarm){ const b=harm.box; t.clearRect(b.x,b.y,b.w,b.h); t.drawImage(harm.prev,b.x,b.y,b.w,b.h); }
+  if (hasHarm){ const h = harm && harm.layer===L && harm.prev ? harm : filt; const b=h.box; t.clearRect(b.x,b.y,b.w,b.h); t.drawImage(h.prev,b.x,b.y,b.w,b.h); }
   if (isStroke && stroke.target==='content') applyStrokePreview(t);
   if (hasMask || (isStroke && stroke.target==='mask')){
     const m=ctx2(tMask); m.setTransform(1,0,0,1,0,0); m.clearRect(0,0,tMask.width,tMask.height);
@@ -1017,6 +1019,7 @@ function hexA(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${n>>16&25
 const curSize = () => S.tool==='eraser' ? S.eraserSize : S.size;
 
 function strokeBegin(p){
+  if (filt){ toast('Сначала примени или отмени фильтр'); return false; }
   { const A=AL(); if (A && A.kind==='adj' && (S.tool==='brush'||S.tool==='eraser')){
       if (!A.mask){ const m=newMask(A); A.mask=m; A.dirty=true; pushHist({undo(){A.mask=null;}, redo(){A.mask=m;}}); }
       if (!doc.editMask){ doc.editMask=true; layersChanged(); } } }
@@ -1242,7 +1245,7 @@ function selToMask(){
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
 }
-function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
+function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep) || !!(typeof filt!=='undefined' && filt); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
 function quickDeselect(){ if(!sel) return; deselect(); toast('Выделение снято · вернуть — тап двумя пальцами',1500); }
 function syncSelModes(){ document.querySelectorAll('#selModes button').forEach(b=>b.classList.toggle('on', b.dataset.mode===S.selMode)); }
 function setSelMode(k){ S.selMode=k; if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
@@ -1575,7 +1578,7 @@ for (const [key,id,min] of [['smooth','edSmooth',0],['feather','edFeather',0],['
   edgeSl[key]=hslider($('#'+id), {min, max:1, get:()=>edge?edge.t[key]:0,
     set:v=>{ if(!edge) return; if (key==='shift' && Math.abs(v)<0.04) v=0; edge.t[key]=v; $('#'+id+'V').textContent=edgeVal(v,EDGE_MAX[key])+' px'; if(!edgeRaf) edgeRaf=requestAnimationFrame(edgePreview); }});
 }
-$('#lyHarm').onclick=()=>harmOpen(); $('#lyAdj').onclick=()=>adjMenu(); $('#edApply').onclick=edgeApply; $('#edCancel').onclick=edgeCancel;
+$('#lyHarm').onclick=()=>harmOpen(); $('#lyAdj').onclick=()=>adjMenu(); $('#lyFilt').onclick=()=>filtMenu(); $('#edApply').onclick=edgeApply; $('#edCancel').onclick=edgeCancel;
 $('#edReset').onclick=()=>{ if(!edge) return; edge.t={smooth:0,feather:0,shift:0}; edgeDraw(); edgePreview(); };
 /* ============ depth map (Depth Anything V2 Small, on the iPad): select by depth, haze, depth blur ============
    The map is computed once per picture state from the visible composite (long side 518 px), then reused:
@@ -1772,6 +1775,74 @@ async function depthApply(){
     depthClose(); topInsert(L,'Размытие легло новым слоем сверху — лишнее можно стереть или скрыть маской'); markDirty();
   }catch(e){ console.error(e); toast('Не хватило памяти на размытие'); }
   busy(false); requestRender();
+}
+/* ============ layer filters: Gaussian blur and unsharp mask on the whole layer (or the selection on it) ============ */
+let filt=null, filtRaf=0;
+const FILT_DEF={blur:{r:0.25}, sharp:{amt:0.5, r:0.2, thr:0}};
+const filtSigma = (kind,t) => kind==='blur' ? 0.3+t.r*t.r*60 : 0.4+t.r*4;        // px at full size
+function filtProcess(d, W, H, kind, t, sig, wts){ // RGBA bytes in place; wts: per-pixel blend (selection), null = 1
+  const N=W*H, ch=[0,1,2,3].map(()=>new Float32Array(N));
+  for (let i=0;i<N;i++){ const a=d[i*4+3]/255; ch[0][i]=d[i*4]*a; ch[1][i]=d[i*4+1]*a; ch[2][i]=d[i*4+2]*a; ch[3][i]=d[i*4+3]; }
+  if (kind==='blur'){ const bl=ch.map(f=>gauss(Float32Array.from(f),W,H,sig));
+    for (let i=0;i<N;i++){ const k=wts?wts[i]:1; if (k<0.004) continue; const a=bl[3][i], ia=a>0.5?255/a:0, j=i*4;
+      d[j]+=(bl[0][i]*ia-d[j])*k; d[j+1]+=(bl[1][i]*ia-d[j+1])*k; d[j+2]+=(bl[2][i]*ia-d[j+2])*k; d[j+3]+=(a-d[j+3])*k; } }
+  else { const bl=[0,1,2].map(c=>gauss(Float32Array.from(ch[c]),W,H,sig)), amt=t.amt*2.5, thr=t.thr*40;
+    for (let i=0;i<N;i++){ const k=wts?wts[i]:1, a=d[i*4+3]; if (k<0.004 || !a) continue; const ia=255/a, j=i*4;
+      for (let c=0;c<3;c++){ const v=ch[c][i], diff=v-bl[c][i]; if (Math.abs(diff*ia)<thr) continue; const nv=clamp((v+amt*diff)*ia,0,255); d[j+c]+=(nv-d[j+c])*k; } } }
+}
+function filtOpen(kind){
+  if (!doc || xf || edge || stroke || harm || filt) return; if (dep) depthClose(); if (adjEdit) adjClose();
+  const L=AL(); if (!L || isGroup(L) || L.kind==='adj'){ toast('Выбери обычный слой'); return; }
+  if (!shown(L)){ toast('Слой скрыт'); return; }
+  const useSel=!!sel, box = useSel ? (sel.box && sel.box.w ? sel.box : {x:0,y:0,w:doc.w,h:doc.h}) : {x:0,y:0,w:doc.w,h:doc.h};
+  filt={kind, layer:L, useSel, box, t:JSON.parse(JSON.stringify(FILT_DEF[kind])), prev:null};
+  const pk=Math.min(1,1200/Math.max(box.w,box.h)); filt.pk=pk; filt.pw=Math.max(1,Math.round(box.w*pk)); filt.ph=Math.max(1,Math.round(box.h*pk));
+  const pc=mk(filt.pw,filt.ph), px=ctx2(pc,{willReadFrequently:true}); px.imageSmoothingQuality='high'; px.drawImage(L.canvas,box.x,box.y,box.w,box.h,0,0,filt.pw,filt.ph);
+  filt.src=px.getImageData(0,0,filt.pw,filt.ph);
+  if (useSel){ const m=mk(filt.pw,filt.ph), mx=ctx2(m,{willReadFrequently:true}); mx.drawImage(sel.mask,box.x,box.y,box.w,box.h,0,0,filt.pw,filt.ph); const md=mx.getImageData(0,0,filt.pw,filt.ph).data; filt.pw8=new Float32Array(filt.pw*filt.ph); for (let i=0;i<filt.pw8.length;i++) filt.pw8[i]=md[i*4+3]/255; }
+  filtBuild(); $('#filtbar').hidden=false; filtPreview(); updateSelBar();
+}
+function filtBuild(){
+  const f=filt, t=f.t, box=$('#filtbar'); box.textContent='';
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='<b></b> <span></span>'; head.firstChild.textContent = f.kind==='blur' ? 'Размытие по Гауссу' : 'Резкость';
+  head.lastChild.textContent = (f.useSel ? 'выделенное на слое «' : 'слой «')+f.layer.name+'»'; box.append(head);
+  const row=(label,key,fmt)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label></label><div></div><span class="v"></span>'; r.firstChild.textContent=label;
+    const v=r.lastChild, show=()=>v.textContent=fmt(t[key]); show();
+    hslider(r.children[1],{min:0,max:1,get:()=>t[key],set:x=>{ t[key]=x; show(); if(!filtRaf) filtRaf=requestAnimationFrame(filtPreview); }}); box.append(r); };
+  const pxf=()=>filtSigma(f.kind,t).toFixed(1)+' px', pc=x=>Math.round(x*100)+'%';
+  if (f.kind==='blur') row('Радиус','r',pxf);
+  else { row('Сила','amt',x=>Math.round(x*250)+'%'); row('Радиус','r',pxf); row('Порог','thr',x=>Math.round(x*40)); }
+  const foot=document.createElement('div'); foot.className='eb'; const sp=document.createElement('span'); sp.style.flex='1';
+  const c=document.createElement('button'); c.textContent='Отмена'; c.onclick=filtClose;
+  const ok=document.createElement('button'); ok.className='pri'; ok.textContent='Применить'; ok.onclick=filtApply;
+  foot.append(sp,c,ok); box.append(foot);
+}
+function filtPreview(){ filtRaf=0; const f=filt; if(!f) return;
+  const d=new Uint8ClampedArray(f.src.data); filtProcess(d,f.pw,f.ph,f.kind,f.t,filtSigma(f.kind,f.t)*f.pk,f.pw8||null);
+  if (!f.prev || f.prev.width!==f.pw || f.prev.height!==f.ph) f.prev=mk(f.pw,f.ph);
+  ctx2(f.prev).putImageData(new ImageData(d,f.pw,f.ph),0,0); requestRender(); }
+function filtClose(){ filt=null; $('#filtbar').hidden=true; updateSelBar(); requestRender(); }
+async function filtApply(){
+  const f=filt; if(!f) return; busy(true, f.kind==='blur'?'Размываю слой…':'Добавляю резкость…'); await nextFrame();
+  try{
+    const L=f.layer, r=f.box, sig=filtSigma(f.kind,f.t), mg=Math.ceil(sig*3)+2, BAND=256, before=grab(L.canvas,r), lx=ctx2(L.canvas,{willReadFrequently:true});
+    const work=mk(r.w,r.h), wx=ctx2(work); wx.drawImage(L.canvas,-r.x,-r.y);
+    for (let y0=0; y0<r.h; y0+=BAND){ const y1=Math.min(r.h,y0+BAND), a=Math.max(0,r.y+y0-mg), b=Math.min(doc.h,r.y+y1+mg), x0=Math.max(0,r.x-mg), x1=Math.min(doc.w,r.x+r.w+mg), W=x1-x0, H=b-a;
+      const id=lx.getImageData(x0,a,W,H); let w=null;
+      if (f.useSel){ const md=ctx2(sel.mask,{willReadFrequently:true}).getImageData(x0,a,W,H).data; w=new Float32Array(W*H); for (let i=0;i<w.length;i++) w[i]=md[i*4+3]/255; }
+      filtProcess(id.data,W,H,f.kind,f.t,sig,w);
+      wx.putImageData(id, x0-r.x, a-r.y, r.x-x0, r.y+y0-a, r.w, y1-y0);
+      busy(true,(f.kind==='blur'?'Размываю слой… ':'Добавляю резкость… ')+Math.round(y1/r.h*100)+'%'); await nextFrame(); }
+    L.ctx.clearRect(r.x,r.y,r.w,r.h); L.ctx.drawImage(work,r.x,r.y);
+    pushHist(pxEntry(L.canvas,r.x,r.y,r.w,r.h,before)); L.dirty=true; thumbSoon(L); markDirty();
+  }catch(e){ console.error(e); toast('Не хватило памяти — попробуй с выделением'); }
+  busy(false); filtClose();
+}
+function filtMenu(){
+  dialog('<h3>Фильтр на слой</h3><p>Действует на весь активный слой, а если есть выделение — только на выделенное, с мягким краем.</p>',
+    [['Размытие по Гауссу', ()=>filtOpen('blur'), false, 'ровное размытие слоя: фон, дальний план, подложка'],
+     ['Резкость', ()=>filtOpen('sharp'), false, 'контурная резкость: сила, радиус, порог (чтобы не тащить шум)'],
+     ['Отмена', null]], {list:true});
 }
 /* ============ adjustment layers: curves, levels, hue/saturation, colour balance ============
    A layer of kind 'adj' has no pixels (a 1×1 stub canvas). When the tree is composited it takes what lies
@@ -3389,6 +3460,7 @@ function showHelp(){
    <dt>Точечная восстанавливающая кисть (Y)</dt><dd>Без источника: мажь по пятну, пылинке, прыщику — заполнится текстурой вокруг. Быстро и без нейросети.</dd>
    <dt>Осветление (O), затемнение, губка, размытие, резкость, палец</dt><dd>Группа «Тон и резкость». Работают кистью, мазки накапливаются — прошёл ещё раз, эффект сильнее. Осветление и затемнение: диапазон Тени / Средние / Света, «Экспозиция», «Сохранять цвет» (без пересвета и грязи). «＋ Серый слой» — неразрушающий вариант: слой 50% серого в «Мягком свете»; на нём осветление рисует светлым, затемнение — тёмным, картинка не трогается, а слабить можно прозрачностью слоя. Губка: «Приглушить» / «Насытить» — насыщенность под кистью; «Беречь яркие» не даёт пересытить и так яркие цвета. Палец размазывает, «Сила» — как далеко тянется краска. «Все слои» — берёт видимую картинку со всех слоёв и кладёт результат на текущий слой: удобно на пустом слое сверху.</dd>
    <dt>Глубина (D)</dt><dd>Группа «Умное выделение и глубина». Нейросеть прямо на iPad строит карту глубины (первый раз скачает модель ~27 МБ). «Выделение» — тап по объекту выделяет всё на его глубине, «Ближе» / «Дальше» расширяют диапазон. «Дымка» — новый слой цвета кисти с маской по глубине: чем дальше, тем гуще. «Размытие» — тап по тому, что должно остаться резким; дальнее и ближнее размоется, результат ложится новым слоем сверху. «Карта» — показать саму карту глубины.</dd>
+   <dt>Размытие / резкость слоя</dt><dd>Панель слоёв → «Размытие / резкость»: размытие по Гауссу или контурная резкость (сила, радиус, порог) на весь активный слой. Если есть выделение — только на выделенное, с мягким краем. Пока двигаешь ползунки — видно сразу; «Применить» — одна отмена.</dd>
    <dt>Корректирующие слои</dt><dd>Панель слоёв → «+ Корректирующий слой»: кривые, уровни, цветовой тон / насыщенность, цветовой баланс. Меняют всё, что под ними, не трогая пиксели; настройки можно поменять в любой момент — тап по значку слоя. Кисть и ластик на таком слое рисуют его маску. «Только на слой ниже» — эффект только на слой прямо под ним (как обтравочная маска). Внутри группы с обычным наложением действует только на группу. «Слить вниз» впечатывает коррекцию в слой. В PSD уходят настоящими корректирующими слоями. Кривые: тап по линии — новая точка, тянуть — двигать, утащить за край — удалить.</dd>
    <dt>Гармонизация</dt><dd>Панель слоёв → «Гармонизация — цвет под фон». Подгоняет свет и цвет вставленного фрагмента под то, что под ним, как гармонизация в фотошопе. Без выделения берётся весь слой, с выделением — только выделенное (подойдёт и для склеенной картинки). «Ориентир»: «Вокруг» — смотрит на полосу фона вокруг фрагмента, «Весь фон» — на всю картинку под слоем. «Свет» и «Цвет» — что именно подгонять, «Насыщенность» — добавить или убрать сочности после подгонки.</dd>
    <dt>Заплатка (J)</dt><dd>Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение.</dd>
@@ -3812,6 +3884,7 @@ function resetDocState(){
   if (typeof harm!=='undefined' && harm) harmClose();
   if (typeof adjEdit!=='undefined' && adjEdit){ adjEdit=null; $('#adjbar').hidden=true; }
   if (typeof dep!=='undefined'){ if (dep) depthClose(); depthMap=null; }
+  if (typeof filt!=='undefined' && filt) filtClose();
   if (typeof thumbs!=='undefined') thumbs.clear();
   $('#xfbar').hidden=true; contentVer++;
 }
@@ -3987,7 +4060,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №27.7 причёска'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №28 размытие и резкость слоя'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
