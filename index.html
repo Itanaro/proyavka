@@ -82,6 +82,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .hs .hf{position:absolute;left:0;top:13px;height:4px;border-radius:2px;background:var(--accent)}
 .hs .hk{position:absolute;top:6px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--fg);box-shadow:0 1px 4px rgba(0,0,0,.5)}
 .row .hs{flex:1;width:auto}
+#opts.tight{gap:8px} #opts.tight .hs{width:80px} #opts.tight .opt{gap:5px}
 .opt .v{font-family:var(--mono);color:var(--fg);min-width:30px;font-size:12px;font-variant-numeric:tabular-nums}
 .seg{display:inline-flex;background:var(--panel-2);border-radius:8px;padding:2px}
 .seg button{height:30px;padding:0 10px;border-radius:6px;font-size:13px}
@@ -2547,7 +2548,9 @@ function rng(label, key, min, max, fmt){
   return w;
 }
 function chk(label,key){ const b=document.createElement('button'); b.className='chk'+(S[key]?' on':''); b.textContent=label; b.onclick=()=>{ S[key]=!S[key]; b.classList.toggle('on',S[key]); savePrefs(); }; return b; }
-function renderOpts(){
+function fitOpts(){ const o=$('#opts'); if(!o) return; o.classList.remove('tight'); if (o.scrollWidth>o.clientWidth+1) o.classList.add('tight'); }
+function renderOpts(){ renderOpts0(); requestAnimationFrame(fitOpts); }
+function renderOpts0(){
   const o=$('#opts'); o.textContent='';
   const pct=v=>Math.round(v*100)+'%';
   if (S.tool==='brush'||S.tool==='eraser'){
@@ -2573,7 +2576,7 @@ function renderOpts(){
       for (const [k,l] of opts){ const b=document.createElement('button'); b.textContent=l; b.className=S[key]===k?'on':''; b.onclick=()=>{ S[key]=k; savePrefs(); renderOpts(); }; seg.append(b); } return seg; };
     const onDB = (S.tool==='dodge'||S.tool==='burn') && isDB(AL());
     if (S.tool==='dodge'||S.tool==='burn'){
-      if (onDB){ const h=document.createElement('span'); h.className='opt'; h.textContent='Серый слой: рисую '+(S.tool==='dodge'?'светлым':'тёмным');
+      if (onDB){ const h=document.createElement('span'); h.className='opt'; h.textContent='Серый слой'; h.title='Рисую '+(S.tool==='dodge'?'светлым':'тёмным')+' по серому слою';
         o.append(h, rng('Экспозиция','dbExp',2,100,pct)); }
       else { const nl=document.createElement('button'); nl.className='chk'; nl.textContent='＋ Серый слой'; nl.title='Неразрушающее осветление/затемнение: слой 50% серого в режиме «Мягкий свет»'; nl.onclick=addDBLayer;
         o.append(nl, segOf('dbRange',[['shadow','Тени'],['mid','Средние'],['high','Света']]), rng('Экспозиция','dbExp',2,100,pct), chk('Сохранять цвет','dbProtect')); }
@@ -2825,6 +2828,7 @@ document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops
 document.querySelectorAll('#selbar [data-sel]').forEach(b=>b.onclick=()=>{ const a=b.dataset.sel;
   ({ai:()=>inpaintFromSel(), edge:edgeOpen, deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill})[a](); });
 $('#bDesel').onclick=()=>quickDeselect();
+$('#bUndo').onclick=()=>undo(); $('#bRedo').onclick=()=>redo();
 $('#docName').onclick=()=>openLibrary();
 $('#xfApply').onclick=xfApply; $('#xfCancel').onclick=xfCancel;
 $('#xfFlipH').onclick=()=>{ if(xf){ xf.sx*=-1; flipFix(); } }; $('#xfFlipV').onclick=()=>{ if(xf){ xf.sy*=-1; flipFix(); } };
@@ -3245,7 +3249,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №23.2 бортовой журнал'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №23.3 стрелки отмены'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
@@ -3297,7 +3301,7 @@ if (crashedBefore){ const c=crashedBefore; memNote(`перезапуск · ин
   setTool('brush'); syncSliders();
   if (crashedBefore) setTimeout(()=>toast('Safari перезапустил Проявку (похоже, не хватило памяти). Документ восстановлен с последнего автосохранения',6000), 900);
   if (stage.clientWidth >= 900){ showLayers(true); fitView(); }
-  window.addEventListener('resize', ()=>{ sizeStage(); });
+  window.addEventListener('resize', ()=>{ sizeStage(); fitOpts(); });
   let seen=false; try{ seen=localStorage.getItem('kadr.help')==='1'; }catch(e){}
   const sp=$('#splash'); setTimeout(()=>{ sp.classList.add('out'); setTimeout(()=>sp.remove(),400); }, 450);
   if (!seen) showHelp();
