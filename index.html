@@ -442,6 +442,7 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
     <button class="tb tgm" data-group="sel" aria-label="Выделение: лассо, прямоугольник, палочка"></button>
     <button class="tb tgm" data-group="ai" aria-label="Умное выделение: объект, тап по объекту"></button>
     <button class="tb tgm" data-group="fix" aria-label="Ретушь: заплатка, восстанавливающая кисть, штамп"></button>
+    <button class="tb tgm" data-group="tone" aria-label="Тон и резкость: осветление, затемнение, размытие, резкость"></button>
     <span class="rsep"></span>
     <button class="tb" data-tool="transform" aria-label="Трансформ (V)"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
     <span class="rsep"></span>
@@ -453,6 +454,10 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
   </div>
 
   <div id="toolSrc" hidden>
+    <button class="tb" data-tool="dodge" aria-label="Осветление (O)"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="5"/><path d="M12.5 12.5 20 20"/><path d="M9 2.5v1.5M2.5 9H4M4.4 4.4l1 1"/></svg></button>
+    <button class="tb" data-tool="burn" aria-label="Затемнение"><svg viewBox="0 0 24 24"><path d="M7 14c-2-2-2-5 0-7 1.5 1 2 2.5 2 3.5C10 8 11 5.5 13 4c0 3 3 4 3 8a4.5 4.5 0 0 1-9 2z"/><path d="M14 17l6 4"/></svg></button>
+    <button class="tb" data-tool="blur" aria-label="Размытие"><svg viewBox="0 0 24 24"><path d="M12 3c3 4 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 3-7 6-11z"/></svg></button>
+    <button class="tb" data-tool="sharpen" aria-label="Резкость"><svg viewBox="0 0 24 24"><path d="M12 3 18 21H6z"/><path d="M12 9v6"/></svg></button>
     <button class="tb" data-tool="patch" aria-label="Заплатка (J)"><svg viewBox="0 0 24 24"><rect x="3.5" y="8" width="17" height="8" rx="4" transform="rotate(-35 12 12)"/><path d="M10.5 10.5h.01M13.5 13.5h.01M13.5 10.5h.01M10.5 13.5h.01"/></svg></button>
     <button class="tb" data-tool="spot" aria-label="Точечная восстанавливающая кисть (Y)"><svg viewBox="0 0 24 24"><path d="M14.5 4.5 19.5 9.5 10 19c-1.5 1.5-4 1.8-6 1 .8-2-.5-4.5 1-6z"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></button>
     <button class="tb" data-tool="remove" aria-label="Удаление нейросетью (R)"><svg viewBox="0 0 24 24"><path d="M14.5 4.5 19.5 9.5 10 19c-1.5 1.5-4 1.8-6 1 .8-2-.5-4.5 1-6z"/><path d="M18 14.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8zM20 3.5l.5 1 1 .5-1 .5-.5 1-.5-1-1-.5 1-.5z"/></svg></button>
@@ -666,7 +671,8 @@ const S = {
   tool:'brush', color:'#2b2f3a', size:40, opacity:1, hardness:0.6, flow:0.3, smooth:0.35,
   pSize:true, pOpac:true, eraserSize:80, selMode:'new', fingerDraw:false, xfFree:false,
   wandTol:0.13, wandContig:true, wandSoft:true, wandAll:false,
-  retouchAll:false, cloneAligned:true, cloneFlow:1, penHoldPick:true
+  retouchAll:false, cloneAligned:true, cloneFlow:1, penHoldPick:true,
+  dbRange:'mid', dbExp:0.35, dbProtect:true, blurAmt:0.35, sharpAmt:0.4, fxFlow:0.6
 };
 let doc = null;          // {w,h,name,layers:[], active, editMask}
 let view = {x:0,y:0,s:1,r:0};
@@ -914,7 +920,7 @@ function renderOverlay(){ if(!doc) return;
   const cur = stroke ? stroke.cursor : hover;
   retouchOverlay(cur);
   if (eye){ drawEye(); return; }
-  if (cur && (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove')){
+  if (cur && (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove'||['dodge','burn','blur','sharpen'].includes(S.tool))){
     const r = Math.max(1.5, curSize()/2*view.s);
     ox.beginPath(); ox.arc(cur[0],cur[1],r,0,Math.PI*2); ox.strokeStyle='rgba(0,0,0,.7)'; ox.lineWidth=2.5; ox.stroke(); ox.strokeStyle='rgba(255,255,255,.9)'; ox.lineWidth=1; ox.stroke();
   }
@@ -980,6 +986,8 @@ function strokeBegin(p){
   if (!shown(L)){ toast(L.visible?'Группа со слоем скрыта, включи её видимость':'Слой скрыт, включи видимость'); return false; }
   const cloning = S.tool==='clone'||S.tool==='heal', masking = S.tool==='spot'||S.tool==='remove';
   if (masking && doc.editMask){ toast('Удаление работает по картинке, а не по маске — тапни миниатюру слоя'); return false; }
+  const fxing = ['dodge','burn','blur','sharpen'].includes(S.tool);
+  if (fxing && doc.editMask){ toast('Тон и резкость работают по картинке, а не по маске — тапни миниатюру слоя'); return false; }
   if (masking && inpaintBusy){ toast('Ещё считаю прошлый мазок…',1200); return false; }
   if (cloning && doc.editMask){ toast('Штамп и восстанавливающая кисть работают по картинке, а не по маске'); return false; }
   if (cloning && !cloneSrc){ toast('Сначала задай источник: тап пальцем по чистому месту (на клавиатуре — Alt + клик)',3200); return false; }
@@ -992,6 +1000,7 @@ function strokeBegin(p){
   const sb=ctx2(strokeBuf); sb.setTransform(1,0,0,1,0,0); sb.clearRect(0,0,doc.w,doc.h);
   stroke = { layer:L, target, op, opacity:S.opacity, sprite:getSprite(target==='mask'||cloning?'#ffffff':S.color),
     last:null, carry:0, bbox:null, sm:null, cursor:null, size:curSize() };
+  if (fxing){ try{ stroke.clone={ src:mk(doc.w,doc.h), ox:0, oy:0, heal:false, fx:S.tool, tiles:new Set(), layer:L }; }catch(e){ stroke=null; toast('Не хватает памяти'); return false; } }
   if (masking){ stroke.inpaint=S.tool; stroke.sprite=getSprite('#ff3b30'); stroke.opacity=0.5; }
   if (cloning){ const [x0,y0]=toDoc(...p);
     if (!S.cloneAligned || !cloneOff) cloneOff=[cloneSrc.x-x0, cloneSrc.y-y0];
@@ -1006,10 +1015,10 @@ function strokeMove(px,py,pressure){
   stroke.sm=[x,y];
   const p = clamp(pressure,0,1);
   const sizeK = S.pSize ? 0.12+0.88*p : 1;
-  const alpha = stroke.inpaint ? 1 : (stroke.clone ? S.cloneFlow : S.flow) * (S.pOpac ? clamp(0.15+0.85*p,0,1) : 1);
+  const alpha = stroke.inpaint ? 1 : (stroke.clone ? (stroke.clone.fx ? S.fxFlow : S.cloneFlow) : S.flow) * (S.pOpac ? clamp(0.15+0.85*p,0,1) : 1);
   const d = Math.max(1, stroke.size*sizeK);
   const sb=ctx2(strokeBuf);
-  const dab=(dx,dy,dd,a)=>{ const r=dd/2; sb.globalAlpha=a; sb.drawImage(stroke.sprite,dx-r,dy-r,dd,dd);
+  const dab=(dx,dy,dd,a)=>{ const r=dd/2; if (stroke.clone && stroke.clone.fx) fxEnsure(stroke.clone, dx-r, dy-r, dx+r, dy+r); sb.globalAlpha=a; sb.drawImage(stroke.sprite,dx-r,dy-r,dd,dd);
     const b=stroke.bbox; if(!b) stroke.bbox={x0:dx-r,y0:dy-r,x1:dx+r,y1:dy+r}; else { b.x0=Math.min(b.x0,dx-r); b.y0=Math.min(b.y0,dy-r); b.x1=Math.max(b.x1,dx+r); b.y1=Math.max(b.y1,dy+r);} };
   if (!stroke.last){ dab(x,y,d,alpha); stroke.last={x,y,d,a:alpha}; requestRender(); return; }
   const L0=stroke.last, dist=Math.hypot(x-L0.x,y-L0.y);
@@ -1036,7 +1045,7 @@ function strokeEnd(cancel){
   const reg=mk(r.w,r.h), rx=ctx2(reg); rx.drawImage(strokeBuf, r.x,r.y,r.w,r.h, 0,0,r.w,r.h);
   if (sel){ rx.globalCompositeOperation='destination-in'; rx.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,r.w,r.h); }
   if (st.clone) setTimeout(()=>{ if(!stroke) retouchCache=null; }, 0);
-  if (st.clone && S.cloneAligned && st.last) cloneSrc={x:clamp(st.last.x+st.clone.ox,0,doc.w-1), y:clamp(st.last.y+st.clone.oy,0,doc.h-1)};
+  if (st.clone && !st.clone.fx && S.cloneAligned && st.last) cloneSrc={x:clamp(st.last.x+st.clone.ox,0,doc.w-1), y:clamp(st.last.y+st.clone.oy,0,doc.h-1)};
   if (st.clone){ const c=st.clone;
     if (c.heal){ try{ healRegion(rx, r, c); }catch(e){ console.error(e); toast('Смешивание не удалось, оставила как штамп'); c.heal=false; } }
     if (!c.heal){ rx.globalCompositeOperation='source-in'; rx.drawImage(c.src, -(r.x+c.ox), -(r.y+c.oy)); rx.globalCompositeOperation='source-over'; } }
@@ -1834,6 +1843,46 @@ function inpaintFromSel(){
   const reader=rr=>{ const d=regionPixels(sel.mask, rr.x, rr.y, rr.w, rr.h), out=new Uint8Array(rr.w*rr.h); for(let i=0;i<out.length;i++) out[i]=d[i*4+3]>100?255:0; return out; };
   runRemoval(reader, b, 'ai', 'Удаление');
 }
+/* ============ dodge / burn / blur / sharpen: the effect is computed tile by tile only where the brush goes,
+   then revealed through the brush (same compositing path as the clone stamp, offset 0) ============ */
+const FX_TILE=256;
+function fxEnsure(c, x0, y0, x1, y1){
+  const tx0=Math.max(0,Math.floor(x0/FX_TILE)), ty0=Math.max(0,Math.floor(y0/FX_TILE)), tx1=Math.min(Math.ceil(doc.w/FX_TILE)-1,Math.floor(x1/FX_TILE)), ty1=Math.min(Math.ceil(doc.h/FX_TILE)-1,Math.floor(y1/FX_TILE));
+  for (let ty=ty0; ty<=ty1; ty++) for (let tx=tx0; tx<=tx1; tx++){ const key=ty*10000+tx; if (c.tiles.has(key)) continue; c.tiles.add(key); fxTile(c, tx*FX_TILE, ty*FX_TILE); }
+}
+function fxTile(c, x, y){
+  const t=c.fx, r=clipRect(x,y,FX_TILE,FX_TILE); if(!r.w||!r.h) return;
+  const sig = t==='blur' ? 0.6+S.blurAmt*14 : t==='sharpen' ? 1.1 : 0, m=Math.ceil(sig*3);
+  const rr=clipRect(r.x-m, r.y-m, r.w+2*m, r.h+2*m), W=rr.w, H=rr.h, N=W*H;
+  const src=ctx2(c.layer.canvas,{willReadFrequently:true}).getImageData(rr.x,rr.y,W,H), d=src.data;
+  if (t==='dodge'||t==='burn'){
+    const e=S.dbExp*1.6, sign = t==='dodge' ? 1 : -1, rg=S.dbRange, prot=S.dbProtect;
+    for (let i=0;i<N*4;i+=4){
+      const R=d[i]/255, G=d[i+1]/255, B=d[i+2]/255, L=0.299*R+0.587*G+0.114*B;
+      const w = rg==='shadow' ? (1-L)*(1-L) : rg==='high' ? L*L : 4*L*(1-L);
+      const k=e*w; if (k<0.002) continue;
+      const g = sign>0 ? 1/(1+k) : 1+k; // gamma: <1 lifts, >1 lowers
+      if (prot){ const L2=Math.pow(L,g); const f = L>0.002 ? L2/L : (sign>0?1+k:1);
+        d[i]=Math.min(255,d[i]*f); d[i+1]=Math.min(255,d[i+1]*f); d[i+2]=Math.min(255,d[i+2]*f); }
+      else { d[i]=255*Math.pow(R,g); d[i+1]=255*Math.pow(G,g); d[i+2]=255*Math.pow(B,g); }
+    }
+  } else {
+    // premultiplied blur so transparent edges do not darken
+    const ch=[0,1,2,3].map(()=>new Float32Array(N));
+    for (let i=0;i<N;i++){ const a=d[i*4+3]/255; ch[0][i]=d[i*4]*a; ch[1][i]=d[i*4+1]*a; ch[2][i]=d[i*4+2]*a; ch[3][i]=d[i*4+3]; }
+    const bl=ch.map(f=>gauss(Float32Array.from(f),W,H,sig));
+    if (t==='blur'){
+      for (let i=0;i<N;i++){ const a=bl[3][i]; d[i*4+3]=a; const ia=a>0.5?255/a:0; d[i*4]=bl[0][i]*ia; d[i*4+1]=bl[1][i]*ia; d[i*4+2]=bl[2][i]*ia; }
+    } else {
+      const amt=S.sharpAmt*2.2;
+      for (let i=0;i<N;i++){ const a=d[i*4+3]; if(!a) continue; const ia=255/a;
+        for (let k=0;k<3;k++){ const v=ch[k][i], b=bl[k][i]; d[i*4+k]=(v+amt*(v-b))*ia; } }
+    }
+  }
+  // keep only the inner tile (the margin was there for the blur)
+  const out=ctx2(c.src); const tmp=new ImageData(W,H); tmp.data.set(d);
+  out.putImageData(tmp, rr.x, rr.y, r.x-rr.x, r.y-rr.y, r.w, r.h);
+}
 function marchingSegs(a, W, H, thr, sx, sy){ // outline of mask a (W×H, 0..255) as segments in doc coords
   const out=[]; const v=(x,y)=> (x<0||y<0||x>=W||y>=H) ? 0 : a[y*W+x];
   for (let y=-1;y<H;y++) for (let x=-1;x<W;x++){
@@ -2316,7 +2365,7 @@ function layersChanged(){
     $('#lyCount').textContent = doc.layers.filter(x=>!isGroup(x)).length;
     $('#lyGroup').textContent = g ? '+ Группа' : 'В группу';
   }
-  if (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove') renderOpts();
+  if (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove'||['dodge','burn','blur','sharpen'].includes(S.tool)) renderOpts();
   updateStatus();
 }
 $('#lyBlend').innerHTML = BLENDS.map(b=>`<option value="${b[0]}">${b[1]}</option>`).join('');
@@ -2377,10 +2426,11 @@ const TOOL_GROUPS = {
   paint:{ title:'Рисование', items:[['brush','Кисть','B'],['eraser','Ластик','E'],['picker','Пипетка','I']] },
   sel:  { title:'Выделение', items:[['lasso','Лассо','L'],['rect','Прямоугольник','M'],['wand','Волшебная палочка','W']] },
   ai:   { title:'Умное выделение', items:[['@subject','Выделить объект',''],['tap','Тап по объекту','T']] },
+  tone: { title:'Тон и резкость', items:[['dodge','Осветление','O'],['burn','Затемнение',''],['blur','Размытие',''],['sharpen','Резкость','']] },
   fix:  { title:'Ретушь', items:[['remove','Удаление · нейросеть','R'],['spot','Точечная восст. кисть','Y'],['patch','Заплатка','J'],['heal','Восстанавливающая кисть','H'],['clone','Штамп','S']] },
 };
 const toolIcon = t => (t==='@subject' ? $('#bSubject') : $(`#toolSrc [data-tool="${t}"]`)).innerHTML;
-let groupCur = { paint:'brush', sel:'lasso', ai:'tap', fix:'patch' };
+let groupCur = { paint:'brush', sel:'lasso', ai:'tap', fix:'patch', tone:'dodge' };
 try{ Object.assign(groupCur, JSON.parse(localStorage.getItem('proyavka.groups')||'{}')); }catch(e){}
 function syncGroups(){
   for (const [g,def] of Object.entries(TOOL_GROUPS)){
@@ -2462,6 +2512,14 @@ function renderOpts(){
     for (const [k,l] of [[false,'Слой'],[true,'Все слои']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.retouchAll===k?'on':''; b.onclick=()=>{ S.retouchAll=k; retouchCache=null; savePrefs(); renderOpts(); }; src.append(b); }
     const pick=document.createElement('button'); pick.className='chk'+(clonePick?' on':''); pick.textContent='⊕ Источник'; pick.onclick=()=>{ clonePick=!clonePick; renderOpts(); if(clonePick) toast('Тапни карандашом по месту-источнику',2000); };
     o.append(pick, src, rng('Жёсткость','hardness',0,100,pct), rng('Поток','cloneFlow',2,100,pct), chk('Выровнять','cloneAligned'), chk('Нажим → размер','pSize'));
+  } else if (["dodge","burn","blur","sharpen"].includes(S.tool)){
+    if (S.tool==='dodge'||S.tool==='burn'){
+      const seg=document.createElement('div'); seg.className='seg';
+      for (const [k,l] of [['shadow','Тени'],['mid','Средние'],['high','Света']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.dbRange===k?'on':''; b.onclick=()=>{ S.dbRange=k; savePrefs(); renderOpts(); }; seg.append(b); }
+      o.append(seg, rng('Экспозиция','dbExp',2,100,pct), chk('Сохранять цвет','dbProtect'));
+    } else if (S.tool==='blur') o.append(rng('Сила','blurAmt',2,100,pct));
+    else o.append(rng('Сила','sharpAmt',2,100,pct));
+    o.append(rng('Нажим','fxFlow',5,100,pct), rng('Жёсткость','hardness',0,100,pct), chk('Нажим → размер','pSize'));
   } else if (S.tool==='spot'||S.tool==='remove'){
     const src=document.createElement('div'); src.className='seg';
     for (const [k,l] of [[false,'Слой'],[true,'Все слои → новый слой']]){ const b=document.createElement('button'); b.textContent=l; b.className=S.retouchAll===k?'on':''; b.onclick=()=>{ S.retouchAll=k; retouchCache=null; savePrefs(); renderOpts(); }; src.append(b); }
@@ -2556,6 +2614,7 @@ function showHelp(){
    <dt>Инструменты слева</dt><dd>Похожие собраны в группы: рисование, выделение, умное выделение. Тап по группе берёт последний инструмент из неё, повторный тап или удержание открывает список.</dd>
    <dt>Удаление · нейросеть (R)</dt><dd>Закрась карандашом лишний объект или мусор и отпусти — нейросеть прямо на iPad дорисует фон. Первый раз скачивается модель ~28 МБ, дальше работает без интернета. Для выделения — кнопка «Убрать нейросетью» на нижней панели.</dd>
    <dt>Точечная восстанавливающая кисть (Y)</dt><dd>Без источника: мажь по пятну, пылинке, прыщику — заполнится текстурой вокруг. Быстро и без нейросети.</dd>
+   <dt>Осветление (O), затемнение, размытие, резкость</dt><dd>Группа «Тон и резкость». Работают кистью по слою, мазки накапливаются — прошёл ещё раз, эффект сильнее. Осветление и затемнение: диапазон Тени / Средние / Света, «Экспозиция», «Сохранять цвет» (без пересвета и грязи). Размытие и резкость: «Сила». «Нажим» — сколько эффекта даёт один мазок.</dd>
    <dt>Заплатка (J)</dt><dd>Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение.</dd>
    <dt>Штамп (S) и восстанавливающая кисть (H)</dt><dd>Источник — кружок на холсте: перетащи его карандашом на чистое место (рядом появится лупа), потом рисуй. Ещё можно тапнуть пальцем или Alt + клик. Штамп копирует как есть, восстанавливающая кисть ещё и подгоняет цвет и свет под место. «Выровнять» — источник едет вместе с кистью между мазками. На клавиатуре источник — Alt + клик.</dd>
    <dt>Снять выделение</dt><dd>Тап одним пальцем по холсту, тап карандашом мимо картинки (в инструментах выделения), кнопка ✕ рядом со стрелками отмены вверху или ⌘D.</dd>
@@ -2819,7 +2878,7 @@ function toolDown(e,p){
   if ((t==='clone'||t==='heal') && (altDown || clonePick)){ const [x,y]=toDoc(...p); setCloneSrc(x,y); toolPtr=null; return; }
   if ((t==='clone'||t==='heal') && cloneSrc && srcHit(p)){ const [x,y]=toDoc(...p); try{ retouchSource(); }catch(_){} srcDrag={gx:cloneSrc.x-x, gy:cloneSrc.y-y, p}; renderOverlay(); return; }
   if (t==='patch'){ patchDown(p); return; }
-  if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e)); }
+  if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||['dodge','burn','blur','sharpen'].includes(t)){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e)); }
   else if (t==='lasso'){ lassoPts=[toDoc(...p)]; }
   else if (t==='rect'){ const [x,y]=toDoc(...p); rectSel={x0:x,y0:y,x1:x,y1:y}; }
   if ((t==='lasso'||t==='rect'||t==='wand') && e.shiftKey && sel){ tmpMode=S.selMode; S.selMode='add'; }
@@ -2837,7 +2896,7 @@ function toolMove(e){
   for (const ev of list){
     const p=stagePos(ev);
     if (srcDrag){ const [x,y]=toDoc(...p); cloneSrc={x:clamp(x+srcDrag.gx,0,doc.w-1), y:clamp(y+srcDrag.gy,0,doc.h-1)}; srcDrag.p=p; }
-    else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove') strokeMove(p[0],p[1],penPressure(ev));
+    else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||['dodge','burn','blur','sharpen'].includes(t)) strokeMove(p[0],p[1],penPressure(ev));
     else if (t==='patch') patchMove(p);
     else if (t==='lasso' && lassoPts){ const q=toDoc(...p), l=lassoPts[lassoPts.length-1]; if(Math.hypot(q[0]-l[0],q[1]-l[1])*view.s>2) lassoPts.push(q); }
     else if (t==='rect' && rectSel){ const [x,y]=toDoc(...p); rectSel.x1=x; rectSel.y1=y; }
@@ -2877,7 +2936,7 @@ function updateCursor(){
   if (panDrag) st.cursor='grabbing';
   else if (spaceDown) st.cursor='grab';
   else if (altDown && S.tool!=='transform') st.cursor='crosshair';
-  else st.cursor = (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove') ? 'none' : (S.tool==='transform' ? 'move' : 'crosshair');
+  else st.cursor = (S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove'||['dodge','burn','blur','sharpen'].includes(S.tool)) ? 'none' : (S.tool==='transform' ? 'move' : 'crosshair');
 }
 document.addEventListener('keyup', e=>{
   if (e.key===' '){ spaceDown=false; updateCursor(); }
@@ -2887,7 +2946,7 @@ window.addEventListener('blur', ()=>{ spaceDown=altDown=false; panDrag=null; upd
 function toolUp(e){
   const t=activeTool; toolPtr=null; if (penHold){ clearTimeout(penHold.T); penHold=null; }
   if (srcDrag){ srcDrag=null; cloneOff=null; renderOverlay(); toast('Источник на месте. Рисуй карандашом',1300); }
-  else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove') strokeEnd(false);
+  else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||['dodge','burn','blur','sharpen'].includes(t)) strokeEnd(false);
   else if (t==='patch') patchUp();
   else if (t==='lasso' && lassoPts){ const pts=lassoPts; lassoPts=null; if(pts.length<3){ if(S.selMode==='new') deselect(); } else applySelPoly(pts); }
   else if (t==='rect' && rectSel){ const r=normRect(rectSel); rectSel=null; if(r.w*view.s<4||r.h*view.s<4){ if(S.selMode==='new') deselect(); } else applySelPoly([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); }
@@ -2917,7 +2976,7 @@ document.addEventListener('keydown', e=>{
   if (mod && k==='g'){ e.preventDefault(); e.shiftKey?ungroup():makeGroup(); return; }
   if (mod && k==='j'){ e.preventDefault(); sel?selCopyToLayer():dupLayer(); return; }
   if (mod) return;
-  const map={b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap',w:'wand',j:'patch',h:'heal',s:'clone',r:'remove',y:'spot'};
+  const map={b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap',w:'wand',j:'patch',h:'heal',s:'clone',r:'remove',y:'spot',o:'dodge'};
   if (map[k]){ setTool(map[k]); return; }
   if (k==='['||k===']'){ const f=k===']'?1.15:1/1.15; const s=clamp(Math.round(curSize()*f+(k===']'?1:-1)),1,SIZE_MAX); if(S.tool==='eraser') S.eraserSize=s; else S.size=s; spriteKey=''; syncSliders(); return; }
   if (edge && k==='enter'){ edgeApply(); return; }
@@ -2930,7 +2989,7 @@ document.addEventListener('gesturestart', e=>e.preventDefault());
 document.addEventListener('contextmenu', e=>e.preventDefault());
 
 /* ============ prefs & autosave ============ */
-function savePrefs(){ try{ localStorage.setItem('kadr.prefs', JSON.stringify({color:S.color,size:S.size,eraserSize:S.eraserSize,opacity:S.opacity,hardness:S.hardness,flow:S.flow,smooth:S.smooth,pSize:S.pSize,pOpac:S.pOpac,fingerDraw:S.fingerDraw,wandTol:S.wandTol,wandContig:S.wandContig,wandSoft:S.wandSoft,wandAll:S.wandAll,retouchAll:S.retouchAll,cloneAligned:S.cloneAligned,cloneFlow:S.cloneFlow,penHoldPick:S.penHoldPick,recent})); }catch(e){} }
+function savePrefs(){ try{ localStorage.setItem('kadr.prefs', JSON.stringify({color:S.color,size:S.size,eraserSize:S.eraserSize,opacity:S.opacity,hardness:S.hardness,flow:S.flow,smooth:S.smooth,pSize:S.pSize,pOpac:S.pOpac,fingerDraw:S.fingerDraw,wandTol:S.wandTol,wandContig:S.wandContig,wandSoft:S.wandSoft,wandAll:S.wandAll,retouchAll:S.retouchAll,cloneAligned:S.cloneAligned,cloneFlow:S.cloneFlow,penHoldPick:S.penHoldPick,dbRange:S.dbRange,dbExp:S.dbExp,dbProtect:S.dbProtect,blurAmt:S.blurAmt,sharpAmt:S.sharpAmt,fxFlow:S.fxFlow,recent})); }catch(e){} }
 function loadPrefs(){ try{ const p=JSON.parse(localStorage.getItem('kadr.prefs')||'null'); if(p){ const {recent:r,...rest}=p; Object.assign(S,rest); if(r) recent.push(...r); } }catch(e){} }
 const DB='kadr', STORE='doc';
 function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB,1); r.onupgradeneeded=()=>r.result.createObjectStore(STORE); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
@@ -3122,7 +3181,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №21 отсек нейросетей'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №22 тон и резкость'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
