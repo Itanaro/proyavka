@@ -3238,7 +3238,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №23 губка, палец, серый слой'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №23.1 безопасный запуск'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
@@ -3281,7 +3281,8 @@ if (crashedBefore){ const c=crashedBefore; memNote(`перезапуск · ин
   if (!crashed) ok = await restore();
   if (found) setTimeout(()=>toast('В памяти нашлись прежние картинки: «Файл → Мои документы», карточки «Найдено»',6000), 1500);
   if (!ok) createDoc(3000,4000,'Без названия');
-  try{ localStorage.removeItem('proyavka.booting'); }catch(_){}
+  // the guard stays on until the restored document has been drawn and lived a few seconds: a crash on the first frames also counts
+  setTimeout(()=>{ try{ localStorage.removeItem('proyavka.booting'); }catch(_){} }, 6000);
   if (crashed) setTimeout(()=>dialog('<h3>Прошлый запуск не удался</h3><p>Похоже, Проявка закрылась, пока восстанавливала документ. Я открыла чистый холст, а сохранённый документ не тронут.</p>',
     [['Не восстанавливать', null], ['Восстановить документ', ()=>{ (async()=>{ try{ localStorage.setItem('proyavka.booting','1'); }catch(_){} const r=await restore(getCurDoc()); try{ localStorage.removeItem('proyavka.booting'); }catch(_){} if(!r) toast('Сохранённого документа нет'); })(); }, true]]), 600);
   setTool('brush'); syncSliders();
