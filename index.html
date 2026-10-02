@@ -677,7 +677,7 @@ const BLENDS = [
 const blendToPsd = b => (BLENDS.find(x=>x[0]===b)||BLENDS[0])[2];
 const psdToBlend = p => (BLENDS.find(x=>x[2]===p)||BLENDS[0])[0];
 
-const FX_TOOLS=['dodge','burn','sponge','blur','sharpen','smudge'];
+const FX_TOOLS=['dodge','burn','sponge','blur','sharpen','smudge'], FX_FLOW=0.6;
 const isDB = L => !!L && L.kind!=='group' && ['overlay','soft-light','hard-light'].includes(L.blend); // grey dodge&burn layer
 /* ============ state ============ */
 const S = {
@@ -1034,7 +1034,8 @@ function strokeMove(px,py,pressure){
   stroke.sm=[x,y];
   const p = clamp(pressure,0,1);
   const sizeK = S.pSize ? 0.12+0.88*p : 1;
-  const alpha = stroke.inpaint ? 1 : (stroke.clone ? (stroke.clone.fx==='smudge' ? 1 : stroke.clone.fx ? S.fxFlow : S.cloneFlow) : stroke.db ? S.fxFlow : S.flow) * (S.pOpac ? clamp(0.15+0.85*p,0,1) : 1);
+  const fxStroke = !!(stroke.clone && stroke.clone.fx) || !!stroke.db; // tone tools: the pencil alone doses the effect
+  const alpha = stroke.inpaint ? 1 : (stroke.clone ? (stroke.clone.fx==='smudge' ? 1 : stroke.clone.fx ? FX_FLOW : S.cloneFlow) : stroke.db ? FX_FLOW : S.flow) * ((S.pOpac || fxStroke) ? clamp(0.15+0.85*p,0,1) : 1);
   const d = Math.max(1, stroke.size*sizeK);
   const sb=ctx2(strokeBuf);
   const dab=(dx,dy,dd,a)=>{ const r=dd/2; if (stroke.clone && stroke.clone.fx){ fxEnsure(stroke.clone, dx-r-2, dy-r-2, dx+r+2, dy+r+2); if (stroke.clone.fx==='smudge'){ smudgeDab(stroke.clone, dx, dy, dd, a); a=1; } } sb.globalAlpha=a; sb.drawImage(stroke.sprite,dx-r,dy-r,dd,dd);
@@ -2596,12 +2597,11 @@ function renderOpts0(){
       if (onDB){ const h=document.createElement('span'); h.className='opt'; h.textContent='Серый слой'; h.title='Рисую '+(S.tool==='dodge'?'светлым':'тёмным')+' по серому слою';
         o.append(h, rng('Экспозиция','dbExp',2,100,pct)); }
       else { const nl=document.createElement('button'); nl.className='chk'; nl.textContent='＋ Серый слой'; nl.title='Неразрушающее осветление/затемнение: слой 50% серого в режиме «Мягкий свет»'; nl.onclick=addDBLayer;
-        o.append(segOf('dbRange',[['shadow','Тени'],['mid','Средние'],['high','Света']]), rng('Экспозиция','dbExp',2,100,pct), rng('Нажим','fxFlow',5,100,pct), nl, chk('Сохранять цвет','dbProtect')); }
+        o.append(segOf('dbRange',[['shadow','Тени'],['mid','Средние'],['high','Света']]), rng('Экспозиция','dbExp',2,100,pct), nl, chk('Сохранять цвет','dbProtect')); }
     } else if (S.tool==='sponge') o.append(segOf('spMode',[['desat','Приглушить'],['sat','Насытить']]), rng('Сила','spAmt',2,100,pct), chk('Беречь яркие','spVib'));
     else if (S.tool==='blur') o.append(rng('Сила','blurAmt',2,100,pct));
     else if (S.tool==='sharpen') o.append(rng('Сила','sharpAmt',2,100,pct));
     else o.append(rng('Сила','smudge',2,100,pct));
-    if (S.tool!=='smudge' && !(S.tool==='dodge'||S.tool==='burn') || onDB) o.append(rng('Нажим','fxFlow',5,100,pct));
     o.append(rng('Жёсткость','hardness',0,100,pct));
     if (!onDB) o.append(segOf('fxAll',[[false,'Слой'],[true,'Все слои']]));
     o.append(chk('Нажим → размер','pSize'));
@@ -3266,7 +3266,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №23.5 панель настроек ⋯'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №23.6 тон без «Нажима»'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
