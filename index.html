@@ -1584,7 +1584,7 @@ $('#edReset').onclick=()=>{ if(!edge) return; edge.t={smooth:0,feather:0,shift:0
    The map is computed once per picture state from the visible composite (long side 518 px), then reused:
    near ∈ [0..1], 1 = closest to the camera. */
 let depthMap=null, depthLoading=null, dep=null, depPrev=null, depRaf=0;
-const DEP_DEF={mode:'sel', ref:null, near:0.08, far:0.08, soft:0.06, start:0.45, dens:0.75, hsoft:0.5, blur:0.5, dof:0.06, show:false};
+const DEP_DEF={mode:'sel', ref:null, near:0.08, far:0.08, soft:0.06, start:0.45, dens:0.75, hsoft:0.5, blur:0.5, dof:0.06, bright:0.45, blades:0, show:false};
 async function depthCompute(){
   if (depthMap && depthMap.ver===contentVer && depthMap.w0===doc.w && depthMap.h0===doc.h) return depthMap;
   if (depthLoading) return depthLoading;
@@ -1688,7 +1688,10 @@ function depthBuild(){
     const sw=document.createElement('div'); sw.className='er'; sw.innerHTML='<label>Цвет</label><button id="dpSwatch" class="pickHere" aria-label="Выбрать цвет дымки"></button><span></span>';
     const b=sw.children[1]; b.style.cssText='height:30px;border-radius:8px;border:1px solid var(--line);background:'+S.color;
     b.onclick=e=>{ e.stopPropagation(); openPickerAt(b); }; box.append(sw); }
-  else { row('Сила','blur',0.05,1,pc); row('Резкая зона','dof',0,0.5,pc); }
+  else { row('Сила','blur',0.05,1,pc); row('Резкая зона','dof',0,0.5,pc); row('Блики','bright',0,1,pc);
+    const sg=document.createElement('div'); sg.className='er'; sg.innerHTML='<label>Диафрагма</label><div class="seg"></div><span></span>';
+    for (const [k,l] of [[0,'Круг'],[6,'6 лепестков'],[8,'8']]){ const b=document.createElement('button'); b.textContent=l; b.className=t.blades===k?'on':''; b.onclick=()=>{ t.blades=k; depthBuild(); depthPreview(); }; sg.children[1].append(b); }
+    box.append(sg); }
   const foot=document.createElement('div'); foot.className='eb';
   const mapB=document.createElement('button'); mapB.className='chk'+(t.show?' on':''); mapB.textContent='Карта'; mapB.onclick=()=>{ t.show=!t.show; mapB.classList.toggle('on',t.show); depthPreview(); };
   const sp=document.createElement('span'); sp.style.flex='1';
@@ -1724,7 +1727,13 @@ function blurMix(src, W, H, radiusAt, maxR, bgAt){
     out[i*4]=(A[0][i]+(B[0][i]-A[0][i])*t)*ia; out[i*4+1]=(A[1][i]+(B[1][i]-A[1][i])*t)*ia; out[i*4+2]=(A[2][i]+(B[2][i]-A[2][i])*t)*ia; out[i*4+3]=a; }
   return out;
 }
+function depthRadCanvas(t, maxR){ const m=depthMap, c=mk(m.w,m.h), x=ctx2(c), id=x.createImageData(m.w,m.h), N=m.w*m.h;
+  for (let i=0;i<N;i++){ const v=Math.round(clamp(depRadius(m.near[i],t,maxR)/maxR,0,1)*255); id.data[i*4]=id.data[i*4+1]=id.data[i*4+2]=v; id.data[i*4+3]=255; }
+  x.putImageData(id,0,0); return c; }
 function depthBlurPreview(){ const m=depthMap, t=dep.t;
+  if (lglGet()){ if (!dep.pvC){ const k=Math.min(1,900/Math.max(doc.w,doc.h)); dep.pvC=flatten(k); dep.pvK=k; }
+    const maxR=Math.max(1,t.blur*0.02*Math.max(doc.w,doc.h)), out=lensBlurGL(dep.pvC, depthRadCanvas(t,maxR), {r:maxR*dep.pvK, bright:t.bright, thr:0.8, blades:t.blades, rot:0.3});
+    if (out) return out; }
   if (!dep.pv){ const k=Math.min(1,900/Math.max(doc.w,doc.h)), c=flatten(k); dep.pv={k, w:c.width, h:c.height, data:ctx2(c,{willReadFrequently:true}).getImageData(0,0,c.width,c.height).data}; }
   const {k,w,h,data}=dep.pv, maxR=t.blur*0.02*Math.max(doc.w,doc.h)*k;
   const out=blurMix(data,w,h,(x,y)=>depRadius(depthAt(m,(x+0.5)/k,(y+0.5)/k),t,maxR),Math.max(0.5,maxR),(x,y)=>depBg(depthAt(m,(x+0.5)/k,(y+0.5)/k),t));
@@ -1763,8 +1772,12 @@ async function depthApply(){
     const {c}=depthSmallMask(v=>depHazeW(v,t), true); L.mask=newMask(L); L.mask.ctx.clearRect(0,0,doc.w,doc.h); L.mask.ctx.imageSmoothingQuality='high'; L.mask.ctx.drawImage(c,0,0,doc.w,doc.h);
     depthClose(); topInsert(L,'Дымка добавлена слоем с маской — маску можно докрасить, силу менять прозрачностью'); markDirty(); requestRender(); return;
   }
-  // blur: full resolution, in horizontal bands so memory stays small
   busy(true,'Размываю по глубине…'); await nextFrame();
+  if (lglGet()){ // lens renderer on the GPU
+    try{ const maxR=Math.max(1,t.blur*0.02*Math.max(doc.w,doc.h)), out=lensBlurGL(flatten(1), depthRadCanvas(t,maxR), {r:maxR, bright:t.bright, thr:0.8, blades:t.blades, rot:0.3, N:224});
+      if (out){ const L=newLayer('Размытие по глубине'); L.ctx.drawImage(out,0,0); depthClose(); topInsert(L,'Размытие легло новым слоем сверху — лишнее можно стереть или скрыть маской'); markDirty(); busy(false); requestRender(); return; } }
+    catch(e){ console.error(e); } }
+  // fallback without WebGL2: CPU blur in horizontal bands so memory stays small
   try{
     const src=flatten(1), sx=ctx2(src,{willReadFrequently:true}), maxR=Math.max(0.5,t.blur*0.02*Math.max(doc.w,doc.h)), mg=Math.ceil(maxR*1.6)+2, BAND=256;
     let L; L=newLayer('Размытие по глубине');
@@ -1776,9 +1789,90 @@ async function depthApply(){
   }catch(e){ console.error(e); toast('Не хватило памяти на размытие'); }
   busy(false); requestRender();
 }
+/* ============ lens blur (like Photoshop's): a real aperture on the GPU ============
+   Gather blur over a disc / polygon (golden-angle spiral of samples), done in linear light, with highlights boosted
+   so bright points open up into bokeh discs. Per-pixel radius from the depth map: a sample only counts if its own
+   circle of confusion reaches this pixel — so a sharp subject does not glow into the background, while a blurred
+   foreground spreads over what is behind it. Mip levels keep big radii smooth. */
+const LGL={};
+function lglGet(){
+  if (LGL.failed) return null; if (LGL.gl) return LGL;
+  try{
+    const c=document.createElement('canvas'); c.width=c.height=1;
+    const gl=c.getContext('webgl2',{premultipliedAlpha:false, preserveDrawingBuffer:true, antialias:false, alpha:true, depth:false, stencil:false});
+    if (!gl) throw new Error('no webgl2');
+    const sh=(type,src)=>{ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const pr=gl.createProgram();
+    gl.attachShader(pr, sh(gl.VERTEX_SHADER, `#version 300 es
+in vec2 p; out vec2 uv; void main(){ uv=vec2(p.x*0.5+0.5, 0.5-p.y*0.5); gl_Position=vec4(p,0.0,1.0); }`));
+    gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, `#version 300 es
+precision highp float;
+uniform sampler2D src; uniform sampler2D rad; uniform vec2 texel; uniform float maxR, bright, thr, blades, rot, grain, seed; uniform int useRad, N;
+in vec2 uv; out vec4 o;
+float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))+seed)*43758.5453); }
+vec3 unp(vec4 s){ return s.a>0.0001 ? s.rgb/s.a : vec3(0.0); }
+void main(){
+  float rc = maxR * (useRad==1 ? texture(rad, uv).r : 1.0);
+  vec4 c0 = texture(src, uv);
+  if (rc < 0.6){ o = vec4(unp(c0), c0.a); }
+  else {
+    float lod = max(0.0, log2(rc*1.7724539/sqrt(float(N))) - 0.5);
+    vec3 acc=vec3(0.0); float ah=0.0, cov=0.0, wsum=0.0;
+    float seg = blades>=3.0 ? 6.2831853/blades : 0.0;
+    for (int i=0;i<256;i++){ if (i>=N) break;
+      float t=(float(i)+0.5)/float(N), rr=sqrt(t), a=float(i)*2.39996323;
+      float k=1.0; if (seg>0.0){ float ang=mod(a+rot,seg)-seg*0.5; k=cos(seg*0.5)/cos(ang); }
+      vec2 off=vec2(cos(a),sin(a))*rr*k*rc;
+      vec2 q=uv+off*texel;
+      vec4 s=textureLod(src, q, lod);
+      float w=1.0;
+      if (useRad==1){ float sr=maxR*texture(rad,q).r; w=smoothstep(-1.5, 0.5, sr-length(off)); }
+      vec3 l=pow(unp(s), vec3(2.2)); float lum=dot(l, vec3(0.2126,0.7152,0.0722));
+      float hb = 1.0 + bright*12.0*smoothstep(thr, 1.0, lum);
+      acc += l*hb*w*s.a; ah += hb*w*s.a; cov += w*s.a; wsum += w;
+    }
+    if (wsum < 0.5){ o = vec4(unp(c0), c0.a); }
+    else { vec3 col = ah>1e-5 ? acc/ah : vec3(0.0); o = vec4(pow(col, vec3(1.0/2.2)), clamp(cov/wsum,0.0,1.0)); }
+  }
+  if (grain>0.0){ float g=(hash(uv*vec2(4096.0,4096.0))-0.5)*grain*0.12; o.rgb=clamp(o.rgb+g,0.0,1.0); }
+}`));
+    gl.linkProgram(pr); if (!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+    gl.useProgram(pr);
+    const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+    const loc=gl.getAttribLocation(pr,'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+    const tex=(unit,mip)=>{ const t=gl.createTexture(); gl.activeTexture(gl.TEXTURE0+unit); gl.bindTexture(gl.TEXTURE_2D,t);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER, mip?gl.LINEAR_MIPMAP_LINEAR:gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE); return t; };
+    const tSrc=tex(0,true), tRad=tex(1,false);
+    const U={}; for (const n of ['src','rad','texel','maxR','bright','thr','blades','rot','grain','seed','useRad','N']) U[n]=gl.getUniformLocation(pr,n);
+    gl.uniform1i(U.src,0); gl.uniform1i(U.rad,1);
+    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+    c.addEventListener('webglcontextlost', e=>{ e.preventDefault(); LGL.gl=null; });
+    Object.assign(LGL,{gl, canvas:c, tSrc, tRad, U}); return LGL;
+  }catch(e){ console.warn('lens blur: no WebGL2', e); LGL.failed=true; return null; }
+}
+// src: canvas; radC: canvas whose red channel is the radius 0..1 (null = full radius everywhere); p: {r (px), bright, thr, blades, rot, grain, N}
+function lensBlurGL(src, radC, p){
+  const G=lglGet(); if (!G) return null; const gl=G.gl, w=src.width, h=src.height;
+  if (G.canvas.width!==w || G.canvas.height!==h){ G.canvas.width=w; G.canvas.height=h; }
+  gl.viewport(0,0,w,h);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,G.tSrc); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,src); gl.generateMipmap(gl.TEXTURE_2D);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,G.tRad);
+  if (radC) gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,radC); else gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([255,255,255,255]));
+  const U=G.U; gl.uniform2f(U.texel,1/w,1/h); gl.uniform1f(U.maxR,p.r); gl.uniform1f(U.bright,p.bright||0); gl.uniform1f(U.thr,p.thr??0.75);
+  gl.uniform1f(U.blades,p.blades||0); gl.uniform1f(U.rot,p.rot||0); gl.uniform1f(U.grain,p.grain||0); gl.uniform1f(U.seed,Math.random()*100);
+  gl.uniform1i(U.useRad, radC?1:0); gl.uniform1i(U.N, Math.min(256, p.N||Math.round(clamp(48+p.r*6,64,224))));
+  gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES,0,3);
+  const out=mk(w,h); ctx2(out).drawImage(G.canvas,0,0);
+  if (w*h>4e6){ G.canvas.width=G.canvas.height=1; gl.activeTexture(gl.TEXTURE0); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4)); }
+  return out;
+}
 /* ============ layer filters: Gaussian blur and unsharp mask on the whole layer (or the selection on it) ============ */
 let filt=null, filtRaf=0;
-const FILT_DEF={blur:{r:0.25}, sharp:{amt:0.5, r:0.2, thr:0}};
+const FILT_DEF={blur:{r:0.25}, sharp:{amt:0.5, r:0.2, thr:0}, lens:{r:0.35, bright:0.45, thr:0.7, blades:0, grain:0}};
+const lensPx = r => 1+r*r*0.035*Math.max(doc.w,doc.h);
 const filtSigma = (kind,t) => kind==='blur' ? 0.3+t.r*t.r*60 : 0.4+t.r*4;        // px at full size
 function filtProcess(d, W, H, kind, t, sig, wts){ // RGBA bytes in place; wts: per-pixel blend (selection), null = 1
   const N=W*H, ch=[0,1,2,3].map(()=>new Float32Array(N));
@@ -1804,26 +1898,51 @@ function filtOpen(kind){
 }
 function filtBuild(){
   const f=filt, t=f.t, box=$('#filtbar'); box.textContent='';
-  const head=document.createElement('div'); head.className='eh'; head.innerHTML='<b></b> <span></span>'; head.firstChild.textContent = f.kind==='blur' ? 'Размытие по Гауссу' : 'Резкость';
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='<b></b> <span></span>'; head.firstChild.textContent = f.kind==='blur' ? 'Размытие по Гауссу' : f.kind==='lens' ? 'Размытие объектива' : 'Резкость';
   head.lastChild.textContent = (f.useSel ? 'выделенное на слое «' : 'слой «')+f.layer.name+'»'; box.append(head);
   const row=(label,key,fmt)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label></label><div></div><span class="v"></span>'; r.firstChild.textContent=label;
     const v=r.lastChild, show=()=>v.textContent=fmt(t[key]); show();
     hslider(r.children[1],{min:0,max:1,get:()=>t[key],set:x=>{ t[key]=x; show(); if(!filtRaf) filtRaf=requestAnimationFrame(filtPreview); }}); box.append(r); };
   const pxf=()=>filtSigma(f.kind,t).toFixed(1)+' px', pc=x=>Math.round(x*100)+'%';
-  if (f.kind==='blur') row('Радиус','r',pxf);
+  if (f.kind==='lens'){ row('Радиус','r',()=>Math.round(lensPx(t.r))+' px'); row('Блики','bright',pc); row('Порог бликов','thr',x=>Math.round(x*100)+'%'); row('Зерно','grain',pc);
+    const sg=document.createElement('div'); sg.className='er'; sg.innerHTML='<label>Диафрагма</label><div class="seg"></div><span></span>';
+    for (const [k,l] of [[0,'Круг'],[6,'6 лепестков'],[8,'8']]){ const b=document.createElement('button'); b.textContent=l; b.className=t.blades===k?'on':''; b.onclick=()=>{ t.blades=k; filtBuild(); filtPreview(); }; sg.children[1].append(b); }
+    box.append(sg); }
+  else if (f.kind==='blur') row('Радиус','r',pxf);
   else { row('Сила','amt',x=>Math.round(x*250)+'%'); row('Радиус','r',pxf); row('Порог','thr',x=>Math.round(x*40)); }
   const foot=document.createElement('div'); foot.className='eb'; const sp=document.createElement('span'); sp.style.flex='1';
   const c=document.createElement('button'); c.textContent='Отмена'; c.onclick=filtClose;
   const ok=document.createElement('button'); ok.className='pri'; ok.textContent='Применить'; ok.onclick=filtApply;
   foot.append(sp,c,ok); box.append(foot);
 }
+function lensParams(t, scale){ return {r:lensPx(t.r)*scale, bright:t.bright, thr:0.45+t.thr*0.5, blades:t.blades, rot:0.3, grain:t.grain}; }
+function blendByMask(base, over, mask){ // base canvas := lerp(base, over, mask alpha) — all the same size
+  const w=base.width, h=base.height, t=mk(w,h), tx=ctx2(t); tx.drawImage(over,0,0); tx.globalCompositeOperation='destination-in'; tx.drawImage(mask,0,0,w,h);
+  const bx=ctx2(base); bx.save(); bx.globalCompositeOperation='destination-out'; bx.drawImage(mask,0,0,w,h); bx.globalCompositeOperation='lighter'; bx.drawImage(t,0,0); bx.restore(); }
 function filtPreview(){ filtRaf=0; const f=filt; if(!f) return;
+  if (f.kind==='lens'){ if (!f.srcC){ f.srcC=mk(f.pw,f.ph); ctx2(f.srcC).putImageData(f.src,0,0); if (f.useSel){ f.maskC=mk(f.pw,f.ph); ctx2(f.maskC).drawImage(sel.mask,f.box.x,f.box.y,f.box.w,f.box.h,0,0,f.pw,f.ph); } }
+    const out=lensBlurGL(f.srcC, null, lensParams(f.t, f.pk)); if (!out){ toast('Размытие объектива требует WebGL2'); filtClose(); return; }
+    if (!f.prev || f.prev.width!==f.pw || f.prev.height!==f.ph) f.prev=mk(f.pw,f.ph);
+    const px=ctx2(f.prev); px.clearRect(0,0,f.pw,f.ph);
+    if (f.maskC){ px.drawImage(f.srcC,0,0); blendByMask(f.prev,out,f.maskC); } else px.drawImage(out,0,0);
+    requestRender(); return; }
   const d=new Uint8ClampedArray(f.src.data); filtProcess(d,f.pw,f.ph,f.kind,f.t,filtSigma(f.kind,f.t)*f.pk,f.pw8||null);
   if (!f.prev || f.prev.width!==f.pw || f.prev.height!==f.ph) f.prev=mk(f.pw,f.ph);
   ctx2(f.prev).putImageData(new ImageData(d,f.pw,f.ph),0,0); requestRender(); }
 function filtClose(){ filt=null; $('#filtbar').hidden=true; updateSelBar(); requestRender(); }
 async function filtApply(){
-  const f=filt; if(!f) return; busy(true, f.kind==='blur'?'Размываю слой…':'Добавляю резкость…'); await nextFrame();
+  const f=filt; if(!f) return; busy(true, f.kind==='sharp'?'Добавляю резкость…':'Размываю слой…'); await nextFrame();
+  if (f.kind==='lens'){
+    try{ const L=f.layer, r=f.box, before=grab(L.canvas,r), m=Math.ceil(lensPx(f.t.r))+2, rr=clipRect(r.x-m,r.y-m,r.w+2*m,r.h+2*m);
+      const src=mk(rr.w,rr.h); ctx2(src).drawImage(L.canvas,-rr.x,-rr.y);
+      const out=lensBlurGL(src, null, lensParams(f.t,1)); if(!out) throw new Error('webgl');
+      const res=mk(r.w,r.h), rx=ctx2(res);
+      if (f.useSel){ rx.drawImage(L.canvas,-r.x,-r.y); const o2=mk(r.w,r.h); ctx2(o2).drawImage(out,rr.x-r.x,rr.y-r.y); const mc=mk(r.w,r.h); ctx2(mc).drawImage(sel.mask,-r.x,-r.y); blendByMask(res,o2,mc); }
+      else rx.drawImage(out,rr.x-r.x,rr.y-r.y);
+      L.ctx.clearRect(r.x,r.y,r.w,r.h); L.ctx.drawImage(res,r.x,r.y);
+      pushHist(pxEntry(L.canvas,r.x,r.y,r.w,r.h,before)); L.dirty=true; thumbSoon(L); markDirty();
+    }catch(e){ console.error(e); toast('Не получилось: '+(e.message==='webgl'?'нужен WebGL2':'не хватило памяти')); }
+    busy(false); filtClose(); return; }
   try{
     const L=f.layer, r=f.box, sig=filtSigma(f.kind,f.t), mg=Math.ceil(sig*3)+2, BAND=256, before=grab(L.canvas,r), lx=ctx2(L.canvas,{willReadFrequently:true});
     const work=mk(r.w,r.h), wx=ctx2(work); wx.drawImage(L.canvas,-r.x,-r.y);
@@ -1840,7 +1959,8 @@ async function filtApply(){
 }
 function filtMenu(){
   dialog('<h3>Фильтр на слой</h3><p>Действует на весь активный слой, а если есть выделение — только на выделенное, с мягким краем.</p>',
-    [['Размытие по Гауссу', ()=>filtOpen('blur'), false, 'ровное размытие слоя: фон, дальний план, подложка'],
+    [['Размытие объектива', ()=>filtOpen('lens'), false, 'как у настоящего объектива: блики раскрываются в боке, форма диафрагмы'],
+     ['Размытие по Гауссу', ()=>filtOpen('blur'), false, 'ровное размытие слоя: фон, дальний план, подложка'],
      ['Резкость', ()=>filtOpen('sharp'), false, 'контурная резкость: сила, радиус, порог (чтобы не тащить шум)'],
      ['Отмена', null]], {list:true});
 }
@@ -3460,7 +3580,7 @@ function showHelp(){
    <dt>Точечная восстанавливающая кисть (Y)</dt><dd>Без источника: мажь по пятну, пылинке, прыщику — заполнится текстурой вокруг. Быстро и без нейросети.</dd>
    <dt>Осветление (O), затемнение, губка, размытие, резкость, палец</dt><dd>Группа «Тон и резкость». Работают кистью, мазки накапливаются — прошёл ещё раз, эффект сильнее. Осветление и затемнение: диапазон Тени / Средние / Света, «Экспозиция», «Сохранять цвет» (без пересвета и грязи). «＋ Серый слой» — неразрушающий вариант: слой 50% серого в «Мягком свете»; на нём осветление рисует светлым, затемнение — тёмным, картинка не трогается, а слабить можно прозрачностью слоя. Губка: «Приглушить» / «Насытить» — насыщенность под кистью; «Беречь яркие» не даёт пересытить и так яркие цвета. Палец размазывает, «Сила» — как далеко тянется краска. «Все слои» — берёт видимую картинку со всех слоёв и кладёт результат на текущий слой: удобно на пустом слое сверху.</dd>
    <dt>Глубина (D)</dt><dd>Группа «Умное выделение и глубина». Нейросеть прямо на iPad строит карту глубины (первый раз скачает модель ~27 МБ). «Выделение» — тап по объекту выделяет всё на его глубине, «Ближе» / «Дальше» расширяют диапазон. «Дымка» — новый слой цвета кисти с маской по глубине: чем дальше, тем гуще. «Размытие» — тап по тому, что должно остаться резким; дальнее и ближнее размоется, результат ложится новым слоем сверху. «Карта» — показать саму карту глубины.</dd>
-   <dt>Размытие / резкость слоя</dt><dd>Панель слоёв → «Размытие / резкость»: размытие по Гауссу или контурная резкость (сила, радиус, порог) на весь активный слой. Если есть выделение — только на выделенное, с мягким краем. Пока двигаешь ползунки — видно сразу; «Применить» — одна отмена.</dd>
+   <dt>Размытие / резкость слоя</dt><dd>Панель слоёв → «Размытие / резкость»: размытие объектива (блики раскрываются в боке, форма диафрагмы — круг или лепестки, зерно, чтобы размытое не выглядело пластиком), размытие по Гауссу или контурная резкость (сила, радиус, порог) на весь активный слой. Если есть выделение — только на выделенное, с мягким краем. Пока двигаешь ползунки — видно сразу; «Применить» — одна отмена.</dd>
    <dt>Корректирующие слои</dt><dd>Панель слоёв → «+ Корректирующий слой»: кривые, уровни, цветовой тон / насыщенность, цветовой баланс. Меняют всё, что под ними, не трогая пиксели; настройки можно поменять в любой момент — тап по значку слоя. Кисть и ластик на таком слое рисуют его маску. «Только на слой ниже» — эффект только на слой прямо под ним (как обтравочная маска). Внутри группы с обычным наложением действует только на группу. «Слить вниз» впечатывает коррекцию в слой. В PSD уходят настоящими корректирующими слоями. Кривые: тап по линии — новая точка, тянуть — двигать, утащить за край — удалить.</dd>
    <dt>Гармонизация</dt><dd>Панель слоёв → «Гармонизация — цвет под фон». Подгоняет свет и цвет вставленного фрагмента под то, что под ним, как гармонизация в фотошопе. Без выделения берётся весь слой, с выделением — только выделенное (подойдёт и для склеенной картинки). «Ориентир»: «Вокруг» — смотрит на полосу фона вокруг фрагмента, «Весь фон» — на всю картинку под слоем. «Свет» и «Цвет» — что именно подгонять, «Насыщенность» — добавить или убрать сочности после подгонки.</dd>
    <dt>Заплатка (J)</dt><dd>Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение.</dd>
@@ -4060,7 +4180,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №28 размытие и резкость слоя'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №29 размытие объектива'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
