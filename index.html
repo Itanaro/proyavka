@@ -630,7 +630,8 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
       <span class="fsep"></span>
       <button data-sel="fill2" title="Заливка с учётом содержимого">Умная заливка</button>
       <button data-sel="ai" class="ai" title="Убрать нейросетью">✦ Убрать</button>
-      <button data-sel="gen" class="ai" title="Генеративная заливка на компьютере (FLUX Fill)">✦ Генерация</button>
+      <button data-sel="lift" class="ai" title="Поднять объект на свой слой, дорисовать фон за ним и двигать">✦ Сдвинуть</button>
+      <button data-sel="gen" class="ai" title="Генеративная заливка (FLUX Fill)">✦ Генерация</button>
       <button data-sel="transform" class="pri">Трансформ</button>
     </div>
     <div class="fbar" id="edgebar" hidden>
@@ -3762,6 +3763,43 @@ function inpaintFromStroke(st, r){
   requestRender();
   runRemoval(reader, bb, st.inpaint==='remove'?'ai':'pm', st.inpaint==='remove'?'Удаление':'Восстановление');
 }
+/* ============ object move (Stardust-like): the selected object is lifted onto its own layer,
+   the spot behind it is filled by the on-device network at once, and the object follows the finger ============ */
+async function objLift(){
+  if (!sel){ toast('Сначала тапни по объекту'); return; }
+  if (inpaintBusy || xf) return;
+  if (!S.retouchAll && !pixelOnly()) return;
+  const L0=AL(); if (!S.retouchAll && !shown(L0)){ toast('Слой скрыт'); return; }
+  const bb=selBBox(); if (!bb.w||!bb.h){ toast('Пустое выделение'); return; }
+  // 1) the object itself, taken before the fill changes the pixels
+  const obj=mk(doc.w,doc.h), ox=ctx2(obj);
+  if (S.retouchAll) ox.drawImage(compositeRegion(bb,bb.w,bb.h), bb.x, bb.y); else ox.drawImage(L0.canvas, bb.x,bb.y,bb.w,bb.h, bb.x,bb.y,bb.w,bb.h);
+  ox.globalCompositeOperation='destination-in'; ox.drawImage(sel.mask,0,0);
+  trimHistory(100); const n0=undoStack.length, b0=histBytes;
+  // 2) the hole: a bit wider than the object so its halo and contact edge go too
+  inpaintBusy=true; retouchCache=null; wandCache=null;
+  try{
+    const side=Math.max(bb.w,bb.h), mg=Math.round(Math.max(48, side*0.9));
+    const r=clipRect(bb.x-mg, bb.y-mg, bb.w+2*mg, bb.h+2*mg), N=r.w*r.h;
+    const d=regionPixels(sel.mask, r.x, r.y, r.w, r.h), raw=new Uint8Array(N); for (let i=0;i<N;i++) raw[i]=d[i*4+3]>24?255:0;
+    const soft=edgeProcess(raw, r.w, r.h, 0, 3, Math.max(3, Math.round(side*0.04)));
+    const D=destPixels(r);
+    busy(true,'Убираю объект с фона…'); await nextFrame();
+    const G=await generateFill(r, D, soft, 'ai');
+    writeFill(r, D, G, soft, 'Фон за объектом'); busy(false);
+  }catch(err){ console.error(err); busy(false); inpaintBusy=false;
+    toast(err&&err.message==='cancel' ? 'Загрузка модели отменена' : 'Не получилось: '+(err&&err.message||'ошибка'),4500); return; }
+  inpaintBusy=false;
+  // 3) the object on its own layer right above
+  const OL=newLayer('Объект'); OL.ctx.drawImage(obj,0,0); OL.dirty=true; insertLayer(OL, doc.active+1);
+  // one undo step for lift + fill (the move itself is the next one)
+  const parts=undoStack.splice(n0); histBytes=b0;
+  pushHist({ undo(){ for (let i=parts.length-1;i>=0;i--) parts[i].undo(); }, redo(){ for (const e of parts) e.redo(); }, bytes:parts.reduce((a,e)=>a+(e.bytes||0),0) });
+  layersChanged(); thumbSoon(OL); requestRender();
+  // 4) straight into moving
+  setTool('transform');
+  toast('Двигай объект — фон за ним уже дорисован',1800);
+}
 function inpaintFromSel(){
   if (!sel){ toast('Сначала выдели то, что убрать'); return; }
   const b=selBBox(); if(!b.w||!b.h){ toast('Пустое выделение'); return; }
@@ -4879,7 +4917,7 @@ document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops
 
 /* ============ selection bar & transform bar ============ */
 document.querySelectorAll('#selbar [data-sel]').forEach(b=>b.onclick=()=>{ const a=b.dataset.sel;
-  ({ai:()=>inpaintFromSel(), edge:edgeOpen, deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill, gen:genOpen})[a](); });
+  ({ai:()=>inpaintFromSel(), edge:edgeOpen, deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill, gen:genOpen, lift:objLift})[a](); });
 $('#bDesel').onclick=()=>quickDeselect();
 $('#docName').onclick=()=>openLibrary();
 $('#xfApply').onclick=xfApply; $('#xfCancel').onclick=xfCancel;
@@ -5315,7 +5353,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №36.1 генеративная заливка в облаке (fal.ai)'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-04 · №37 сдвиг объекта'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
