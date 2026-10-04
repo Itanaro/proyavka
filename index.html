@@ -447,6 +447,11 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #genbar .gvar canvas,#objbar .gvar canvas{display:block;border-radius:9px;max-height:96px}
 #genbar .gvar.on,#objbar .gvar.on{box-shadow:inset 0 0 0 2px #eab066,0 4px 14px -6px rgba(234,166,86,.7)}
 
+
+/* bottom bars sit between the tool rail and the layers panel; selection bar wraps only between groups */
+#stage .fbar{left:calc(50% + 50px);max-width:calc(100% - 124px)}
+#stage.lyopen .fbar{left:calc(50% - 103px);max-width:calc(100% - 430px)}
+.fgrp{display:flex;align-items:center;gap:2px;flex-wrap:nowrap}
 </style>
 
 <div id="app">
@@ -619,20 +624,9 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <div id="status"><span id="zoomBadge">100%</span><span id="docInfo"></span><span id="memInfo"></span></div>
     <div class="fbar" id="selbar" hidden>
       <div class="seg" id="selModes"><button data-mode="new">Новое</button><button data-mode="add">＋ Добавить</button><button data-mode="sub">− Вычесть</button></div>
-      <span class="fsep"></span>
-      <button data-sel="invert">Инверсия</button>
-      <button data-sel="edge">Край…</button>
-      <span class="fsep"></span>
-      <button data-sel="copy">На слой</button>
-      <button data-sel="mask">В маску</button>
-      <button data-sel="fill">Залить</button>
-      <button data-sel="delete">Удалить</button>
-      <span class="fsep"></span>
-      <button data-sel="fill2" title="Заливка с учётом содержимого">Умная заливка</button>
-      <button data-sel="ai" class="ai" title="Убрать нейросетью">✦ Убрать</button>
-      <button data-sel="lift" class="ai" title="Поднять объект на свой слой, дорисовать фон за ним и двигать">✦ Сдвинуть</button>
-      <button data-sel="gen" class="ai" title="Генеративная заливка (FLUX Fill)">✦ Генерация</button>
-      <button data-sel="transform" class="pri">Трансформ</button>
+      <span class="fgrp"><span class="fsep"></span><button data-sel="invert">Инверсия</button><button data-sel="edge">Край…</button></span>
+      <span class="fgrp"><span class="fsep"></span><button data-sel="copy">На слой</button><button data-sel="mask">В маску</button><button data-sel="fill">Залить</button><button data-sel="delete">Удалить</button></span>
+      <span class="fgrp"><span class="fsep"></span><button data-sel="fill2" title="Заливка с учётом содержимого">Умная заливка</button><button data-sel="ai" class="ai" title="Убрать нейросетью">✦ Убрать</button><button data-sel="lift" class="ai" title="Поднять объект на свой слой, дорисовать фон за ним и двигать">✦ Сдвинуть</button><button data-sel="gen" class="ai" title="Генеративная заливка (FLUX Fill)">✦ Генерация</button><button data-sel="transform" class="pri">Трансформ</button></span>
     </div>
     <div class="fbar" id="edgebar" hidden>
       <div class="eh">Край выделения <span>красным — то, что не выделено</span></div>
@@ -2956,14 +2950,14 @@ function genBuild(){
   if (genCfg.provider!=='fal'){ const sr=document.createElement('div'); sr.className='er'; sr.innerHTML='<label>Сила изменения</label><div></div><span class="v"></span>'; const v=sr.lastChild, show=()=>v.textContent=Math.round(g.str*100)+'%'; show();
     hslider(sr.children[1],{min:0.2,max:1,get:()=>g.str,set:x=>{ g.str=x; show(); }}); box.append(sr); }
   const hint=document.createElement('div'); hint.className='gh';
-  hint.textContent = genCfg.provider==='fal' ? (g.used ? 'Подсказка для модели: '+g.used : 'Облако FLUX Fill: ~$0.05 за вариант. '+(genCfg.gemKey ? 'Gemini посмотрит на кадр и напишет подсказку сам.' : 'Слова лучше по-английски; с ключом Gemini можно по-русски.'))
+  hint.textContent = genCfg.provider==='fal' ? (g.used ? 'Подсказка для модели: '+g.used : 'FLUX Fill через интернет: ~$0.05 за вариант. '+(genCfg.gemKey ? 'Gemini посмотрит на кадр и напишет подсказку сам.' : 'Слова лучше по-английски; с ключом Gemini можно по-русски.'))
     : '100% — новое содержимое (убрать, дорисовать). 35–55% — перегенерировать, сохранив форму (кожа, ткань).';
   box.append(hint);
   if (g.variants.length){ const vr=document.createElement('div'); vr.className='gvars';
     g.variants.forEach((c,i)=>{ const b=document.createElement('button'); b.className='gvar'+(i===g.idx?' on':''); const t=mk(96,Math.max(1,Math.round(96*c.height/c.width))); ctx2(t).drawImage(c,0,0,t.width,t.height); b.append(t); b.onclick=()=>genPick(i); vr.append(b); });
     box.append(vr); }
   const foot=document.createElement('div'); foot.className='eb';
-  const st=document.createElement('button'); st.textContent='⚙'; st.title='Компьютер с нейросетью'; st.onclick=genSettings;
+  const st=document.createElement('button'); st.textContent='⚙'; st.title='Настройки генерации'; st.onclick=genSettings;
   const sp=document.createElement('span'); sp.style.flex='1';
   const cancel=document.createElement('button'); cancel.textContent= g.busy ? 'Остановить' : 'Отмена'; cancel.onclick= g.busy ? ()=>{ g.cancelled=true; if(g.abort) g.abort.abort(); } : genCancel;
   foot.append(st, sp, cancel);
@@ -3769,7 +3763,7 @@ function inpaintFromStroke(st, r){
    the spot behind it is filled by the on-device network at once, and the object follows the finger ============ */
 let lift=null;
 const liftAlive=()=> lift && doc.layers.includes(lift.OL);
-function objOpen(){ if (!liftAlive()){ lift=null; return; } lift.open=true; objBuild(); $('#objbar').hidden=false; updateSelBar(); }
+function objOpen(){ if (!liftAlive()){ lift=null; return; } lift.open=true; lift.bb=undefined; if (lift.sh.op>0) objShadow(); objBuild(); $('#objbar').hidden=false; updateSelBar(); }
 function objDone(silent){ const l=lift; lift=null; $('#objbar').hidden=true; if (l && l.busy){ l.cancelled=true; try{ l.abort&&l.abort.abort(); }catch(e){} } updateSelBar(); if(!silent) requestRender(); }
 function objBuild(){
   const l=lift, box=$('#objbar'); if (!l) return; box.textContent='';
@@ -3797,12 +3791,15 @@ function softBlur(c, rad){ // cheap wide blur that also works where ctx.filter d
   const s2=mk(w,h), s2x=ctx2(s2); for (const [dx,dy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){ s2x.globalAlpha= dx||dy ? 0.5 : 1; s2x.drawImage(sm,dx,dy); }
   const out=mk(c.width,c.height), ox=ctx2(out); ox.imageSmoothingQuality='high'; ox.drawImage(s2,0,0,c.width,c.height); return out;
 }
-function objShadow(){ // a soft cast shadow from the object's silhouette, on its own Multiply layer right under it
+let objShT=0;
+function objShadow(){ if (!objShT) objShT=requestAnimationFrame(()=>{ objShT=0; objShadowNow(); }); } // one redraw per frame while a slider is dragged
+function objShadowNow(){ // a soft cast shadow from the object's silhouette, on its own Multiply layer right under it
   const l=lift; if (!liftAlive()) return; const OL=l.OL;
   if (l.sh.op<=0){ if (l.shL){ l.shL.visible=false; layersChanged(); requestRender(); } return; }
   if (!l.shL || !doc.layers.includes(l.shL)){ const L=newLayer('Тень объекта'); L.blend='multiply'; insertLayer(L, doc.layers.indexOf(OL)); l.shL=L; doc.active=doc.layers.indexOf(OL); layersChanged(); }
   const S_=l.shL; S_.visible=true; S_.opacity=l.sh.op;
-  const b=contentBBox(OL.canvas); S_.ctx.clearRect(0,0,doc.w,doc.h); if (!b){ requestRender(); return; }
+  if (l.bb===undefined) l.bb=contentBBox(OL.canvas); // the object only changes between moves
+  const b=l.bb; S_.ctx.clearRect(0,0,doc.w,doc.h); if (!b){ requestRender(); return; }
   const size=Math.max(b.w,b.h), d=l.sh.len*size, a=l.sh.ang*Math.PI/180, rad=size*(0.01+l.sh.soft*0.08);
   const pad=Math.ceil(rad*3+d), r=clipRect(b.x-pad, b.y-pad, b.w+2*pad, b.h+2*pad); if(!r.w||!r.h) return;
   const c=mk(r.w,r.h), x=ctx2(c); x.drawImage(OL.canvas, r.x-Math.cos(a)*d, r.y-Math.sin(a)*d, r.w, r.h, 0,0,r.w,r.h);
@@ -5257,6 +5254,8 @@ function resetDocState(){
   if (typeof adjEdit!=='undefined' && adjEdit){ adjEdit=null; $('#adjbar').hidden=true; }
   if (typeof dep!=='undefined'){ if (dep) depthClose(); depthMap=null; }
   if (typeof filt!=='undefined' && filt) filtClose();
+  if (typeof gen!=='undefined' && gen){ gen.cancelled=true; try{ gen.abort&&gen.abort.abort(); }catch(e){} gen=null; $('#genbar').hidden=true; }
+  if (typeof lift!=='undefined' && lift) objDone(true);
   if (typeof thumbs!=='undefined') thumbs.clear();
   $('#xfbar').hidden=true; contentVer++;
 }
@@ -5434,7 +5433,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-04 · №37.2 сдвиг объекта: «Перерисовать фон»'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-04 · №37.3 обход: панели, тень, чистка'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
