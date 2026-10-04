@@ -150,15 +150,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .fbar button{height:36px;padding:0 12px;border-radius:8px;white-space:nowrap;font-size:13px}
 .fbar button:active{background:var(--panel-2)}
 .fbar .pri{background:var(--accent);color:var(--accent-ink);font-weight:600}
-#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
-#edgebar .eh,#harmbar .eh,#adjbar .eh,#depthbar .eh,#filtbar .eh,#genbar .eh{font-weight:600;font-size:14px}
-#edgebar .eh span,#harmbar .eh span,#adjbar .eh span,#depthbar .eh span,#filtbar .eh span,#genbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
-#edgebar .er,#harmbar .er,#adjbar .er,#depthbar .er,#filtbar .er,#genbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
-#edgebar .er label,#harmbar .er label,#adjbar .er label,#depthbar .er label,#filtbar .er label,#genbar .er label{color:var(--muted)}
-#edgebar .er .v,#harmbar .er .v,#adjbar .er .v,#depthbar .er .v,#filtbar .er .v,#genbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
-#edgebar .er .hs,#harmbar .er .hs,#adjbar .er .hs,#depthbar .er .hs,#filtbar .er .hs,#genbar .er .hs{height:32px;width:auto}
+#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar,#objbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
+#edgebar .eh,#harmbar .eh,#adjbar .eh,#depthbar .eh,#filtbar .eh,#genbar .eh,#objbar .eh{font-weight:600;font-size:14px}
+#edgebar .eh span,#harmbar .eh span,#adjbar .eh span,#depthbar .eh span,#filtbar .eh span,#genbar .eh span,#objbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+#edgebar .er,#harmbar .er,#adjbar .er,#depthbar .er,#filtbar .er,#genbar .er,#objbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
+#edgebar .er label,#harmbar .er label,#adjbar .er label,#depthbar .er label,#filtbar .er label,#genbar .er label,#objbar .er label{color:var(--muted)}
+#edgebar .er .v,#harmbar .er .v,#adjbar .er .v,#depthbar .er .v,#filtbar .er .v,#genbar .er .v,#objbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
+#edgebar .er .hs,#harmbar .er .hs,#adjbar .er .hs,#depthbar .er .hs,#filtbar .er .hs,#genbar .er .hs,#objbar .er .hs{height:32px;width:auto}
 #edShift::after{content:"";position:absolute;left:50%;top:9px;width:2px;height:12px;margin-left:-1px;background:var(--muted);border-radius:1px}
-#edgebar .eb,#harmbar .eb,#adjbar .eb,#depthbar .eb,#filtbar .eb,#genbar .eb{display:flex;gap:6px;margin-top:2px}
+#edgebar .eb,#harmbar .eb,#adjbar .eb,#depthbar .eb,#filtbar .eb,#genbar .eb,#objbar .eb{display:flex;gap:6px;margin-top:2px}
 
 /* layers */
 #layers{position:absolute;top:8px;right:8px;bottom:8px;width:290px;max-width:calc(100% - 16px);background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;box-shadow:0 10px 36px rgba(0,0,0,.5);z-index:5}
@@ -373,7 +373,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #status span{background:var(--glass-bg);border:1px solid var(--glass-edge);border-radius:10px;padding:4px 9px}
 .fbar{left:calc(50% + 36px);bottom:28px;border-radius:22px;padding:7px}
 #stage.lyopen .fbar{left:calc((100% - 316px + 72px)/2);max-width:calc(100% - 316px - 72px - 32px)}
-#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar{padding:14px 16px;gap:11px}
+#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar,#objbar{padding:14px 16px;gap:11px}
 #toast{top:84px;border-radius:16px;padding:10px 18px}
 #menu{top:72px;left:10px;border-radius:20px;padding:8px}
 #picker{top:72px;right:10px;border-radius:22px}
@@ -442,10 +442,10 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #menu small{max-width:150px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 #genbar .gh{font-size:11.5px;color:var(--muted);margin-top:-4px;line-height:1.35}
-#genbar .gvars{display:flex;gap:8px;flex-wrap:wrap}
-#genbar .gvar{padding:3px;border-radius:12px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);height:auto}
-#genbar .gvar canvas{display:block;border-radius:9px;max-height:96px}
-#genbar .gvar.on{box-shadow:inset 0 0 0 2px #eab066,0 4px 14px -6px rgba(234,166,86,.7)}
+#genbar .gvars,#objbar .gvars{display:flex;gap:8px;flex-wrap:wrap}
+#genbar .gvar,#objbar .gvar{padding:3px;border-radius:12px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);height:auto}
+#genbar .gvar canvas,#objbar .gvar canvas{display:block;border-radius:9px;max-height:96px}
+#genbar .gvar.on,#objbar .gvar.on{box-shadow:inset 0 0 0 2px #eab066,0 4px 14px -6px rgba(234,166,86,.7)}
 
 </style>
 
@@ -645,6 +645,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <div class="fbar" id="depthbar" hidden></div>
     <div class="fbar" id="filtbar" hidden></div>
     <div class="fbar" id="genbar" hidden></div>
+    <div class="fbar" id="objbar" hidden></div>
     <div class="fbar" id="harmbar" hidden>
       <div class="eh">Гармонизация <span id="hmHint"></span></div>
       <div class="er"><label>Сила</label><div id="hm_str"></div><span class="v" id="hm_strV"></span></div>
@@ -1808,7 +1809,7 @@ function selToMask(){
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
 }
-function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep) || !!(typeof filt!=='undefined' && filt) || !!(typeof gen!=='undefined' && gen); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
+function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep) || !!(typeof filt!=='undefined' && filt) || !!(typeof gen!=='undefined' && gen) || !!(typeof lift!=='undefined' && lift && lift.open); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
 function quickDeselect(){ if(!sel) return; deselect(); toast('Выделение снято · вернуть — тап двумя пальцами',1500); }
 function syncSelModes(){ document.querySelectorAll('#selModes button').forEach(b=>b.classList.toggle('on', b.dataset.mode===S.selMode)); }
 function setSelMode(k){ S.selMode=k; if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
@@ -2862,10 +2863,11 @@ let gen=null; // {layer, r, W, H, img, mask, variants:[canvas], idx, prompt, str
 const genBase=()=>String(genCfg.url||'').trim().replace(/\/+$/,'');
 const genReady=()=> genCfg.provider==='fal' ? !!String(genCfg.falKey||'').trim() : !!genBase();
 const dataURL=(c,type,q)=>c.toDataURL(type,q);
+let netSess=null; // the panel whose Stop button aborts the current request (gen-fill or object move)
 async function netFetch(url, opt={}, ms=30000){ // fetch with a timeout and Russian error words
-  const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(), ms); if (gen) gen.abort=ctl;
+  const ss=netSess||gen, ctl=new AbortController(), T=setTimeout(()=>ctl.abort(), ms); if (ss) ss.abort=ctl;
   try{ const r=await fetch(url, Object.assign({mode:'cors', signal:ctl.signal}, opt)); if (!r.ok){ const t=(await r.text().catch(()=>'')).slice(0,240); throw new Error(r.status===401||r.status===403 ? 'ключ не подошёл ('+r.status+')' : r.status===402||/balance|credit|quota/i.test(t) ? 'закончился баланс' : 'HTTP '+r.status+' '+t); } return r; }
-  catch(e){ if (e.name==='AbortError') throw new Error(gen&&gen.cancelled?'cancel':'сервис не ответил'); if (/Load failed|Failed to fetch|NetworkError/i.test(e.message)) throw new Error('нет связи с сервисом (VPN?)'); throw e; }
+  catch(e){ if (e.name==='AbortError') throw new Error(ss&&ss.cancelled?'cancel':'сервис не ответил'); if (/Load failed|Failed to fetch|NetworkError/i.test(e.message)) throw new Error('нет связи с сервисом (VPN?)'); throw e; }
   finally{ clearTimeout(T); } }
 /* cloud: FLUX.1 Fill [pro] on fal.ai — the key lives only on this iPad (for colleagues later: a small proxy keeps keys) */
 async function falFill(P, prompt, n){
@@ -2873,7 +2875,7 @@ async function falFill(P, prompt, n){
   const body={prompt, image_url:dataURL(P.img,'image/jpeg',0.95), mask_url:dataURL(P.mask,'image/png'), num_images:n, output_format:'png', safety_tolerance:'5', sync_mode:true, enhance_prompt:/[а-яё]/i.test(prompt)};
   const q=await (await netFetch(base+'/'+genCfg.falModel, {method:'POST', headers:H, body:JSON.stringify(body)}, 90000)).json();
   const st=q.status_url || (base+'/'+genCfg.falModel+'/requests/'+q.request_id+'/status'), ru=q.response_url || (base+'/'+genCfg.falModel+'/requests/'+q.request_id), t0=Date.now();
-  const g0=gen; while (true){ if (!g0 || g0.cancelled) throw new Error('cancel'); await new Promise(r=>setTimeout(r,1200));
+  const g0=netSess||gen; while (true){ if (!g0 || g0.cancelled) throw new Error('cancel'); await new Promise(r=>setTimeout(r,1200));
     const s2=await (await netFetch(st,{headers:H},20000)).json(); if (s2.status==='COMPLETED') break;
     if (s2.status==='FAILED' || s2.error) throw new Error(String(s2.error||'сервис вернул ошибку').slice(0,200));
     if (Date.now()-t0>300000) throw new Error('слишком долго'); }
@@ -3765,6 +3767,78 @@ function inpaintFromStroke(st, r){
 }
 /* ============ object move (Stardust-like): the selected object is lifted onto its own layer,
    the spot behind it is filled by the on-device network at once, and the object follows the finger ============ */
+let lift=null;
+const liftAlive=()=> lift && doc.layers.includes(lift.OL);
+function objOpen(){ if (!liftAlive()){ lift=null; return; } lift.open=true; objBuild(); $('#objbar').hidden=false; updateSelBar(); }
+function objDone(silent){ const l=lift; lift=null; $('#objbar').hidden=true; if (l && l.busy){ l.cancelled=true; try{ l.abort&&l.abort.abort(); }catch(e){} } updateSelBar(); if(!silent) requestRender(); }
+function objBuild(){
+  const l=lift, box=$('#objbar'); if (!l) return; box.textContent='';
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Объект на новом месте <span></span>';
+  head.lastChild.textContent = l.busy || (l.vars.length ? 'облако: вариант '+(l.vi+1)+' из '+l.vars.length : 'фон за ним дорисован на iPad'); box.append(head);
+  const row=(name,key,min,max,fmt)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>'+name+'</label><div></div><span class="v"></span>';
+    const v=r.lastChild, show=()=>v.textContent=fmt(l.sh[key]); show();
+    hslider(r.children[1],{min,max,get:()=>l.sh[key],set:x=>{ const was=l.sh.op>0; l.sh[key]=x; show(); objShadow(); if (key==='op' && was!==(x>0)) objBuild(); }}); box.append(r); };
+  row('Тень','op',0,1,x=>Math.round(x*100)+'%');
+  if (l.sh.op>0){ row('Мягкость','soft',0,1,x=>Math.round(x*100)+'%'); row('Длина','len',0,0.6,x=>Math.round(x*100)+'%'); row('Направление','ang',0,360,x=>Math.round(x)+'°'); }
+  if (l.vars.length>1){ const vr=document.createElement('div'); vr.className='gvars';
+    l.vars.forEach((c,i)=>{ const b=document.createElement('button'); b.className='gvar'+(i===l.vi?' on':''); const t=mk(96,Math.max(1,Math.round(96*c.height/c.width))); ctx2(t).drawImage(c,0,0,t.width,t.height); b.append(t); b.onclick=()=>{ objCloudPick(i); objBuild(); }; vr.append(b); }); box.append(vr); }
+  const foot=document.createElement('div'); foot.className='eb';
+  const mk_=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
+  if (l.busy){ foot.append(mk_('Остановить',()=>{ l.cancelled=true; try{ l.abort&&l.abort.abort(); }catch(e){} })); box.append(foot); return; }
+  foot.append(mk_('Сдвинуть ещё',objMoveAgain), mk_('Гармонизация',()=>{ const L=lift.OL; objDone(); doc.active=doc.layers.indexOf(L); layersChanged(); harmOpen(); }),
+    mk_(l.vars.length?'✦ Ещё 3':'✦ Облаком', objCloud, 'ai'));
+  const sp=document.createElement('span'); sp.style.flex='1'; foot.append(sp, mk_('Готово',()=>objDone(),'pri')); box.append(foot);
+}
+function objMoveAgain(){ if (!liftAlive()){ objDone(); return; } lift.open=false; $('#objbar').hidden=true; doc.active=doc.layers.indexOf(lift.OL); layersChanged(); beginTransform({prevTool:S.tool==='transform'?'brush':S.tool}); }
+function softBlur(c, rad){ // cheap wide blur that also works where ctx.filter does not: down- and up-scaling
+  if (rad<1) return c; const f=Math.max(1, rad/1.5), w=Math.max(1,Math.round(c.width/f)), h=Math.max(1,Math.round(c.height/f));
+  const sm=mk(w,h), sx=ctx2(sm); sx.imageSmoothingQuality='high'; sx.drawImage(c,0,0,w,h);
+  const s2=mk(w,h), s2x=ctx2(s2); for (const [dx,dy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){ s2x.globalAlpha= dx||dy ? 0.5 : 1; s2x.drawImage(sm,dx,dy); }
+  const out=mk(c.width,c.height), ox=ctx2(out); ox.imageSmoothingQuality='high'; ox.drawImage(s2,0,0,c.width,c.height); return out;
+}
+function objShadow(){ // a soft cast shadow from the object's silhouette, on its own Multiply layer right under it
+  const l=lift; if (!liftAlive()) return; const OL=l.OL;
+  if (l.sh.op<=0){ if (l.shL){ l.shL.visible=false; layersChanged(); requestRender(); } return; }
+  if (!l.shL || !doc.layers.includes(l.shL)){ const L=newLayer('Тень объекта'); L.blend='multiply'; insertLayer(L, doc.layers.indexOf(OL)); l.shL=L; doc.active=doc.layers.indexOf(OL); layersChanged(); }
+  const S_=l.shL; S_.visible=true; S_.opacity=l.sh.op;
+  const b=contentBBox(OL.canvas); S_.ctx.clearRect(0,0,doc.w,doc.h); if (!b){ requestRender(); return; }
+  const size=Math.max(b.w,b.h), d=l.sh.len*size, a=l.sh.ang*Math.PI/180, rad=size*(0.01+l.sh.soft*0.08);
+  const pad=Math.ceil(rad*3+d), r=clipRect(b.x-pad, b.y-pad, b.w+2*pad, b.h+2*pad); if(!r.w||!r.h) return;
+  const c=mk(r.w,r.h), x=ctx2(c); x.drawImage(OL.canvas, r.x-Math.cos(a)*d, r.y-Math.sin(a)*d, r.w, r.h, 0,0,r.w,r.h);
+  x.globalCompositeOperation='source-in'; x.fillStyle='#000'; x.fillRect(0,0,r.w,r.h);
+  S_.ctx.drawImage(softBlur(c, rad), r.x, r.y); S_.dirty=true; thumbSoon(S_); bumpContent(); requestRender();
+}
+async function objCloud(){
+  const l=lift; if (!liftAlive() || l.busy) return;
+  if (genCfg.provider!=='fal' || !genReady()){ toast('Для облака нужен ключ fal.ai — открываю настройки',2200); genSettings(); return; }
+  if (!l.r){ toast('Нет данных о дыре — сдвинь объект заново'); return; }
+  const r0=l.r; let k=Math.sqrt(1.05e6/(r0.w*r0.h)); k=Math.min(k,3);
+  const W=Math.max(64,Math.round(r0.w*k/16)*16), H=Math.max(64,Math.round(r0.h*k/16)*16);
+  const hide=[l.OL,l.shL,l.cl].filter(Boolean), was=hide.map(L=>L.visible); hide.forEach(L=>L.visible=false);
+  let img; try{ img=mk(W,H); const ix=ctx2(img); ix.fillStyle='#fff'; ix.fillRect(0,0,W,H); ix.imageSmoothingQuality='high'; ix.drawImage(compositeRegion(r0,W,H),0,0); }
+  finally{ hide.forEach((L,i)=>L.visible=was[i]); }
+  const sc=mk(r0.w,r0.h), sx=ctx2(sc), sid=sx.createImageData(r0.w,r0.h); for (let i=0;i<l.soft.length;i++){ sid.data[i*4]=sid.data[i*4+1]=sid.data[i*4+2]=255; sid.data[i*4+3]=l.soft[i]>20?255:0; } sx.putImageData(sid,0,0);
+  const mask=mk(W,H), mx=ctx2(mask); mx.fillStyle='#000'; mx.fillRect(0,0,W,H); mx.imageSmoothingQuality='high';
+  const g=Math.max(2,Math.round(Math.max(W,H)*0.01)); for (let a=0;a<8;a++) mx.drawImage(sc, Math.round(Math.cos(a*Math.PI/4)*g), Math.round(Math.sin(a*Math.PI/4)*g), W, H); mx.drawImage(sc,0,0,W,H);
+  const P={r:r0, W, H, img, mask};
+  l.cancelled=false; netSess=l;
+  try{
+    let prompt=null;
+    if (genCfg.gemKey){ l.busy='смотрю на кадр…'; objBuild(); try{ prompt=await gemPrompt(P,''); }catch(e){ if (e.message==='cancel') throw e; } }
+    if (!prompt) prompt='Seamless natural continuation of the surrounding background, matching texture, lighting, perspective and grain; nothing new in this area.';
+    l.busy='дорисовываю фон в облаке…'; objBuild();
+    const res=await falFill(P, prompt, 3);
+    const soft=mk(r0.w,r0.h), so=ctx2(soft), sd=so.createImageData(r0.w,r0.h); for (let i=0;i<l.soft.length;i++){ sd.data[i*4+3]=l.soft[i]; } so.putImageData(sd,0,0);
+    const first=l.vars.length;
+    for (const bm of res.bitmaps){ const c=mk(r0.w,r0.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,r0.w,r0.h); bm.close&&bm.close(); x.globalCompositeOperation='destination-in'; x.drawImage(soft,0,0); l.vars.push(c); }
+    l.busy=null; if (lift!==l) return;
+    if (!l.cl || !doc.layers.includes(l.cl)){ const L=newLayer('Фон · облако'); insertLayer(L, doc.layers.indexOf(l.BL)+1); l.cl=L; doc.active=doc.layers.indexOf(l.OL); layersChanged(); }
+    objCloudPick(first); toast('Готово — выбери вариант фона',1500);
+  }catch(e){ l.busy=null; if (e.message!=='cancel'){ console.error(e); toast('Облако: '+e.message,4500); } }
+  finally{ netSess=null; if (lift===l) objBuild(); }
+}
+function objCloudPick(i){ const l=lift; if (!l || !l.vars[i] || !l.cl) return; l.vi=i; const L=l.cl;
+  L.ctx.clearRect(0,0,doc.w,doc.h); L.ctx.drawImage(l.vars[i], l.r.x, l.r.y); L.dirty=true; thumbSoon(L); bumpContent(); requestRender(); }
 async function objLift(){
   if (!sel){ toast('Сначала тапни по объекту'); return; }
   if (inpaintBusy || xf) return;
@@ -3775,7 +3849,8 @@ async function objLift(){
   const obj=mk(doc.w,doc.h), ox=ctx2(obj);
   if (S.retouchAll) ox.drawImage(compositeRegion(bb,bb.w,bb.h), bb.x, bb.y); else ox.drawImage(L0.canvas, bb.x,bb.y,bb.w,bb.h, bb.x,bb.y,bb.w,bb.h);
   ox.globalCompositeOperation='destination-in'; ox.drawImage(sel.mask,0,0);
-  trimHistory(100); const n0=undoStack.length, b0=histBytes;
+  trimHistory(100);
+  let holeR=null, holeSoft=null; const n0=undoStack.length, b0=histBytes;
   // 2) the hole: a bit wider than the object so its halo and contact edge go too
   inpaintBusy=true; retouchCache=null; wandCache=null;
   try{
@@ -3787,6 +3862,7 @@ async function objLift(){
     busy(true,'Убираю объект с фона…'); await nextFrame();
     const G=await generateFill(r, D, soft, 'ai');
     writeFill(r, D, G, soft, 'Фон за объектом'); busy(false);
+    holeR=r; holeSoft=soft;
   }catch(err){ console.error(err); busy(false); inpaintBusy=false;
     toast(err&&err.message==='cancel' ? 'Загрузка модели отменена' : 'Не получилось: '+(err&&err.message||'ошибка'),4500); return; }
   inpaintBusy=false;
@@ -3796,7 +3872,9 @@ async function objLift(){
   const parts=undoStack.splice(n0); histBytes=b0;
   pushHist({ undo(){ for (let i=parts.length-1;i>=0;i--) parts[i].undo(); }, redo(){ for (const e of parts) e.redo(); }, bytes:parts.reduce((a,e)=>a+(e.bytes||0),0) });
   layersChanged(); thumbSoon(OL); requestRender();
-  // 4) straight into moving
+  // 4) straight into moving; the panel with shadow / cloud / harmonize opens when the move is applied
+  if (lift) objDone(true);
+  lift={ OL, BL:doc.layers[doc.layers.indexOf(OL)-1], r:holeR, soft:holeSoft, shL:null, cl:null, vars:[], vi:0, sh:{op:0, soft:0.5, len:0.12, ang:100}, open:false, busy:null };
   setTool('transform');
   toast('Двигай объект — фон за ним уже дорисован',1800);
 }
@@ -4131,11 +4209,13 @@ function xfApply(){
     refreshSelOutline();
   }
   updateSelBar(); setTool(t.prevTool||'brush'); markDirty(); requestRender();
+  if (typeof lift!=='undefined' && lift && t.layer===lift.OL) objOpen();
 }
 function xfCancel(){
   if(!xf) return; const t=xf; xf=null; $('#xfbar').hidden=true;
   if (t.onCancel) t.onCancel();
   updateSelBar(); setTool(t.prevTool||'brush'); requestRender();
+  if (typeof lift!=='undefined' && lift && t.layer===lift.OL) objOpen();
 }
 
 /* ============ layers ops ============ */
@@ -5353,7 +5433,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-04 · №37 сдвиг объекта'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-04 · №37.1 сдвиг объекта: тень и облако'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
