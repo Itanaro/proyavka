@@ -463,6 +463,16 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #critbar .crn span{display:flex;flex-direction:column;gap:2px}
 #critbar .crn i{font-style:normal;font-weight:600;font-size:13px}
 #critbar .crn em{font-style:normal;color:var(--muted);font-size:12.5px}
+
+#aimenu{top:72px;left:110px;width:290px;display:flex;flex-direction:column;border-radius:20px;padding:8px}
+#aimenu button{text-align:left;height:40px;padding:0 12px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;white-space:nowrap}
+#aimenu button:active{background:var(--soft-3)}
+#aimenu button:disabled{opacity:.38}
+#aimenu small{color:var(--muted);font-family:var(--mono);font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis}
+#aimenu hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
+#aimenu .aih{font-size:11px;color:var(--muted);padding:4px 12px 2px;letter-spacing:.02em}
+#bAI svg{fill:currentColor;stroke:none}
+#bAI{color:#f0b46a}
 </style>
 
 <div id="app">
@@ -576,6 +586,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
   </g>
 </svg>Проявка</span>
     <button class="tb" id="bMenu" aria-label="Файл"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Файл</button>
+    <button class="tb" id="bAI" aria-label="Нейросети"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg>ИИ</button>
     <button class="tb" id="docName" aria-label="Мои документы" title="Мои документы"><span></span><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></button>
     <span class="pill" hidden>
     <button class="tb" id="bDesel" hidden aria-label="Снять выделение (⌘D)" title="Снять выделение"><svg viewBox="0 0 24 24"><path d="M4 7V4h3M10 4h4M17 4h3v3M20 10v1M4 10v4M4 17v3h3M10 20h1"/><path d="m15 15 6 6M21 15l-6 6"/></svg></button>
@@ -699,6 +710,19 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     </aside>
   </div>
 
+  <div class="pop" id="aimenu" hidden>
+    <div class="aih">С выделением</div>
+    <button data-a="gen" data-sel="1">✦ Генерация <small>дорисовать по словам</small></button>
+    <button data-a="sketch" data-sel="1">✦ Отрисовать <small>набросок в рендер</small></button>
+    <button data-a="lift" data-sel="1">✦ Сдвинуть <small>объект с фоном</small></button>
+    <button data-a="ai" data-sel="1">✦ Убрать <small>на iPad</small></button>
+    <hr>
+    <button data-a="fit">✦ Вписать в сцену <small id="aiFitL">активный слой</small></button>
+    <button data-a="expand">✦ Расширить кадр</button>
+    <button data-a="critic">✦ Арт-директор <small>разбор кадра</small></button>
+    <hr>
+    <button data-a="set">Настройки генерации <small id="aiProv"></small></button>
+  </div>
   <div class="pop" id="menu" hidden>
     <button data-m="lib">Мои документы</button>
     <button data-m="new">Новый документ</button>
@@ -706,9 +730,6 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <button data-m="restore">Восстановить из копии</button>
     <button data-m="open">Открыть PSD или картинку</button>
     <button data-m="place">Поместить картинку слоем</button>
-    <hr>
-    <button data-m="expand">✦ Расширить кадр</button>
-    <button data-m="critic">✦ Арт-директор <small>разбор кадра</small></button>
     <hr>
     <button data-m="png">Сохранить PNG <small>полный</small></button>
     <button data-m="png50">Сохранить PNG <small>50% превью</small></button>
@@ -5030,9 +5051,17 @@ function openPickerAt(el){ // the same colour picker, opened next to the control
   const r=el.getBoundingClientRect(), a=$('#app').getBoundingClientRect(), pw=p.offsetWidth, ph=p.offsetHeight;
   let top=r.top-a.top-ph-8; if (top<8) top=Math.min(a.height-ph-8, r.bottom-a.top+8);
   p.style.right='auto'; p.style.left=clamp(r.left-a.left+r.width/2-pw/2, 8, a.width-pw-8)+'px'; p.style.top=top+'px'; }
-function closePops(except){ for(const id of ['menu','picker','flyout']) if(id!==except) $('#'+id).hidden=true; }
+function closePops(except){ for(const id of ['menu','aimenu','picker','flyout']) if(id!==except) $('#'+id).hidden=true; }
 $('#bMenu').onclick=e=>{ e.stopPropagation(); closePops('menu'); $('#menu').hidden=!$('#menu').hidden; };
-document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,.tgm,.pickHere')) closePops(); },true);
+$('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aimenu'); if (!m.hidden){ m.hidden=true; return; }
+  m.querySelectorAll('[data-sel]').forEach(b=>{ b.disabled=!sel; });
+  m.querySelector('#aiFitL').textContent = doc && AL() ? AL().name : 'активный слой'; m.querySelector('#aiProv').textContent=PROV_NAME[genCfg.provider]||'';
+  m.querySelector('.aih').textContent = sel ? 'С выделением' : 'С выделением — сначала выдели';
+  const r=$('#bAI').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
+document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePops(); const a=b.dataset.a; if (!doc) return;
+  if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  ({gen:genOpen, sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, critic:artDirector, set:genSettings})[a](); });
+document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,.tgm,.pickHere')) closePops(); },true);
 
 /* ============ dialogs ============ */
 function dialog(html, buttons, opt={}){
@@ -5242,7 +5271,7 @@ const safeName=()=> (doc.name||'proyavka').replace(/[\\/:*?"<>|]+/g,'_');
 document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops(); const m=b.dataset.m;
   if (m==='noop') return;
   if (xf && m!=='help' && m!=='store'){ toast('Сначала примени или отмени трансформ'); return; }
-  if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click(); else if(m==='expand') expandDialog(); else if(m==='critic') artDirector();
+  if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click();
   else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='penpick'){ S.penHoldPick=!S.penHoldPick; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; savePrefs(); toast(S.penHoldPick?'Задержи карандаш на месте ~0.5 с — появится пипетка':'Пипетка карандашом выключена; палец по-прежнему берёт цвет удержанием'); } else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
   else exportImg(m);
 });
@@ -5689,7 +5718,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-04 · №39 вписать, отрисовать, расширить, арт-директор'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-04 · №39.1 меню «ИИ»'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
