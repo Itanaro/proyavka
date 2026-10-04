@@ -452,6 +452,8 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #stage .fbar{left:calc(50% + 50px);max-width:calc(100% - 124px)}
 #stage.lyopen .fbar{left:calc(50% - 103px);max-width:calc(100% - 430px)}
 .fgrp{display:flex;align-items:center;gap:2px;flex-wrap:nowrap}
+
+#gsOr input,#gsFal input,#gsComfy input{flex:1;min-width:0;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg);font:inherit}
 </style>
 
 <div id="app">
@@ -2850,12 +2852,59 @@ function liqReset(){ // the whole session back to how the layer was
 /* ============ generative fill, like Firefly: selection → (optional words) → 3 variants that fit light and colour ============
    The picture around the selection (with generous context) and the selection as a mask go to an inpainting model on the
    PC (ComfyUI + FLUX.1 Fill). Only the selected area comes back: a new layer with the selection as its mask. */
-const GEN_DEF={ provider:'fal', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
+const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-2.5-flash-image', orBase:'https://openrouter.ai', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
 let genCfg=Object.assign({}, GEN_DEF); try{ Object.assign(genCfg, JSON.parse(localStorage.getItem('proyavka.gen')||'{}')); }catch(e){}
 const genSave=()=>{ try{ localStorage.setItem('proyavka.gen', JSON.stringify(genCfg)); }catch(e){} };
 let gen=null; // {layer, r, W, H, img, mask, variants:[canvas], idx, prompt, str, busy, abort}
 const genBase=()=>String(genCfg.url||'').trim().replace(/\/+$/,'');
-const genReady=()=> genCfg.provider==='fal' ? !!String(genCfg.falKey||'').trim() : !!genBase();
+const genReady=()=> genCfg.provider==='fal' ? !!String(genCfg.falKey||'').trim() : genCfg.provider==='or' ? !!String(genCfg.orKey||'').trim() : !!genBase();
+const genCloud=()=> genCfg.provider==='fal' || genCfg.provider==='or';
+const PROV_NAME={fal:'fal.ai', or:'OpenRouter', comfy:'ComfyUI'};
+/* OpenRouter: one account, many image models (Nano Banana, FLUX.2, Seedream, GPT image). They edit by instruction and
+   have no mask input, so the area is painted magenta, the model repaints the piece, and only the masked part is taken back */
+const OR_ASPECTS=[[1,1],[4,3],[3,4],[3,2],[2,3],[16,9],[9,16]];
+async function orFill(P, words, n){
+  const base=genCfg.orBase.replace(/\/+$/,''), ar=P.W/P.H;
+  let best=OR_ASPECTS[0]; for (const a of OR_ASPECTS) if (Math.abs(Math.log(a[0]/a[1]/ar)) < Math.abs(Math.log(best[0]/best[1]/ar))) best=a;
+  const k=Math.sqrt(1.05e6/(best[0]*best[1])), SW=Math.round(best[0]*k/16)*16, SH=Math.round(best[1]*k/16)*16;
+  // the request picture: the crop (slightly stretched to the model's aspect) with the hole painted solid magenta
+  const q=mk(SW,SH), qx=ctx2(q); qx.imageSmoothingQuality='high'; qx.drawImage(P.img,0,0,SW,SH);
+  const hm=mk(SW,SH), hx=ctx2(hm); hx.drawImage(P.mask,0,0,SW,SH); const hd=hx.getImageData(0,0,SW,SH), qd=qx.getImageData(0,0,SW,SH);
+  for (let i=0;i<hd.data.length;i+=4) if (hd.data[i]>127){ qd.data[i]=255; qd.data[i+1]=0; qd.data[i+2]=255; } qx.putImageData(qd,0,0);
+  const ask = words
+    ? 'Edit this image. Inside the solid magenta area only, paint: '+words+'. It must fit the scene: same lighting direction and colour temperature, perspective, scale, grain, sharpness and depth of field. Do not change anything outside the magenta area. No magenta may remain.'
+    : 'Edit this image. Remove the solid magenta area and fill it with a seamless, natural continuation of the surrounding background: same textures, lighting, perspective, grain and depth of field, nothing new added. Do not change anything outside the magenta area. No magenta may remain.';
+  const body={model:genCfg.orModel, prompt:ask, n, aspect_ratio:best[0]+':'+best[1], resolution:'1K', output_format:'png',
+    input_references:[{type:'image_url', image_url:{url:q.toDataURL('image/jpeg',0.93)}}]};
+  const r=await (await netFetch(base+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(body)},180000)).json();
+  if (!r.data || !r.data.length) throw new Error(r.error ? String(r.error.message||r.error).slice(0,200) : 'модель не вернула картинку');
+  // colour match: a ring just outside the hole tells how far the model drifted in brightness and tint
+  const ring=mk(P.W,P.H), rx=ctx2(ring); const g=Math.max(4,Math.round(Math.max(P.W,P.H)*0.03));
+  for (let a=0;a<12;a++) rx.drawImage(P.mask, Math.round(Math.cos(a*Math.PI/6)*g), Math.round(Math.sin(a*Math.PI/6)*g)); rx.globalCompositeOperation='destination-out'; rx.drawImage(P.mask,0,0);
+  const rd=rx.getImageData(0,0,P.W,P.H).data, od=ctx2(P.img,{willReadFrequently:true}).getImageData(0,0,P.W,P.H).data;
+  const out=[];
+  for (const it of r.data){ const src = it.b64_json ? 'data:'+(it.media_type||'image/png')+';base64,'+it.b64_json : it.url; if (!src) continue;
+    const bm=await createImageBitmap(await (await fetch(src)).blob()); const c=mk(P.W,P.H), cx=ctx2(c,{willReadFrequently:true}); cx.imageSmoothingQuality='high'; cx.drawImage(bm,0,0,P.W,P.H); bm.close&&bm.close();
+    const id=cx.getImageData(0,0,P.W,P.H), d=id.data; let n0=0; const so=[0,0,0], sr=[0,0,0];
+    for (let i=0;i<d.length;i+=16){ if (rd[i]>127 && rd[i+3]>127){ n0++; for (let ch=0;ch<3;ch++){ so[ch]+=od[i+ch]; sr[ch]+=d[i+ch]; } } }
+    if (n0>50){ const gain=[0,1,2].map(ch=> sr[ch]>1 ? Math.min(1.6,Math.max(0.6, so[ch]/sr[ch])) : 1); for (let i=0;i<d.length;i+=4){ d[i]*=gain[0]; d[i+1]*=gain[1]; d[i+2]*=gain[2]; } cx.putImageData(id,0,0); }
+    out.push(c); }
+  if (!out.length) throw new Error('модель не вернула картинку');
+  return {bitmaps:out, cost:r.usage && r.usage.cost};
+}
+async function cloudFill(P, words, fluxPrompt, n){ return genCfg.provider==='or' ? orFill(P, words, n) : falFill(P, fluxPrompt, n); }
+async function orPing(){
+  const base=genCfg.orBase.replace(/\/+$/,''), H={'Authorization':'Bearer '+genCfg.orKey.trim()};
+  let r=await fetch(base+'/api/v1/key',{headers:H, mode:'cors'}).catch(()=>{ throw new Error('нет связи с OpenRouter (VPN?)'); });
+  if (r.status===404) r=await fetch(base+'/api/v1/auth/key',{headers:H, mode:'cors'});
+  if (r.status===401||r.status===403) throw new Error('ключ не подошёл');
+  const j=await r.json().catch(()=>({})), d=j.data||{};
+  const left = d.limit!=null ? ' · лимит ключа $'+(+d.limit).toFixed(2)+', потрачено $'+(+(d.usage||0)).toFixed(2) : '';
+  return 'OpenRouter на связи'+left; }
+async function orModels(){ // image-output models available to this account
+  const base=genCfg.orBase.replace(/\/+$/,''); const j=await (await fetch(base+'/api/v1/models?output_modalities=image',{mode:'cors'})).json();
+  return (j.data||[]).filter(m=>{ const a=m.architecture||{}; return (a.output_modalities||[]).includes('image') && (a.input_modalities||['image']).includes('image'); }).map(m=>({id:m.id, name:m.name||m.id}));
+}
 const dataURL=(c,type,q)=>c.toDataURL(type,q);
 let netSess=null; // the panel whose Stop button aborts the current request (gen-fill or object move)
 async function netFetch(url, opt={}, ms=30000){ // fetch with a timeout and Russian error words
@@ -2943,14 +2992,14 @@ function genOpen(){
 function genBuild(){
   const g=gen, box=$('#genbar'); if(!g) return; box.textContent='';
   const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Генеративная заливка <span></span>';
-  head.lastChild.textContent = !genReady() ? (genCfg.provider==='fal' ? 'нужен ключ fal.ai — кнопка ⚙' : 'нужен адрес компьютера — кнопка ⚙') : g.busy ? g.busy : g.variants.length ? 'выбери вариант или попроси ещё' : 'пусто — заполнит по смыслу; или пара слов: «розы на переднем плане»'; box.append(head);
+  head.lastChild.textContent = !genReady() ? (genCloud() ? 'нужен ключ '+PROV_NAME[genCfg.provider]+' — кнопка ⚙' : 'нужен адрес компьютера — кнопка ⚙') : g.busy ? g.busy : g.variants.length ? 'выбери вариант или попроси ещё' : 'пусто — заполнит по смыслу; или пара слов: «розы на переднем плане»'; box.append(head);
   const pr=document.createElement('div'); pr.className='er'; pr.innerHTML='<label>Что там</label><input type="text" id="genPrompt" autocomplete="off" spellcheck="false" placeholder="можно оставить пустым"><span></span>';
   const inp=pr.querySelector('input'); inp.value=g.prompt; inp.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg)';
   inp.oninput=()=>{ g.prompt=inp.value; }; inp.onkeydown=e=>{ if(e.key==='Enter'){ inp.blur(); genGo(); } }; box.append(pr);
-  if (genCfg.provider!=='fal'){ const sr=document.createElement('div'); sr.className='er'; sr.innerHTML='<label>Сила изменения</label><div></div><span class="v"></span>'; const v=sr.lastChild, show=()=>v.textContent=Math.round(g.str*100)+'%'; show();
+  if (!genCloud()){ const sr=document.createElement('div'); sr.className='er'; sr.innerHTML='<label>Сила изменения</label><div></div><span class="v"></span>'; const v=sr.lastChild, show=()=>v.textContent=Math.round(g.str*100)+'%'; show();
     hslider(sr.children[1],{min:0.2,max:1,get:()=>g.str,set:x=>{ g.str=x; show(); }}); box.append(sr); }
   const hint=document.createElement('div'); hint.className='gh';
-  hint.textContent = genCfg.provider==='fal' ? (g.used ? 'Подсказка для модели: '+g.used : 'FLUX Fill через интернет: ~$0.05 за вариант. '+(genCfg.gemKey ? 'Gemini посмотрит на кадр и напишет подсказку сам.' : 'Слова лучше по-английски; с ключом Gemini можно по-русски.'))
+  hint.textContent = genCfg.provider==='or' ? 'OpenRouter · '+genCfg.orModel.split('/').pop()+': можно писать по-русски. Модель перерисовывает кусок, а обратно берётся только выделенное.' : genCfg.provider==='fal' ? (g.used ? 'Подсказка для модели: '+g.used : 'FLUX Fill через интернет: ~$0.05 за вариант. '+(genCfg.gemKey ? 'Gemini посмотрит на кадр и напишет подсказку сам.' : 'Слова лучше по-английски; с ключом Gemini можно по-русски.'))
     : '100% — новое содержимое (убрать, дорисовать). 35–55% — перегенерировать, сохранив форму (кожа, ткань).';
   box.append(hint);
   if (g.variants.length){ const vr=document.createElement('div'); vr.className='gvars';
@@ -2961,7 +3010,7 @@ function genBuild(){
   const sp=document.createElement('span'); sp.style.flex='1';
   const cancel=document.createElement('button'); cancel.textContent= g.busy ? 'Остановить' : 'Отмена'; cancel.onclick= g.busy ? ()=>{ g.cancelled=true; if(g.abort) g.abort.abort(); } : genCancel;
   foot.append(st, sp, cancel);
-  if (!g.busy){ const go=document.createElement('button'); go.className= g.variants.length ? '' : 'pri'; go.textContent= g.variants.length ? '↻ Ещё 3' : 'Сгенерировать'; go.onclick=genGo; foot.append(go);
+  if (!g.busy){ const go=document.createElement('button'); go.className= g.variants.length ? '' : 'pri'; go.textContent= g.variants.length ? '↻ Ещё' : 'Сгенерировать'; go.onclick=genGo; foot.append(go);
     if (g.variants.length){ const ok=document.createElement('button'); ok.className='pri'; ok.textContent='Готово'; ok.onclick=genDone; foot.append(ok); } }
   box.append(foot);
 }
@@ -2986,15 +3035,15 @@ async function genGo(){
   try{
     if (!g.prep){ g.prep=genPrep(); g.selMask=mk(doc.w,doc.h); ctx2(g.selMask).drawImage(sel.mask,0,0); }
     const P=g.prep;
-    if (genCfg.provider==='fal'){
+    if (genCloud()){
       let prompt=null; const words=String(g.prompt||'').trim();
-      if (genCfg.gemKey){ g.busy='смотрю на кадр и пишу подсказку…'; genBuild();
+      if (genCfg.provider==='fal' && genCfg.gemKey){ g.busy='смотрю на кадр и пишу подсказку…'; genBuild();
         try{ prompt = g.lastWords===words && g.smart ? g.smart : await gemPrompt(P, words); g.smart=prompt; g.lastWords=words; }catch(e){ if (e.message==='cancel') throw e; console.warn('smart prompt',e); toast('Умная подсказка не вышла ('+e.message+') — иду без неё',2600); } }
       if (!prompt) prompt = words ? genPrompt(words) : 'Seamless natural continuation of the surrounding background, matching texture, lighting, perspective and grain; nothing new in this area.';
-      g.used=prompt; g.busy='генерирую 3 варианта в облаке…'; genBuild();
-      const res=await falFill(P, prompt, 3);
+      g.used = genCfg.provider==='or' ? null : prompt; g.busy='генерирую варианты ('+PROV_NAME[genCfg.provider]+')…'; genBuild();
+      const res=await cloudFill(P, words, prompt, 3); if (res.cost) g.cost=(g.cost||0)+res.cost;
       res.bitmaps.forEach((bm,i)=>{ const c=mk(P.r.w,P.r.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,P.r.w,P.r.h); bm.close&&bm.close(); g.variants.push(c); if (i===0) genPick(g.variants.length-1, true); });
-      g.busy=null; genBuild(); toast('Готово — выбери вариант',1500); return; }
+      g.busy=null; genBuild(); toast('Готово — выбери вариант'+(g.cost?' · потрачено $'+g.cost.toFixed(2):''),2000); return; }
     g.busy='отправляю картинку на компьютер…'; genBuild();
     const stamp=Date.now().toString(36), imgN=await genUpload(P.img,'proyavka_img_'+stamp+'.png'), maskN=await genUpload(P.mask,'proyavka_mask_'+stamp+'.png');
     const prompt=genPrompt(g.prompt);
@@ -3021,19 +3070,28 @@ function genCancel(){ const g=gen; gen=null; $('#genbar').hidden=true; if (g){ g
   if (g && g.layer){ const i=doc.layers.indexOf(g.layer); if (i>=0){ undo(); } }
   updateSelBar(); requestRender(); }
 function genSettings(){
-  const d=dialog(`<h3>Генерация: откуда брать модель</h3><p>Облако — FLUX.1 Fill [pro] на fal.ai, работает с iPad без компьютера, ~$0.05 за вариант, коммерческое использование разрешено. Ключи хранятся только на этом iPad.</p>
-    <div class="seg" id="gsProv" style="margin:4px 0 10px"><button data-p="fal">Облако · fal.ai</button><button data-p="comfy">Свой ПК · ComfyUI</button></div>
-    <div id="gsFal"><div class="row" style="margin:6px 0"><label>Ключ fal.ai</label><input type="password" id="gsFalKey" autocomplete="off" spellcheck="false" placeholder="fal.ai → Settings → Keys"></div>
+  const d=dialog(`<h3>Генерация: откуда брать модель</h3><p>Ключи хранятся только на этом iPad. OpenRouter — один аккаунт и много моделей (Nano Banana, FLUX.2, Seedream…). fal.ai — FLUX Fill, рисует строго по маске. ComfyUI — свой компьютер.</p>
+    <div class="seg" id="gsProv" style="margin:4px 0 10px"><button data-p="or">OpenRouter</button><button data-p="fal">fal.ai</button><button data-p="comfy">Свой ПК</button></div>
+    <div id="gsOr"><div class="row" style="margin:6px 0"><label>Ключ</label><input type="password" id="gsOrKey" autocomplete="off" spellcheck="false" placeholder="openrouter.ai → Keys"></div>
+      <div class="row" style="margin:6px 0"><label>Модель</label><select id="gsOrModel" style="min-width:0;flex:1"></select></div></div>
+    <div id="gsFal"><div class="row" style="margin:6px 0"><label>Ключ</label><input type="password" id="gsFalKey" autocomplete="off" spellcheck="false" placeholder="fal.ai → Settings → Keys"></div>
       <div class="row" style="margin:6px 0"><label>Ключ Gemini</label><input type="password" id="gsGemKey" autocomplete="off" spellcheck="false" placeholder="необязательно: умная подсказка"></div></div>
     <div id="gsComfy"><div class="row" style="margin:6px 0"><label>Адрес ПК</label><input type="text" id="gsUrl" autocomplete="off" spellcheck="false" placeholder="https://192.168.1.50:8188"></div>
       <div class="row" style="margin:6px 0"><label>Модель</label><input type="text" id="gsUnet" autocomplete="off" spellcheck="false"></div></div>
     <p id="gsState" class="kbd" style="margin:10px 0 0;min-height:18px"></p>`,
     [['Проверить', d=>{ read(d); genSave(); const s=d.querySelector('#gsState'); s.textContent='проверяю…';
-        (genCfg.provider==='fal' ? falPing() : genPing()).then(t=>{ s.textContent='✓ '+t; }).catch(e=>{ s.textContent='✕ '+e.message; }); return false; }],
-     ['Сохранить', d=>{ read(d); genSave(); if (gen) genBuild(); }, true]]);
-  const read=d=>{ genCfg.falKey=d.querySelector('#gsFalKey').value.trim(); genCfg.gemKey=d.querySelector('#gsGemKey').value.trim(); genCfg.url=d.querySelector('#gsUrl').value.trim(); genCfg.unet=d.querySelector('#gsUnet').value.trim()||GEN_DEF.unet; };
-  d.querySelector('#gsFalKey').value=genCfg.falKey; d.querySelector('#gsGemKey').value=genCfg.gemKey; d.querySelector('#gsUrl').value=genCfg.url; d.querySelector('#gsUnet').value=genCfg.unet;
-  const sync=()=>{ d.querySelectorAll('#gsProv button').forEach(b=>b.classList.toggle('on', b.dataset.p===genCfg.provider)); d.querySelector('#gsFal').hidden=genCfg.provider!=='fal'; d.querySelector('#gsComfy').hidden=genCfg.provider==='fal'; };
+        const p=genCfg.provider==='or' ? orPing().then(async t=>{ try{ fillModels(await orModels()); }catch(e){} return t+' · моделей с картинками: '+(d.querySelector('#gsOrModel').options.length); }) : genCfg.provider==='fal' ? falPing() : genPing();
+        p.then(t=>{ s.textContent='✓ '+t; }).catch(e=>{ s.textContent='✕ '+e.message; }); return false; }],
+     ['Сохранить', d=>{ read(d); genSave(); if (gen) genBuild(); if (lift && lift.open) objBuild(); }, true]]);
+  const sel_=d.querySelector('#gsOrModel');
+  const PRESET=[['google/gemini-2.5-flash-image','Nano Banana (Gemini 2.5 Flash Image)'],['black-forest-labs/flux.2-pro','FLUX.2 Pro'],['bytedance-seed/seedream-4.5','Seedream 4.5'],['openai/gpt-image-1','GPT Image 1']];
+  const fillModels=list=>{ const cur=genCfg.orModel; sel_.textContent=''; const seen=new Set();
+    for (const m of list.length ? list.map(x=>[x.id,x.name]) : PRESET){ if (seen.has(m[0])) continue; seen.add(m[0]); const o=document.createElement('option'); o.value=m[0]; o.textContent=m[1]; sel_.append(o); }
+    if (!seen.has(cur)){ const o=document.createElement('option'); o.value=cur; o.textContent=cur; sel_.prepend(o); } sel_.value=cur; };
+  fillModels([]);
+  const read=d=>{ genCfg.orKey=d.querySelector('#gsOrKey').value.trim(); genCfg.orModel=sel_.value||genCfg.orModel; genCfg.falKey=d.querySelector('#gsFalKey').value.trim(); genCfg.gemKey=d.querySelector('#gsGemKey').value.trim(); genCfg.url=d.querySelector('#gsUrl').value.trim(); genCfg.unet=d.querySelector('#gsUnet').value.trim()||GEN_DEF.unet; };
+  d.querySelector('#gsOrKey').value=genCfg.orKey; d.querySelector('#gsFalKey').value=genCfg.falKey; d.querySelector('#gsGemKey').value=genCfg.gemKey; d.querySelector('#gsUrl').value=genCfg.url; d.querySelector('#gsUnet').value=genCfg.unet;
+  const sync=()=>{ d.querySelectorAll('#gsProv button').forEach(b=>b.classList.toggle('on', b.dataset.p===genCfg.provider)); d.querySelector('#gsOr').hidden=genCfg.provider!=='or'; d.querySelector('#gsFal').hidden=genCfg.provider!=='fal'; d.querySelector('#gsComfy').hidden=genCfg.provider!=='comfy'; };
   d.querySelectorAll('#gsProv button').forEach(b=>b.onclick=()=>{ genCfg.provider=b.dataset.p; genSave(); sync(); }); sync();
 }
 async function falPing(){ // a key check without spending money: an empty request is refused with 422 when the key is valid
@@ -3780,9 +3838,9 @@ function objBuild(){
   const mk_=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
   if (l.busy){ foot.append(mk_('Остановить',()=>{ l.cancelled=true; try{ l.abort&&l.abort.abort(); }catch(e){} })); box.append(foot); return; }
   foot.append(mk_('Сдвинуть ещё',objMoveAgain), mk_('Гармонизация',()=>{ const L=lift.OL; objDone(); doc.active=doc.layers.indexOf(L); layersChanged(); harmOpen(); }),
-    mk_(l.vars.length?'✦ Ещё 3':'✦ Перерисовать фон', objCloud, 'ai'));
+    mk_(l.vars.length?'✦ Ещё':'✦ Перерисовать фон', objCloud, 'ai'));
   const sp=document.createElement('span'); sp.style.flex='1'; foot.append(sp, mk_('Готово',()=>objDone(),'pri'));
-  const hint=document.createElement('div'); hint.className='gh'; hint.textContent='«Перерисовать фон» — FLUX через интернет, ~$0.15 за 3 варианта. Быстрая заплатка уже сделана на iPad бесплатно.'; box.append(hint, foot);
+  const hint=document.createElement('div'); hint.className='gh'; hint.textContent='«Перерисовать фон» — нейросеть через интернет ('+PROV_NAME[genCloud()?genCfg.provider:'fal']+'), платно, несколько центов за вариант. Быстрая заплатка уже сделана на iPad бесплатно.'; box.append(hint, foot);
 }
 function objMoveAgain(){ if (!liftAlive()){ objDone(); return; } lift.open=false; $('#objbar').hidden=true; doc.active=doc.layers.indexOf(lift.OL); layersChanged(); beginTransform({prevTool:S.tool==='transform'?'brush':S.tool}); }
 function softBlur(c, rad){ // cheap wide blur that also works where ctx.filter does not: down- and up-scaling
@@ -3808,7 +3866,7 @@ function objShadowNow(){ // a soft cast shadow from the object's silhouette, on 
 }
 async function objCloud(){
   const l=lift; if (!liftAlive() || l.busy) return;
-  if (genCfg.provider!=='fal' || !genReady()){ toast('Чтобы перерисовать фон, нужен ключ fal.ai — открываю настройки',2600); genSettings(); return; }
+  if (!genCloud() || !genReady()){ toast('Чтобы перерисовать фон, нужен ключ OpenRouter или fal.ai — открываю настройки',2800); genSettings(); return; }
   if (!l.r){ toast('Нет данных о дыре — сдвинь объект заново'); return; }
   const r0=l.r; let k=Math.sqrt(1.05e6/(r0.w*r0.h)); k=Math.min(k,3);
   const W=Math.max(64,Math.round(r0.w*k/16)*16), H=Math.max(64,Math.round(r0.h*k/16)*16);
@@ -3822,10 +3880,10 @@ async function objCloud(){
   l.cancelled=false; netSess=l;
   try{
     let prompt=null;
-    if (genCfg.gemKey){ l.busy='смотрю на кадр…'; objBuild(); try{ prompt=await gemPrompt(P,''); }catch(e){ if (e.message==='cancel') throw e; } }
+    if (genCfg.provider==='fal' && genCfg.gemKey){ l.busy='смотрю на кадр…'; objBuild(); try{ prompt=await gemPrompt(P,''); }catch(e){ if (e.message==='cancel') throw e; } }
     if (!prompt) prompt='Seamless natural continuation of the surrounding background, matching texture, lighting, perspective and grain; nothing new in this area.';
     l.busy='перерисовываю фон…'; objBuild();
-    const res=await falFill(P, prompt, 3);
+    const res=await cloudFill(P, '', prompt, 3);
     const soft=mk(r0.w,r0.h), so=ctx2(soft), sd=so.createImageData(r0.w,r0.h); for (let i=0;i<l.soft.length;i++){ sd.data[i*4+3]=l.soft[i]; } so.putImageData(sd,0,0);
     const first=l.vars.length;
     for (const bm of res.bitmaps){ const c=mk(r0.w,r0.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,r0.w,r0.h); bm.close&&bm.close(); x.globalCompositeOperation='destination-in'; x.drawImage(soft,0,0); l.vars.push(c); }
@@ -5433,7 +5491,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-04 · №37.3 обход: панели, тень, чистка'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-04 · №38 генерация через OpenRouter'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
