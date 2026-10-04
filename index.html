@@ -473,6 +473,10 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #aimenu .aih{font-size:11px;color:var(--muted);padding:4px 12px 2px;letter-spacing:.02em}
 #bAI svg{fill:currentColor;stroke:none}
 #bAI{color:#f0b46a}
+
+#updBar{position:fixed;top:84px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 16px;border-radius:16px;background:var(--glass-bg,var(--panel));border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.45);font-size:13px;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+#updBar button{height:34px;padding:0 14px;border-radius:11px;background:var(--accent-grad,var(--accent));color:var(--accent-ink);font-weight:600}
+#updBar button.x{background:transparent;color:var(--muted);padding:0 10px;font-weight:400}
 </style>
 
 <div id="app">
@@ -5718,7 +5722,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-04 · №39.1 меню «ИИ»'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-04 · №39.2 обновление на iPad'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
@@ -5778,7 +5782,21 @@ if (crashedBefore){ const c=crashedBefore; memNote(`перезапуск · ин
 </script>
 
 <script>
-if ('serviceWorker' in navigator) window.addEventListener('load', ()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+if ('serviceWorker' in navigator) window.addEventListener('load', ()=>navigator.serviceWorker.register('sw.js').then(r=>{ try{ r.update(); }catch(e){} }).catch(()=>{}));
+/* update check: a tiny version.json arrives fast even through a slow VPN; if the site is newer, offer to refresh */
+async function checkUpdate(){
+  try{ const r=await fetch('version.json?'+Date.now(),{cache:'no-store'}); if(!r.ok) return; const j=await r.json();
+    if (!j.v || j.v===APP_VERSION || $('#updBar')) return;
+    const b=document.createElement('div'); b.id='updBar'; b.innerHTML='<span></span><button>Обновить</button><button class="x">✕</button>'; b.firstChild.textContent='Есть новая версия · '+j.v.split('·').pop().trim();
+    b.children[1].onclick=async()=>{ b.firstChild.textContent='скачиваю…'; b.children[1].disabled=true;
+      try{ const p=await fetch('index.html',{cache:'no-store'}); if (p.ok && window.caches){ const body=await p.blob(); for (const k of await caches.keys()) if (k.startsWith('proyavka-shell')) await (await caches.open(k)).put('index.html', new Response(body,{headers:{'Content-Type':'text/html; charset=utf-8'}})); }
+        if (typeof autosave==='function' && doc && !doc.pristine){ try{ await autosave(true); }catch(e){} }
+        location.reload(); }catch(e){ b.firstChild.textContent='не скачалось — попробуй ещё'; b.children[1].disabled=false; } };
+    b.children[2].onclick=()=>b.remove(); document.body.append(b);
+  }catch(e){}
+}
+window.addEventListener('load', ()=>setTimeout(checkUpdate, 2500));
+document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible') checkUpdate(); });
 try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(_){}
 </script>
 </body>
