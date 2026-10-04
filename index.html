@@ -441,7 +441,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 .fbar:not([hidden]){animation:pvBar .2s cubic-bezier(.2,.8,.3,1)}
 #menu small{max-width:150px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-#genbar .gh{font-size:11.5px;color:var(--muted);margin-top:-4px;line-height:1.35}
+#genbar .gh,#objbar .gh{font-size:11.5px;color:var(--muted);margin-top:-4px;line-height:1.35}
 #genbar .gvars,#objbar .gvars{display:flex;gap:8px;flex-wrap:wrap}
 #genbar .gvar,#objbar .gvar{padding:3px;border-radius:12px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);height:auto}
 #genbar .gvar canvas,#objbar .gvar canvas{display:block;border-radius:9px;max-height:96px}
@@ -3774,7 +3774,7 @@ function objDone(silent){ const l=lift; lift=null; $('#objbar').hidden=true; if 
 function objBuild(){
   const l=lift, box=$('#objbar'); if (!l) return; box.textContent='';
   const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Объект на новом месте <span></span>';
-  head.lastChild.textContent = l.busy || (l.vars.length ? 'облако: вариант '+(l.vi+1)+' из '+l.vars.length : 'фон за ним дорисован на iPad'); box.append(head);
+  head.lastChild.textContent = l.busy || (l.vars.length ? 'вариант фона '+(l.vi+1)+' из '+l.vars.length : 'фон за ним дорисован на iPad'); box.append(head);
   const row=(name,key,min,max,fmt)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>'+name+'</label><div></div><span class="v"></span>';
     const v=r.lastChild, show=()=>v.textContent=fmt(l.sh[key]); show();
     hslider(r.children[1],{min,max,get:()=>l.sh[key],set:x=>{ const was=l.sh.op>0; l.sh[key]=x; show(); objShadow(); if (key==='op' && was!==(x>0)) objBuild(); }}); box.append(r); };
@@ -3786,8 +3786,9 @@ function objBuild(){
   const mk_=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
   if (l.busy){ foot.append(mk_('Остановить',()=>{ l.cancelled=true; try{ l.abort&&l.abort.abort(); }catch(e){} })); box.append(foot); return; }
   foot.append(mk_('Сдвинуть ещё',objMoveAgain), mk_('Гармонизация',()=>{ const L=lift.OL; objDone(); doc.active=doc.layers.indexOf(L); layersChanged(); harmOpen(); }),
-    mk_(l.vars.length?'✦ Ещё 3':'✦ Облаком', objCloud, 'ai'));
-  const sp=document.createElement('span'); sp.style.flex='1'; foot.append(sp, mk_('Готово',()=>objDone(),'pri')); box.append(foot);
+    mk_(l.vars.length?'✦ Ещё 3':'✦ Перерисовать фон', objCloud, 'ai'));
+  const sp=document.createElement('span'); sp.style.flex='1'; foot.append(sp, mk_('Готово',()=>objDone(),'pri'));
+  const hint=document.createElement('div'); hint.className='gh'; hint.textContent='«Перерисовать фон» — FLUX через интернет, ~$0.15 за 3 варианта. Быстрая заплатка уже сделана на iPad бесплатно.'; box.append(hint, foot);
 }
 function objMoveAgain(){ if (!liftAlive()){ objDone(); return; } lift.open=false; $('#objbar').hidden=true; doc.active=doc.layers.indexOf(lift.OL); layersChanged(); beginTransform({prevTool:S.tool==='transform'?'brush':S.tool}); }
 function softBlur(c, rad){ // cheap wide blur that also works where ctx.filter does not: down- and up-scaling
@@ -3810,7 +3811,7 @@ function objShadow(){ // a soft cast shadow from the object's silhouette, on its
 }
 async function objCloud(){
   const l=lift; if (!liftAlive() || l.busy) return;
-  if (genCfg.provider!=='fal' || !genReady()){ toast('Для облака нужен ключ fal.ai — открываю настройки',2200); genSettings(); return; }
+  if (genCfg.provider!=='fal' || !genReady()){ toast('Чтобы перерисовать фон, нужен ключ fal.ai — открываю настройки',2600); genSettings(); return; }
   if (!l.r){ toast('Нет данных о дыре — сдвинь объект заново'); return; }
   const r0=l.r; let k=Math.sqrt(1.05e6/(r0.w*r0.h)); k=Math.min(k,3);
   const W=Math.max(64,Math.round(r0.w*k/16)*16), H=Math.max(64,Math.round(r0.h*k/16)*16);
@@ -3826,15 +3827,15 @@ async function objCloud(){
     let prompt=null;
     if (genCfg.gemKey){ l.busy='смотрю на кадр…'; objBuild(); try{ prompt=await gemPrompt(P,''); }catch(e){ if (e.message==='cancel') throw e; } }
     if (!prompt) prompt='Seamless natural continuation of the surrounding background, matching texture, lighting, perspective and grain; nothing new in this area.';
-    l.busy='дорисовываю фон в облаке…'; objBuild();
+    l.busy='перерисовываю фон…'; objBuild();
     const res=await falFill(P, prompt, 3);
     const soft=mk(r0.w,r0.h), so=ctx2(soft), sd=so.createImageData(r0.w,r0.h); for (let i=0;i<l.soft.length;i++){ sd.data[i*4+3]=l.soft[i]; } so.putImageData(sd,0,0);
     const first=l.vars.length;
     for (const bm of res.bitmaps){ const c=mk(r0.w,r0.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,r0.w,r0.h); bm.close&&bm.close(); x.globalCompositeOperation='destination-in'; x.drawImage(soft,0,0); l.vars.push(c); }
     l.busy=null; if (lift!==l) return;
-    if (!l.cl || !doc.layers.includes(l.cl)){ const L=newLayer('Фон · облако'); insertLayer(L, doc.layers.indexOf(l.BL)+1); l.cl=L; doc.active=doc.layers.indexOf(l.OL); layersChanged(); }
+    if (!l.cl || !doc.layers.includes(l.cl)){ const L=newLayer('Фон · перерисован'); insertLayer(L, doc.layers.indexOf(l.BL)+1); l.cl=L; doc.active=doc.layers.indexOf(l.OL); layersChanged(); }
     objCloudPick(first); toast('Готово — выбери вариант фона',1500);
-  }catch(e){ l.busy=null; if (e.message!=='cancel'){ console.error(e); toast('Облако: '+e.message,4500); } }
+  }catch(e){ l.busy=null; if (e.message!=='cancel'){ console.error(e); toast('Перерисовать фон не вышло: '+e.message,4500); } }
   finally{ netSess=null; if (lift===l) objBuild(); }
 }
 function objCloudPick(i){ const l=lift; if (!l || !l.vars[i] || !l.cl) return; l.vi=i; const L=l.cl;
@@ -5433,7 +5434,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-04 · №37.1 сдвиг объекта: тень и облако'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-04 · №37.2 сдвиг объекта: «Перерисовать фон»'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
