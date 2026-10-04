@@ -150,15 +150,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .fbar button{height:36px;padding:0 12px;border-radius:8px;white-space:nowrap;font-size:13px}
 .fbar button:active{background:var(--panel-2)}
 .fbar .pri{background:var(--accent);color:var(--accent-ink);font-weight:600}
-#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar,#objbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
-#edgebar .eh,#harmbar .eh,#adjbar .eh,#depthbar .eh,#filtbar .eh,#genbar .eh,#objbar .eh{font-weight:600;font-size:14px}
-#edgebar .eh span,#harmbar .eh span,#adjbar .eh span,#depthbar .eh span,#filtbar .eh span,#genbar .eh span,#objbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
-#edgebar .er,#harmbar .er,#adjbar .er,#depthbar .er,#filtbar .er,#genbar .er,#objbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
-#edgebar .er label,#harmbar .er label,#adjbar .er label,#depthbar .er label,#filtbar .er label,#genbar .er label,#objbar .er label{color:var(--muted)}
-#edgebar .er .v,#harmbar .er .v,#adjbar .er .v,#depthbar .er .v,#filtbar .er .v,#genbar .er .v,#objbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
-#edgebar .er .hs,#harmbar .er .hs,#adjbar .er .hs,#depthbar .er .hs,#filtbar .er .hs,#genbar .er .hs,#objbar .er .hs{height:32px;width:auto}
+#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar,#objbar,#aibar,#critbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
+#edgebar .eh,#harmbar .eh,#adjbar .eh,#depthbar .eh,#filtbar .eh,#genbar .eh,#objbar .eh,#aibar .eh,#critbar .eh{font-weight:600;font-size:14px}
+#edgebar .eh span,#harmbar .eh span,#adjbar .eh span,#depthbar .eh span,#filtbar .eh span,#genbar .eh span,#objbar .eh span,#aibar .eh span,#critbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+#edgebar .er,#harmbar .er,#adjbar .er,#depthbar .er,#filtbar .er,#genbar .er,#objbar .er,#aibar .er,#critbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
+#edgebar .er label,#harmbar .er label,#adjbar .er label,#depthbar .er label,#filtbar .er label,#genbar .er label,#objbar .er label,#aibar .er label,#critbar .er label{color:var(--muted)}
+#edgebar .er .v,#harmbar .er .v,#adjbar .er .v,#depthbar .er .v,#filtbar .er .v,#genbar .er .v,#objbar .er .v,#aibar .er .v,#critbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
+#edgebar .er .hs,#harmbar .er .hs,#adjbar .er .hs,#depthbar .er .hs,#filtbar .er .hs,#genbar .er .hs,#objbar .er .hs,#aibar .er .hs,#critbar .er .hs{height:32px;width:auto}
 #edShift::after{content:"";position:absolute;left:50%;top:9px;width:2px;height:12px;margin-left:-1px;background:var(--muted);border-radius:1px}
-#edgebar .eb,#harmbar .eb,#adjbar .eb,#depthbar .eb,#filtbar .eb,#genbar .eb,#objbar .eb{display:flex;gap:6px;margin-top:2px}
+#edgebar .eb,#harmbar .eb,#adjbar .eb,#depthbar .eb,#filtbar .eb,#genbar .eb,#objbar .eb,#aibar .eb,#critbar .eb{display:flex;gap:6px;margin-top:2px}
 
 /* layers */
 #layers{position:absolute;top:8px;right:8px;bottom:8px;width:290px;max-width:calc(100% - 16px);background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;box-shadow:0 10px 36px rgba(0,0,0,.5);z-index:5}
@@ -373,7 +373,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #status span{background:var(--glass-bg);border:1px solid var(--glass-edge);border-radius:10px;padding:4px 9px}
 .fbar{left:calc(50% + 36px);bottom:28px;border-radius:22px;padding:7px}
 #stage.lyopen .fbar{left:calc((100% - 316px + 72px)/2);max-width:calc(100% - 316px - 72px - 32px)}
-#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar,#objbar{padding:14px 16px;gap:11px}
+#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar,#objbar,#aibar,#critbar{padding:14px 16px;gap:11px}
 #toast{top:84px;border-radius:16px;padding:10px 18px}
 #menu{top:72px;left:10px;border-radius:20px;padding:8px}
 #picker{top:72px;right:10px;border-radius:22px}
@@ -441,11 +441,11 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 .fbar:not([hidden]){animation:pvBar .2s cubic-bezier(.2,.8,.3,1)}
 #menu small{max-width:150px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-#genbar .gh,#objbar .gh{font-size:11.5px;color:var(--muted);margin-top:-4px;line-height:1.35}
-#genbar .gvars,#objbar .gvars{display:flex;gap:8px;flex-wrap:wrap}
-#genbar .gvar,#objbar .gvar{padding:3px;border-radius:12px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);height:auto}
-#genbar .gvar canvas,#objbar .gvar canvas{display:block;border-radius:9px;max-height:96px}
-#genbar .gvar.on,#objbar .gvar.on{box-shadow:inset 0 0 0 2px #eab066,0 4px 14px -6px rgba(234,166,86,.7)}
+#genbar .gh,#objbar .gh,#aibar .gh,#critbar .gh{font-size:11.5px;color:var(--muted);margin-top:-4px;line-height:1.35}
+#genbar .gvars,#objbar .gvars,#aibar .gvars{display:flex;gap:8px;flex-wrap:wrap}
+#genbar .gvar,#objbar .gvar,#aibar .gvar{padding:3px;border-radius:12px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);height:auto}
+#genbar .gvar canvas,#objbar .gvar canvas,#aibar .gvar canvas{display:block;border-radius:9px;max-height:96px}
+#genbar .gvar.on,#objbar .gvar.on,#aibar .gvar.on{box-shadow:inset 0 0 0 2px #eab066,0 4px 14px -6px rgba(234,166,86,.7)}
 
 
 /* bottom bars sit between the tool rail and the layers panel; selection bar wraps only between groups */
@@ -454,6 +454,15 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 .fgrp{display:flex;align-items:center;gap:2px;flex-wrap:nowrap}
 
 #gsOr input,#gsFal input,#gsComfy input{flex:1;min-width:0;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg);font:inherit}
+
+#critbar{max-height:min(62vh,560px)}
+#critbar .crl{display:flex;flex-direction:column;gap:6px;overflow:auto;min-height:0;margin:0 -4px;padding:0 4px}
+#critbar .crn{display:flex;gap:10px;align-items:flex-start;text-align:left;height:auto;padding:8px 10px;border-radius:12px;background:var(--soft);white-space:normal;line-height:1.35}
+#critbar .crn.on{box-shadow:inset 0 0 0 2px #eab066}
+#critbar .crn b{flex:none;width:22px;height:22px;border-radius:11px;background:#ffb35c;color:#1b1208;font-size:12px;display:grid;place-items:center}
+#critbar .crn span{display:flex;flex-direction:column;gap:2px}
+#critbar .crn i{font-style:normal;font-weight:600;font-size:13px}
+#critbar .crn em{font-style:normal;color:var(--muted);font-size:12.5px}
 </style>
 
 <div id="app">
@@ -628,7 +637,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
       <div class="seg" id="selModes"><button data-mode="new">Новое</button><button data-mode="add">＋ Добавить</button><button data-mode="sub">− Вычесть</button></div>
       <span class="fgrp"><span class="fsep"></span><button data-sel="invert">Инверсия</button><button data-sel="edge">Край…</button></span>
       <span class="fgrp"><span class="fsep"></span><button data-sel="copy">На слой</button><button data-sel="mask">В маску</button><button data-sel="fill">Залить</button><button data-sel="delete">Удалить</button></span>
-      <span class="fgrp"><span class="fsep"></span><button data-sel="fill2" title="Заливка с учётом содержимого">Умная заливка</button><button data-sel="ai" class="ai" title="Убрать нейросетью">✦ Убрать</button><button data-sel="lift" class="ai" title="Поднять объект на свой слой, дорисовать фон за ним и двигать">✦ Сдвинуть</button><button data-sel="gen" class="ai" title="Генеративная заливка (FLUX Fill)">✦ Генерация</button><button data-sel="transform" class="pri">Трансформ</button></span>
+      <span class="fgrp"><span class="fsep"></span><button data-sel="fill2" title="Заливка с учётом содержимого">Умная заливка</button><button data-sel="ai" class="ai" title="Убрать нейросетью">✦ Убрать</button><button data-sel="lift" class="ai" title="Поднять объект на свой слой, дорисовать фон за ним и двигать">✦ Сдвинуть</button><button data-sel="gen" class="ai" title="Генеративная заливка">✦ Генерация</button><button data-sel="sketch" class="ai" title="Отрисовать набросок в выделении">✦ Отрисовать</button><button data-sel="transform" class="pri">Трансформ</button></span>
     </div>
     <div class="fbar" id="edgebar" hidden>
       <div class="eh">Край выделения <span>красным — то, что не выделено</span></div>
@@ -642,6 +651,8 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <div class="fbar" id="filtbar" hidden></div>
     <div class="fbar" id="genbar" hidden></div>
     <div class="fbar" id="objbar" hidden></div>
+    <div class="fbar" id="aibar" hidden></div>
+    <div class="fbar" id="critbar" hidden></div>
     <div class="fbar" id="harmbar" hidden>
       <div class="eh">Гармонизация <span id="hmHint"></span></div>
       <div class="er"><label>Сила</label><div id="hm_str"></div><span class="v" id="hm_strV"></span></div>
@@ -680,6 +691,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
           <button id="lyMask" style="grid-column:1/-1">+ Маска</button>
           <button id="lyAdj" style="grid-column:1/-1">+ Корректирующий слой</button>
           <button id="lyHarm" style="grid-column:span 2">Гармонизация</button>
+          <button id="lyFit" class="ai" style="grid-column:span 2">✦ Вписать в сцену</button>
           <button id="lyFilt" style="grid-column:span 2">Размытие / резкость</button>
           <button id="lyMaskInv" style="grid-column:span 2" hidden>Инвертировать маску</button>
         </div>
@@ -694,6 +706,9 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <button data-m="restore">Восстановить из копии</button>
     <button data-m="open">Открыть PSD или картинку</button>
     <button data-m="place">Поместить картинку слоем</button>
+    <hr>
+    <button data-m="expand">✦ Расширить кадр</button>
+    <button data-m="critic">✦ Арт-директор <small>разбор кадра</small></button>
     <hr>
     <button data-m="png">Сохранить PNG <small>полный</small></button>
     <button data-m="png50">Сохранить PNG <small>50% превью</small></button>
@@ -1213,6 +1228,7 @@ function renderOverlay(){ if(!doc) return;
       ants(); } }
   if (lassoPts && lassoPts.length>1){ ox.beginPath(); lassoPts.forEach((p,i)=>{const [sx,sy]=toScr(p[0],p[1]); i?ox.lineTo(sx,sy):ox.moveTo(sx,sy);}); ants(); }
   if (rectSel){ const r=normRect(rectSel); polyPath([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); ants(); }
+  if (typeof crit!=='undefined' && crit) critOverlay(ox);
   { // canvas frame, always crisp on top
     ox.beginPath(); [[0,0],[doc.w,0],[doc.w,doc.h],[0,doc.h]].forEach((q,i)=>{ const [a,b]=toScr(q[0],q[1]); i?ox.lineTo(a,b):ox.moveTo(a,b); }); ox.closePath();
     ox.lineWidth = xf ? 1.5 : 1; ox.strokeStyle = xf ? 'rgba(255,255,255,.85)' : 'rgba(0,0,0,.55)'; ox.setLineDash(xf?[6,4]:[]); ox.stroke(); ox.setLineDash([]);
@@ -1805,7 +1821,7 @@ function selToMask(){
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
 }
-function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep) || !!(typeof filt!=='undefined' && filt) || !!(typeof gen!=='undefined' && gen) || !!(typeof lift!=='undefined' && lift && lift.open); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
+function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep) || !!(typeof filt!=='undefined' && filt) || !!(typeof gen!=='undefined' && gen) || !!(typeof lift!=='undefined' && lift && lift.open) || !!(typeof aip!=='undefined' && aip); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
 function quickDeselect(){ if(!sel) return; deselect(); toast('Выделение снято · вернуть — тап двумя пальцами',1500); }
 function syncSelModes(){ document.querySelectorAll('#selModes button').forEach(b=>b.classList.toggle('on', b.dataset.mode===S.selMode)); }
 function setSelMode(k){ S.selMode=k; if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
@@ -2138,7 +2154,7 @@ for (const [key,id,min] of [['smooth','edSmooth',0],['feather','edFeather',0],['
   edgeSl[key]=hslider($('#'+id), {min, max:1, get:()=>edge?edge.t[key]:0,
     set:v=>{ if(!edge) return; if (key==='shift' && Math.abs(v)<0.04) v=0; edge.t[key]=v; $('#'+id+'V').textContent=edgeVal(v,EDGE_MAX[key])+' px'; if(!edgeRaf) edgeRaf=requestAnimationFrame(edgePreview); }});
 }
-$('#lyHarm').onclick=()=>harmOpen(); $('#lyAdj').onclick=()=>adjMenu(); $('#lyFilt').onclick=()=>filtMenu(); $('#edApply').onclick=edgeApply; $('#edCancel').onclick=edgeCancel;
+$('#lyHarm').onclick=()=>harmOpen(); $('#lyFit').onclick=()=>fitIntoScene(); $('#lyAdj').onclick=()=>adjMenu(); $('#lyFilt').onclick=()=>filtMenu(); $('#edApply').onclick=edgeApply; $('#edCancel').onclick=edgeCancel;
 $('#edReset').onclick=()=>{ if(!edge) return; edge.t={smooth:0,feather:0,shift:0}; edgeDraw(); edgePreview(); };
 /* ============ depth map (Depth Anything V2 Small, on the iPad): select by depth, haze, depth blur ============
    The map is computed once per picture state from the visible composite (long side 518 px), then reused:
@@ -2852,7 +2868,7 @@ function liqReset(){ // the whole session back to how the layer was
 /* ============ generative fill, like Firefly: selection → (optional words) → 3 variants that fit light and colour ============
    The picture around the selection (with generous context) and the selection as a mask go to an inpainting model on the
    PC (ComfyUI + FLUX.1 Fill). Only the selected area comes back: a new layer with the selection as its mask. */
-const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-2.5-flash-image', orBase:'https://openrouter.ai', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
+const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-2.5-flash-image', orBase:'https://openrouter.ai', orVision:'google/gemini-2.5-flash', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
 let genCfg=Object.assign({}, GEN_DEF); try{ Object.assign(genCfg, JSON.parse(localStorage.getItem('proyavka.gen')||'{}')); }catch(e){}
 const genSave=()=>{ try{ localStorage.setItem('proyavka.gen', JSON.stringify(genCfg)); }catch(e){} };
 let gen=null; // {layer, r, W, H, img, mask, variants:[canvas], idx, prompt, str, busy, abort}
@@ -2864,33 +2880,10 @@ const PROV_NAME={fal:'fal.ai', or:'OpenRouter', comfy:'ComfyUI'};
    have no mask input, so the area is painted magenta, the model repaints the piece, and only the masked part is taken back */
 const OR_ASPECTS=[[1,1],[4,3],[3,4],[3,2],[2,3],[16,9],[9,16]];
 async function orFill(P, words, n){
-  const base=genCfg.orBase.replace(/\/+$/,''), ar=P.W/P.H;
-  let best=OR_ASPECTS[0]; for (const a of OR_ASPECTS) if (Math.abs(Math.log(a[0]/a[1]/ar)) < Math.abs(Math.log(best[0]/best[1]/ar))) best=a;
-  const k=Math.sqrt(1.05e6/(best[0]*best[1])), SW=Math.round(best[0]*k/16)*16, SH=Math.round(best[1]*k/16)*16;
-  // the request picture: the crop (slightly stretched to the model's aspect) with the hole painted solid magenta
-  const q=mk(SW,SH), qx=ctx2(q); qx.imageSmoothingQuality='high'; qx.drawImage(P.img,0,0,SW,SH);
-  const hm=mk(SW,SH), hx=ctx2(hm); hx.drawImage(P.mask,0,0,SW,SH); const hd=hx.getImageData(0,0,SW,SH), qd=qx.getImageData(0,0,SW,SH);
-  for (let i=0;i<hd.data.length;i+=4) if (hd.data[i]>127){ qd.data[i]=255; qd.data[i+1]=0; qd.data[i+2]=255; } qx.putImageData(qd,0,0);
   const ask = words
     ? 'Edit this image. Inside the solid magenta area only, paint: '+words+'. It must fit the scene: same lighting direction and colour temperature, perspective, scale, grain, sharpness and depth of field. Do not change anything outside the magenta area. No magenta may remain.'
     : 'Edit this image. Remove the solid magenta area and fill it with a seamless, natural continuation of the surrounding background: same textures, lighting, perspective, grain and depth of field, nothing new added. Do not change anything outside the magenta area. No magenta may remain.';
-  const body={model:genCfg.orModel, prompt:ask, n, aspect_ratio:best[0]+':'+best[1], resolution:'1K', output_format:'png',
-    input_references:[{type:'image_url', image_url:{url:q.toDataURL('image/jpeg',0.93)}}]};
-  const r=await (await netFetch(base+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(body)},180000)).json();
-  if (!r.data || !r.data.length) throw new Error(r.error ? String(r.error.message||r.error).slice(0,200) : 'модель не вернула картинку');
-  // colour match: a ring just outside the hole tells how far the model drifted in brightness and tint
-  const ring=mk(P.W,P.H), rx=ctx2(ring); const g=Math.max(4,Math.round(Math.max(P.W,P.H)*0.03));
-  for (let a=0;a<12;a++) rx.drawImage(P.mask, Math.round(Math.cos(a*Math.PI/6)*g), Math.round(Math.sin(a*Math.PI/6)*g)); rx.globalCompositeOperation='destination-out'; rx.drawImage(P.mask,0,0);
-  const rd=rx.getImageData(0,0,P.W,P.H).data, od=ctx2(P.img,{willReadFrequently:true}).getImageData(0,0,P.W,P.H).data;
-  const out=[];
-  for (const it of r.data){ const src = it.b64_json ? 'data:'+(it.media_type||'image/png')+';base64,'+it.b64_json : it.url; if (!src) continue;
-    const bm=await createImageBitmap(await (await fetch(src)).blob()); const c=mk(P.W,P.H), cx=ctx2(c,{willReadFrequently:true}); cx.imageSmoothingQuality='high'; cx.drawImage(bm,0,0,P.W,P.H); bm.close&&bm.close();
-    const id=cx.getImageData(0,0,P.W,P.H), d=id.data; let n0=0; const so=[0,0,0], sr=[0,0,0];
-    for (let i=0;i<d.length;i+=16){ if (rd[i]>127 && rd[i+3]>127){ n0++; for (let ch=0;ch<3;ch++){ so[ch]+=od[i+ch]; sr[ch]+=d[i+ch]; } } }
-    if (n0>50){ const gain=[0,1,2].map(ch=> sr[ch]>1 ? Math.min(1.6,Math.max(0.6, so[ch]/sr[ch])) : 1); for (let i=0;i<d.length;i+=4){ d[i]*=gain[0]; d[i+1]*=gain[1]; d[i+2]*=gain[2]; } cx.putImageData(id,0,0); }
-    out.push(c); }
-  if (!out.length) throw new Error('модель не вернула картинку');
-  return {bitmaps:out, cost:r.usage && r.usage.cost};
+  return orRequest(P.img, ask, n, {mask:P.mask, magenta:true});
 }
 async function cloudFill(P, words, fluxPrompt, n){ return genCfg.provider==='or' ? orFill(P, words, n) : falFill(P, fluxPrompt, n); }
 async function orPing(){
@@ -3069,6 +3062,209 @@ function genDone(){ const g=gen; gen=null; $('#genbar').hidden=true; updateSelBa
 function genCancel(){ const g=gen; gen=null; $('#genbar').hidden=true; if (g){ g.cancelled=true; try{ g.abort&&g.abort.abort(); }catch(e){} }
   if (g && g.layer){ const i=doc.layers.indexOf(g.layer); if (i>=0){ undo(); } }
   updateSelBar(); requestRender(); }
+/* ============ OpenRouter: shared request + four tools on top of it
+   (fit into the scene, sketch to render, expand the frame, art director) ============ */
+function orBaseUrl(){ return genCfg.orBase.replace(/\/+$/,''); }
+function orNeed(){ if (String(genCfg.orKey||'').trim()) return true; toast('Нужен ключ OpenRouter — открываю настройки',2400); genCfg.provider='or'; genSave(); genSettings(); return false; }
+/* one picture edit: img (W×H) + instruction → n canvases of W×H; mask (white = the changed part) gives the colour-match ring */
+async function orRequest(img, ask, n, opt={}){
+  const W=img.width, H=img.height, ar=W/H;
+  let best=OR_ASPECTS[0]; for (const a of OR_ASPECTS) if (Math.abs(Math.log(a[0]/a[1]/ar)) < Math.abs(Math.log(best[0]/best[1]/ar))) best=a;
+  const k=Math.sqrt(1.05e6/(best[0]*best[1])), SW=Math.round(best[0]*k/16)*16, SH=Math.round(best[1]*k/16)*16;
+  const q=mk(SW,SH), qx=ctx2(q,{willReadFrequently:true}); qx.imageSmoothingQuality='high'; qx.drawImage(img,0,0,SW,SH);
+  if (opt.magenta && opt.mask){ const hm=mk(SW,SH), hx=ctx2(hm,{willReadFrequently:true}); hx.imageSmoothingEnabled=false; hx.drawImage(opt.mask,0,0,SW,SH); const hd=hx.getImageData(0,0,SW,SH), qd=qx.getImageData(0,0,SW,SH);
+    for (let i=0;i<hd.data.length;i+=4) if (hd.data[i]>127){ qd.data[i]=255; qd.data[i+1]=0; qd.data[i+2]=255; } qx.putImageData(qd,0,0); }
+  const refs=[{type:'image_url', image_url:{url: opt.magenta ? q.toDataURL('image/png') : q.toDataURL('image/jpeg',0.93)}}]; // magenta must stay pure: no JPEG colour bleed
+  for (const r of (opt.refs||[])){ const c=mk(SW,SH), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(r,0,0,SW,SH); refs.push({type:'image_url', image_url:{url:c.toDataURL('image/png')}}); }
+  const body={model:genCfg.orModel, prompt:ask, n, aspect_ratio:best[0]+':'+best[1], resolution:'1K', output_format:'png', input_references:refs};
+  const r=await (await netFetch(orBaseUrl()+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(body)},180000)).json();
+  if (!r.data || !r.data.length) throw new Error(r.error ? String(r.error.message||r.error).slice(0,200) : 'модель не вернула картинку');
+  let rd=null, od=null;
+  if (opt.mask){ const ring=mk(W,H), rx=ctx2(ring,{willReadFrequently:true}), g=Math.max(4,Math.round(Math.max(W,H)*0.03));
+    for (let a=0;a<12;a++) rx.drawImage(opt.mask, Math.round(Math.cos(a*Math.PI/6)*g), Math.round(Math.sin(a*Math.PI/6)*g), W, H); rx.globalCompositeOperation='destination-out'; rx.drawImage(opt.mask,0,0,W,H);
+    rd=rx.getImageData(0,0,W,H).data; od=ctx2(img,{willReadFrequently:true}).getImageData(0,0,W,H).data; }
+  const out=[];
+  for (const it of r.data){ const src = it.b64_json ? 'data:'+(it.media_type||'image/png')+';base64,'+it.b64_json : it.url; if (!src) continue;
+    const bm=await createImageBitmap(await (await fetch(src)).blob()); const c=mk(W,H), cx=ctx2(c,{willReadFrequently:true}); cx.imageSmoothingQuality='high'; cx.drawImage(bm,0,0,W,H); bm.close&&bm.close();
+    if (rd){ const id=cx.getImageData(0,0,W,H), d=id.data; let n0=0; const so=[0,0,0], sr=[0,0,0];
+      for (let i=0;i<d.length;i+=16){ if (rd[i+3]>127){ n0++; for (let ch=0;ch<3;ch++){ so[ch]+=od[i+ch]; sr[ch]+=d[i+ch]; } } }
+      if (n0>50){ const gain=[0,1,2].map(ch=> sr[ch]>1 ? Math.min(1.6,Math.max(0.6, so[ch]/sr[ch])) : 1); for (let i=0;i<d.length;i+=4){ d[i]*=gain[0]; d[i+1]*=gain[1]; d[i+2]*=gain[2]; } cx.putImageData(id,0,0); } }
+    out.push(c); }
+  if (!out.length) throw new Error('модель не вернула картинку');
+  return {bitmaps:out, cost:r.usage && r.usage.cost};
+}
+function regionFor(b, pad){ const p=Math.max(32, Math.round(Math.max(b.w,b.h)*pad)); return clipRect(b.x-p, b.y-p, b.w+2*p, b.h+2*p); }
+function modelSize(r){ let k=Math.sqrt(1.05e6/(r.w*r.h)); k=Math.min(k,2); return [Math.max(64,Math.round(r.w*k/16)*16), Math.max(64,Math.round(r.h*k/16)*16)]; }
+function regionImage(r, W, H, hide){ const was=(hide||[]).map(L=>L.visible); (hide||[]).forEach(L=>L.visible=false);
+  try{ const c=mk(W,H), x=ctx2(c); x.fillStyle='#fff'; x.fillRect(0,0,W,H); x.imageSmoothingQuality='high'; x.drawImage(compositeRegion(r,W,H),0,0); return c; }
+  finally{ (hide||[]).forEach((L,i)=>L.visible=was[i]); } }
+function maskOf(src, r, W, H, grow){ // white where src has alpha, in model space
+  const a=mk(W,H), ax=ctx2(a); ax.imageSmoothingQuality='high'; ax.drawImage(src, r.x,r.y,r.w,r.h, 0,0,W,H); ax.globalCompositeOperation='source-in'; ax.fillStyle='#fff'; ax.fillRect(0,0,W,H);
+  const m=mk(W,H), mx=ctx2(m); mx.fillStyle='#000'; mx.fillRect(0,0,W,H); const g=grow||0;
+  if (g) for (let i=0;i<8;i++) mx.drawImage(a, Math.round(Math.cos(i*Math.PI/4)*g), Math.round(Math.sin(i*Math.PI/4)*g)); mx.drawImage(a,0,0); return m; }
+
+/* ---- the shared panel: words (optional), variants, cost ---- */
+let aip=null;
+function aiOpen(cfg){
+  if (!doc) return; if (xf||filt||harm||dep||gen||(lift&&lift.open)||aip){ toast('Сначала закрой открытую панель'); return; }
+  aip=Object.assign({ words:'', variants:[], idx:-1, layer:null, busy:null, cost:0 }, cfg);
+  aiBuild(); $('#aibar').hidden=false; updateSelBar();
+  if (cfg.auto && String(genCfg.orKey||'').trim()) aiGo();
+}
+function aiBuild(){
+  const a=aip, box=$('#aibar'); if (!a) return; box.textContent='';
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ '+a.title+' <span></span>';
+  head.lastChild.textContent = a.busy || (a.variants.length ? 'вариант '+(a.idx+1)+' из '+a.variants.length : (String(genCfg.orKey||'').trim() ? a.sub||'' : 'нужен ключ OpenRouter — кнопка ⚙')); box.append(head);
+  if (a.askWords){ const pr=document.createElement('div'); pr.className='er'; pr.innerHTML='<label>'+a.askWords+'</label><input type="text" autocomplete="off" spellcheck="false"><span></span>';
+    const inp=pr.querySelector('input'); inp.placeholder=a.placeholder||'можно оставить пустым'; inp.value=a.words; inp.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg)';
+    inp.oninput=()=>{ a.words=inp.value; }; inp.onkeydown=e=>{ if(e.key==='Enter'){ inp.blur(); aiGo(); } }; box.append(pr); }
+  if (a.hint){ const h=document.createElement('div'); h.className='gh'; h.textContent=a.hint+(a.cost?' · потрачено $'+a.cost.toFixed(2):''); box.append(h); }
+  if (a.variants.length>1){ const vr=document.createElement('div'); vr.className='gvars';
+    a.variants.forEach((c,i)=>{ const b=document.createElement('button'); b.className='gvar'+(i===a.idx?' on':''); const t=mk(96,Math.max(1,Math.round(96*c.height/c.width))); ctx2(t).drawImage(c,0,0,t.width,t.height); b.append(t); b.onclick=()=>aiPick(i); vr.append(b); }); box.append(vr); }
+  const foot=document.createElement('div'); foot.className='eb'; const B=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
+  const st=B('⚙',genSettings); st.title='Настройки генерации'; const sp=document.createElement('span'); sp.style.flex='1';
+  if (a.busy){ foot.append(st, sp, B('Остановить',()=>{ a.cancelled=true; try{ a.abort&&a.abort.abort(); }catch(e){} })); box.append(foot); return; }
+  foot.append(st, sp, B('Отмена',aiCancel), B(a.variants.length?'↻ Ещё':(a.goLabel||'Сделать'), aiGo, a.variants.length?'':'pri'));
+  if (a.variants.length) foot.append(B('Готово',aiDone,'pri')); box.append(foot);
+}
+async function aiGo(){
+  const a=aip; if (!a || a.busy) return; if (!orNeed()) return;
+  a.cancelled=false; netSess=a;
+  try{
+    a.busy=a.busyText||'нейросеть думает…'; aiBuild();
+    const res=await a.run(a.words.trim()); if (aip!==a) return;
+    if (res.cost) a.cost+=res.cost; const first=a.variants.length; a.variants.push(...res.bitmaps);
+    a.busy=null; aiPick(first); toast('Готово'+(res.cost?' · $'+res.cost.toFixed(3):''),1500);
+  }catch(e){ a.busy=null; if (e.message!=='cancel'){ console.error(e); toast(a.title+': '+e.message,4500); } }
+  finally{ netSess=null; if (aip===a) aiBuild(); }
+}
+function aiPick(i){ const a=aip; if (!a || !a.variants[i]) return; a.idx=i;
+  if (!a.layer || !doc.layers.includes(a.layer)){ a.layer=newLayer(a.layerName); insertLayer(a.layer, a.insertAt ? a.insertAt() : doc.active+1); a.entry=undoStack[undoStack.length-1]; }
+  const L=a.layer; L.ctx.clearRect(0,0,doc.w,doc.h); a.apply(L.ctx, a.variants[i]); L.dirty=true; thumbSoon(L); layersChanged(); markDirty(); requestRender(); aiBuild(); }
+function aiDone(){ const a=aip; aip=null; $('#aibar').hidden=true; updateSelBar(); if (a && a.layer){ layersChanged(); if (a.doneMsg) toast(a.doneMsg,2600); } requestRender(); }
+function aiCancel(){ const a=aip; aip=null; $('#aibar').hidden=true; if (a){ a.cancelled=true; try{ a.abort&&a.abort.abort(); }catch(e){} if (a.layer && doc.layers.includes(a.layer)){ if (undoStack[undoStack.length-1]===a.entry) undo(); else { const k=undoStack.indexOf(a.entry); if (k>=0){ undoStack.splice(k,1); histBytes-=a.entry.bytes||0; } doc.layers.splice(doc.layers.indexOf(a.layer),1); doc.active=clamp(doc.active,0,doc.layers.length-1); layersChanged(); } } }
+  updateSelBar(); requestRender(); }
+// paste a model-space canvas back into region r, clipped by a doc-space alpha source (canvas or layer)
+function pasteClipped(ctx, c, r, clip){ const t=mk(r.w,r.h), tx=ctx2(t); tx.imageSmoothingQuality='high'; tx.drawImage(c,0,0,r.w,r.h);
+  if (clip){ tx.globalCompositeOperation='destination-in'; tx.drawImage(clip, r.x,r.y,r.w,r.h, 0,0,r.w,r.h); } ctx.drawImage(t, r.x, r.y); }
+
+/* ---- 1. fit a pasted piece into the scene: the model relights it, only the piece comes back ---- */
+function fitIntoScene(){
+  if (!doc) return; const L=AL(); if (!L || isGroup(L) || L.kind==='adj' || !L.canvas){ toast('Выбери слой со вставкой'); return; }
+  const clip=mk(doc.w,doc.h), cx=ctx2(clip); cx.drawImage(L.canvas,0,0);
+  if (L.mask && L.mask.enabled){ cx.globalCompositeOperation='destination-in'; cx.drawImage(L.mask.canvas,0,0); }
+  if (sel){ cx.globalCompositeOperation='destination-in'; cx.drawImage(sel.mask,0,0); }
+  const b=sel ? selBBox() : contentBBox(clip); if (!b || !b.w){ toast('На слое пусто'); return; }
+  if (b.w*b.h > doc.w*doc.h*0.85){ toast('Слой занимает весь кадр — выдели вставку или выбери её слой',3200); return; }
+  const r=regionFor(b,0.35), [W,H]=modelSize(r);
+  aiOpen({ title:'Вписать в сцену', sub:'свет, цвет и зерно под окружение', askWords:'Подсказка', placeholder:'например: закатный свет слева, дым',
+    hint:'Модель перерисует вставку под свет сцены, форма и детали остаются. Ложится новым слоем поверх — силу меняй прозрачностью.', goLabel:'Вписать', busyText:'вписываю в сцену…', auto:true,
+    layerName:'Вписано · '+L.name, insertAt:()=>doc.layers.indexOf(L)+1, doneMsg:'Готово. Слишком сильно — убавь прозрачность слоя «Вписано»',
+    run:async words=>{ const img=regionImage(r,W,H), mask=maskOf(clip,r,W,H,2);
+      const ask='This is a photobash composite. The subject in the middle was pasted in from another photo. Re-render ONLY that pasted subject so it truly belongs in this scene: match the light direction and softness, light colour and temperature, shadow density, bounce light and colour reflections from the surroundings, rim light, contrast, saturation, black levels, film grain, sharpness and depth of field.'
+        +(words?' Artist note: '+words+'.':'')+' Keep its silhouette, pose, proportions, face and identity, clothing design and small details exactly the same, do not move or resize it. Do not change the background or anything outside the subject.';
+      return orRequest(img, ask, 1, {mask}); },
+    apply:(ctx,c)=>pasteClipped(ctx,c,r,clip) });
+}
+/* ---- 2. sketch to render: a rough painted area inside the selection becomes a finished piece ---- */
+function sketchRender(){
+  if (!sel){ toast('Выдели набросок'); return; } const b=selBBox(); if (!b.w){ toast('Пустое выделение'); return; }
+  const selM=mk(doc.w,doc.h); ctx2(selM).drawImage(sel.mask,0,0);
+  const r=regionFor(b,0.4), [W,H]=modelSize(r);
+  aiOpen({ title:'Набросок в рендер', sub:'отрисовать выделенное', askWords:'Что это', placeholder:'например: бархатная штора, старинный фонарь',
+    hint:'Модель отрисует набросок в выделении в стиле и свете кадра, композицию и цвета сохранит. Ложится новым слоем по выделению.', goLabel:'Отрисовать', busyText:'отрисовываю…',
+    layerName:'Отрисовка', doneMsg:'Отрисовка легла слоем — край можно подтереть ластиком',
+    run:async words=>{ const img=regionImage(r,W,H), mask=maskOf(selM,r,W,H,0);
+      const ask='The first image contains a rough, sketchy painted area; the second image is a mask where white marks that area. Turn ONLY the white-marked area into a finished, detailed render that matches the rest of the picture: same style and level of realism, lighting, colour palette, perspective, grain and depth of field.'
+        +(words?' It depicts: '+words+'.':'')+' Keep the composition, shapes, placement and main colours of the sketch. Do not change anything outside the marked area.';
+      return orRequest(img, ask, 1, {mask, refs:[mask]}); },
+    apply:(ctx,c)=>pasteClipped(ctx,c,r,selM) });
+}
+/* ---- 3. expand the frame: bigger canvas, the new border is generated ---- */
+function canvasExpand(t,rr,bt,l){ // in place, undoable: every pixel canvas grows, content shifts by (l,t)
+  t=Math.max(0,Math.round(t)); rr=Math.max(0,Math.round(rr)); bt=Math.max(0,Math.round(bt)); l=Math.max(0,Math.round(l));
+  if (!(t+rr+bt+l)) return false; const W0=doc.w, H0=doc.h, W1=W0+l+rr, H1=H0+t+bt;
+  if (W1*H1>48e6){ toast('Слишком большой холст для iPad'); return false; }
+  const grow=(c,fillWhite)=>{ const keep=mk(c.width,c.height); ctx2(keep).drawImage(c,0,0); c.width=W1; c.height=H1; const x=ctx2(c); if (fillWhite){ x.fillStyle='#fff'; x.fillRect(0,0,W1,H1); x.clearRect(l,t,W0,H0); } x.drawImage(keep,l,t); };
+  const shrink=c=>{ const keep=mk(W0,H0); ctx2(keep).drawImage(c,l,t,W0,H0,0,0,W0,H0); c.width=W0; c.height=H0; ctx2(c).drawImage(keep,0,0); };
+  const each=fn=>{ for (const L of doc.layers){ if (L.canvas) fn(L.canvas,false); if (L.mask && L.mask.canvas) fn(L.mask.canvas,true); } };
+  const fix=(w,h)=>{ doc.w=w; doc.h=h; sel=null; if (typeof depthMap!=='undefined') depthMap=null; retouchCache=null; wandCache=null; liveCacheFree(); for (const L of doc.layers){ L.dirty=true; L.saved=false; if (L.ctx) L.ctx=ctx2(L.canvas); if (L.mask) L.mask.ctx=ctx2(L.mask.canvas); }
+    if (typeof thumbs!=='undefined') thumbs.clear(); structVer++; contentVer++; fitView(); layersChanged(); updateSelBar(); markDirty(); requestRender(); };
+  if (lift) objDone(true);
+  each(grow); fix(W1,H1);
+  pushHist({ undo(){ each(c=>shrink(c)); fix(W0,H0); }, redo(){ each(grow); fix(W1,H1); }, bytes:(W1*H1-W0*H0)*4*doc.layers.length });
+  return {t,r:rr,b:bt,l,W0,H0};
+}
+function expandDialog(){
+  if (!doc) return;
+  const d=dialog(`<h3>Расширить кадр</h3><p>Холст станет больше, а новые края дорисует нейросеть отдельным слоем. Сейчас ${doc.w}×${doc.h}.</p>
+    <div class="seg" id="exPre" style="margin:4px 0 10px;flex-wrap:wrap"><button data-p="w">Шире +25%</button><button data-p="h">Выше +25%</button><button data-p="169">Под 16:9</button><button data-p="916">Под 9:16</button><button data-p="43">Под 4:3</button></div>
+    <div class="row" style="margin:6px 0"><label>Сверху</label><input type="number" id="exT" value="0" min="0"></div>
+    <div class="row" style="margin:6px 0"><label>Снизу</label><input type="number" id="exB" value="0" min="0"></div>
+    <div class="row" style="margin:6px 0"><label>Слева</label><input type="number" id="exL" value="0" min="0"></div>
+    <div class="row" style="margin:6px 0"><label>Справа</label><input type="number" id="exR" value="0" min="0"></div>
+    <p class="kbd" id="exInfo" style="margin:8px 0 0"></p>`,
+    [['Расширить', d=>{ const v=id=>+d.querySelector(id).value||0; const e=canvasExpand(v('#exT'),v('#exR'),v('#exB'),v('#exL')); if (!e){ toast('Укажи, на сколько расширять'); return false; } setTimeout(()=>expandFill(e),50); }, true]]);
+  const set=(t,b,l,r)=>{ d.querySelector('#exT').value=Math.round(t); d.querySelector('#exB').value=Math.round(b); d.querySelector('#exL').value=Math.round(l); d.querySelector('#exR').value=Math.round(r); info(); };
+  const info=()=>{ const v=id=>+d.querySelector(id).value||0; d.querySelector('#exInfo').textContent='Будет '+(doc.w+v('#exL')+v('#exR'))+'×'+(doc.h+v('#exT')+v('#exB')); };
+  d.querySelectorAll('input').forEach(i=>{ i.oninput=info; i.style.cssText='flex:1;min-width:0;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg);font:inherit'; }); info();
+  d.querySelectorAll('#exPre button').forEach(b=>b.onclick=()=>{ const W=doc.w, H=doc.h, p=b.dataset.p;
+    if (p==='w') set(0,0,W*0.125,W*0.125); else if (p==='h') set(H*0.125,H*0.125,0,0);
+    else { const [a1,a2]= p==='169'?[16,9]:p==='916'?[9,16]:[4,3], t=a1/a2;
+      if (W/H < t){ const add=H*t-W; set(0,0,add/2,add/2); } else { const add=W/t-H; set(add/2,add/2,0,0); } } });
+}
+function expandFill(e){
+  const W1=doc.w, H1=doc.h, r={x:0,y:0,w:W1,h:H1}, [W,H]=modelSize(r);
+  const border=mk(W1,H1), bx=ctx2(border); bx.fillStyle='#fff'; bx.fillRect(0,0,W1,H1); bx.clearRect(e.l,e.t,e.W0,e.H0);
+  const ov=Math.max(6,Math.round(Math.max(e.W0,e.H0)*0.015)); // the seam: a little overlap into the old picture, feathered
+  const soft=mk(W1,H1), sx=ctx2(soft); sx.fillStyle='#fff'; sx.fillRect(0,0,W1,H1); const inner=mk(W1,H1), ix=ctx2(inner); ix.fillStyle='#fff'; ix.fillRect(e.l+ov,e.t+ov,e.W0-2*ov,e.H0-2*ov);
+  sx.globalCompositeOperation='destination-out'; sx.drawImage(softBlur(inner,ov*0.6),0,0);
+  const run=async words=>{ const img=regionImage(r,W,H), mask=mk(W,H), mx=ctx2(mask); mx.fillStyle='#000'; mx.fillRect(0,0,W,H); mx.drawImage(border,0,0,W,H);
+    const fluxPrompt='Seamless natural extension of the scene beyond the original frame: continue the environment, architecture, lighting, perspective and grain.'+(words?' '+words+'.':'');
+    if (genCfg.provider==='fal' && String(genCfg.falKey||'').trim()) return falFill({r,W,H,img,mask}, fluxPrompt, 2);
+    const ask='Extend this picture: the solid magenta border is empty canvas outside the original frame. Fill it with a seamless, natural continuation of the scene — environment, architecture, objects cut by the frame, lighting, perspective, colour and grain.'+(words?' Artist note: '+words+'.':'')+' Do not change the original picture in the middle. No magenta may remain.';
+    return orRequest(img, ask, 1, {mask, magenta:true}); };
+  aiOpen({ title:'Расширить кадр', sub:'дорисовываю края', askWords:'Что по краям', placeholder:'можно оставить пустым', goLabel:'Дорисовать', busyText:'дорисовываю края…', auto:true,
+    hint:'Края дорисовываются по всей картинке целиком, поэтому на очень большом холсте они мягче оригинала — их можно подтянуть резкостью.',
+    layerName:'Расширение кадра', insertAt:()=>doc.layers.length, doneMsg:'Края легли верхним слоем — его можно подтереть или подвинуть',
+    run, apply:(ctx,c)=>{ const t=mk(W1,H1), tx=ctx2(t); tx.imageSmoothingQuality='high'; tx.drawImage(c,0,0,W1,H1); tx.globalCompositeOperation='destination-in'; tx.drawImage(soft,0,0); ctx.drawImage(t,0,0); } });
+}
+/* ---- 4. art director: a vision model looks at the frame and leaves numbered notes on the canvas ---- */
+let crit=null;
+const plur=(n,a,b,c)=>{ const m10=n%10, m100=n%100; return m10===1&&m100!==11 ? a : m10>=2&&m10<=4&&(m100<10||m100>=20) ? b : c; };
+async function artDirector(){
+  if (!doc || !orNeed()) return; if (crit && crit.busy) return;
+  const k=Math.min(1,1568/Math.max(doc.w,doc.h)), W=Math.round(doc.w*k), H=Math.round(doc.h*k);
+  const img=regionImage({x:0,y:0,w:doc.w,h:doc.h},W,H);
+  crit={busy:true, notes:[], summary:'', sel:-1}; critBuild(); $('#critbar').hidden=false;
+  const ask='Ты — арт-директор визуальных новелл. Перед тобой кат-сцена (иллюстрация) в работе: фотобаш плюс нейросети. Разбери кадр по-деловому и по-русски: свет и тени (согласованность источников, контактные тени), перспектива и масштаб, анатомия и позы, композиция и читаемость главного, цвет и тон, стыки фотобаша и следы нейросети (лишние пальцы, кривой текст, мыло, повторяющиеся текстуры). Только реальные проблемы, от важных к мелким, не больше 8. Ответь ТОЛЬКО JSON: {"summary":"одна-две фразы общего впечатления","notes":[{"x":0..1,"y":0..1,"r":0..0.5,"kind":"свет|перспектива|анатомия|композиция|цвет|стык|деталь","title":"коротко","text":"что не так и как поправить, 1–2 предложения"}]} где x,y — центр проблемного места в долях ширины и высоты, r — радиус области в долях ширины.';
+  const body={model:genCfg.orVision||'google/gemini-2.5-flash', messages:[{role:'user', content:[{type:'text', text:ask},{type:'image_url', image_url:{url:img.toDataURL('image/jpeg',0.9)}}]}], response_format:{type:'json_object'}, temperature:0.3};
+  const c0=crit; netSess=c0;
+  try{
+    const r=await (await netFetch(orBaseUrl()+'/api/v1/chat/completions',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(body)},120000)).json();
+    const txt=(r.choices&&r.choices[0]&&r.choices[0].message&&r.choices[0].message.content)||''; const m=String(txt).match(/\{[\s\S]*\}/); if (!m) throw new Error('модель ответила не по форме');
+    const j=JSON.parse(m[0]); if (crit!==c0) return;
+    c0.summary=String(j.summary||''); c0.notes=(j.notes||[]).slice(0,8).map(n=>({x:clamp(+n.x||0.5,0,1)*doc.w, y:clamp(+n.y||0.5,0,1)*doc.h, r:clamp(+n.r||0.06,0.02,0.5)*doc.w, kind:String(n.kind||''), title:String(n.title||''), text:String(n.text||'')}));
+    c0.cost=r.usage&&r.usage.cost;
+  }catch(e){ if (e.message!=='cancel'){ console.error(e); toast('Арт-директор: '+e.message,4500); } if (crit===c0){ crit=null; $('#critbar').hidden=true; } return; }
+  finally{ netSess=null; }
+  c0.busy=false; critBuild(); requestRender();
+}
+function critBuild(){ const c=crit, box=$('#critbar'); if (!c) return; box.textContent='';
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Арт-директор <span></span>'; head.lastChild.textContent= c.busy ? 'смотрю кадр…' : c.notes.length ? c.notes.length+' '+plur(c.notes.length,'замечание','замечания','замечаний')+(c.cost?' · $'+c.cost.toFixed(3):'') : 'серьёзных замечаний нет'; box.append(head);
+  if (c.summary){ const s=document.createElement('div'); s.className='gh'; s.style.fontSize='13px'; s.textContent=c.summary; box.append(s); }
+  const list=document.createElement('div'); list.className='crl';
+  c.notes.forEach((n,i)=>{ const b=document.createElement('button'); b.className='crn'+(i===c.sel?' on':''); b.innerHTML='<b></b><span><i></i><em></em></span>'; b.firstChild.textContent=i+1; b.querySelector('i').textContent=n.title+(n.kind?' · '+n.kind:''); b.querySelector('em').textContent=n.text;
+    b.onclick=()=>{ c.sel = c.sel===i ? -1 : i; critBuild(); requestRender(); }; list.append(b); }); box.append(list);
+  const foot=document.createElement('div'); foot.className='eb'; const sp=document.createElement('span'); sp.style.flex='1';
+  const again=document.createElement('button'); again.textContent='↻ Ещё раз'; again.onclick=()=>{ crit=null; artDirector(); }; again.disabled=c.busy;
+  const close=document.createElement('button'); close.className='pri'; close.textContent='Закрыть'; close.onclick=()=>{ if (crit){ crit.cancelled=true; try{ crit.abort&&crit.abort.abort(); }catch(e){} } crit=null; $('#critbar').hidden=true; requestRender(); };
+  foot.append(sp, again, close); box.append(foot); }
+function critOverlay(ox){ if (!crit || !crit.notes.length) return; const m=viewM(), sc=Math.hypot(m[0],m[1]);
+  crit.notes.forEach((n,i)=>{ const [x,y]=toScr(n.x,n.y), R=Math.max(14,n.r*sc), on=i===crit.sel;
+    ox.save(); ox.lineWidth=on?3:2; ox.setLineDash(on?[]:[6,5]); ox.strokeStyle=on?'#ffb35c':'rgba(255,179,92,.85)'; ox.shadowColor='rgba(0,0,0,.6)'; ox.shadowBlur=4;
+    ox.beginPath(); ox.arc(x,y,R,0,Math.PI*2); ox.stroke(); ox.setLineDash([]);
+    ox.fillStyle='#ffb35c'; ox.beginPath(); ox.arc(x+R*0.71,y-R*0.71,11,0,Math.PI*2); ox.fill(); ox.shadowBlur=0; ox.fillStyle='#1b1208'; ox.font='600 12px system-ui'; ox.textAlign='center'; ox.textBaseline='middle'; ox.fillText(String(i+1),x+R*0.71,y-R*0.71+0.5); ox.restore(); }); }
 function genSettings(){
   const d=dialog(`<h3>Генерация: откуда брать модель</h3><p>Ключи хранятся только на этом iPad. OpenRouter — один аккаунт и много моделей (Nano Banana, FLUX.2, Seedream…). fal.ai — FLUX Fill, рисует строго по маске. ComfyUI — свой компьютер.</p>
     <div class="seg" id="gsProv" style="margin:4px 0 10px"><button data-p="or">OpenRouter</button><button data-p="fal">fal.ai</button><button data-p="comfy">Свой ПК</button></div>
@@ -3837,7 +4033,7 @@ function objBuild(){
   const foot=document.createElement('div'); foot.className='eb';
   const mk_=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
   if (l.busy){ foot.append(mk_('Остановить',()=>{ l.cancelled=true; try{ l.abort&&l.abort.abort(); }catch(e){} })); box.append(foot); return; }
-  foot.append(mk_('Сдвинуть ещё',objMoveAgain), mk_('Гармонизация',()=>{ const L=lift.OL; objDone(); doc.active=doc.layers.indexOf(L); layersChanged(); harmOpen(); }),
+  foot.append(mk_('Сдвинуть ещё',objMoveAgain), mk_('Гармонизация',()=>{ const L=lift.OL; objDone(); doc.active=doc.layers.indexOf(L); layersChanged(); harmOpen(); }), mk_('✦ Вписать',()=>{ const L=lift.OL; objDone(); doc.active=doc.layers.indexOf(L); sel=null; layersChanged(); fitIntoScene(); },'ai'),
     mk_(l.vars.length?'✦ Ещё':'✦ Перерисовать фон', objCloud, 'ai'));
   const sp=document.createElement('span'); sp.style.flex='1'; foot.append(sp, mk_('Готово',()=>objDone(),'pri'));
   const hint=document.createElement('div'); hint.className='gh'; hint.textContent='«Перерисовать фон» — нейросеть через интернет ('+PROV_NAME[genCloud()?genCfg.provider:'fal']+'), платно, несколько центов за вариант. Быстрая заплатка уже сделана на iPad бесплатно.'; box.append(hint, foot);
@@ -5046,14 +5242,14 @@ const safeName=()=> (doc.name||'proyavka').replace(/[\\/:*?"<>|]+/g,'_');
 document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops(); const m=b.dataset.m;
   if (m==='noop') return;
   if (xf && m!=='help' && m!=='store'){ toast('Сначала примени или отмени трансформ'); return; }
-  if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click();
+  if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click(); else if(m==='expand') expandDialog(); else if(m==='critic') artDirector();
   else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='penpick'){ S.penHoldPick=!S.penHoldPick; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; savePrefs(); toast(S.penHoldPick?'Задержи карандаш на месте ~0.5 с — появится пипетка':'Пипетка карандашом выключена; палец по-прежнему берёт цвет удержанием'); } else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
   else exportImg(m);
 });
 
 /* ============ selection bar & transform bar ============ */
 document.querySelectorAll('#selbar [data-sel]').forEach(b=>b.onclick=()=>{ const a=b.dataset.sel;
-  ({ai:()=>inpaintFromSel(), edge:edgeOpen, deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill, gen:genOpen, lift:objLift})[a](); });
+  ({ai:()=>inpaintFromSel(), edge:edgeOpen, deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill, gen:genOpen, lift:objLift, sketch:sketchRender})[a](); });
 $('#bDesel').onclick=()=>quickDeselect();
 $('#docName').onclick=()=>openLibrary();
 $('#xfApply').onclick=xfApply; $('#xfCancel').onclick=xfCancel;
@@ -5314,6 +5510,8 @@ function resetDocState(){
   if (typeof filt!=='undefined' && filt) filtClose();
   if (typeof gen!=='undefined' && gen){ gen.cancelled=true; try{ gen.abort&&gen.abort.abort(); }catch(e){} gen=null; $('#genbar').hidden=true; }
   if (typeof lift!=='undefined' && lift) objDone(true);
+  if (typeof aip!=='undefined' && aip){ aip.cancelled=true; aip=null; $('#aibar').hidden=true; }
+  if (typeof crit!=='undefined' && crit){ crit=null; $('#critbar').hidden=true; }
   if (typeof thumbs!=='undefined') thumbs.clear();
   $('#xfbar').hidden=true; contentVer++;
 }
@@ -5491,7 +5689,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-04 · №38 генерация через OpenRouter'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-04 · №39 вписать, отрисовать, расширить, арт-директор'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
