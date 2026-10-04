@@ -150,15 +150,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .fbar button{height:36px;padding:0 12px;border-radius:8px;white-space:nowrap;font-size:13px}
 .fbar button:active{background:var(--panel-2)}
 .fbar .pri{background:var(--accent);color:var(--accent-ink);font-weight:600}
-#edgebar,#harmbar,#adjbar,#depthbar,#filtbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
-#edgebar .eh,#harmbar .eh,#adjbar .eh,#depthbar .eh,#filtbar .eh{font-weight:600;font-size:14px}
-#edgebar .eh span,#harmbar .eh span,#adjbar .eh span,#depthbar .eh span,#filtbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
-#edgebar .er,#harmbar .er,#adjbar .er,#depthbar .er,#filtbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
-#edgebar .er label,#harmbar .er label,#adjbar .er label,#depthbar .er label,#filtbar .er label{color:var(--muted)}
-#edgebar .er .v,#harmbar .er .v,#adjbar .er .v,#depthbar .er .v,#filtbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
-#edgebar .er .hs,#harmbar .er .hs,#adjbar .er .hs,#depthbar .er .hs,#filtbar .er .hs{height:32px;width:auto}
+#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
+#edgebar .eh,#harmbar .eh,#adjbar .eh,#depthbar .eh,#filtbar .eh,#genbar .eh{font-weight:600;font-size:14px}
+#edgebar .eh span,#harmbar .eh span,#adjbar .eh span,#depthbar .eh span,#filtbar .eh span,#genbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+#edgebar .er,#harmbar .er,#adjbar .er,#depthbar .er,#filtbar .er,#genbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
+#edgebar .er label,#harmbar .er label,#adjbar .er label,#depthbar .er label,#filtbar .er label,#genbar .er label{color:var(--muted)}
+#edgebar .er .v,#harmbar .er .v,#adjbar .er .v,#depthbar .er .v,#filtbar .er .v,#genbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
+#edgebar .er .hs,#harmbar .er .hs,#adjbar .er .hs,#depthbar .er .hs,#filtbar .er .hs,#genbar .er .hs{height:32px;width:auto}
 #edShift::after{content:"";position:absolute;left:50%;top:9px;width:2px;height:12px;margin-left:-1px;background:var(--muted);border-radius:1px}
-#edgebar .eb,#harmbar .eb,#adjbar .eb,#depthbar .eb,#filtbar .eb{display:flex;gap:6px;margin-top:2px}
+#edgebar .eb,#harmbar .eb,#adjbar .eb,#depthbar .eb,#filtbar .eb,#genbar .eb{display:flex;gap:6px;margin-top:2px}
 
 /* layers */
 #layers{position:absolute;top:8px;right:8px;bottom:8px;width:290px;max-width:calc(100% - 16px);background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;box-shadow:0 10px 36px rgba(0,0,0,.5);z-index:5}
@@ -373,7 +373,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #status span{background:var(--glass-bg);border:1px solid var(--glass-edge);border-radius:10px;padding:4px 9px}
 .fbar{left:calc(50% + 36px);bottom:28px;border-radius:22px;padding:7px}
 #stage.lyopen .fbar{left:calc((100% - 316px + 72px)/2);max-width:calc(100% - 316px - 72px - 32px)}
-#edgebar,#harmbar,#adjbar,#depthbar,#filtbar{padding:14px 16px;gap:11px}
+#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar{padding:14px 16px;gap:11px}
 #toast{top:84px;border-radius:16px;padding:10px 18px}
 #menu{top:72px;left:10px;border-radius:20px;padding:8px}
 #picker{top:72px;right:10px;border-radius:22px}
@@ -440,6 +440,12 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #layers:not([hidden]){animation:pvSide .22s cubic-bezier(.2,.8,.3,1)}
 .fbar:not([hidden]){animation:pvBar .2s cubic-bezier(.2,.8,.3,1)}
 #menu small{max-width:150px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+#genbar .gh{font-size:11.5px;color:var(--muted);margin-top:-4px;line-height:1.35}
+#genbar .gvars{display:flex;gap:8px;flex-wrap:wrap}
+#genbar .gvar{padding:3px;border-radius:12px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);height:auto}
+#genbar .gvar canvas{display:block;border-radius:9px;max-height:96px}
+#genbar .gvar.on{box-shadow:inset 0 0 0 2px #eab066,0 4px 14px -6px rgba(234,166,86,.7)}
 
 </style>
 
@@ -624,6 +630,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
       <span class="fsep"></span>
       <button data-sel="fill2" title="Заливка с учётом содержимого">Умная заливка</button>
       <button data-sel="ai" class="ai" title="Убрать нейросетью">✦ Убрать</button>
+      <button data-sel="gen" class="ai" title="Генеративная заливка на компьютере (FLUX Fill)">✦ Генерация</button>
       <button data-sel="transform" class="pri">Трансформ</button>
     </div>
     <div class="fbar" id="edgebar" hidden>
@@ -636,6 +643,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <div class="fbar" id="adjbar" hidden></div>
     <div class="fbar" id="depthbar" hidden></div>
     <div class="fbar" id="filtbar" hidden></div>
+    <div class="fbar" id="genbar" hidden></div>
     <div class="fbar" id="harmbar" hidden>
       <div class="eh">Гармонизация <span id="hmHint"></span></div>
       <div class="er"><label>Сила</label><div id="hm_str"></div><span class="v" id="hm_strV"></span></div>
@@ -1799,7 +1807,7 @@ function selToMask(){
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
 }
-function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep) || !!(typeof filt!=='undefined' && filt); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
+function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep) || !!(typeof filt!=='undefined' && filt) || !!(typeof gen!=='undefined' && gen); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
 function quickDeselect(){ if(!sel) return; deselect(); toast('Выделение снято · вернуть — тап двумя пальцами',1500); }
 function syncSelModes(){ document.querySelectorAll('#selModes button').forEach(b=>b.classList.toggle('on', b.dataset.mode===S.selMode)); }
 function setSelMode(k){ S.selMode=k; if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
@@ -2842,6 +2850,141 @@ function liqReset(){ // the whole session back to how the layer was
   set(new Float32Array(s.f.length)); thumbSoon(s.layer);
   pushHist({ liq:s, undo(){ set(before); }, redo(){ set(new Float32Array(s.f.length)); }, bytes:before.byteLength });
   s.cv=contentVer; requestRender(); toast('Пластика сброшена',1200);
+}
+/* ============ generative fill, like Firefly: selection → (optional words) → 3 variants that fit light and colour ============
+   The picture around the selection (with generous context) and the selection as a mask go to an inpainting model on the
+   PC (ComfyUI + FLUX.1 Fill). Only the selected area comes back: a new layer with the selection as its mask. */
+const GEN_DEF={ url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
+let genCfg=Object.assign({}, GEN_DEF); try{ Object.assign(genCfg, JSON.parse(localStorage.getItem('proyavka.gen')||'{}')); }catch(e){}
+const genSave=()=>{ try{ localStorage.setItem('proyavka.gen', JSON.stringify(genCfg)); }catch(e){} };
+let gen=null; // {layer, r, W, H, img, mask, variants:[canvas], idx, prompt, str, busy, abort}
+const genBase=()=>String(genCfg.url||'').trim().replace(/\/+$/,'');
+async function genFetch(path, opt={}, ms=20000){
+  const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(), ms); if (gen) gen.abort=ctl;
+  try{ const r=await fetch(genBase()+path, Object.assign({mode:'cors', signal:ctl.signal}, opt)); if (!r.ok) throw new Error('HTTP '+r.status+' '+(await r.text().catch(()=>'')).slice(0,160)); return r; }
+  catch(e){ if (e.name==='AbortError') throw new Error(gen&&gen.cancelled?'cancel':'сервер не ответил'); if (/Load failed|Failed to fetch|NetworkError/i.test(e.message)) throw new Error('нет связи с компьютером'); throw e; }
+  finally{ clearTimeout(T); }
+}
+async function genPing(){ const r=await genFetch('/system_stats',{},6000); const j=await r.json(); const d=(j.devices||[])[0]; return d ? d.name.replace(/^cuda:\d+\s*/,'')+' · '+Math.round((d.vram_free||0)/1073741824)+' из '+Math.round((d.vram_total||0)/1073741824)+' ГБ свободно' : 'на связи'; }
+function genWorkflow(img, mask, prompt, seed, denoise){
+  const c=genCfg;
+  return {
+    '1':{class_type:'LoadImage', inputs:{image:img}},
+    '2':{class_type:'LoadImage', inputs:{image:mask}},
+    '3':{class_type:'ImageToMask', inputs:{image:['2',0], channel:'red'}},
+    '4':{class_type:'UNETLoader', inputs:{unet_name:c.unet, weight_dtype:c.dtype}},
+    '5':{class_type:'DualCLIPLoader', inputs:{clip_name1:c.clipL, clip_name2:c.t5, type:'flux'}},
+    '6':{class_type:'VAELoader', inputs:{vae_name:c.vae}},
+    '7': /[а-яё]/i.test(prompt) && c.translate!==false  // Russian words: translated on the PC (Argos Translate node, works offline)
+      ? {class_type:'ArgosTranslateCLIPTextEncodeNode', inputs:{from_translate:'russian', to_translate:'english', text:prompt, clip:['5',0]}}
+      : {class_type:'CLIPTextEncode', inputs:{text:prompt, clip:['5',0]}},
+    '8':{class_type:'FluxGuidance', inputs:{conditioning:['7',0], guidance:c.guidance}},
+    '9':{class_type:'ConditioningZeroOut', inputs:{conditioning:['7',0]}},
+    '10':{class_type:'InpaintModelConditioning', inputs:{positive:['8',0], negative:['9',0], vae:['6',0], pixels:['1',0], mask:['3',0], noise_mask:true}},
+    '11':{class_type:'DifferentialDiffusion', inputs:{model:['4',0]}},
+    '12':{class_type:'KSampler', inputs:{model:['11',0], positive:['10',0], negative:['10',1], latent_image:['10',2], seed, steps:c.steps, cfg:1, sampler_name:'euler', scheduler:'normal', denoise}},
+    '13':{class_type:'VAEDecode', inputs:{samples:['12',0], vae:['6',0]}},
+    '14':{class_type:'SaveImage', inputs:{images:['13',0], filename_prefix:'proyavka_fill'}} };
+}
+async function genUpload(canvas, name){ const blob=await toBlob(canvas,'image/png'), fd=new FormData(); fd.append('image', blob, name); fd.append('overwrite','true'); fd.append('type','input');
+  const j=await (await genFetch('/upload/image',{method:'POST', body:fd},60000)).json(); return j.subfolder ? j.subfolder+'/'+j.name : j.name; }
+async function genRunOne(img, mask, prompt, seed, denoise){
+  const cid='proyavka-'+Math.random().toString(36).slice(2);
+  const q=await (await genFetch('/prompt',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prompt:genWorkflow(img,mask,prompt,seed,denoise), client_id:cid})},30000)).json();
+  if (q.error || q.node_errors && Object.keys(q.node_errors).length) throw new Error(genNodeError(q));
+  const id=q.prompt_id, t0=Date.now();
+  while (true){ if (gen && gen.cancelled) throw new Error('cancel');
+    await new Promise(r=>setTimeout(r,900));
+    const h=await (await genFetch('/history/'+id,{},15000)).json(), e=h[id];
+    if (e){ if (e.status && e.status.status_str==='error'){ const m=(e.status.messages||[]).find(x=>x[0]==='execution_error'); throw new Error(m ? (m[1].exception_message||'ошибка на сервере').slice(0,200) : 'ошибка на сервере'); }
+      const out=Object.values(e.outputs||{}).find(o=>o.images&&o.images.length); if (out){ const im=out.images[0];
+        const b=await (await genFetch('/view?'+new URLSearchParams({filename:im.filename, subfolder:im.subfolder||'', type:im.type||'output'}),{},60000)).blob(); return await createImageBitmap(b); } }
+    if (Date.now()-t0>600000) throw new Error('слишком долго'); }
+}
+function genNodeError(q){ try{ const e=q.error||{}, ne=Object.values(q.node_errors||{})[0]; const m=ne && ne.errors && ne.errors[0];
+  const t=(m ? (m.details||m.message) : (e.message||'')) || 'сервер отклонил задачу'; const J=JSON.stringify(q); if (/ArgosTranslate/.test(J) && /not found|does not exist|invalid prompt/i.test(J)) return 'на компьютере нет узла перевода — пиши по-английски или поставь AlekPet nodes'; return /not in|value_not_in_list/i.test(J) ? 'на компьютере нет нужной модели: '+t : t; }catch(_){ return 'сервер отклонил задачу'; } }
+
+function genOpen(){
+  if (!doc || !sel){ toast('Сначала выдели область'); return; } if (xf||filt||harm||dep){ toast('Сначала закрой открытую панель'); return; }
+  gen={ prompt:'', str:1, variants:[], idx:-1, layer:null };
+  genBuild(); $('#genbar').hidden=false; updateSelBar();
+}
+function genBuild(){
+  const g=gen, box=$('#genbar'); if(!g) return; box.textContent='';
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Генеративная заливка <span></span>';
+  head.lastChild.textContent = !genBase() ? 'нужен адрес компьютера — кнопка ⚙' : g.busy ? g.busy : g.variants.length ? 'выбери вариант или попроси ещё' : 'пусто — заполнит по смыслу; или пара слов: «розы на переднем плане»'; box.append(head);
+  const pr=document.createElement('div'); pr.className='er'; pr.innerHTML='<label>Что там</label><input type="text" id="genPrompt" autocomplete="off" spellcheck="false" placeholder="можно оставить пустым"><span></span>';
+  const inp=pr.querySelector('input'); inp.value=g.prompt; inp.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg)';
+  inp.oninput=()=>{ g.prompt=inp.value; }; inp.onkeydown=e=>{ if(e.key==='Enter'){ inp.blur(); genGo(); } }; box.append(pr);
+  const sr=document.createElement('div'); sr.className='er'; sr.innerHTML='<label>Сила изменения</label><div></div><span class="v"></span>'; const v=sr.lastChild, show=()=>v.textContent=Math.round(g.str*100)+'%'; show();
+  hslider(sr.children[1],{min:0.2,max:1,get:()=>g.str,set:x=>{ g.str=x; show(); }}); box.append(sr);
+  const hint=document.createElement('div'); hint.className='gh'; hint.textContent='100% — новое содержимое (убрать, дорисовать). 35–55% — перегенерировать, сохранив форму (кожа, ткань).'; box.append(hint);
+  if (g.variants.length){ const vr=document.createElement('div'); vr.className='gvars';
+    g.variants.forEach((c,i)=>{ const b=document.createElement('button'); b.className='gvar'+(i===g.idx?' on':''); const t=mk(96,Math.max(1,Math.round(96*c.height/c.width))); ctx2(t).drawImage(c,0,0,t.width,t.height); b.append(t); b.onclick=()=>genPick(i); vr.append(b); });
+    box.append(vr); }
+  const foot=document.createElement('div'); foot.className='eb';
+  const st=document.createElement('button'); st.textContent='⚙'; st.title='Компьютер с нейросетью'; st.onclick=genSettings;
+  const sp=document.createElement('span'); sp.style.flex='1';
+  const cancel=document.createElement('button'); cancel.textContent= g.busy ? 'Остановить' : 'Отмена'; cancel.onclick= g.busy ? ()=>{ g.cancelled=true; if(g.abort) g.abort.abort(); } : genCancel;
+  foot.append(st, sp, cancel);
+  if (!g.busy){ const go=document.createElement('button'); go.className= g.variants.length ? '' : 'pri'; go.textContent= g.variants.length ? '↻ Ещё 3' : 'Сгенерировать'; go.onclick=genGo; foot.append(go);
+    if (g.variants.length){ const ok=document.createElement('button'); ok.className='pri'; ok.textContent='Готово'; ok.onclick=genDone; foot.append(ok); } }
+  box.append(foot);
+}
+function genPrep(){ // crop with context, size for the model (~1 MP, multiples of 16), mask white = to fill
+  const b=sel.box&&sel.box.w ? sel.box : selBBox(); if (!b || !b.w) throw new Error('пустое выделение');
+  const pad=Math.max(48, Math.round(Math.max(b.w,b.h)*0.4)), r=clipRect(b.x-pad, b.y-pad, b.w+2*pad, b.h+2*pad);
+  let k=Math.sqrt(1.05e6/(r.w*r.h)); k=Math.min(k, 3);
+  const W=Math.max(64,Math.round(r.w*k/16)*16), H=Math.max(64,Math.round(r.h*k/16)*16);
+  const img=mk(W,H), ix=ctx2(img); ix.fillStyle='#fff'; ix.fillRect(0,0,W,H); ix.imageSmoothingQuality='high'; ix.drawImage(compositeRegion(r,W,H),0,0);
+  const sm=mk(W,H), sx=ctx2(sm); sx.imageSmoothingQuality='high'; sx.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,W,H);
+  const mask=mk(W,H), mx=ctx2(mask); mx.fillStyle='#000'; mx.fillRect(0,0,W,H);
+  const wm=mk(W,H), wx=ctx2(wm); wx.fillStyle='#fff'; wx.fillRect(0,0,W,H); wx.globalCompositeOperation='destination-in'; wx.drawImage(sm,0,0);
+  const g=Math.max(2, Math.round(Math.max(W,H)*0.012)); // grow a little so the seam is generated too
+  for (let a=0;a<8;a++){ mx.drawImage(wm, Math.round(Math.cos(a*Math.PI/4)*g), Math.round(Math.sin(a*Math.PI/4)*g)); } mx.drawImage(wm,0,0);
+  return {r, W, H, img, mask};
+}
+async function genGo(){
+  const g=gen; if (!g || g.busy) return;
+  if (!genBase()){ genSettings(); return; }
+  if (!sel){ toast('Выделение пропало — выдели заново'); return; }
+  g.cancelled=false;
+  try{
+    if (!g.prep){ g.prep=genPrep(); g.selMask=mk(doc.w,doc.h); ctx2(g.selMask).drawImage(sel.mask,0,0); }
+    const P=g.prep; g.busy='отправляю картинку на компьютер…'; genBuild();
+    const stamp=Date.now().toString(36), imgN=await genUpload(P.img,'proyavka_img_'+stamp+'.png'), maskN=await genUpload(P.mask,'proyavka_mask_'+stamp+'.png');
+    const prompt=genPrompt(g.prompt);
+    for (let i=0;i<3;i++){ g.busy='рисую вариант '+(i+1)+' из 3…'; genBuild();
+      const bm=await genRunOne(imgN, maskN, prompt, Math.floor(Math.random()*1e15), g.str);
+      const c=mk(P.r.w,P.r.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,P.r.w,P.r.h); bm.close&&bm.close();
+      g.variants.push(c); if (g.idx<0 || i===0) genPick(g.variants.length-1, true); }
+    g.busy=null; genBuild(); toast('Готово — выбери вариант',1500);
+  }catch(e){ console.error(e); g.busy=null; genBuild(); if (e.message!=='cancel') toast('Генерация не удалась: '+e.message, 5000); else toast('Остановлено',1200); }
+}
+function genPrompt(t){ t=String(t||'').trim(); if (!t) return '';
+  if (/[а-яё]/i.test(t)) return t+'. Фотореалистично, бесшовно вписано в окружающую сцену: то же направление света, цветовая температура, перспектива, зерно и глубина резкости.';
+  return t+'. Photorealistic, seamlessly blended into the surrounding scene, same lighting direction, colour temperature, perspective, grain and depth of field as the rest of the image.'; }
+function genPick(i, quiet){
+  const g=gen; if (!g || !g.variants[i]) return; g.idx=i; const P=g.prep, c=g.variants[i];
+  if (!g.layer){ const L=newLayer('Генерация'+(g.prompt.trim()?' · '+g.prompt.trim().slice(0,28):''));
+    const m=newMask(L); m.ctx.clearRect(0,0,doc.w,doc.h); m.ctx.drawImage(g.selMask,0,0); L.mask=m;
+    insertLayer(L, doc.active+1); g.layer=L; }
+  const L=g.layer; L.ctx.clearRect(0,0,doc.w,doc.h); L.ctx.drawImage(c,P.r.x,P.r.y); L.dirty=true; thumbSoon(L); markDirty(); requestRender();
+  if (!quiet) genBuild();
+}
+function genDone(){ const g=gen; gen=null; $('#genbar').hidden=true; updateSelBar(); if (g && g.layer){ layersChanged(); toast('Генерация легла слоем с маской — край можно докрасить',2200); } }
+function genCancel(){ const g=gen; gen=null; $('#genbar').hidden=true;
+  if (g && g.layer){ const i=doc.layers.indexOf(g.layer); if (i>=0){ undo(); } }
+  updateSelBar(); requestRender(); }
+function genSettings(){
+  const d=dialog(`<h3>Компьютер с нейросетью</h3><p>Адрес ComfyUI на твоём ПК в домашней сети, например <span class="kbd">https://192.168.1.50:8188</span>. Как подготовить ПК — в инструкции «Проявка × ComfyUI».</p>
+    <div class="row" style="margin:6px 0"><label>Адрес</label><input type="text" id="gsUrl" autocomplete="off" spellcheck="false"></div>
+    <div class="row" style="margin:6px 0"><label>Модель</label><input type="text" id="gsUnet" autocomplete="off" spellcheck="false"></div>
+    <p id="gsState" class="kbd" style="margin:10px 0 0;min-height:18px"></p>`,
+    [['Проверить связь', d=>{ genCfg.url=d.querySelector('#gsUrl').value.trim(); genCfg.unet=d.querySelector('#gsUnet').value.trim()||GEN_DEF.unet; genSave(); const s=d.querySelector('#gsState'); s.textContent='проверяю…';
+        genPing().then(t=>{ s.textContent='✓ '+t; }).catch(e=>{ s.textContent='✕ '+e.message; }); return false; }],
+     ['Сохранить', d=>{ genCfg.url=d.querySelector('#gsUrl').value.trim(); genCfg.unet=d.querySelector('#gsUnet').value.trim()||GEN_DEF.unet; genSave(); if (gen) genBuild(); }, true]]);
+  d.querySelector('#gsUrl').value=genCfg.url; d.querySelector('#gsUnet').value=genCfg.unet;
 }
 function filtMenu(){
   dialog('<h3>Фильтр на слой</h3><p>Действует на весь активный слой, а если есть выделение — только на выделенное, с мягким краем.</p>',
@@ -4679,7 +4822,7 @@ document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops
 
 /* ============ selection bar & transform bar ============ */
 document.querySelectorAll('#selbar [data-sel]').forEach(b=>b.onclick=()=>{ const a=b.dataset.sel;
-  ({ai:()=>inpaintFromSel(), edge:edgeOpen, deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill})[a](); });
+  ({ai:()=>inpaintFromSel(), edge:edgeOpen, deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill, gen:genOpen})[a](); });
 $('#bDesel').onclick=()=>quickDeselect();
 $('#docName').onclick=()=>openLibrary();
 $('#xfApply').onclick=xfApply; $('#xfCancel').onclick=xfCancel;
@@ -5115,7 +5258,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-02 · №35.1 физичный свет: тени, блики, цвет поверхности'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-02 · №36 генеративная заливка (ПК)'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
