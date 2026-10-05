@@ -236,8 +236,8 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .hkgrid section{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .hkgrid h4,.hkt{margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .hkt{margin:18px 0 10px}
-.hk{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:3px 0;font-size:13px}
-.hk span{white-space:nowrap;flex:none} .hk b{font-weight:400;color:var(--fg);text-align:right}
+.hk{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 10px;padding:3px 0;font-size:13px}
+.hk span{white-space:nowrap;flex:none} .hk b{font-weight:400;color:var(--fg);text-align:right;flex:1 1 auto;min-width:0}
 .hk i{font-style:normal;color:var(--muted);margin:0 3px}
 kbd{font-family:var(--mono);font-size:11.5px;color:var(--accent);background:rgba(0,0,0,.25);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px}
 .gest.gcols{display:block;columns:4 250px;column-gap:24px;margin:0}
@@ -501,12 +501,17 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #critbar .crn i,#pupbar .crn i{font-style:normal;font-weight:600;font-size:13px}
 #critbar .crn em,#pupbar .crn em{font-style:normal;color:var(--muted);font-size:12.5px}
 
+#imgmenu{top:72px;left:200px;width:330px;display:flex;flex-direction:column;border-radius:20px;padding:8px}
+.deskonly{display:none!important}body.desk .deskonly{display:inline-flex!important}body.desk .padonly{display:none!important}
+.pop{max-height:calc(100vh - 84px);overflow-y:auto}
+#status #docInfo{cursor:pointer;pointer-events:auto}
+#imgmenu .aih{font-size:11px;color:var(--muted);padding:6px 12px 4px;font-family:var(--mono)}
 #aimenu{top:72px;left:110px;width:290px;display:flex;flex-direction:column;border-radius:20px;padding:8px}
-#aimenu button{text-align:left;height:40px;padding:0 12px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;white-space:nowrap}
-#aimenu button:active{background:var(--soft-3)}
-#aimenu button:disabled{opacity:.38}
-#aimenu small{color:var(--muted);font-family:var(--mono);font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis}
-#aimenu hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
+#aimenu button,#imgmenu button{text-align:left;height:40px;padding:0 12px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;white-space:nowrap}
+#aimenu button:active,#imgmenu button:active{background:var(--soft-3)}
+#aimenu button:disabled,#imgmenu button:disabled{opacity:.38}
+#aimenu small,#imgmenu small{color:var(--muted);font-family:var(--mono);font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+#aimenu hr,#imgmenu hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
 #aimenu .aih{font-size:11px;color:var(--muted);padding:4px 12px 2px;letter-spacing:.02em}
 #bAI svg{fill:currentColor;stroke:none}
 #bAI{color:#f0b46a}
@@ -631,6 +636,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 </svg>Проявка</span>
     <button class="tb" id="bMenu" aria-label="Файл"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Файл</button>
     <button class="tb" id="bAI" aria-label="Нейросети"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg>ИИ</button>
+    <button class="tb deskonly" id="bImg" aria-label="Изображение"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="m3.5 16 5-5 4 4 3-3 4.5 4.5"/><circle cx="15.5" cy="9" r="1.4"/></svg>Изображение</button>
     <button class="tb" id="docName" aria-label="Мои документы" title="Мои документы"><span></span><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></button>
     <span class="pill" hidden>
     <button class="tb" id="bDesel" hidden aria-label="Снять выделение (⌘D)" title="Снять выделение"><svg viewBox="0 0 24 24"><path d="M4 7V4h3M10 4h4M17 4h3v3M20 10v1M4 10v4M4 17v3h3M10 20h1"/><path d="m15 15 6 6M21 15l-6 6"/></svg></button>
@@ -651,6 +657,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <button class="tb tgm" data-group="tone" aria-label="Тон и резкость: осветление, затемнение, губка, размытие, резкость, палец"></button>
     <span class="rsep"></span>
     <button class="tb" data-tool="transform" aria-label="Трансформ (V)"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
+    <button class="tb" id="bCrop" aria-label="Кадрирование (C)" title="Кадрирование (C)"><svg viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M2 6h14a2 2 0 0 1 2 2v14"/></svg></button>
     <span class="rsep"></span>
     <div class="vs" id="vsSize" aria-label="Размер"><div class="fill"></div><div class="knob"></div></div>
     <div class="vlabel" id="lSize">40</div>
@@ -776,6 +783,21 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <hr>
     <button data-a="set">Настройки генерации <small id="aiProv"></small></button>
   </div>
+  <div class="pop" id="imgmenu" hidden>
+    <button data-i="crop">Кадрировать <small>C</small></button>
+    <button data-i="isize">Размер изображения… <small>Ctrl+Alt+I</small></button>
+    <button data-i="csize">Размер холста… <small>Ctrl+Alt+C</small></button>
+    <button data-i="expand">✦ Расширить кадр…</button>
+    <hr>
+    <button data-i="xf">Трансформ <small>Ctrl+T</small></button>
+    <button data-i="pup">Марионетка <small>P</small></button>
+    <button data-i="liq">Пластика <small>Ctrl+Shift+X</small></button>
+    <hr>
+    <button data-i="rmbg">✦ Удалить фон <small>маской</small></button>
+    <button data-i="stamp">Копия видимого на слой <small>Ctrl+Alt+Shift+E</small></button>
+    <hr>
+    <div class="aih" id="imgInfo"></div>
+  </div>
   <div class="pop" id="menu" hidden>
     <button data-m="lib">Мои документы</button>
     <button data-m="new">Новый документ</button>
@@ -783,17 +805,17 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <button data-m="restore">Восстановить из копии</button>
     <button data-m="open">Открыть PSD или картинку</button>
     <button data-m="place">Поместить картинку слоем</button>
-    <hr>
-    <button data-m="crop">Кадрировать <small>C</small></button>
-    <button data-m="isize">Размер изображения <small>Ctrl+Alt+I</small></button>
-    <button data-m="csize">Размер холста <small>Ctrl+Alt+C</small></button>
+    <hr class="padonly">
+    <button data-m="crop" class="padonly">Кадрировать <small>C</small></button>
+    <button data-m="isize" class="padonly">Размер изображения <small>Ctrl+Alt+I</small></button>
+    <button data-m="csize" class="padonly">Размер холста <small>Ctrl+Alt+C</small></button>
     <hr>
     <button data-m="png">Сохранить PNG <small>полный</small></button>
     <button data-m="png50">Сохранить PNG <small>50% превью</small></button>
     <button data-m="jpg">Сохранить JPG</button>
     <button data-m="psd">Сохранить PSD</button>
     <hr>
-    <button data-m="finger">Рисовать пальцем <small id="mFinger">выкл</small></button>
+    <button data-m="finger" class="padonly">Рисовать пальцем <small id="mFinger">выкл</small></button>
     <button data-m="penpick">Пипетка карандашом <small id="mPenPick">вкл</small></button>
     <button data-m="help">Жесты и клавиши</button>
     <button data-m="store">Проверка памяти <small>для отладки</small></button>
@@ -3289,7 +3311,7 @@ function canvasExpand(t,rr,bt,l){ // in place, undoable: every pixel canvas grow
   return {t,r:rr,b:bt,l,W0,H0};
 }
 function expandDialog(){
-  if (!doc) return;
+  if (!doc || panelBusy()) return;
   const d=dialog(`<h3>Расширить кадр</h3><p>Холст станет больше, а новые края дорисует нейросеть отдельным слоем. Сейчас ${doc.w}×${doc.h}.</p>
     <div class="seg" id="exPre" style="margin:4px 0 10px;flex-wrap:wrap"><button data-p="w">Шире +25%</button><button data-p="h">Выше +25%</button><button data-p="169">Под 16:9</button><button data-p="916">Под 9:16</button><button data-p="43">Под 4:3</button></div>
     <div class="row" style="margin:6px 0"><label>Сверху</label><input type="number" id="exT" value="0" min="0"></div>
@@ -5386,7 +5408,7 @@ function openPickerAt(el){ // the same colour picker, opened next to the control
   const r=el.getBoundingClientRect(), a=$('#app').getBoundingClientRect(), pw=p.offsetWidth, ph=p.offsetHeight;
   let top=r.top-a.top-ph-8; if (top<8) top=Math.min(a.height-ph-8, r.bottom-a.top+8);
   p.style.right='auto'; p.style.left=clamp(r.left-a.left+r.width/2-pw/2, 8, a.width-pw-8)+'px'; p.style.top=top+'px'; }
-function closePops(except){ for(const id of ['menu','aimenu','picker','flyout']) if(id!==except) $('#'+id).hidden=true; }
+function closePops(except){ for(const id of ['menu','aimenu','imgmenu','picker','flyout']) if(id!==except) $('#'+id).hidden=true; }
 $('#bMenu').onclick=e=>{ e.stopPropagation(); closePops('menu'); $('#menu').hidden=!$('#menu').hidden; };
 $('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aimenu'); if (!m.hidden){ m.hidden=true; return; }
   m.querySelectorAll('[data-sel]').forEach(b=>{ b.disabled=!sel; });
@@ -5396,7 +5418,14 @@ $('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aim
 document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePops(); const a=b.dataset.a; if (!doc) return;
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, critic:artDirector, aiedit:()=>aeOpen(), rmbg:removeBackground, set:genSettings})[a](); });
-document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,.tgm,.pickHere')) closePops(); },true);
+document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,#bImg,.tgm,.pickHere')) closePops(); },true);
+$('#bImg').onclick=e=>{ e.stopPropagation(); closePops('imgmenu'); const m=$('#imgmenu'); if (!m.hidden){ m.hidden=true; return; }
+  m.querySelector('#imgInfo').textContent = doc ? doc.w+'×'+doc.h+' px · '+(doc.dpi||72)+' ppi · '+((doc.w/(doc.dpi||72))*2.54).toFixed(1)+'×'+((doc.h/(doc.dpi||72))*2.54).toFixed(1)+' см' : '';
+  const r=$('#bImg').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
+document.querySelectorAll('#imgmenu [data-i]').forEach(b=>b.onclick=()=>{ closePops(); if (!doc) return; const i=b.dataset.i;
+  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>{ if (!panelBusy()) removeBackground(); }, stamp:()=>{ if (!panelBusy()) stampVisible(); }})[i](); });
+$('#bCrop').onclick=()=>cropOpen();
+$('#docInfo').title='Размер изображения (Ctrl+Alt+I)'; $('#docInfo').onclick=()=>imageSizeDialog();
 
 /* ============ AI Edit: the Photoshop plugin itself, running inside Проявка ============
    The plugin is NOT copied here. Its index.html + main.js are read every time from the folder Photoshop installs it in
@@ -5729,7 +5758,7 @@ let pup=null;
 const PUP_DENS={less:24, normal:38, more:56}, PUP_MODES={rigid:'Жёстко', normal:'Обычно', distort:'Искажение'};
 function pupOpen(){
   if (!doc) return; if (xf) xfCancel();
-  if (filt||harm||dep||gen||(lift&&lift.open)||aip||edge){ toast('Сначала закрой открытую панель'); return; }
+  if (filt||harm||dep||gen||(lift&&lift.open)||aip||edge||crop){ toast('Сначала закрой открытую панель'); return; }
   const L=AL(); if (!pixelOnly()) return; if (doc.editMask){ toast('Марионетка работает с пикселями слоя — выбери миниатюру слоя, не маски',2600); return; }
   const selMask = sel ? (()=>{ const c=mk(doc.w,doc.h); ctx2(c).drawImage(sel.mask,0,0); return c; })() : null;
   // source: the layer (only the selected part, if there is a selection) — its alpha decides where the mesh goes
@@ -5990,6 +6019,13 @@ function tabsAdopt(){ // called from layersChanged: whatever document is current
   Object.assign(t, {doc, id:doc.id, name:doc.name, parked:false, stashed:false, used:Date.now()}); TABS.cur=t;
   tabsRender(); tabsPersist(); setTimeout(tabsPark, 0);
 }
+function panelBusy(why){ // a panel with its own preview is open: it would break if the canvas changed under it
+  if (stroke || (typeof liqStroke!=='undefined' && liqStroke)) return true;
+  if (xf){ toast('Сначала примени или отмени трансформ'); return true; }
+  if (edge||harm||filt||gen||aip||(lift&&lift.open)||pup||crop||(typeof dep!=='undefined'&&dep)){ toast('Сначала закрой открытую панель'+(why?' — '+why:''),2400); return true; }
+  if (typeof adjEdit!=='undefined' && adjEdit) adjClose();
+  return false;
+}
 function tabBusy(){
   if (stroke || (typeof liqStroke!=='undefined' && liqStroke)) return true;
   if (xf){ toast('Сначала примени или отмени трансформ'); return true; }
@@ -6117,7 +6153,7 @@ function showHelpPad(){
   <p class="kbd">С клавиатурой: B кисть · E ластик · L лассо · M прямоугольник · V трансформ · I пипетка · [ ] размер · ⌘Z / ⇧⌘Z · ⌘D снять выделение · ⇧⌘I инвертировать выделение · ⌘I инвертировать маску · Enter применить · Esc отмена</p>`,
   [['Понятно', ()=>{ try{localStorage.setItem('kadr.help','1');}catch(e){} }, true]]);
 }
-const HELP_PC_TOOLS=[["Кадрирование (C)", "Рамка с затемнением снаружи и сеткой третей. Тяни углы и стороны, внутри — двигать, снаружи — новая рамка, Shift держит пропорции. Пропорции: свободно, оригинал, 1:1, 4:5, 3:2, 16:9, 9:16, «Повернуть рамку». Рамка может выйти за картинку — холст вырастет (новое поле прозрачное). Enter — кадрировать, Esc — отмена; одна отмена Ctrl+Z."],["Размер изображения (Ctrl+Alt+I)", "Как в фотошопе: ширина/высота в пикселях или процентах, разрешение ppi и размер отпечатка в см. «Сохранение деталей · ИИ» увеличивает через Real-ESRGAN в Automatic1111 на компьютере — новые детали вместо мыла; без компьютера — Lanczos (резкий, без ступенек). Для уменьшения — «Бикубическая, чётче». Маски и прозрачность масштабируются отдельно и чисто. Без «Менять пиксели» меняется только ppi."],["Размер холста (Ctrl+Alt+C)", "Картинка не масштабируется: холст растёт или обрезается вокруг привязки (сетка 3×3). «Относительно» — сколько добавить. Новое поле — прозрачное или залито цветом на нижнем слое; маски в новом поле открыты."],["Инструменты слева", "Похожие собраны в группы: рисование, выделение, умное выделение и глубина, ретушь, тон. Клик по группе берёт последний инструмент из неё, повторный клик или удержание открывает список."], ["Удаление · нейросеть (Shift+J)", "Закрась лишний объект или мусор и отпусти — нейросеть дорисует фон (на ПК — на видеокарте, через мост). Для выделения — «✦ Убрать» на нижней панели."], ["Точечная восстанавливающая кисть (J)", "Без источника: мажь по пятну, пылинке, прыщику — заполнится текстурой вокруг. Быстро и без нейросети."], ["Осветление (O), затемнение, губка, размытие, резкость, палец", "Группа «Тон и резкость». Работают кистью, мазки накапливаются — прошёл ещё раз, эффект сильнее. Осветление и затемнение: диапазон Тени / Средние / Света, «Экспозиция», «Сохранять цвет» (без пересвета и грязи). «＋ Серый слой» — неразрушающий вариант: слой 50% серого в «Мягком свете»; на нём осветление рисует светлым, затемнение — тёмным, картинка не трогается, а слабить можно прозрачностью слоя. Губка: «Приглушить» / «Насытить» — насыщенность под кистью; «Беречь яркие» не даёт пересытить и так яркие цвета. Палец размазывает, «Сила» — как далеко тянется краска. «Все слои» — берёт видимую картинку со всех слоёв и кладёт результат на текущий слой: удобно на пустом слое сверху."], ["Глубина", "Группа «Умное выделение и глубина». Нейросеть на ПК через мост (или в браузере) строит карту глубины (первый раз скачает модель ~27 МБ). «Выделение» — клик по объекту выделяет всё на его глубине, «Ближе» / «Дальше» расширяют диапазон. «Дымка» — новый слой цвета кисти с маской по глубине: чем дальше, тем гуще. «Размытие» — клик по тому, что должно остаться резким; дальнее и ближнее размоется, результат ложится новым слоем сверху. «Карта» — показать саму карту глубины."], ["Размытие / резкость слоя", "Панель слоёв → «Размытие / резкость»: размытие объектива (блики раскрываются в боке, форма диафрагмы — круг или лепестки, зерно, чтобы размытое не выглядело пластиком), размытие по Гауссу или контурная резкость (сила, радиус, порог) на весь активный слой. Если есть выделение — только на выделенное, с мягким краем. Пока двигаешь ползунки — видно сразу; «Применить» — одна отмена."], ["Корректирующие слои", "Панель слоёв → «+ Корректирующий слой»: кривые, уровни, цветовой тон / насыщенность, цветовой баланс. Меняют всё, что под ними, не трогая пиксели; настройки можно поменять в любой момент — клик по значку слоя. Кисть и ластик на таком слое рисуют его маску. «Только на слой ниже» — эффект только на слой прямо под ним (как обтравочная маска). Внутри группы с обычным наложением действует только на группу. «Слить вниз» впечатывает коррекцию в слой. В PSD уходят настоящими корректирующими слоями. Кривые: клик по линии — новая точка, тянуть — двигать, утащить за край — удалить."], ["Гармонизация", "Панель слоёв → «Гармонизация — цвет под фон». Подгоняет свет и цвет вставленного фрагмента под то, что под ним, как гармонизация в фотошопе. Без выделения берётся весь слой, с выделением — только выделенное (подойдёт и для склеенной картинки). «Ориентир»: «Вокруг» — смотрит на полосу фона вокруг фрагмента, «Весь фон» — на всю картинку под слоем. «Свет» и «Цвет» — что именно подгонять, «Насыщенность» — добавить или убрать сочности после подгонки."], ["Заплатка (Shift+J)", "Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение."], ["Штамп (S) и восстанавливающая кисть (Shift+J)", "Источник — кружок на холсте: перетащи его на чистое место (рядом появится лупа) или Alt + клик, потом рисуй. Штамп копирует как есть, восстанавливающая кисть ещё и подгоняет цвет и свет под место. «Выровнять» — источник едет вместе с кистью между мазками."], ["Снять выделение", "Ctrl+D, кнопка ✕ вверху или клик мимо картинки в инструментах выделения."], ["Край выделения", "Кнопка «Край…» на панели выделения: сгладить, растушевать, сузить или расширить. Красным подсвечено то, что не попадёт в выделение. Enter — применить, Esc — отмена."], ["Волшебная палочка (W)", "Клик выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы."], ["Картинка слоем", "Перетащи файл в окно или вставь из буфера (Ctrl+V)."], ["Марионеточная деформация (P)", "Трансформ → «Марионетка» или клавиша P. На слой (или выделенную часть) ложится сетка; клик ставит булавку, тяни — изображение гнётся, остальное держат другие булавки. Alt+клик по булавке или Delete — убрать. «Жёстко / Обычно / Искажение» — насколько части тянутся; «Вперёд / Назад» — что сверху при наложении. Enter — применить, Esc — отмена."], ["Маска", "Кисть скрывает, ластик возвращает. Выбор между слоем и маской — клик по миниатюре."]];
+const HELP_PC_TOOLS=[["Меню «Изображение»", "Сверху рядом с «ИИ»: кадрирование, размер изображения и холста, расширение кадра, трансформ, марионетка, пластика, удаление фона, копия видимого. Внизу меню — размер, ppi и размер отпечатка. Клик по размеру в строке состояния (слева сверху) тоже открывает «Размер изображения». Кнопка кадрирования есть и на панели инструментов под трансформом."],["Кадрирование (C)", "Рамка с затемнением снаружи и сеткой третей. Тяни углы и стороны, внутри — двигать, снаружи — новая рамка, Shift держит пропорции. Пропорции: свободно, оригинал, 1:1, 4:5, 3:2, 16:9, 9:16, «Повернуть рамку». Рамка может выйти за картинку — холст вырастет (новое поле прозрачное). Enter — кадрировать, Esc — отмена; одна отмена Ctrl+Z."],["Размер изображения (Ctrl+Alt+I)", "Как в фотошопе: ширина/высота в пикселях или процентах, разрешение ppi и размер отпечатка в см. «Сохранение деталей · ИИ» увеличивает через Real-ESRGAN в Automatic1111 на компьютере — новые детали вместо мыла; без компьютера — Lanczos (резкий, без ступенек). Для уменьшения — «Бикубическая, чётче». Маски и прозрачность масштабируются отдельно и чисто. Без «Менять пиксели» меняется только ppi."],["Размер холста (Ctrl+Alt+C)", "Картинка не масштабируется: холст растёт или обрезается вокруг привязки (сетка 3×3). «Относительно» — сколько добавить. Новое поле — прозрачное или залито цветом на нижнем слое; маски в новом поле открыты."],["Инструменты слева", "Похожие собраны в группы: рисование, выделение, умное выделение и глубина, ретушь, тон. Клик по группе берёт последний инструмент из неё, повторный клик или удержание открывает список."], ["Удаление · нейросеть (Shift+J)", "Закрась лишний объект или мусор и отпусти — нейросеть дорисует фон (на ПК — на видеокарте, через мост). Для выделения — «✦ Убрать» на нижней панели."], ["Точечная восстанавливающая кисть (J)", "Без источника: мажь по пятну, пылинке, прыщику — заполнится текстурой вокруг. Быстро и без нейросети."], ["Осветление (O), затемнение, губка, размытие, резкость, палец", "Группа «Тон и резкость». Работают кистью, мазки накапливаются — прошёл ещё раз, эффект сильнее. Осветление и затемнение: диапазон Тени / Средние / Света, «Экспозиция», «Сохранять цвет» (без пересвета и грязи). «＋ Серый слой» — неразрушающий вариант: слой 50% серого в «Мягком свете»; на нём осветление рисует светлым, затемнение — тёмным, картинка не трогается, а слабить можно прозрачностью слоя. Губка: «Приглушить» / «Насытить» — насыщенность под кистью; «Беречь яркие» не даёт пересытить и так яркие цвета. Палец размазывает, «Сила» — как далеко тянется краска. «Все слои» — берёт видимую картинку со всех слоёв и кладёт результат на текущий слой: удобно на пустом слое сверху."], ["Глубина", "Группа «Умное выделение и глубина». Нейросеть на ПК через мост (или в браузере) строит карту глубины (первый раз скачает модель ~27 МБ). «Выделение» — клик по объекту выделяет всё на его глубине, «Ближе» / «Дальше» расширяют диапазон. «Дымка» — новый слой цвета кисти с маской по глубине: чем дальше, тем гуще. «Размытие» — клик по тому, что должно остаться резким; дальнее и ближнее размоется, результат ложится новым слоем сверху. «Карта» — показать саму карту глубины."], ["Размытие / резкость слоя", "Панель слоёв → «Размытие / резкость»: размытие объектива (блики раскрываются в боке, форма диафрагмы — круг или лепестки, зерно, чтобы размытое не выглядело пластиком), размытие по Гауссу или контурная резкость (сила, радиус, порог) на весь активный слой. Если есть выделение — только на выделенное, с мягким краем. Пока двигаешь ползунки — видно сразу; «Применить» — одна отмена."], ["Корректирующие слои", "Панель слоёв → «+ Корректирующий слой»: кривые, уровни, цветовой тон / насыщенность, цветовой баланс. Меняют всё, что под ними, не трогая пиксели; настройки можно поменять в любой момент — клик по значку слоя. Кисть и ластик на таком слое рисуют его маску. «Только на слой ниже» — эффект только на слой прямо под ним (как обтравочная маска). Внутри группы с обычным наложением действует только на группу. «Слить вниз» впечатывает коррекцию в слой. В PSD уходят настоящими корректирующими слоями. Кривые: клик по линии — новая точка, тянуть — двигать, утащить за край — удалить."], ["Гармонизация", "Панель слоёв → «Гармонизация — цвет под фон». Подгоняет свет и цвет вставленного фрагмента под то, что под ним, как гармонизация в фотошопе. Без выделения берётся весь слой, с выделением — только выделенное (подойдёт и для склеенной картинки). «Ориентир»: «Вокруг» — смотрит на полосу фона вокруг фрагмента, «Весь фон» — на всю картинку под слоем. «Свет» и «Цвет» — что именно подгонять, «Насыщенность» — добавить или убрать сочности после подгонки."], ["Заплатка (Shift+J)", "Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение."], ["Штамп (S) и восстанавливающая кисть (Shift+J)", "Источник — кружок на холсте: перетащи его на чистое место (рядом появится лупа) или Alt + клик, потом рисуй. Штамп копирует как есть, восстанавливающая кисть ещё и подгоняет цвет и свет под место. «Выровнять» — источник едет вместе с кистью между мазками."], ["Снять выделение", "Ctrl+D, кнопка ✕ вверху или клик мимо картинки в инструментах выделения."], ["Край выделения", "Кнопка «Край…» на панели выделения: сгладить, растушевать, сузить или расширить. Красным подсвечено то, что не попадёт в выделение. Enter — применить, Esc — отмена."], ["Волшебная палочка (W)", "Клик выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы."], ["Картинка слоем", "Перетащи файл в окно или вставь из буфера (Ctrl+V)."], ["Марионеточная деформация (P)", "Трансформ → «Марионетка» или клавиша P. На слой (или выделенную часть) ложится сетка; клик ставит булавку, тяни — изображение гнётся, остальное держат другие булавки. Alt+клик по булавке или Delete — убрать. «Жёстко / Обычно / Искажение» — насколько части тянутся; «Вперёд / Назад» — что сверху при наложении. Enter — применить, Esc — отмена."], ["Маска", "Кисть скрывает, ластик возвращает. Выбор между слоем и маской — клик по миниатюре."]];
 /* the PC version: mouse, keyboard and pen tablet; laid out wide for a landscape monitor (the iPad sheet is a tall column) */
 function showHelpDesk(){
   const K=k=>k.split('+').map(x=>'<kbd>'+x+'</kbd>').join('<i>+</i>');
@@ -6126,8 +6162,8 @@ function showHelpDesk(){
    <div class="hkgrid">`+
    card('Холст',[['Колёсико','масштаб'],['Alt+колёсико','поворот'],['Пробел / H','держать — рука'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум'],['Tab / F','спрятать панели']])+
    card('Правка и файл',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить PSD'],['Ctrl+Shift+S','сохранить как…'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
-   card('Выделение и слои',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','при выделении — добавить / вычесть'],['Ctrl+Alt+R','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift++ / Shift+-','режим наложения']])+
-   card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп'],['B / E','кисть / ластик'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
+   card('Выделение и слои',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','при выделении — добавить / вычесть'],['Ctrl+Alt+R','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
+   card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп'],['B / E','кисть / ластик'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['C','кадрирование'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
    `</div><h4 class="hkt">Инструменты подробно</h4><dl class="gest gcols">`+HELP_PC_TOOLS.map(([t,d])=>'<div><dt>'+t+'</dt><dd>'+d+'</dd></div>').join('')+'</dl>';
   const d=dialog(html, [['Понятно', ()=>{ try{localStorage.setItem('kadr.help','1');}catch(e){} }, true]]); d.classList.add('helpw');
 }
@@ -6249,6 +6285,7 @@ window.pvPencil = kind => { if (!doc) return;
   if (kind==='squeeze'){ undo(); return; }
   if (S.tool==='eraser'){ setTool(pencilBack||'brush'); } else { pencilBack=S.tool; setTool('eraser'); } };
 const IS_DESK = !(navigator.maxTouchPoints>0) && !!window.showSaveFilePicker; // the PC version: Edge/Chrome with a mouse
+document.body.classList.toggle('desk', IS_DESK);
 async function saveFileDesk(name, data, again){ // straight into a folder on disk; Ctrl+S then writes the same file again
   const blob = data instanceof Blob ? data : new Blob([data]); const ext=(name.match(/\.[a-z0-9]+$/i)||['.png'])[0].toLowerCase();
   const types={'.psd':{'image/vnd.adobe.photoshop':['.psd']}, '.png':{'image/png':['.png']}, '.jpg':{'image/jpeg':['.jpg','.jpeg']}, '.zip':{'application/zip':['.zip']}};
@@ -6579,12 +6616,12 @@ let crop=null;
 const CROP_RATIOS=[['free','Свободно'],['orig','Оригинал'],['1:1','1:1'],['4:5','4:5'],['3:2','3:2'],['16:9','16:9'],['9:16','9:16']];
 function cropRatio(){ const r=crop.ratio; if (r==='free') return 0; if (r==='orig') return crop.flip ? doc.h/doc.w : doc.w/doc.h; const [a,b]=r.split(':').map(Number); return crop.flip ? b/a : a/b; }
 function cropOpen(){
-  if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  if (!doc) return; if (crop){ cropClose(); return; } if (panelBusy()) return;
   const b = sel ? selBBox() : {x:0,y:0,w:doc.w,h:doc.h};
   crop={x:b.x, y:b.y, w:b.w||doc.w, h:b.h||doc.h, ratio:'free', flip:false, drag:null};
-  $('#cropbar').hidden=false; updateSelBar(); cropBuild(); renderOverlay();
+  $('#cropbar').hidden=false; $('#bCrop')&&$('#bCrop').classList.add('on'); updateCursor(); updateSelBar(); cropBuild(); renderOverlay();
 }
-function cropClose(){ crop=null; $('#cropbar').hidden=true; updateSelBar(); renderOverlay(); }
+function cropClose(){ crop=null; $('#cropbar').hidden=true; $('#bCrop')&&$('#bCrop').classList.remove('on'); updateCursor(); updateSelBar(); renderOverlay(); }
 function cropApply(){ if (!crop) return; const c=crop; cropClose(); if (canvasReframe(c.x,c.y,c.w,c.h, null)) toast('Кадрировано: '+Math.round(c.w)+'×'+Math.round(c.h),1500); }
 function cropFit(){ const k=cropRatio(); if (!k) return; const cx=crop.x+crop.w/2, cy=crop.y+crop.h/2; let w=crop.w, h=w/k; if (h>crop.h){ h=crop.h; w=h*k; }
   // the largest box of this ratio inside the picture, if the old one was the whole picture
@@ -6616,6 +6653,12 @@ function cropMove(p, shift){ const c=crop, d=c.drag; if (!d) return; const [x,y]
     c.x=x0; c.y=y0; c.w=x1-x0; c.h=y1-y0; }
   const s=$('#cropbar .eh span'); if (s) s.textContent=Math.round(c.w)+'×'+Math.round(c.h)+' px'; requestOverlay(); }
 function cropUp(){ if (crop) crop.drag=null; renderOverlay(); }
+// cursor over the crop frame, like Photoshop: arrows on the handles, move inside, crosshair outside
+stage.addEventListener('pointermove', e=>{ if (!crop || crop.drag || spaceDown || altDown) return; const r=stage.getBoundingClientRect(), p=[e.clientX-r.left, e.clientY-r.top], c=crop;
+  const h=cropHandles().find(h=>Math.hypot(h.s[0]-p[0],h.s[1]-p[1])<(IS_DESK?10:18)); let cur='crosshair';
+  if (h){ const a=(Math.atan2((h.v-.5),(h.u-.5))+view.r)*180/Math.PI, k=((Math.round(a/45)%4)+4)%4; cur=['ew-resize','nwse-resize','ns-resize','nesw-resize'][k]; }
+  else { const [x,y]=toDoc(...p); if (x>=c.x && x<=c.x+c.w && y>=c.y && y<=c.y+c.h) cur='move'; }
+  if (stage.style.cursor!==cur) stage.style.cursor=cur; });
 function cropOverlay(ox){ const c=crop, m=viewM(), T=(x,y)=>[m[0]*x+m[2]*y+m[4], m[1]*x+m[3]*y+m[5]];
   const q=[T(c.x,c.y),T(c.x+c.w,c.y),T(c.x+c.w,c.y+c.h),T(c.x,c.y+c.h)];
   ox.save(); ox.beginPath(); ox.rect(0,0,oc.width,oc.height); ox.moveTo(...q[0]); ox.lineTo(...q[3]); ox.lineTo(...q[2]); ox.lineTo(...q[1]); ox.closePath(); ox.fillStyle='rgba(10,11,13,.55)'; ox.fill('evenodd'); ox.restore();
@@ -6625,7 +6668,7 @@ function cropOverlay(ox){ const c=crop, m=viewM(), T=(x,y)=>[m[0]*x+m[2]*y+m[4],
 
 /* ---- Canvas size ---- */
 function canvasSizeDialog(){
-  if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  if (!doc || panelBusy('потом меняй размер холста')) return;
   const d=dialog(`<h3>Размер холста</h3><p>Сейчас ${doc.w}×${doc.h} px. Картинка не масштабируется — холст обрезается или растёт вокруг неё.</p>
     <div class="dims"><label>Ширина <input id="csW" type="number" min="1" value="${doc.w}"></label><label>Высота <input id="csH" type="number" min="1" value="${doc.h}"></label>
     </div><label class="chk" style="display:flex;gap:8px;align-items:center;margin:8px 0 4px"><input id="csRel" type="checkbox"> Относительно — сколько добавить (минус — срезать)</label>
@@ -6728,7 +6771,7 @@ async function imageResize(W, H, dpi, method){
   toast('Размер '+W+'×'+H+(aiFail?' · ИИ не сработал ('+aiFail.message+'), увеличено Lanczos':m==='ai'?' · ИИ-увеличение':''),aiFail?5000:1800);
 }
 function imageSizeDialog(){
-  if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  if (!doc || panelBusy('потом меняй размер')) return;
   const dpi0=doc.dpi||72, pc=!!genCfg.sdUrl;
   const d=dialog(`<h3>Размер изображения</h3><p>Сейчас ${doc.w}×${doc.h} px · ${dpi0} ppi.</p>
     <div class="dims"><label>Ширина, px <input id="isW" type="number" min="1" value="${doc.w}"></label><label>Высота, px <input id="isH" type="number" min="1" value="${doc.h}"></label><label>Разрешение, ppi <input id="isD" type="number" min="1" value="${dpi0}"></label></div>
@@ -7096,7 +7139,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №51 расширение кадра v2: детализация краёв'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №52 меню «Изображение», кадрирование на панели, проверки'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
