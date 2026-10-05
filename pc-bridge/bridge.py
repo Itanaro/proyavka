@@ -60,6 +60,40 @@ def token():
     if not os.path.exists(f): open(f, 'w').write(secrets.token_urlsafe(9))
     return open(f).read().strip()
 
+
+# ---------- нейросети «Проявки» на компьютере: те же ONNX-модели, что и на iPad, но в памяти ПК ----------
+MODEL_PARTS = {'isnet': ('isnet', 4), 'sam_enc': ('msam_enc', 3), 'sam_dec': ('msam_dec', 2), 'migan': ('migan', 3), 'depth': ('depth', 3)}
+MODEL_URL = 'https://itanaro.github.io/proyavka/models/{}.{}.wasm'
+MODEL_DIR = os.path.join(HERE, 'models')
+_sessions = {}; _lock = __import__('threading').Lock()
+DT = {'uint8': 'uint8', 'float32': 'float32', 'int32': 'int32', 'int64': 'int64', 'bool': 'bool', 'float16': 'float16', 'int8': 'int8'}
+def ort_session(name):
+    import onnxruntime as ort, urllib.request
+    with _lock:
+        if name in _sessions: return _sessions[name]
+        if name not in MODEL_PARTS: raise ValueError('нет такой модели: ' + name)
+        os.makedirs(MODEL_DIR, exist_ok=True); path = os.path.join(MODEL_DIR, name + '.onnx')
+        if not os.path.exists(path):
+            stem, n = MODEL_PARTS[name]; p('Скачиваю модель', name, '…'); data = b''
+            for i in range(n): data += urllib.request.urlopen(MODEL_URL.format(stem, i), timeout=120).read()
+            open(path + '.part', 'wb').write(data); os.replace(path + '.part', path)
+        prov = [x for x in ('CUDAExecutionProvider', 'CPUExecutionProvider') if x in ort.get_available_providers()]
+        try: s = ort.InferenceSession(path, providers=prov)
+        except Exception: s = ort.InferenceSession(path, providers=['CPUExecutionProvider'])
+        p('Модель', name, 'готова ·', s.get_providers()[0].replace('ExecutionProvider', ''))
+        _sessions[name] = s; return s
+def ort_run(name, body):
+    import numpy as np, struct
+    hl = struct.unpack('<I', body[:4])[0]; head = json.loads(body[4:4 + hl].decode()); off = 4 + hl; feeds = {}
+    for k, t in head['feeds'].items():
+        n = t['len']; feeds[k] = np.frombuffer(body[off:off + n], dtype=DT[t['type']]).reshape(t['dims']); off += n
+    s = ort_session(name); t0 = time.time(); outs = s.run(None, feeds)
+    meta = {}; blobs = []
+    for o, v in zip(s.get_outputs(), outs):
+        v = np.ascontiguousarray(v); typ = str(v.dtype); b = v.tobytes(); meta[o.name] = {'type': typ, 'dims': list(v.shape), 'len': len(b)}; blobs.append(b)
+    h = json.dumps({'out': meta, 'ms': round((time.time() - t0) * 1000)}).encode()
+    return struct.pack('<I', len(h)) + h + b''.join(blobs)
+
 TOKEN = token()
 PREFIX = '/k/' + TOKEN
 
@@ -84,8 +118,20 @@ class H(BaseHTTPRequestHandler):
             return self.reply(403, json.dumps({'error': 'нужен адрес с ключом моста'}, ensure_ascii=False).encode())
         path = self.path[len(PREFIX):]
         if path == '/bridge/ping':
-            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname()}).encode())
+            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True}).encode())
         n = int(self.headers.get('Content-Length') or 0); body = self.rfile.read(n) if n else None
+        if path.startswith('/proyavka/meta/'):
+            name = path.rsplit('/', 1)[-1]
+            try:
+                ss = ort_session(name)
+                return self.reply(200, json.dumps({'inputs': [i.name for i in ss.get_inputs()], 'outputs': [o.name for o in ss.get_outputs()], 'ep': ss.get_providers()[0]}).encode())
+            except Exception as e:
+                return self.reply(500, json.dumps({'error': str(e)}, ensure_ascii=False).encode())
+        if path.startswith('/proyavka/ort/'):
+            name = path.rsplit('/', 1)[-1]
+            try: return self.reply(200, ort_run(name, body or b''), 'application/octet-stream')
+            except Exception as e:
+                p('Нейросеть', name, '— ошибка:', e); return self.reply(500, json.dumps({'error': str(e)}, ensure_ascii=False).encode())
         t0 = time.time()
         try:
             c = http.client.HTTPConnection(*UPSTREAM, timeout=900)

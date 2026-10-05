@@ -3389,7 +3389,8 @@ function genSettings(tab){
     <div id="gsFal"><div class="row" style="margin:6px 0"><label>Ключ</label><input type="password" id="gsFalKey" autocomplete="off" spellcheck="false" placeholder="fal.ai → Settings → Keys"></div>
       <div class="row" style="margin:6px 0"><label>Ключ Gemini</label><input type="password" id="gsGemKey" autocomplete="off" spellcheck="false" placeholder="необязательно: умная подсказка"></div></div>
     <div id="gsComfy"><p class="gh" style="margin:0 0 6px">Для SD Inpaint: на компьютере запусти Automatic1111 и «Мост Проявки» с рабочего стола, адрес моста — в его окне и в файле «Проявка-адрес-моста.txt».</p>
-      <div class="row" style="margin:6px 0"><label>Адрес моста</label><input type="text" id="gsSdUrl" autocomplete="off" spellcheck="false" placeholder="https://192.168.…:7861/k/…"></div></div>
+      <div class="row" style="margin:6px 0"><label>Адрес моста</label><input type="text" id="gsSdUrl" autocomplete="off" spellcheck="false" placeholder="https://192.168.…:7861/k/…"></div>
+      <label class="chk" style="margin:8px 0 0;display:flex;gap:8px;align-items:center"><input type="checkbox" id="gsPcML"> Тяжёлые нейросети считать на компьютере <span class="gh" style="margin:0">(выделение объекта, «Убрать», «Сдвинуть», глубина — когда мост на связи)</span></label></div>
     <p id="gsState" class="kbd" style="margin:10px 0 0;min-height:18px"></p>`,
     [['Проверить', d=>{ read(d); genSave(); const s=d.querySelector('#gsState'); s.textContent='проверяю…';
         const p=view==='sd' ? sdPing() : genCfg.provider==='or' ? orPing().then(async t=>{ try{ fillModels(await orModels()); }catch(e){} return t+' · моделей с картинками: '+(d.querySelector('#gsOrModel').options.length); }) : genCfg.provider==='fal' ? falPing() : genPing();
@@ -3401,8 +3402,8 @@ function genSettings(tab){
     for (const m of list.length ? list.map(x=>[x.id,x.name]) : PRESET){ if (seen.has(m[0])) continue; seen.add(m[0]); const o=document.createElement('option'); o.value=m[0]; o.textContent=m[1]; sel_.append(o); }
     if (!seen.has(cur)){ const o=document.createElement('option'); o.value=cur; o.textContent=cur; sel_.prepend(o); } sel_.value=cur; };
   fillModels([]);
-  const read=d=>{ genCfg.orKey=d.querySelector('#gsOrKey').value.trim(); genCfg.orModel=sel_.value||genCfg.orModel; genCfg.falKey=d.querySelector('#gsFalKey').value.trim(); genCfg.gemKey=d.querySelector('#gsGemKey').value.trim(); genCfg.sdUrl=d.querySelector('#gsSdUrl').value.trim(); sdModelsCache=null; };
-  d.querySelector('#gsOrKey').value=genCfg.orKey; d.querySelector('#gsFalKey').value=genCfg.falKey; d.querySelector('#gsGemKey').value=genCfg.gemKey; d.querySelector('#gsSdUrl').value=genCfg.sdUrl;
+  const read=d=>{ genCfg.orKey=d.querySelector('#gsOrKey').value.trim(); genCfg.orModel=sel_.value||genCfg.orModel; genCfg.falKey=d.querySelector('#gsFalKey').value.trim(); genCfg.gemKey=d.querySelector('#gsGemKey').value.trim(); genCfg.sdUrl=d.querySelector('#gsSdUrl').value.trim(); genCfg.pcML=d.querySelector('#gsPcML').checked; sdModelsCache=null; PC.alive=null; PC.sess={}; PC.failAt=0; };
+  d.querySelector('#gsOrKey').value=genCfg.orKey; d.querySelector('#gsFalKey').value=genCfg.falKey; d.querySelector('#gsGemKey').value=genCfg.gemKey; d.querySelector('#gsSdUrl').value=genCfg.sdUrl; d.querySelector('#gsPcML').checked=genCfg.pcML!==false;
   let view = tab==='sd' ? 'sd' : genCfg.provider;
   const sync=()=>{ d.querySelectorAll('#gsProv button').forEach(b=>b.classList.toggle('on', b.dataset.p===view)); d.querySelector('#gsOr').hidden=view!=='or'; d.querySelector('#gsFal').hidden=view!=='fal'; d.querySelector('#gsComfy').hidden=view!=='sd'; };
   d.querySelectorAll('#gsProv button').forEach(b=>b.onclick=()=>{ view=b.dataset.p; if (view!=='sd'){ genCfg.provider=view; genSave(); } sync(); }); sync();
@@ -4011,8 +4012,41 @@ function mlProxy(name, info){
       for (const k in feeds){ const t=feeds[k], data=t.data.slice(); f[k]={type:t.type, data, dims:Array.from(t.dims)}; tr.push(data.buffer); }
       try{ return (await mlCall({type:'run', name, feeds:f}, tr)).out; } finally{ mlIdle(); } } };
 }
+/* ---- the same networks on the home PC (through the bridge): Safari keeps its memory, the PC does the work ---- */
+const PC={alive:null, at:0, sess:{}, failAt:0};
+const TA={float32:Float32Array, uint8:Uint8Array, int32:Int32Array, int64:BigInt64Array, bool:Uint8Array, float16:Uint16Array, int8:Int8Array};
+async function pcML(){
+  if (!sdBase() || genCfg.pcML===false) return false;
+  if (Date.now()-PC.failAt<60000) return false;
+  if (PC.alive!==null && Date.now()-PC.at<60000) return PC.alive;
+  try{ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),2500);
+    const j=await (await fetch(sdBase()+'/bridge/ping',{signal:ctl.signal, cache:'no-store'})).json(); clearTimeout(T); PC.alive=!!j.ml; }
+  catch(e){ PC.alive=false; }
+  PC.at=Date.now(); return PC.alive;
+}
+async function pcSession(name){
+  if (PC.sess[name]) return PC.sess[name];
+  busy(true,'Готовлю нейросеть на компьютере…'); await nextFrame();
+  const r=await fetch(sdBase()+'/proyavka/meta/'+name,{cache:'no-store'}); const m=await r.json(); if (!r.ok) throw new Error(m.error||('http '+r.status));
+  const sess={ inputNames:m.inputs, outputNames:m.outputs, __ep:'pc',
+    async run(feeds){
+      const head={feeds:{}}, parts=[];
+      for (const k in feeds){ const t=feeds[k], d=t.data, b=new Uint8Array(d.buffer, d.byteOffset, d.byteLength); head.feeds[k]={type:t.type, dims:Array.from(t.dims), len:b.byteLength}; parts.push(b); }
+      const hb=new TextEncoder().encode(JSON.stringify(head)), len=new Uint8Array(4); new DataView(len.buffer).setUint32(0,hb.length,true);
+      const res=await fetch(sdBase()+'/proyavka/ort/'+name,{method:'POST', headers:{'Content-Type':'application/octet-stream'}, body:new Blob([len,hb,...parts])});
+      const buf=await res.arrayBuffer(); if (!res.ok){ let e='ошибка'; try{ e=JSON.parse(new TextDecoder().decode(buf)).error; }catch(_){ } throw new Error('ПК: '+e); }
+      const hl=new DataView(buf).getUint32(0,true), h=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,4,hl))); let off=4+hl; const out={};
+      for (const k in h.out){ const t=h.out[k], C=TA[t.type]||Float32Array; out[k]={type:t.type, dims:t.dims, data:new C(buf.slice(off, off+t.len))}; off+=t.len; }
+      return out; } };
+  PC.sess[name]=sess; return sess;
+}
 // returns a session-like object; models load from the local cache, so reopening after an idle close is fast
 async function mlSession(name, files, label, gpu){
+  if (!window.ort) await loadScript('vendor/ort.min.js'); // callers build ort.Tensor feeds either way
+  if (await pcML()){
+    try{ return await pcSession(name); }
+    catch(e){ console.warn('PC model failed, using the iPad', e); PC.failAt=Date.now(); PC.sess={}; toast('Компьютер не взял нейросеть ('+e.message+') — считаю на iPad',3200); }
+  }
   if (!window.ort) await loadScript('vendor/ort.min.js');
   if (!ML.broken){
     try{
@@ -4049,7 +4083,8 @@ async function loadMigan(){
 async function generateFill(r, D, hole, method){
   const N=r.w*r.h;
   if (method==='ai'){
-    const k=Math.min(1, 768/Math.max(r.w,r.h)), cw=Math.max(8,Math.round(r.w*k)), ch=Math.max(8,Math.round(r.h*k));
+    const cap = (await pcML()) ? 1280 : 768; // the PC has memory to spare: the patch comes out sharper
+    const k=Math.min(1, cap/Math.max(r.w,r.h)), cw=Math.max(8,Math.round(r.w*k)), ch=Math.max(8,Math.round(r.h*k));
     const sc=mk(r.w,r.h), sx=ctx2(sc); const sid=new ImageData(new Uint8ClampedArray(D),r.w,r.h); sx.putImageData(sid,0,0);
     const small=mk(cw,ch), smx=ctx2(small,{willReadFrequently:true}); smx.imageSmoothingQuality='high'; smx.drawImage(sc,0,0,cw,ch);
     const hc=mk(r.w,r.h), hx=ctx2(hc), hid=hx.createImageData(r.w,r.h); for(let i=0;i<N;i++){ hid.data[i*4+3]=hole[i]; } hx.putImageData(hid,0,0);
@@ -4139,7 +4174,7 @@ function objDone(silent){ const l=lift; lift=null; $('#objbar').hidden=true; if 
 function objBuild(){
   const l=lift, box=$('#objbar'); if (!l) return; box.textContent='';
   const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Объект на новом месте <span></span>';
-  head.lastChild.textContent = l.busy || (l.vars.length ? 'вариант фона '+(l.vi+1)+' из '+l.vars.length : 'фон за ним дорисован на iPad'); box.append(head);
+  head.lastChild.textContent = l.busy || (l.vars.length ? 'вариант фона '+(l.vi+1)+' из '+l.vars.length : 'фон за ним дорисован'+(PC.alive?' на компьютере':' на iPad')); box.append(head);
   const row=(name,key,min,max,fmt)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>'+name+'</label><div></div><span class="v"></span>';
     const v=r.lastChild, show=()=>v.textContent=fmt(l.sh[key]); show();
     hslider(r.children[1],{min,max,get:()=>l.sh[key],set:x=>{ const was=l.sh.op>0; l.sh[key]=x; show(); objShadow(); if (key==='op' && was!==(x>0)) objBuild(); }}); box.append(r); };
@@ -4153,7 +4188,7 @@ function objBuild(){
   foot.append(mk_('Сдвинуть ещё',objMoveAgain), mk_('Гармонизация',()=>{ const L=lift.OL; objDone(); doc.active=doc.layers.indexOf(L); layersChanged(); harmOpen(); }), mk_('✦ Вписать',()=>{ const L=lift.OL; objDone(); doc.active=doc.layers.indexOf(L); sel=null; layersChanged(); fitIntoScene(); },'ai'),
     mk_(l.vars.length?'✦ Ещё':'✦ Перерисовать фон', objCloud, 'ai'));
   const sp=document.createElement('span'); sp.style.flex='1'; foot.append(sp, mk_('Готово',()=>objDone(),'pri'));
-  const hint=document.createElement('div'); hint.className='gh'; hint.textContent='«Перерисовать фон» — нейросеть через интернет ('+PROV_NAME[genCloud()?genCfg.provider:'fal']+'), платно, несколько центов за вариант. Быстрая заплатка уже сделана на iPad бесплатно.'; box.append(hint, foot);
+  const hint=document.createElement('div'); hint.className='gh'; hint.textContent='«Перерисовать фон» — нейросеть через интернет ('+PROV_NAME[genCloud()?genCfg.provider:'fal']+'), платно, несколько центов за вариант. Быстрая заплатка уже сделана бесплатно.'; box.append(hint, foot);
 }
 function objMoveAgain(){ if (!liftAlive()){ objDone(); return; } lift.open=false; $('#objbar').hidden=true; doc.active=doc.layers.indexOf(lift.OL); layersChanged(); beginTransform({prevTool:S.tool==='transform'?'brush':S.tool}); }
 function softBlur(c, rad){ // cheap wide blur that also works where ctx.filter does not: down- and up-scaling
@@ -5814,7 +5849,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №40.4 SD: 60 шагов'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №41 тяжёлые нейросети на ПК'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
