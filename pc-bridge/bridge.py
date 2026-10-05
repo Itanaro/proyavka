@@ -116,6 +116,10 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self): self.forward()
     def do_POST(self): self.forward()
     def forward(self):
+        if self.path.startswith('/local/config'):  # the PC version of «Проявка» on this same computer learns the bridge address
+            if self.client_address[0] in ('127.0.0.1', '::1'):
+                return self.reply(200, json.dumps({'base': f'https://127.0.0.1:{PORT}{PREFIX}'}).encode())
+            return self.reply(403, b'{}')
         if not self.path.startswith(PREFIX + '/'):
             return self.reply(403, json.dumps({'error': 'нужен адрес с ключом моста'}, ensure_ascii=False).encode())
         path = self.path[len(PREFIX):]

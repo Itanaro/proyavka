@@ -5361,7 +5361,16 @@ let pencilBack=null;
 window.pvPencil = kind => { if (!doc) return;
   if (kind==='squeeze'){ undo(); return; }
   if (S.tool==='eraser'){ setTool(pencilBack||'brush'); } else { pencilBack=S.tool; setTool('eraser'); } };
+const IS_DESK = !(navigator.maxTouchPoints>0) && !!window.showSaveFilePicker; // the PC version: Edge/Chrome with a mouse
+async function saveFileDesk(name, data, again){ // straight into a folder on disk; Ctrl+S then writes the same file again
+  const blob = data instanceof Blob ? data : new Blob([data]); const ext=(name.match(/\.[a-z0-9]+$/i)||['.png'])[0].toLowerCase();
+  const types={'.psd':{'image/vnd.adobe.photoshop':['.psd']}, '.png':{'image/png':['.png']}, '.jpg':{'image/jpeg':['.jpg','.jpeg']}, '.zip':{'application/zip':['.zip']}};
+  let h = again && doc && doc.fileHandle && doc.fileHandle.name.toLowerCase().endsWith(ext) ? doc.fileHandle : null;
+  if (!h){ h=await window.showSaveFilePicker({suggestedName:name, types:[{description:name.split('.').pop().toUpperCase(), accept:types[ext]||{'application/octet-stream':[ext]}}]}); if (doc && ext==='.psd') doc.fileHandle=h; }
+  const w=await h.createWritable(); await w.write(blob); await w.close(); toast('Сохранено: '+h.name,1500);
+}
 async function saveFile(name, data){
+  if (IS_DESK && !nativeApp){ try{ return await saveFileDesk(name, data, saveFile.again); }catch(e){ if (e && e.name==='AbortError'){ toast('Сохранение отменено'); return; } console.warn('desk save', e); } }
   if (nativeApp){ try{ await nativeSave(name, data); }catch(e){ console.error(e); toast('Не удалось передать файл'); } return; }
   await dlReady;
   if (!dl){
@@ -5631,6 +5640,12 @@ document.addEventListener('keydown', e=>{
   if (mod && k==='i'){ e.preventDefault(); if (AL().mask && doc.editMask) invertMask(); else if (sel) invertSel(); else if (AL().mask) invertMask(); return; }
   if (mod && k==='g'){ e.preventDefault(); e.shiftKey?ungroup():makeGroup(); return; }
   if (mod && k==='j'){ e.preventDefault(); sel?selCopyToLayer():dupLayer(); return; }
+  if (mod && k==='s'){ e.preventDefault(); if (!doc) return; saveFile.again=!e.shiftKey; exportImg('psd').finally(()=>{ saveFile.again=false; }); return; }
+  if (mod && k==='o'){ e.preventDefault(); $('#fOpen').click(); return; }
+  if (mod && k==='a'){ e.preventDefault(); if (doc) applySelPoly([[0,0],[doc.w,0],[doc.w,doc.h],[0,doc.h]]); return; }
+  if (mod && k==='t'){ e.preventDefault(); if (doc) setTool('transform'); return; }
+  if (mod && k==='e'){ e.preventDefault(); if (doc) mergeDown(); return; }
+  if (mod && e.shiftKey && k==='n'){ e.preventDefault(); $('#lyAdd').click(); return; }
   if (mod) return;
   const map={d:'depth',b:'brush',e:'eraser',l:'lasso',m:'rect',v:'transform',i:'picker',t:'tap',w:'wand',j:'patch',h:'heal',s:'clone',r:'remove',y:'spot',o:'dodge'};
   if (map[k]){ setTool(map[k]); return; }
@@ -5850,7 +5865,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №41.1 выделение на ПК исправлено'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №42 версия для ПК'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
@@ -5924,6 +5939,15 @@ async function checkUpdate(){
   }catch(e){}
 }
 window.addEventListener('load', ()=>setTimeout(checkUpdate, 2500));
+/* PC version: the bridge runs on this same computer and tells its own address to local pages only */
+async function pcAutoConnect(){
+  if (!/[?&]pc=1/.test(location.search) && !IS_DESK) return;
+  try{ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),2000);
+    const j=await (await fetch('https://127.0.0.1:7861/local/config',{signal:ctl.signal, cache:'no-store'})).json(); clearTimeout(T);
+    if (j.base && genCfg.sdUrl!==j.base){ genCfg.sdUrl=j.base; genSave(); PC.alive=null; PC.sess={}; toast('Проявка для ПК: SD и нейросети — на этом компьютере',2200); } }
+  catch(e){ /* bridge is not running: everything still works in the browser */ }
+}
+window.addEventListener('load', ()=>setTimeout(pcAutoConnect, 600));
 document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible') checkUpdate(); });
 try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(_){}
 </script>
