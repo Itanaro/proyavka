@@ -1880,7 +1880,7 @@ function selToMask(){
 function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep) || !!(typeof filt!=='undefined' && filt) || !!(typeof gen!=='undefined' && gen) || !!(typeof lift!=='undefined' && lift && lift.open) || !!(typeof aip!=='undefined' && aip) || !!(typeof pup!=='undefined' && pup); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
 function quickDeselect(){ if(!sel) return; deselect(); toast('Выделение снято · вернуть — тап двумя пальцами',1500); }
 function syncSelModes(){ document.querySelectorAll('#selModes button').forEach(b=>b.classList.toggle('on', b.dataset.mode===S.selMode)); }
-function setSelMode(k){ S.selMode=k; if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
+function setSelMode(k){ S.selMode=k; updateCursor(); if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
   if(k!=='new') toast(k==='add'?'Обводи — участок добавится к выделению':'Обводи — участок вычтется из выделения',1600); }
 document.querySelectorAll('#selModes button').forEach(b=>b.onclick=()=>setSelMode(b.dataset.mode));
 
@@ -5587,7 +5587,7 @@ function pupOpen(){
   if (x1<0){ toast(sel ? 'В выделении на этом слое пусто' : 'Слой пустой — нечего деформировать'); return; }
   pup={ layer:L, selMask, k0, sw, sh, m, box:{x:Math.floor(x0/k0), y:Math.floor(y0/k0), w:Math.ceil((x1-x0+1)/k0), h:Math.ceil((y1-y0+1)/k0)},
         mode:'normal', dens:'normal', expand:Math.round(Math.max(4, Math.min(24, Math.max(doc.w,doc.h)/250))), showMesh:true, pins:[], selPin:-1, drag:null, dirty:true };
-  pupBuildMesh(); pupGPU(); $('#pupbar').hidden=false; updateSelBar(); pupBuild(); pupRender(); requestRender();
+  pupBuildMesh(); pupGPU(); $('#pupbar').hidden=false; updateCursor(); updateSelBar(); pupBuild(); pupRender(); requestRender();
   toast(IS_DESK ? 'Клик — булавка, тяни — деформация. Alt+клик по булавке — убрать' : 'Тап карандашом — булавка, тяни — деформация. Пальцы двигают холст',3200);
 }
 function pupBuildMesh(){
@@ -5763,7 +5763,7 @@ function pupBuild(){
   box.append(hint, foot, foot2);
 }
 function pupRemesh(){ if (!pup) return; pupBuildMesh(); pupRender(); pupBuild(); renderOverlay(); }
-function pupClose(){ pup=null; $('#pupbar').hidden=true; updateSelBar(); bumpContent(); requestRender(); renderOverlay(); }
+function pupClose(){ pup=null; updateCursor(); $('#pupbar').hidden=true; updateSelBar(); bumpContent(); requestRender(); renderOverlay(); }
 function pupApply(){
   const P=pup; if (!P) return; if (!P.pins.length || !P.moved){ pupClose(); return; }
   pupSolve(60);
@@ -6198,14 +6198,26 @@ stage.addEventListener('wheel', e=>{
   else if (Math.abs(dx)>0 && Math.abs(dy)<40 && e.deltaMode===0 && Math.abs(dx)>=Math.abs(dy)*0.5){ view.x-=dx; view.y-=dy; requestRender(); }
   else zoomAt(px,py,Math.exp(-dy*0.0018));
 },{passive:false});
+/* lasso cursor like Photoshop's: a small lasso, the point that draws is the end of its rope (bottom left);
+   «+» / «−» show the add / subtract mode; Caps Lock gives the precise crosshair, as in Photoshop */
+let capsOn=false;
+function lassoCursor(mode){
+  const loop="M29.6 7.4c0 3-5.2 5.6-11.6 5.6S6.4 10.4 6.4 7.4 11.6 1.8 18 1.8s11.6 2.6 11.6 5.6z", rope="M9 11.4c-2.2 1.2-2.1 3.2-.4 4.3 1.8 1.2 1.6 3.3-.3 4.8L3.2 27.8";
+  const mark = mode==='add' ? "M22 21h7M25.5 17.5v7" : mode==='sub' ? "M22 21h7" : "";
+  const g=(w,c)=>"<g fill='none' stroke='"+c+"' stroke-width='"+w+"' stroke-linecap='round' stroke-linejoin='round'><path d='"+loop+"'/><path d='"+rope+"'/>"+(mark?"<path d='"+mark+"'/>":"")+"</g>";
+  const svg="<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>"+g(3.6,'#fff')+g(1.5,'#111')+"<circle cx='3' cy='28' r='1.1' fill='#111'/></svg>";
+  return 'url("data:image/svg+xml,'+encodeURIComponent(svg)+'") 3 28, crosshair';
+}
 function updateCursor(){
   const st=stage.style;
+  if (!panDrag && !spaceDown && !(altDown && S.tool!=='transform') && S.tool==='lasso' && !xf && !(typeof pup!=='undefined' && pup)){ st.cursor = capsOn ? 'crosshair' : lassoCursor(S.selMode); return; }
   if (panDrag) st.cursor='grabbing';
   else if (spaceDown) st.cursor='grab';
   else if (altDown && S.tool!=='transform') st.cursor='crosshair';
   else st.cursor = (S.tool==='liquify'||S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove'||FX_TOOLS.includes(S.tool)) ? 'none' : (S.tool==='transform' ? 'move' : 'crosshair');
 }
 document.addEventListener('keyup', e=>{
+  if (e.getModifierState && capsOn!==e.getModifierState('CapsLock')){ capsOn=e.getModifierState('CapsLock'); updateCursor(); }
   if (e.key===' '){ spaceDown=false; updateCursor(); }
   if (e.key==='Alt'){ altDown=false; updateCursor(); }
 });
@@ -6472,7 +6484,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №45 точное выделение (ПК)'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №45.1 курсор лассо'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
