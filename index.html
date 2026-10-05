@@ -477,6 +477,9 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #updBar{position:fixed;top:84px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 16px;border-radius:16px;background:var(--glass-bg,var(--panel));border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.45);font-size:13px;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
 #updBar button{height:34px;padding:0 14px;border-radius:11px;background:var(--accent-grad,var(--accent));color:var(--accent-ink);font-weight:600}
 #updBar button.x{background:transparent;color:var(--muted);padding:0 10px;font-weight:400}
+
+/* the app name and logo are not shown in the top bar: the space goes to the tools (the icon stays on the home screen) */
+#top .brand{display:none!important}
 </style>
 
 <div id="app">
@@ -652,7 +655,8 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
       <div class="seg" id="selModes"><button data-mode="new">Новое</button><button data-mode="add">＋ Добавить</button><button data-mode="sub">− Вычесть</button></div>
       <span class="fgrp"><span class="fsep"></span><button data-sel="invert">Инверсия</button><button data-sel="edge">Край…</button></span>
       <span class="fgrp"><span class="fsep"></span><button data-sel="copy">На слой</button><button data-sel="mask">В маску</button><button data-sel="fill">Залить</button><button data-sel="delete">Удалить</button></span>
-      <span class="fgrp"><span class="fsep"></span><button data-sel="fill2" title="Заливка с учётом содержимого">Умная заливка</button><button data-sel="ai" class="ai" title="Убрать нейросетью">✦ Убрать</button><button data-sel="lift" class="ai" title="Поднять объект на свой слой, дорисовать фон за ним и двигать">✦ Сдвинуть</button><button data-sel="gen" class="ai" title="Генеративная заливка">✦ Генерация</button><button data-sel="sketch" class="ai" title="Отрисовать набросок в выделении">✦ Отрисовать</button><button data-sel="sd" class="ai" title="SD Inpaint на своём компьютере (Automatic1111)">✦ SD</button><button data-sel="transform" class="pri">Трансформ</button></span>
+      <span class="fgrp"><span class="fsep"></span><button data-sel="fill2" title="Заливка с учётом содержимого">Умная заливка</button><button data-sel="ai" class="ai" title="Убрать нейросетью">✦ Убрать</button><button data-sel="lift" class="ai" title="Поднять объект на свой слой, дорисовать фон за ним и двигать">✦ Сдвинуть</button></span>
+      <span class="fgrp"><button data-sel="gen" class="ai" title="Генеративная заливка">✦ Генерация</button><button data-sel="sketch" class="ai" title="Отрисовать набросок в выделении">✦ Отрисовать</button><button data-sel="sd" class="ai" title="SD Inpaint на своём компьютере (Automatic1111)">✦ SD</button><button data-sel="transform" class="pri">Трансформ</button></span>
     </div>
     <div class="fbar" id="edgebar" hidden>
       <div class="eh">Край выделения <span>красным — то, что не выделено</span></div>
@@ -5797,7 +5801,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №40.1 SD: 1 вариант, родное разрешение'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №40.2 без логотипа в верхней панели'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
