@@ -71,6 +71,15 @@ function createWindow() {
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 app.whenReady().then(async () => {
   log('готово к работе');
+  // a proper Windows shortcut on the desktop (made by Windows itself), and one taskbar identity for pinning
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('Proyavka.App');
+    try {
+      const lnk = path.join(app.getPath('desktop'), 'Проявка.lnk'), ico = path.join(exeDir, 'icon.ico');
+      const ok = shell.writeShortcutLink(lnk, fs.existsSync(lnk) ? 'replace' : 'create', { target: app.getPath('exe'), cwd: exeDir, icon: fs.existsSync(ico) ? ico : app.getPath('exe'), iconIndex: 0, description: 'Проявка', appUserModelId: 'Proyavka.App' });
+      log('ярлык на рабочем столе:', ok ? 'обновлён' : 'не получилось');
+    } catch (e) { log('ярлык:', e.message); }
+  }
   // downloads that are not saved through the save dialog of the page: ask where, like any program
   session.defaultSession.on('will-download', (e, item) => {
     const p = dialog.showSaveDialogSync(win, { defaultPath: path.join(app.getPath('documents'), item.getFilename()) });
