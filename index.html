@@ -1262,7 +1262,7 @@ function drawLayer(cc, L){
   if (isStroke && stroke.target==='content') applyStrokePreview(t);
   if (hasMask || (isStroke && stroke.target==='mask')){
     const m=ctx2(tMask); m.setTransform(1,0,0,1,0,0); m.save(); if (RCLIP){ m.beginPath(); m.rect(...RCLIP); m.clip(); } m.clearRect(0,0,tMask.width,tMask.height);
-    setVT(m); if (maskMoving(L)) movedMaskInto(m,L); else m.drawImage(L.mask.canvas,0,0);
+    setVT(m); if (maskMoving(L)) movedMaskInto(m,L); else if (pup && pup.layer===L && pup.prevMask && pup.pins.length) m.drawImage(pup.prevMask,0,0,doc.w,doc.h); else m.drawImage(L.mask.canvas,0,0);
     if (isStroke && stroke.target==='mask') applyStrokePreview(m);
     m.restore();
     t.setTransform(1,0,0,1,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(tMask,0,0); t.globalCompositeOperation='source-over';
@@ -5715,11 +5715,12 @@ function pupBuildMesh(){
   const src=mk(tb.w,tb.h), sx=ctx2(src); sx.drawImage(P.layer.canvas,-tb.x,-tb.y);
   if (P.selMask){ sx.globalCompositeOperation='destination-in'; sx.drawImage(P.selMask,-tb.x,-tb.y); sx.globalCompositeOperation='source-over'; }
   P.src=src; P.texDirty=true;
+  if (P.layer.mask){ const ms=mk(tb.w,tb.h); ctx2(ms).drawImage(P.layer.mask.canvas,-tb.x,-tb.y); P.maskSrc=ms; P.mtexDirty=true; } else P.maskSrc=null;
 }
 /* ---- solver ---- */
 function pupFactor(){
   const P=pup, n=P.n, fixed=new Uint8Array(n);
-  for (const p of P.pins) fixed[p.v]=1;
+  for (const p of P.pins){ fixed[p.v]=1; if (p.rot!=null) for (const j of P.nb[p.v]) fixed[j]=1; }
   const pinned=new Set(P.pins.map(p=>P.comp[p.v])); for (let i=0;i<n;i++) if (!pinned.has(P.comp[i])) fixed[i]=1; // no pin in this part — it holds still
   const fidx=new Int32Array(n).fill(-1), free=[]; for (let i=0;i<n;i++) if (!fixed[i]){ fidx[i]=free.length; free.push(i); }
   const m=free.length; let bw=0; for (const i of free) for (const j of P.nb[i]) if (fidx[j]>=0) bw=Math.max(bw, Math.abs(fidx[i]-fidx[j]));
@@ -5737,8 +5738,15 @@ function pupSolveBand(F, b){ const {A,bw,W,m}=F; const y=b;
   return y; }
 function pupSolve(iters, budget){
   const P=pup; if (!P.pins.length) return; if (!P.fact) pupFactor(); const F=P.fact, n=P.n, R=P.rest, X=P.cur, off=P.off, adj=P.adj, t0=performance.now();
+  if (P.needInit){ P.needInit=false; // a turned pin: start from the pins' own rigid motions (blended by distance) — ARAP alone spreads a turn slowly
+    const T=P.pins.map(p=>{ const a=p.rot||0; return {c:Math.cos(a), s:Math.sin(a), rx:R[2*p.v], ry:R[2*p.v+1], x:p.x, y:p.y}; });
+    for (let i=0;i<n;i++){ if (F.fixed[i]) continue; let sw=0, sx=0, sy=0; const px=R[2*i], py=R[2*i+1];
+      for (const t of T){ const ex=px-t.rx, ey=py-t.ry, w=1/(ex*ex+ey*ey+1); sx+=w*(t.x+t.c*ex-t.s*ey); sy+=w*(t.y+t.s*ex+t.c*ey); sw+=w; }
+      X[2*i]=sx/sw; X[2*i+1]=sy/sw; } }
+  for (let i=0;i<n;i++) if (F.fixed[i]){ X[2*i]=R[2*i]; X[2*i+1]=R[2*i+1]; }
+  for (const p of P.pins) if (p.rot!=null){ const c=Math.cos(p.rot), sn=Math.sin(p.rot); // a rotated pin carries its ring around it, rigidly
+    for (const j of P.nb[p.v]){ const ex=R[2*j]-R[2*p.v], ey=R[2*j+1]-R[2*p.v+1]; X[2*j]=p.x+c*ex-sn*ey; X[2*j+1]=p.y+sn*ex+c*ey; } }
   for (const p of P.pins){ X[2*p.v]=p.x; X[2*p.v+1]=p.y; }
-  for (let i=0;i<n;i++) if (F.fixed[i] && !P.pins.some(p=>p.v===i)){ X[2*i]=R[2*i]; X[2*i+1]=R[2*i+1]; }
   const rot=new Float64Array(4*n), bx=new Float64Array(F.m), by=new Float64Array(F.m);
   for (let it=0; it<iters; it++){
     // local: best rotation (rigid), rotation+uniform scale (normal), or none (distort) per vertex
@@ -5772,15 +5780,18 @@ function pupGPU(){
 in vec2 p; in vec2 t; uniform vec4 box; uniform vec4 tb; out vec2 uv;
 void main(){ uv=(t-tb.xy)/tb.zw; vec2 q=(p-box.xy)/box.zw; gl_Position=vec4(q.x*2.0-1.0, 1.0-q.y*2.0, 0.0, 1.0); }`));
   gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, `#version 300 es
-precision highp float; uniform sampler2D tex; in vec2 uv; out vec4 o; void main(){ o=texture(tex, uv); }`));
+precision highp float; uniform sampler2D tex; uniform int solid; in vec2 uv; out vec4 o; void main(){ o = solid==1 ? vec4(1.0) : texture(tex, uv); }`));
   gl.linkProgram(pr); if (!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
-  Object.assign(pupGPU, {gl, c, pr, pb:gl.createBuffer(), tbuf:gl.createBuffer(), ib:gl.createBuffer(), tex:gl.createTexture(), lp:gl.getAttribLocation(pr,'p'), lt:gl.getAttribLocation(pr,'t')});
+  Object.assign(pupGPU, {gl, c, pr, pb:gl.createBuffer(), tbuf:gl.createBuffer(), ib:gl.createBuffer(), tex:gl.createTexture(), mtex:gl.createTexture(), lp:gl.getAttribLocation(pr,'p'), lt:gl.getAttribLocation(pr,'t')});
   return pupGPU;
 }
-function pupDraw(box, scale){ // returns the WebGL canvas with the warped picture of box (doc coords) at scale
+function pupDraw(box, scale, kind){ // the warped picture of box (doc coords) at scale; kind 'mask' — the layer mask, 'cover' — where the mesh lies
   const G=pupGPU(), gl=G.gl, P=pup, W=Math.max(1,Math.round(box.w*scale)), H=Math.max(1,Math.round(box.h*scale));
   if (G.c.width!==W || G.c.height!==H){ G.c.width=W; G.c.height=H; }
   gl.viewport(0,0,W,H); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); gl.useProgram(G.pr);
+  const texParams=()=>{ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE); };
+  if (P.maskSrc && P.mtexDirty){ gl.bindTexture(gl.TEXTURE_2D, G.mtex); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,P.maskSrc); gl.generateMipmap(gl.TEXTURE_2D); texParams(); P.mtexDirty=false; }
   gl.bindTexture(gl.TEXTURE_2D, G.tex);
   if (P.texDirty){ gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,P.src); gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
@@ -5795,14 +5806,20 @@ function pupDraw(box, scale){ // returns the WebGL canvas with the warped pictur
   gl.bindBuffer(gl.ARRAY_BUFFER,G.tbuf); gl.enableVertexAttribArray(G.lt); gl.vertexAttribPointer(G.lt,2,gl.FLOAT,false,0,0);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,G.ib);
   gl.uniform4f(gl.getUniformLocation(G.pr,'box'), box.x, box.y, box.w, box.h); gl.uniform4f(gl.getUniformLocation(G.pr,'tb'), P.tb.x, P.tb.y, P.tb.w, P.tb.h);
+  gl.uniform1i(gl.getUniformLocation(G.pr,'solid'), kind==='cover'?1:0); if (kind==='mask') gl.bindTexture(gl.TEXTURE_2D, G.mtex);
   gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   gl.drawElements(gl.TRIANGLES, P.tris.length, gl.UNSIGNED_INT, 0);
+  if (kind==='mask') gl.bindTexture(gl.TEXTURE_2D, G.tex);
   return G.c;
 }
 function pupRender(){ // preview of the whole document area at ≤2048 px, swapped in for the layer by drawLayer
   const P=pup; if (!P) return; const k=Math.min(1, 2048/Math.max(doc.w,doc.h));
   const g=pupDraw({x:0,y:0,w:doc.w,h:doc.h}, k); if (!P.prev || P.prev.width!==g.width || P.prev.height!==g.height) P.prev=mk(g.width,g.height);
-  const x=ctx2(P.prev); x.clearRect(0,0,g.width,g.height); x.drawImage(g,0,0); requestRender();
+  const x=ctx2(P.prev); x.clearRect(0,0,g.width,g.height); x.drawImage(g,0,0);
+  if (P.maskSrc){ const W=g.width, H=g.height; if (!P.prevMask || P.prevMask.width!==W || P.prevMask.height!==H) P.prevMask=mk(W,H);
+    const m=ctx2(P.prevMask); m.globalCompositeOperation='source-over'; m.clearRect(0,0,W,H); m.drawImage(P.layer.mask.canvas,0,0,W,H);
+    m.globalCompositeOperation='destination-out'; m.drawImage(pupDraw({x:0,y:0,w:doc.w,h:doc.h},k,'cover'),0,0); m.globalCompositeOperation='source-over'; m.drawImage(pupDraw({x:0,y:0,w:doc.w,h:doc.h},k,'mask'),0,0); }
+  requestRender();
 }
 let pupRaf=0; function pupKick(){ if (!pupRaf) pupRaf=requestAnimationFrame(()=>{ pupRaf=0; if (!pup) return; pupSolve(pup.drag?12:30, pup.drag?14:0); pupRender(); if (!pup.drag && !pup.settled){ pup.settled=true; pupKick(); } }); }
 /* ---- pins under the pen ---- */
@@ -5810,6 +5827,9 @@ function pupHit(sx,sy){ const P=pup; let best=-1, bd=(IS_DESK?11:18)**2; P.pins.
 function pupDown(e,p){
   const P=pup, hit=pupHit(p[0],p[1]), [dx,dy]=toDoc(...p);
   if (hit>=0 && (altDown || e.altKey)){ pupDelPin(hit); return; }
+  { const near = hit>=0 && P.rotMode ? hit : (altDown||e.altKey||P.rotMode) ? pupNear(p[0],p[1]) : -1;
+    if (near>=0){ const q=P.pins[near], [qx,qy]=toScr(q.x,q.y); P.selPin=near; if (q.rot==null){ q.rot=0; P.fact=null; }
+      P.drag={i:near, rot:true, a0:Math.atan2(p[1]-qy, p[0]-qx), r0:q.rot}; pupBuild(); renderOverlay(); return; } }
   if (hit>=0){ P.selPin=hit; P.drag={i:hit, ox:P.pins[hit].x-dx, oy:P.pins[hit].y-dy}; pupBuild(); renderOverlay(); return; }
   // new pin on the nearest mesh vertex (deformed position), only on the mesh
   let v=-1, bd=(P.h*0.9)**2; for (let i=0;i<P.n;i++){ const d=(P.cur[2*i]-dx)**2+(P.cur[2*i+1]-dy)**2; if (d<bd){ bd=d; v=i; } }
@@ -5818,7 +5838,10 @@ function pupDown(e,p){
   else { P.pins.push({v, x:P.cur[2*v], y:P.cur[2*v+1], z:0}); P.selPin=P.pins.length-1; P.fact=null; P.idxDirty=true; }
   const q=P.pins[P.selPin]; P.drag={i:P.selPin, ox:q.x-dx, oy:q.y-dy}; pupBuild(); renderOverlay();
 }
-function pupMove(p){ const P=pup; if (!P.drag) return; P.settled=false; const [dx,dy]=toDoc(...p), q=P.pins[P.drag.i]; q.x=dx+P.drag.ox; q.y=dy+P.drag.oy; P.moved=true; pupKick(); requestOverlay(); }
+function pupBuildHead(){ const h=$('#pupbar .eh span'), P=pup; if (h && P && P.selPin>=0 && P.pins[P.selPin].rot!=null) h.textContent='поворот '+Math.round(P.pins[P.selPin].rot*180/Math.PI)+'°'; }
+function pupNear(sx,sy){ const P=pup; let best=-1, bd=(IS_DESK?80:110)**2; P.pins.forEach((q,i)=>{ const [x,y]=toScr(q.x,q.y), d=(x-sx)**2+(y-sy)**2; if (d<bd){ bd=d; best=i; } }); return best; }
+function pupMove(p){ const P=pup; if (!P.drag) return; P.settled=false;
+  if (P.drag.rot){ const q=P.pins[P.drag.i], [qx,qy]=toScr(q.x,q.y); let a=P.drag.r0+Math.atan2(p[1]-qy,p[0]-qx)-P.drag.a0; a=Math.atan2(Math.sin(a),Math.cos(a)); q.rot=a; P.moved=true; P.needInit=true; pupKick(); requestOverlay(); pupBuildHead(); return; } const [dx,dy]=toDoc(...p), q=P.pins[P.drag.i]; q.x=dx+P.drag.ox; q.y=dy+P.drag.oy; P.moved=true; pupKick(); requestOverlay(); }
 function pupUp(){ const P=pup; if (!P.drag) return; P.drag=null; P.settled=false; pupKick(); renderOverlay(); }
 function pupDelPin(i){ const P=pup; if (i<0||i>=P.pins.length) return; P.pins.splice(i,1); P.selPin=P.pins.length?Math.min(i,P.pins.length-1):-1; P.fact=null; P.idxDirty=true;
   if (!P.pins.length) P.cur=Float64Array.from(P.rest); pupKick(); pupBuild(); renderOverlay(); }
@@ -5827,7 +5850,9 @@ function pupOverlay(ox){ const P=pup; if (!P) return; const m=viewM(), T=(x,y)=>
     for (let i=0;i<t.length;i+=3){ const [ax,ay]=T(X[2*t[i]],X[2*t[i]+1]), [bx,by]=T(X[2*t[i+1]],X[2*t[i+1]+1]), [cx,cy]=T(X[2*t[i+2]],X[2*t[i+2]+1]); ox.moveTo(ax,ay); ox.lineTo(bx,by); ox.lineTo(cx,cy); ox.closePath(); }
     const dens=P.h*view.s<9 ? 0.5 : 1; ox.lineWidth=0.6; ox.strokeStyle='rgba(0,0,0,'+(.28*dens)+')'; ox.stroke(); ox.lineWidth=0.4; ox.strokeStyle='rgba(255,255,255,'+(.4*dens)+')'; ox.stroke(); ox.lineWidth=1; }
   P.pins.forEach((p,i)=>{ const [x,y]=T(p.x,p.y), on=i===P.selPin; ox.beginPath(); ox.arc(x,y,on?7:5.5,0,7); ox.fillStyle=on?'#e2a65a':'#fff'; ox.fill(); ox.lineWidth=1.5; ox.strokeStyle='#111'; ox.stroke();
-    if (on){ ox.beginPath(); ox.arc(x,y,2,0,7); ox.fillStyle='#111'; ox.fill(); } if (p.z){ ox.font='600 10px system-ui'; ox.fillStyle='#fff'; ox.fillText((p.z>0?'+':'')+p.z, x+8, y-7); } }); ox.lineWidth=1; }
+    if (on){ ox.beginPath(); ox.arc(x,y,2,0,7); ox.fillStyle='#111'; ox.fill(); }
+    if (p.rot!=null || (on && (altDown||P.rotMode))){ const R=26, a=p.rot||0; ox.beginPath(); ox.arc(x,y,R,0,7); ox.lineWidth=1.2; ox.strokeStyle='rgba(255,255,255,.7)'; ox.setLineDash([3,3]); ox.stroke(); ox.setLineDash([]);
+      ox.beginPath(); ox.moveTo(x,y); ox.lineTo(x+Math.cos(a-Math.PI/2)*R, y+Math.sin(a-Math.PI/2)*R); ox.strokeStyle='#e2a65a'; ox.lineWidth=2; ox.stroke(); if (p.rot){ ox.font='600 11px system-ui'; ox.fillStyle='#fff'; ox.fillText(Math.round(p.rot*180/Math.PI)+'°', x+R+4, y+4); } } if (p.z){ ox.font='600 10px system-ui'; ox.fillStyle='#fff'; ox.fillText((p.z>0?'+':'')+p.z, x+8, y-7); } }); ox.lineWidth=1; }
 /* ---- the panel ---- */
 function pupBuild(){
   const P=pup, box=$('#pupbar'); if (!P) return; box.textContent='';
@@ -5836,6 +5861,7 @@ function pupBuild(){
   const seg=(label,opts,cur,set)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>'+label+'</label><div class="seg"></div><span></span>';
     for (const [k,t] of opts){ const b=document.createElement('button'); b.textContent=t; b.classList.toggle('on',k===cur); b.onclick=()=>set(k); r.children[1].append(b); } box.append(r); };
   seg('Режим', Object.entries(PUP_MODES), P.mode, k=>{ P.mode=k; pupKick(); pupBuild(); });
+  seg('Булавка', [['drag','Тянуть'],['rot','Вращать']], P.rotMode?'rot':'drag', k=>{ P.rotMode = k==='rot'; pupBuild(); renderOverlay(); });
   seg('Сетка', [['less','Реже'],['normal','Обычная'],['more','Чаще']], P.dens, k=>{ if (P.pins.length && k!==P.dens) toast('Новая плотность — булавки сброшены',1600); P.dens=k; pupRemesh(); });
   const er=document.createElement('div'); er.className='er'; er.innerHTML='<label>Расширение</label><div></div><span class="v"></span>'; const v=er.lastChild; v.textContent=P.expand+' px';
   hslider(er.children[1],{min:0,max:60,get:()=>P.expand,set:x=>{ P.expand=Math.round(x); v.textContent=P.expand+' px'; },end:()=>{ pupRemesh(); }}); box.append(er);
@@ -5846,11 +5872,12 @@ function pupBuild(){
     B('Вперёд',()=>{ P.pins[sp].z++; P.idxDirty=true; pupKick(); pupBuild(); renderOverlay(); },'',sp<0),
     B('Назад',()=>{ P.pins[sp].z--; P.idxDirty=true; pupKick(); pupBuild(); renderOverlay(); },'',sp<0),
     B('Убрать булавку',()=>pupDelPin(sp),'',sp<0),
+    ...(sp>=0 && P.pins[sp].rot!=null ? [B('Без поворота',()=>{ P.pins[sp].rot=null; P.fact=null; P.needInit=true; pupKick(); pupBuild(); renderOverlay(); })] : []),
     B('Сбросить',()=>{ P.pins=[]; P.selPin=-1; P.fact=null; P.cur=Float64Array.from(P.rest); P.idxDirty=true; pupRender(); pupBuild(); renderOverlay(); },'',!P.pins.length));
   const foot2=document.createElement('div'); foot2.className='eb'; const s2=document.createElement('span'); s2.style.flex='1';
   foot2.append(B(P.showMesh?'Скрыть сетку':'Показать сетку',()=>{ P.showMesh=!P.showMesh; pupBuild(); renderOverlay(); }), s2, B('Отмена',()=>pupClose()), B('Применить',pupApply,'pri'));
   const hint=document.createElement('div'); hint.className='gh';
-  hint.textContent='Одна булавка держит, другая тянет. Вперёд / Назад — что окажется сверху, если части наедут друг на друга.';
+  hint.textContent=(IS_DESK?'Alt+тяни рядом с булавкой — поворот вокруг неё. ':'«Вращать» — тяни рядом с булавкой, чтобы повернуть вокруг неё. ')+'Вперёд / Назад — что окажется сверху, если части наедут друг на друга.'+(P.maskSrc?' Маска слоя гнётся вместе с картинкой.':'');
   box.append(hint, foot, foot2);
 }
 function pupRemesh(){ if (!pup) return; pupBuildMesh(); pupRender(); pupBuild(); renderOverlay(); }
@@ -5867,8 +5894,11 @@ function pupApply(){
   if (P.selMask){ x.globalCompositeOperation='destination-out'; x.drawImage(P.selMask, src.x,src.y,src.w,src.h, src.x,src.y,src.w,src.h); }
   else x.clearRect(src.x,src.y,src.w,src.h);
   x.globalCompositeOperation='source-over'; x.drawImage(out, ob.x, ob.y);
-  pushHist(pxEntry(L.canvas,u.x,u.y,u.w,u.h,before)); L.dirty=true; thumbSoon(L);
-  pupClose(); layersChanged(); toast('Деформация применена',1200);
+  const ents=[pxEntry(L.canvas,u.x,u.y,u.w,u.h,before)];
+  if (P.maskSrc && L.mask){ const mb=grab(L.mask.canvas,u), mx=L.mask.ctx, cov=mk(ob.w,ob.h), wm=mk(ob.w,ob.h); ctx2(cov).drawImage(pupDraw(ob,1,'cover'),0,0); ctx2(wm).drawImage(pupDraw(ob,1,'mask'),0,0);
+    mx.globalCompositeOperation='destination-out'; mx.drawImage(cov,ob.x,ob.y); mx.globalCompositeOperation='source-over'; mx.drawImage(wm,ob.x,ob.y); ents.push(pxEntry(L.mask.canvas,u.x,u.y,u.w,u.h,mb)); }
+  pushHist(ents.length>1 ? compound(...ents) : ents[0]); L.dirty=true; thumbSoon(L);
+  pupClose(); layersChanged(); toast('Деформация применена'+(ents.length>1?' (вместе с маской)':''),1200);
 }
 
 $('#xfPuppet').onclick=()=>pupOpen();
@@ -6792,7 +6822,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №48 удалить фон'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №49 марионетка: маска и поворот'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
