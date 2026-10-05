@@ -140,7 +140,20 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #zoomBadge{pointer-events:auto;cursor:pointer}
 .hideui #top,.hideui #rail,.hideui #layers,.hideui #selbar,.hideui #xfbar{display:none!important}
 .hideui #app{grid-template-rows:0 1fr;grid-template-columns:0 1fr}
-.hideui #status{display:none}
+.hideui #status,.hideui #tabs{display:none}
+#tabs{position:absolute;z-index:6;display:flex;gap:4px;align-items:center;overflow-x:auto;scrollbar-width:none;padding:2px}
+#tabs::-webkit-scrollbar{display:none}
+#tabs .tab{flex:none;display:flex;align-items:center;gap:4px;height:28px;max-width:220px;padding:0 4px 0 11px;border-radius:9px;background:rgba(33,35,40,.78);border:1px solid var(--line);color:var(--muted);font-size:12.5px;cursor:pointer;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+#tabs .tab .tn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tabs .tab:hover{color:var(--fg)}
+#tabs .tab.on{color:var(--fg);background:var(--panel-2);border-color:rgba(226,166,90,.55);box-shadow:inset 0 -2px 0 var(--accent)}
+#tabs .tab.parked .tn{opacity:.6}
+#tabs .tx{width:20px;height:20px;border-radius:6px;font-size:10px;color:var(--muted);opacity:.0;flex:none}
+#tabs .tab:hover .tx,#tabs .tab.on .tx{opacity:.8}
+#tabs .tx:hover{background:rgba(255,255,255,.08);color:var(--fg)}
+#tabs .tplus{flex:none;width:28px;height:28px;border-radius:9px;color:var(--muted);border:1px dashed var(--line)}
+#tabs .tplus:hover{color:var(--fg)}
+#tabs.drop{outline:2px dashed var(--accent);border-radius:10px}
 
 /* floating action bars */
 .fbar{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;gap:4px;padding:5px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.45);width:max-content;max-width:calc(100% - 32px)}
@@ -670,6 +683,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <canvas id="view"></canvas>
     <canvas id="ovl"></canvas>
     <div id="status"><span id="zoomBadge">100%</span><span id="docInfo"></span><span id="memInfo"></span></div>
+    <div id="tabs" hidden></div>
     <div class="fbar" id="selbar" hidden>
       <div class="seg" id="selModes"><button data-mode="new">Новое</button><button data-mode="add">＋ Добавить</button><button data-mode="sub">− Вычесть</button></div>
       <span class="fgrp"><span class="fsep"></span><button data-sel="invert">Инверсия</button><button data-sel="edge">Край…</button></span>
@@ -782,7 +796,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <div id="recent"></div>
   </div>
 
-  <input type="file" id="fOpen" hidden>
+  <input type="file" id="fOpen" multiple hidden>
   <input type="file" id="fPlace" accept="image/*" hidden>
   <input type="file" id="fBackup" accept=".zip,application/zip" hidden>
 </div>
@@ -939,6 +953,7 @@ function newMask(L, fromSel){
   return { canvas:c, ctx:x, enabled:true };
 }
 function createDoc(w,h,name='Без названия'){
+  tabsLeave();
   clearHistory(); sel=null; xf=null; stroke=null; strokeBuf=null;
   resetDocState();
   doc = { id:newDocId(), keys:[], w, h, name, layers:[], active:0, editMask:false };
@@ -4929,6 +4944,7 @@ const CHEV='<svg class="chev" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"
 const EYE='<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 function layersChanged(){ structVer++; try{ if (AE.loaded) aeRefresh(); }catch(e){}
   if (!doc) return;
+  try{ if (!TABS.cur || TABS.cur.doc!==doc) tabsAdopt(); else if (TABS.cur.name!==doc.name){ TABS.cur.name=doc.name; tabsRender(); tabsPersist(); } }catch(_){}
   if (!$('#layers').hidden){
     const list=$('#lyList'); list.textContent='';
     for (let i=doc.layers.length-1;i>=0;i--){
@@ -5025,7 +5041,7 @@ function openMaskMenu(){
   d.querySelector('.mprev').append(c);
 }
 const escapeHtml = s => s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function showLayers(on){ const p=$('#layers'); p.hidden=!on; stage.classList.toggle('lyopen', on); for(const b of ['#bLayers','#bLayers2']) $(b).classList.toggle('on',on); if(on&&doc){ doc.layers.forEach(L=>{ if(!isGroup(L)) thumbFor(L,false); if(L.mask)thumbFor(L,true);}); layersChanged(); } }
+function showLayers(on){ const p=$('#layers'); p.hidden=!on; setTimeout(()=>{ try{ tabsLayout(); }catch(_){} },30); stage.classList.toggle('lyopen', on); for(const b of ['#bLayers','#bLayers2']) $(b).classList.toggle('on',on); if(on&&doc){ doc.layers.forEach(L=>{ if(!isGroup(L)) thumbFor(L,false); if(L.mask)thumbFor(L,true);}); layersChanged(); } }
 $('#bLayers').onclick=()=>showLayers($('#layers').hidden);
 $('#bLayers2').onclick=()=>showLayers($('#layers').hidden);
 $('#lyClose').onclick=()=>showLayers(false);
@@ -5813,6 +5829,116 @@ function pupApply(){
 }
 
 $('#xfPuppet').onclick=()=>pupOpen();
+/* ============ several open documents (tabs, like Photoshop) ============
+   Each open document keeps its layers, selection, undo history and view in memory, so switching is a swap of a few
+   references — no loading, no re-encoding. Leaving a document saves it in the background (only changed layers).
+   Memory: the PC keeps everything up to a large budget; the iPad keeps the current document + 2 more, older ones are
+   «parked» (saved and released — they reopen from storage on click, without their undo history). */
+const TABS={ list:[], cur:null, saveQ:Promise.resolve() };
+let TABS_SAVED=null; try{ TABS_SAVED=localStorage.getItem('proyavka.tabs'); }catch(_){} // read before the first document claims its tab
+const IS_ELECTRON=/Electron\//.test(navigator.userAgent);
+function tabState(){ return { sel, undo:undoStack, redo:redoStack, hb:histBytes, view:Object.assign({},view), lastDesel:typeof lastDesel!=='undefined'?lastDesel:null,
+  depthMap:typeof depthMap!=='undefined'?depthMap:null, cloneSrc:typeof cloneSrc!=='undefined'?cloneSrc:null, dirty:dirtyDoc }; }
+function tabsSaveBg(D){ // queued, so two saves never interleave
+  TABS.saveQ=TABS.saveQ.then(async()=>{ try{ if (!D.pristine && (D.layers.some(L=>L.dirty||!L.saved) || D._metaDirty)) await autosave(true, D); }catch(e){ console.warn('tab save', e); } }); return TABS.saveQ; }
+function tabsLeave(){ // the current document goes to the background
+  const t=TABS.cur; if (!t || !doc || t.doc!==doc || t.stashed) return;
+  t.st=tabState(); t.stashed=true; t.used=Date.now(); doc._metaDirty=dirtyDoc; tabsSaveBg(doc);
+}
+function tabsAdopt(){ // called from layersChanged: whatever document is current gets its tab
+  if (!doc) return; if (TABS.cur && TABS.cur.doc===doc){ TABS.cur.stashed=false; return; }
+  let t=TABS.list.find(x=>x.doc===doc) || TABS.list.find(x=>x.id===doc.id);
+  if (!t){ t={id:doc.id}; const i=TABS.cur ? TABS.list.indexOf(TABS.cur)+1 : TABS.list.length; TABS.list.splice(i,0,t);
+    // an untouched empty canvas is replaced by the opened file, like in Photoshop
+    const p=TABS.cur; if (p && p.doc && p.doc.pristine && p.doc!==doc && TABS.list.length>1){ TABS.list.splice(TABS.list.indexOf(p),1); p.doc=null; p.st=null; } }
+  Object.assign(t, {doc, id:doc.id, name:doc.name, parked:false, stashed:false, used:Date.now()}); TABS.cur=t;
+  tabsRender(); tabsPersist(); setTimeout(tabsPark, 0);
+}
+function tabBusy(){
+  if (stroke || (typeof liqStroke!=='undefined' && liqStroke)) return true;
+  if (xf){ toast('Сначала примени или отмени трансформ'); return true; }
+  if (edge||harm||filt||gen||aip||(lift&&lift.open)||pup){ toast('Сначала закрой открытую панель — потом переключай документ',2400); return true; }
+  return false;
+}
+async function tabSwitch(t){
+  if (!t || t===TABS.cur || tabBusy()) return;
+  if (t.parked || !t.doc){ // parked: open from storage (restore stashes the current one itself)
+    try{ localStorage.setItem('proyavka.booting','1'); }catch(_){}
+    const ok=await restore(t.id); try{ localStorage.removeItem('proyavka.booting'); }catch(_){}
+    if (!ok){ toast('Документ «'+(t.name||'')+'» не открылся — он удалён?',3000); TABS.list.splice(TABS.list.indexOf(t),1); tabsRender(); tabsPersist(); }
+    return; }
+  tabsLeave();
+  if (dep) depthClose(); if (adjEdit) adjClose(); if (crit){ crit=null; $('#critbar').hidden=true; }
+  if (typeof liq!=='undefined' && liq && typeof liqLeave==='function') liqLeave();
+  const st=t.st||{}; doc=t.doc;
+  sel=st.sel||null; undoStack=st.undo||[]; redoStack=st.redo||[]; histBytes=st.hb||0; if (st.view) view=Object.assign({},st.view);
+  lastDesel=st.lastDesel||null; depthMap=st.depthMap||null; cloneSrc=st.cloneSrc||null; dirtyDoc=!!st.dirty; t.st=null;
+  tapSess=null; wandCache=null; wandPrev=null; strokeCacheDrop(); liveCacheFree(); contentVer++; structVer++;
+  TABS.cur=t; t.stashed=false; t.used=Date.now(); setCurDoc(doc.id);
+  if (!st.view) fitView();
+  layersChanged(); updateSelBar(); bumpContent(); requestRender(); renderOverlay(); tabsRender(); tabsPersist();
+}
+function tabNext(d){ const n=TABS.list.length; if (n<2) return; const i=TABS.list.indexOf(TABS.cur); tabSwitch(TABS.list[(i+d+n)%n]); }
+async function tabClose(t){
+  t=t||TABS.cur; if (!t) return;
+  if (TABS.list.length<2){ toast('Это единственный открытый документ',1400); return; }
+  if (t===TABS.cur){ if (tabBusy()) return; const i=TABS.list.indexOf(t); await tabSwitch(TABS.list[i+1]||TABS.list[i-1]); if (TABS.cur===t) return; }
+  if (t.doc) await tabsSaveBg(t.doc);
+  TABS.list.splice(TABS.list.indexOf(t),1); t.doc=null; t.st=null; tabsRender(); tabsPersist();
+}
+function tabMB(t){ const D=t.doc; if (!D) return 0; let n=0; for (const L of D.layers){ if (!isGroup(L) && L.kind!=='adj') n++; if (L.mask) n++; } return n*D.w*D.h*4/1048576; }
+async function tabsPark(){
+  const live=TABS.list.filter(t=>t.doc && t!==TABS.cur).sort((a,b)=>(a.used||0)-(b.used||0));
+  const maxN = IS_DESK ? 40 : 2, maxMB = IS_DESK ? 7000 : 600;
+  let total=TABS.list.reduce((a,t)=>a+tabMB(t),0);
+  while (live.length && (live.length>maxN || total>maxMB)){ const t=live.shift(); total-=tabMB(t); const D=t.doc;
+    await tabsSaveBg(D); if (t.doc!==D || t===TABS.cur) continue; t.doc=null; t.st=null; t.parked=true; }
+  tabsRender();
+}
+function tabsPersist(){ try{ localStorage.setItem('proyavka.tabs', JSON.stringify({list:TABS.list.map(t=>({id:t.id, name:t.name})), cur:TABS.cur&&TABS.cur.id})); }catch(_){} }
+async function tabsBoot(){ // documents that were open last time come back as tabs (they load on click)
+  let j=null; try{ j=JSON.parse(TABS_SAVED||'null'); }catch(_){} if (!j || !Array.isArray(j.list)) return;
+  const lib=await libGet(), ids=new Set(lib.map(e=>e.id));
+  for (const e of j.list){ if (!ids.has(e.id) || TABS.list.some(t=>t.id===e.id)) continue; TABS.list.push({id:e.id, name:(lib.find(x=>x.id===e.id)||e).name, parked:true}); }
+  const cur=TABS.cur; if (cur){ const order=j.list.map(e=>e.id); TABS.list.sort((a,b)=>{ const ia=order.indexOf(a.id), ib=order.indexOf(b.id); return (ia<0?1e9:ia)-(ib<0?1e9:ib); }); }
+  tabsRender(); tabsPersist();
+}
+function tabsRender(){
+  const box=$('#tabs'); if (!box) return; const show = TABS.list.length>1 || (IS_DESK && TABS.list.length>0);
+  box.hidden=!show; if (!show) return; box.textContent='';
+  for (const t of TABS.list){ const b=document.createElement('div'); b.className='tab'+(t===TABS.cur?' on':'')+(t.parked||!t.doc?' parked':''); b.title=(t.name||'Без названия')+(t.parked?' · не в памяти, откроется с диска':'');
+    const nm=document.createElement('span'); nm.className='tn'; nm.textContent=(t===TABS.cur&&doc?doc.name:t.name)||'Без названия';
+    const x=document.createElement('button'); x.className='tx'; x.textContent='✕'; x.setAttribute('aria-label','Закрыть'); x.onclick=e=>{ e.stopPropagation(); tabClose(t); };
+    b.append(nm,x); b.onclick=()=>tabSwitch(t); b.onauxclick=e=>{ if (e.button===1){ e.preventDefault(); tabClose(t); } }; box.append(b); }
+  const plus=document.createElement('button'); plus.className='tplus'; plus.textContent='＋'; plus.title='Открыть ещё (можно сразу несколько файлов)'; plus.onclick=()=>$('#fOpen').click(); box.append(plus);
+  tabsLayout(); const on=box.querySelector('.tab.on'); if (on) on.scrollIntoView({block:'nearest', inline:'nearest'});
+}
+function tabsLayout(){ const box=$('#tabs'); if (!box || box.hidden) return; const st=$('#stage').getBoundingClientRect(), s=$('#status').getBoundingClientRect(), ly=$('#layers');
+  const top = s.top-st.top < st.height/2 ? s.bottom-st.top+6 : 8, left = s.top-st.top < st.height/2 ? s.left-st.left : 10;
+  const right = !ly.hidden ? st.right-ly.getBoundingClientRect().left+10 : 10;
+  box.style.top=top+'px'; box.style.left=left+'px'; box.style.right=right+'px'; }
+window.addEventListener('resize', ()=>setTimeout(tabsLayout,50));
+// drop several pictures onto the tab strip — each opens as its own document
+(function(){ const box=$('#tabs'); if (!box) return;
+  box.addEventListener('dragover', e=>{ e.preventDefault(); e.stopPropagation(); box.classList.add('drop'); });
+  box.addEventListener('dragleave', ()=>box.classList.remove('drop'));
+  box.addEventListener('drop', e=>{ e.preventDefault(); e.stopPropagation(); box.classList.remove('drop'); const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])]; if (fs.length) openFilesAsDocs(fs); });
+})();
+async function openFilesAsDocs(files){
+  if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  let n=0;
+  for (const f of files){
+    busy(true,'Открываю '+f.name+(files.length>1?' ('+(n+1)+' из '+files.length+')':'')+'…'); await nextFrame();
+    try{
+      if (/\.psd$/i.test(f.name)) await openPsd(f);
+      else if (/^image\//.test(f.type) || /\.(png|jpe?g|webp|gif|bmp|tiff?|avif|heic)$/i.test(f.name)){ const im=await loadImage(f); createDoc(im.naturalWidth, im.naturalHeight, f.name.replace(/\.[^.]+$/,'')); doc.layers[0].ctx.clearRect(0,0,doc.w,doc.h); doc.layers[0].ctx.drawImage(im,0,0); doc.layers[0].name=f.name; }
+      else continue;
+      layersChanged(); requestRender(); markDirty(); n++;
+    }catch(err){ console.error(err); toast('Не открылся '+f.name+': '+(err.message==='mem'?'не хватает памяти':'формат не прочитался'),4000); }
+  }
+  busy(false); if (n>1) toast('Открыто документов: '+n+' — они во вкладках сверху',2600); else if (n===1) toast('Открыт '+files[files.length-1].name,1600);
+}
+
 /* ============ dialogs ============ */
 function dialog(html, buttons, opt={}){
   const s=document.createElement('div'); s.className='scrim'; const d=document.createElement('div'); d.className='dlg'+(opt.list?' narrow':''); d.innerHTML=html;
@@ -5881,17 +6007,7 @@ function newDocDialog(){
 
 /* ============ files ============ */
 const loadImage = file => new Promise((res,rej)=>{ const u=URL.createObjectURL(file), im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error('img')); im.src=u; });
-$('#fOpen').addEventListener('change', async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
-  if (xf){ toast('Сначала примени или отмени трансформ'); return; }
-  busy(true,'Сохраняю текущий документ…'); await flushSave();
-  busy(true,'Открываю '+f.name+'…'); await nextFrame();
-  try{
-    if (/\.psd$/i.test(f.name)) await openPsd(f);
-    else { const im=await loadImage(f); createDoc(im.naturalWidth, im.naturalHeight, f.name.replace(/\.[^.]+$/,'')); doc.layers[0].ctx.clearRect(0,0,doc.w,doc.h); doc.layers[0].ctx.drawImage(im,0,0); doc.layers[0].name=f.name; }
-    layersChanged(); requestRender(); markDirty(); toast('Открыт '+f.name+'. Прежний документ — в «Файл → Мои документы»',3000);
-  }catch(err){ console.error(err); toast('Не получилось открыть файл: '+(err.message==='mem'?'не хватает памяти':'формат не прочитался'),4000); }
-  busy(false);
-});
+$('#fOpen').addEventListener('change', async e=>{ const fs=[...e.target.files]; e.target.value=''; if (fs.length) openFilesAsDocs(fs); });
 async function openPsd(f){
   if (!window.agPsd) throw new Error('Библиотека PSD не загрузилась');
   const buf=await f.arrayBuffer();
@@ -6319,6 +6435,8 @@ document.addEventListener('keydown', e=>{
     if (C==='Equal'||C==='NumpadAdd'||k==='='||k==='+') return go(()=>{ const r=st(); zoomAt(r.width/2,r.height/2,1.25); });
     if (C==='Minus'||C==='NumpadSubtract'||k==='-') return go(()=>{ const r=st(); zoomAt(r.width/2,r.height/2,0.8); });
     if (L==='z') return go(()=> e.shiftKey ? redo() : undo());
+    if (k==='tab') return go(()=>tabNext(e.shiftKey?-1:1));
+    if ((L==='w' && IS_ELECTRON) || C==='F4') return go(()=>tabClose());
     if (L==='o') return go(()=>$('#fOpen').click());
     if (L==='n' && !e.shiftKey) return go(()=>newDocDialog());
     if (!doc) return;
@@ -6437,6 +6555,7 @@ function setCurDoc(id){ try{ localStorage.setItem('proyavka.cur', id); }catch(_)
 function getCurDoc(){ try{ return localStorage.getItem('proyavka.cur'); }catch(_){ return null; } }
 async function libGet(){ return (await idbGet('library')) || []; }
 function resetDocState(){
+  tabsLeave();
   clearHistory(); sel=null; xf=null; stroke=null; strokeBuf=null;
   if (typeof tapSess!=='undefined') tapSess=null; if (typeof wandCache!=='undefined'){ wandCache=null; wandPrev=null; }
   if (typeof edge!=='undefined' && edge) edgeClose();
@@ -6454,10 +6573,11 @@ function resetDocState(){
 }
 let saveT=null, saving=false, dirtyDoc=false;
 function markDirty(){ bumpContent(); if(doc) doc.pristine=false; dirtyDoc=true; clearTimeout(saveT); saveT=setTimeout(autosave, 6000); }
-async function autosave(force){
-  if (!doc || doc.pristine) return;
-  if (saving || (!force && (stroke || xf || toolPtr!==null))){ saveT=setTimeout(autosave,3000); return; }
-  saving=true; dirtyDoc=false; const D=doc, P=PFX(D.id); let cleared=[];
+async function autosave(force, D0){
+  const D=D0||doc; if (!D || D.pristine) return;
+  if (D===doc && (saving || (!force && (stroke || xf || toolPtr!==null)))){ if (!D0){ saveT=setTimeout(autosave,3000); return; } }
+  for (let i=0; saving && i<600; i++) await new Promise(r=>setTimeout(r,50)); // a background document waits for the running save
+  saving=true; if (D===doc) dirtyDoc=false; D._metaDirty=false; const P=PFX(D.id); let cleared=[];
   try{
     const put={}, keys=[];
     for (const L of D.layers){
@@ -6469,13 +6589,13 @@ async function autosave(force){
       }catch(e){ throw e; }
     }
     put[P+'meta']={ w:D.w, h:D.h, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
-    try{ const k=Math.min(1,360/Math.max(D.w,D.h)); put[P+'thumb']=await toBlob(flatten(k,true),'image/jpeg',0.8); }catch(_){}
+    try{ const k=Math.min(1,360/Math.max(D.w,D.h)), cur=doc; let th; doc=D; try{ th=flatten(k,true); } finally{ doc=cur; } put[P+'thumb']=await toBlob(th,'image/jpeg',0.8); }catch(_){}
     const lib=await libGet(), e={id:D.id, name:D.name, w:D.w, h:D.h, t:Date.now(), n:D.layers.filter(x=>!isGroup(x)).length}, i=lib.findIndex(x=>x.id===D.id);
     if (i>=0) lib[i]=e; else lib.unshift(e);
     put.library=lib;
     const dels=(D.keys||[]).filter(k=>!keys.includes(k)).map(k=>P+k);
-    await idbTx(put, dels); D.keys=keys; setCurDoc(D.id);
-  }catch(e){ console.warn('autosave', e); dirtyDoc=true; for (const X of cleared) X.dirty=true; }
+    await idbTx(put, dels); D.keys=keys; if (D===doc) setCurDoc(D.id);
+  }catch(e){ console.warn('autosave', e); if (D===doc) dirtyDoc=true; else D._metaDirty=true; for (const X of cleared) X.dirty=true; }
   saving=false; if (dirtyDoc && doc===D) markDirty();
 }
 async function flushSave(){
@@ -6549,7 +6669,9 @@ async function migrateStorage(){
 async function deleteDoc(id){
   const keys=await idbKeys(PFX(id)), lib=(await libGet()).filter(x=>x.id!==id);
   await idbTx({library:lib}, keys);
-  if (doc && doc.id===id){ if (lib.length && await restore(lib[0].id)) return; createDoc(3000,4000,'Без названия'); }
+  const t=TABS.list.find(x=>x.id===id);
+  if (doc && doc.id===id){ const o=TABS.list.find(x=>x!==t); if (o){ await tabSwitch(o); } else if (!(lib.length && await restore(lib[0].id))) createDoc(3000,4000,'Без названия'); }
+  if (t && TABS.cur!==t){ TABS.list.splice(TABS.list.indexOf(t),1); t.doc=null; t.st=null; tabsRender(); tabsPersist(); }
 }
 async function renameDoc(id, name){
   const lib=await libGet(), e=lib.find(x=>x.id===id); if(e) e.name=name;
@@ -6615,6 +6737,7 @@ async function openLibrary(){
         const dd=dialog(`<h3>Название</h3><div class="dims"><input id="rn" value="${escapeHtml(e.name)}" style="width:100%"></div>`, [['Отмена',null],['Сохранить', x=>{ const v=x.querySelector('#rn').value.trim()||e.name; (async()=>{ await renameDoc(e.id,v); e.name=v; c.querySelector('.nm').textContent=v; })(); }, true]]);
         setTimeout(()=>dd.querySelector('#rn').focus(),50); return; }
       if (doc && doc.id===e.id){ d.closest('.scrim').remove(); return; }
+      { const t=TABS.list.find(x=>x.id===e.id && x.doc); if (t){ d.closest('.scrim').remove(); urls.forEach(URL.revokeObjectURL); tabSwitch(t); return; } }
       d.closest('.scrim').remove(); urls.forEach(URL.revokeObjectURL);
       try{ localStorage.setItem('proyavka.booting','1'); }catch(_){}
       const ok=await restore(e.id);
@@ -6626,7 +6749,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №46.2 расширение кадра'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №47 вкладки документов'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
@@ -6671,6 +6794,7 @@ if (crashedBefore){ const c=crashedBefore; memNote(`перезапуск · ин
   pvLog(crashed?'безопасный запуск':'открываю документ'); if (!crashed) ok = await restore(); pvLog(ok?'документ открыт':'новый холст');
   if (found) setTimeout(()=>toast('В памяти нашлись прежние картинки: «Файл → Мои документы», карточки «Найдено»',6000), 1500);
   if (!ok) createDoc(3000,4000,'Без названия');
+  tabsBoot();
   // the guard stays on until the restored document has been drawn and lived a few seconds: a crash on the first frames also counts
   setTimeout(()=>{ try{ localStorage.removeItem('proyavka.booting'); }catch(_){} pvLog('запуск прошёл'); }, 6000);
   if (crashed) setTimeout(()=>dialog('<h3>Прошлый запуск не удался</h3><p>Похоже, Проявка закрылась, пока восстанавливала документ. Я открыла чистый холст, а сохранённый документ не тронут.</p>',
