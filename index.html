@@ -3217,6 +3217,7 @@ function aiBuild(){
   const st=B('⚙',genSettings); st.title='Настройки генерации'; const sp=document.createElement('span'); sp.style.flex='1';
   if (a.busy){ foot.append(st, sp, B('Остановить',()=>{ a.cancelled=true; try{ a.abort&&a.abort.abort(); }catch(e){} })); box.append(foot); return; }
   foot.append(st, sp, B('Отмена',aiCancel), B(a.variants.length?'↻ Ещё':(a.goLabel||'Сделать'), aiGo, a.variants.length?'':'pri'));
+  if (a.variants.length && a.extra){ const x=a.extra(); if (x){ const b=B(x[0],x[1]); if (x[2]) b.title=x[2]; foot.insertBefore(b, sp.nextSibling); } }
   if (a.variants.length) foot.append(B('Готово',aiDone,'pri')); box.append(foot);
 }
 async function aiGo(){
@@ -3326,10 +3327,61 @@ function expandFill(e){
     res.bitmaps=res.bitmaps.map(c=>{ const a=expandAlign(img, c, ib); if (a.soft) setTimeout(()=>toast('Модель оставила новые края размытыми — попробуй «↻ Ещё»',4000),1500); return a.c; });
     return res; };
   aiOpen({ title:'Расширить кадр', sub:'дорисовываю края', askWords:'Что по краям', placeholder:'можно оставить пустым', goLabel:'Дорисовать', busyText:'дорисовываю края…', auto:true,
-    hint:'Края дорисовываются по всей картинке целиком, поэтому на очень большом холсте они мягче оригинала — их можно подтянуть резкостью.',
+    hint:'Сначала края дорисовываются по всей картинке целиком (~1 Мп), поэтому на большом холсте они мягче оригинала — «✦ Детализировать края» пройдёт их по частям в полном разрешении.',
+    extra:()=>{ const n=expandTiles(W1,H1,e).length; return (W1*H1>1.3e6 && n) ? ['✦ Детализировать края ('+n+')', ()=>expandRefine(aip,e,soft), 'Пройти новые края по частям в полном разрешении: '+n+' запросов к модели, параллельно по 4'] : null; },
     layerName:'Расширение кадра', insertAt:()=>doc.layers.length, doneMsg:'Края легли верхним слоем — его можно подтереть или подвинуть',
     run, apply:(ctx,c)=>{ const t=mk(W1,H1), tx=ctx2(t); tx.imageSmoothingQuality='high'; tx.drawImage(c,0,0,W1,H1); tx.globalCompositeOperation='destination-in'; tx.drawImage(soft,0,0); ctx.drawImage(t,0,0); } });
 }
+/* expand v2: the first pass is drawn over the whole picture at ~1 MP, so on a big canvas the new edges are soft.
+   «Детализировать края» walks the new area in overlapping ~1 MP tiles at full resolution: each tile = sharp original +
+   the first pass, the model repaints only detail (composition, colours and light stay), the tile is lined up, colour-matched
+   and feathered into its neighbours. The result is one more variant, so «Готово» / «Отмена» / switching variants still work. */
+function expandTiles(W1, H1, e){
+  const inNew=(x,y,w,h)=>!(x>=e.l+8 && y>=e.t+8 && x+w<=e.l+e.W0-8 && y+h<=e.t+e.H0-8); // tile touches the new area
+  let T=1024, tiles=[];
+  for (let pass=0; pass<6; pass++){
+    const tw=Math.min(T,W1), th=Math.min(T,H1), ov=Math.round(Math.min(tw,th)*0.14);
+    const xs=[], ys=[]; for (let x=0;;x+=tw-ov){ if (x+tw>=W1){ xs.push(W1-tw); break; } xs.push(x); } for (let y=0;;y+=th-ov){ if (y+th>=H1){ ys.push(H1-th); break; } ys.push(y); }
+    tiles=[]; for (const y of ys) for (const x of xs) if (inNew(x,y,tw,th)) tiles.push({x,y,w:tw,h:th,ov});
+    if (tiles.length<=16) break; T=Math.round(T*1.25);
+  }
+  return tiles;
+}
+async function expandRefine(a, e, soft){
+  const W1=doc.w, H1=doc.h, cur=a.variants[a.idx]; if (!cur || !a.layer) return;
+  if (!String(genCfg.orKey||'').trim()){ toast('Детализация работает через OpenRouter — нужен ключ в ⚙',3000); return; }
+  const tiles=expandTiles(W1,H1,e); if (!tiles.length){ toast('Новых краёв нет',1500); return; }
+  const base=regionImage({x:0,y:0,w:W1,h:H1}, W1, H1); // what she sees now: sharp original + first pass, full resolution
+  const out=mk(W1,H1), ox=ctx2(out); ox.imageSmoothingQuality='high'; ox.drawImage(cur,0,0,W1,H1);
+  const ask='This is a crop of a larger high-resolution illustration. Parts of it are soft and blurry because they were upscaled from a low-resolution draft. Redraw the whole crop with crisp, high-resolution detail and texture that matches the sharpest areas of the crop. Keep EXACTLY the same composition, shapes, object positions, perspective, colours, lighting and framing — no new objects, nothing removed, no zoom, no shift. Return the same crop, only sharper and more detailed.';
+  a.cancelled=false; netSess=a; let done=0, cost=0, fails=0;
+  const upd=()=>{ a.busy='детализирую края: '+done+' из '+tiles.length+'…'; aiBuild(); }; upd();
+  const one=async t=>{
+    const src=mk(t.w,t.h); ctx2(src).drawImage(base, t.x,t.y,t.w,t.h, 0,0,t.w,t.h);
+    let res; try{ res=await orRequest(src, ask, 1); }catch(err){ if (a.cancelled || err.message==='cancel') throw err; fails++; console.warn('tile', err); done++; upd(); return; }
+    if (a.cancelled) throw new Error('cancel');
+    cost+=res.cost||0; let c=expandAlign(src, res.bitmaps[0], {x:t.w*0.05,y:t.h*0.05,w:t.w*0.9,h:t.h*0.9}).c;
+    // colour: keep the tile's average colour exactly (the model drifts a little per tile and the seams would show)
+    const S=64, m=cv=>{ const q=mk(S,S), x=ctx2(q,{willReadFrequently:true}); x.drawImage(cv,0,0,S,S); const d=x.getImageData(0,0,S,S).data, s=[0,0,0]; for (let i=0;i<d.length;i+=4){ s[0]+=d[i]; s[1]+=d[i+1]; s[2]+=d[i+2]; } return s.map(v=>v/(S*S)); };
+    const ms=m(src), mo=m(c), g=[0,1,2].map(i=> mo[i]>1 ? clamp(ms[i]/mo[i],0.8,1.25) : 1);
+    if (g.some(v=>Math.abs(v-1)>0.004)){ const x=ctx2(c,{willReadFrequently:true}), id=x.getImageData(0,0,t.w,t.h), d=id.data; for (let i=0;i<d.length;i+=4){ d[i]*=g[0]; d[i+1]*=g[1]; d[i+2]*=g[2]; } x.putImageData(id,0,0); }
+    // feather inner edges into the neighbours
+    const f=mk(t.w,t.h), fx=ctx2(f), ov=t.ov; fx.fillStyle='#fff'; fx.fillRect(0,0,t.w,t.h); fx.globalCompositeOperation='destination-in';
+    const ramp=(x0,y0,x1,y1)=>{ const gr=fx.createLinearGradient(x0,y0,x1,y1); gr.addColorStop(0,'rgba(255,255,255,0)'); gr.addColorStop(1,'#fff'); fx.fillStyle=gr; fx.fillRect(0,0,t.w,t.h); };
+    if (t.x>0) ramp(0,0,ov,0); if (t.y>0) ramp(0,0,0,ov); if (t.x+t.w<W1) ramp(t.w,0,t.w-ov,0); if (t.y+t.h<H1) ramp(0,t.h,0,t.h-ov);
+    const cx=ctx2(c); cx.globalCompositeOperation='destination-in'; cx.drawImage(f,0,0); cx.globalCompositeOperation='source-over';
+    t.c=c; done++; upd();
+  };
+  try{
+    const q=tiles.slice(), N=Math.min(4,q.length); await Promise.all(Array.from({length:N}, async()=>{ while (q.length){ await one(q.shift()); } }));
+  }catch(err){ netSess=null; a.busy=null; if (aip===a) aiBuild(); if (err.message!=='cancel') toast('Детализация: '+err.message,4000); return; }
+  netSess=null; a.busy=null; if (aip!==a) return;
+  for (const t of tiles) if (t.c) ox.drawImage(t.c, t.x, t.y); // in reading order: later tiles feather over earlier ones
+  ox.globalCompositeOperation='destination-in'; ox.drawImage(soft,0,0); ox.globalCompositeOperation='source-over';
+  a.cost+=cost; a.variants.push(out); aiPick(a.variants.length-1);
+  toast('Края детализированы: '+(tiles.length-fails)+' из '+tiles.length+' частей'+(cost?' · $'+cost.toFixed(2):'')+(fails?' · часть не ответила — повтори':''),3500);
+}
+
 /* line the model's frame up with the original (models like to zoom or nudge a little) and check the new edges are really drawn */
 function expandAlign(ref, out, ib){
   const S=220/Math.max(ref.width,ref.height), w=Math.max(8,Math.round(ref.width*S)), h=Math.max(8,Math.round(ref.height*S));
@@ -7044,7 +7096,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №50 кадрирование, размер холста и изображения'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №51 расширение кадра v2: детализация краёв'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
