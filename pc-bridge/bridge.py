@@ -96,6 +96,66 @@ def ort_run(name, body):
     h = json.dumps({'out': meta, 'ms': round((time.time() - t0) * 1000)}).encode()
     return struct.pack('<I', len(h)) + h + b''.join(blobs)
 
+
+# ---------- плагины Фотошопа внутри «Проявки»: код читается прямо из папки, куда его ставит Photoshop ----------
+# Плагин правят в одном месте (папка UXP), а «Проявка» каждый раз берёт свежую копию отсюда —
+# так Фотошоп и «Проявка» всегда работают на одном и том же main.js.
+import urllib.request, urllib.error, urllib.parse, re as _re, ipaddress
+UXP_DIR = os.path.join(os.environ.get('APPDATA') or os.path.join(os.path.expanduser('~'), 'AppData', 'Roaming'), 'Adobe', 'UXP')
+PLUGIN_IDS = ('com.alisa.aiedit', 'com.alisa.sdinpaint')
+PLUGIN_FILES = ('index.html', 'main.js', 'manifest.json', 'team-config.json')
+def _ver(s): return tuple(int(x) for x in _re.findall(r'\d+', s))
+def plugin_dir(pid):
+    base = os.path.join(UXP_DIR, 'Plugins', 'External'); best = None
+    for n in os.listdir(base) if os.path.isdir(base) else []:
+        if (n == pid or n.startswith(pid + '_')) and os.path.isfile(os.path.join(base, n, 'main.js')):
+            if best is None or _ver(n) > _ver(best): best = n
+    return os.path.join(base, best) if best else None
+def plugin_data_dir(pid):
+    # PluginsStorage/PHSP/<версия Photoshop>/External/<id>/PluginData — берём ту, где плагин работал последним
+    root = os.path.join(UXP_DIR, 'PluginsStorage', 'PHSP'); best = None; bt = -1
+    for v in os.listdir(root) if os.path.isdir(root) else []:
+        d = os.path.join(root, v, 'External', pid, 'PluginData')
+        if os.path.isdir(d):
+            t = max([os.path.getmtime(os.path.join(d, f)) for f in os.listdir(d)] + [os.path.getmtime(d)])
+            if t > bt: best, bt = d, t
+    if not best: best = os.path.join(HERE, 'plugin-data', pid); os.makedirs(best, exist_ok=True)
+    return best
+def plugin_manifest(pid):
+    d = plugin_dir(pid)
+    if not d: return None
+    files = {f: os.path.getmtime(os.path.join(d, f)) for f in PLUGIN_FILES if os.path.isfile(os.path.join(d, f))}
+    ver = ''
+    try: ver = json.load(open(os.path.join(d, 'manifest.json'), encoding='utf-8')).get('version', '')
+    except Exception: pass
+    return {'id': pid, 'dir': os.path.basename(d), 'version': ver, 'files': files, 'mtime': max(files.values()) if files else 0}
+
+# ---------- сеть для плагина: у Фотошопа нет CORS, у браузера есть — запросы к сервисам идут через мост ----------
+HOP = {'host', 'content-length', 'connection', 'accept-encoding', 'origin', 'referer', 'cookie', 'transfer-encoding'}
+def _private(host):  # только явные адреса домашней сети; имена не резолвим — VPN может отдавать «подставные» адреса
+    if host.lower() in ('localhost',) or host.lower().endswith('.local'): return True
+    try: a = ipaddress.ip_address(host.strip('[]')); return a.is_private or a.is_loopback or a.is_link_local
+    except ValueError: return False
+def net_proxy(h, body):
+    url = urllib.parse.unquote(h.headers.get('X-Proxy-Url') or '')
+    method = (h.headers.get('X-Proxy-Method') or 'GET').upper()
+    try: hdr = json.loads(urllib.parse.unquote(h.headers.get('X-Proxy-Headers') or '') or '{}')
+    except Exception: hdr = {}
+    u = urllib.parse.urlsplit(url)
+    if u.scheme not in ('http', 'https') or not u.hostname or _private(u.hostname):
+        return 400, json.dumps({'error': 'мост не ходит по этому адресу'}, ensure_ascii=False).encode(), 'application/json', ''
+    hdr = {k: v for k, v in hdr.items() if k.lower() not in HOP}
+    if body is not None and not any(k.lower() == 'content-type' for k in hdr) and h.headers.get('Content-Type') and 'x-proyavka-raw' not in h.headers.get('Content-Type'):
+        hdr['Content-Type'] = h.headers.get('Content-Type')
+    req = urllib.request.Request(url, data=body if method not in ('GET', 'HEAD') else None, method=method, headers=hdr)
+    try:
+        r = urllib.request.urlopen(req, timeout=300)
+        return r.status, r.read(), r.headers.get('Content-Type') or 'application/octet-stream', r.geturl()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read(), e.headers.get('Content-Type') or 'text/plain', url
+    except Exception as e:
+        return 599, json.dumps({'error': 'нет связи с ' + u.hostname + ': ' + str(getattr(e, 'reason', e))}, ensure_ascii=False).encode(), 'application/json', ''
+
 TOKEN = token()
 PREFIX = '/k/' + TOKEN
 
@@ -126,6 +186,30 @@ class H(BaseHTTPRequestHandler):
         if path == '/bridge/ping':
             return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True}).encode())
         n = int(self.headers.get('Content-Length') or 0); body = self.rfile.read(n) if n else None
+        if path.startswith('/plugin/'):
+            parts = [urllib.parse.unquote(x) for x in path.split('?')[0].split('/')[2:]]
+            pid = parts[0] if parts else ''
+            if pid not in PLUGIN_IDS: return self.reply(404, b'{}')
+            if len(parts) == 2 and parts[1] == 'manifest':
+                m = plugin_manifest(pid)
+                return self.reply(200 if m else 404, json.dumps(m or {'error': 'плагин не установлен'}, ensure_ascii=False).encode())
+            if len(parts) == 3 and parts[1] == 'file' and parts[2] in PLUGIN_FILES:
+                d = plugin_dir(pid); f = d and os.path.join(d, parts[2])
+                if not f or not os.path.isfile(f): return self.reply(404, b'{}')
+                ct = {'html': 'text/html', 'js': 'text/javascript', 'json': 'application/json'}[parts[2].rsplit('.', 1)[1]]
+                return self.reply(200, open(f, 'rb').read(), ct + '; charset=utf-8')
+            if len(parts) == 3 and parts[1] == 'data' and _re.fullmatch(r'[\w.-]+\.(json|jsonl|txt)', parts[2]):
+                f = os.path.join(plugin_data_dir(pid), parts[2])
+                if self.command == 'POST':
+                    open(f + '.part', 'wb').write(body or b''); os.replace(f + '.part', f); return self.reply(200, b'{"ok":true}')
+                if not os.path.isfile(f): return self.reply(404, b'{}')
+                return self.reply(200, open(f, 'rb').read(), 'text/plain; charset=utf-8')
+            return self.reply(404, b'{}')
+        if path == '/net/proxy':
+            code, data, ct, final = net_proxy(self, body)
+            self.send_response(code); self.cors(); self.send_header('Content-Type', ct); self.send_header('Content-Length', str(len(data)))
+            if code == 599: self.send_header('X-Proxy-Error', '1')
+            self.send_header('Access-Control-Expose-Headers', 'X-Proxy-Error'); self.end_headers(); self.wfile.write(data); return
         if path.startswith('/proyavka/meta/'):
             name = path.rsplit('/', 1)[-1]
             try:

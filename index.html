@@ -205,6 +205,12 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #hue{width:100%;height:22px;border-radius:11px;touch-action:none;display:block}
 #recent{display:flex;flex-wrap:wrap;gap:6px}
 #recent button{width:26px;height:26px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
+#aiedit{position:absolute;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.55);display:flex;flex-direction:column;overflow:hidden;min-width:280px}
+#aiedit .aeh{display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;border-bottom:1px solid var(--line);cursor:move;touch-action:none;font-size:13px}
+#aiedit .aeh b{color:#f0b46a;font-weight:600;white-space:nowrap} #aeVer{flex:1;min-width:0;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#aiedit .aeh button{width:28px;height:26px;border-radius:7px;color:var(--muted);flex:none} #aiedit .aeh button:hover{background:var(--panel-2);color:var(--fg)}
+#aiedit iframe{flex:1;border:0;width:100%;min-height:0;background:var(--panel)} #aiedit.drag iframe{pointer-events:none}
+#aiedit .aegrip{height:10px;cursor:ns-resize;touch-action:none;flex:none;background:linear-gradient(var(--line),var(--line)) center/34px 2px no-repeat}
 .scrim{position:absolute;inset:0;z-index:30;background:rgba(8,9,11,.6);display:flex;align-items:center;justify-content:center;padding:16px}
 .dlg{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;width:min(520px,100%);max-height:100%;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 .dlg h3{margin:0 0 4px;font-size:18px;font-weight:600;text-wrap:balance}
@@ -718,6 +724,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     </aside>
   </div>
 
+  <div id="aiedit" hidden><div class="aeh"><b>✦ AI Edit</b><span id="aeVer"></span><button id="aeReload" title="Перечитать плагин с компьютера">⟳</button><button id="aeClose" title="Закрыть панель">✕</button></div><iframe id="aeFrame" title="AI Edit"></iframe><div class="aegrip" title="Потяни, чтобы изменить высоту"></div></div>
   <div class="pop" id="aimenu" hidden>
     <div class="aih">С выделением</div>
     <button data-a="gen" data-sel="1">✦ Генерация <small>дорисовать по словам</small></button>
@@ -729,6 +736,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <button data-a="fit">✦ Вписать в сцену <small id="aiFitL">активный слой</small></button>
     <button data-a="expand">✦ Расширить кадр</button>
     <button data-a="critic">✦ Арт-директор <small>разбор кадра</small></button>
+    <button data-a="aiedit">✦ AI Edit <small>плагин из Фотошопа</small></button>
     <hr>
     <button data-a="set">Настройки генерации <small id="aiProv"></small></button>
   </div>
@@ -3335,13 +3343,15 @@ function sdBuild(){
   foot.append(st, sp, B('Отмена',genCancel), B(g.variants.length?'↻ Ещё':'Сгенерировать', genGo, g.variants.length?'':'pri'));
   if (g.variants.length) foot.append(B('Готово',genDone,'pri')); box.append(foot);
 }
-function sdPrep(){ // like the PC plugin: the selection at its own pixel size (no up/down-scaling), sides rounded to multiples of 8
-  const b=sel.box&&sel.box.w ? sel.box : selBBox(); if (!b || !b.w) throw new Error('пустое выделение');
-  const pad=Math.max(32, Math.round(Math.max(b.w,b.h)*0.08));
-  let r=clipRect(b.x-pad, b.y-pad, b.w+2*pad, b.h+2*pad);
-  const r8=v=>Math.ceil(v/8)*8; r=clipRect(r.x, r.y, Math.min(doc.w-r.x, r8(r.w)), Math.min(doc.h-r.y, r8(r.h)));
-  const big=Math.max(r.w,r.h), k = big>2048 ? 2048/big : 1; // only a very large area is reduced, so the 4090 does not run out of memory
-  const W=Math.max(64,Math.round(r.w*k/8)*8), H=Math.max(64,Math.round(r.h*k/8)*8);
+function sdPrep(){ // exactly as the PC plugin com.alisa.sdinpaint («точный режим»): selection + 48 px, not squared, native resolution; only >1536 or <256 px is rescaled
+  const hint=selBBox(), b=aeMaskBounds(aeM(sel.mask, clipRect(hint.x-2,hint.y-2,hint.w+4,hint.h+4))); if (!b || !b.w) throw new Error('пустое выделение');
+  const PAD=48, MAX=1536, MIN=256, ASPECT=3;
+  let cw=Math.min(doc.w, b.w+PAD*2), ch=Math.min(doc.h, b.h+PAD*2);
+  if (cw/ch>ASPECT) ch=Math.min(doc.h, Math.ceil(cw/ASPECT)); if (ch/cw>ASPECT) cw=Math.min(doc.w, Math.ceil(ch/ASPECT));
+  cw=Math.min(doc.w, Math.max(64,cw)); ch=Math.min(doc.h, Math.max(64,ch));
+  const left=clamp(Math.round(b.x+b.w/2-cw/2), 0, doc.w-cw), top=clamp(Math.round(b.y+b.h/2-ch/2), 0, doc.h-ch), r={x:left, y:top, w:cw, h:ch};
+  const big=Math.max(cw,ch), small=Math.min(cw,ch); let k=1; if (big>MAX) k=MAX/big; else if (small<MIN) k=Math.min(MIN/small, MAX/big);
+  const r8=v=>Math.max(8, Math.round(v/8)*8), W=r8(cw*k), H=r8(ch*k);
   const img=mk(W,H), ix=ctx2(img); ix.fillStyle='#fff'; ix.fillRect(0,0,W,H); ix.imageSmoothingQuality='high'; ix.drawImage(compositeRegion(r,W,H),0,0);
   const mask=mk(W,H), mx=ctx2(mask); mx.fillStyle='#000'; mx.fillRect(0,0,W,H);
   const wm=mk(W,H), wx=ctx2(wm); wx.fillStyle='#fff'; wx.fillRect(0,0,W,H); wx.globalCompositeOperation='destination-in'; wx.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,W,H); mx.drawImage(wm,0,0);
@@ -3353,7 +3363,7 @@ async function sdGo(){
   Object.assign(genCfg, { sdPrompt:g.prompt||'', sdNeg:g.neg||'', sdDenoise:g.str, sdSteps:g.steps, sdModel:g.model||'' }); genSave();
   g.cancelled=false;
   try{
-    if (!g.prep){ g.prep=sdPrep(); g.selMask=mk(doc.w,doc.h); ctx2(g.selMask).drawImage(sel.mask,0,0); if (g.prep.scaled) toast('Участок больше 2048 px — для SD он уменьшен, деталь будет мягче',3200); }
+    if (!g.prep){ g.prep=sdPrep(); g.selMask=mk(doc.w,doc.h); ctx2(g.selMask).drawImage(sel.mask,0,0); if (g.prep.scaled) toast('Участок больше 1536 px — для SD он уменьшен, как в плагине Фотошопа; деталь будет мягче',3200); }
     const P=g.prep, n=1;
     g.busy='рисую на компьютере '+P.W+'×'+P.H+'…'; genBuild();
     const body={ init_images:[P.img.toDataURL('image/png')], mask:P.mask.toDataURL('image/png'), mask_blur:4, inpainting_fill:1, inpaint_full_res:false, inpainting_mask_invert:0,
@@ -3374,7 +3384,7 @@ async function sdGo(){
     try{ r=await (await sdFetch('/sdapi/v1/img2img',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}, 600000)).json(); }
     finally{ polling=false; }
     if (gen!==g) return;
-    const imgs=(r.images||[]).slice(0,n); if (!imgs.length) throw new Error(r.error||r.detail||'Automatic1111 не вернул картинку');
+    const imgs=(r.images||[]).slice(-n); // the last one, like the plugin: if WebUI adds a preview grid, it comes first if (!imgs.length) throw new Error(r.error||r.detail||'Automatic1111 не вернул картинку');
     for (const b64 of imgs){ const bm=await createImageBitmap(await (await fetch('data:image/png;base64,'+String(b64).split(',').pop())).blob());
       const c=mk(P.r.w,P.r.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,P.r.w,P.r.h); bm.close&&bm.close(); g.variants.push(c); }
     genPick(g.variants.length-imgs.length, true);
@@ -4846,7 +4856,7 @@ function thumbSoon(L){ thumbQ.add(L); clearTimeout(thumbT); thumbT=setTimeout(()
 const FOLDER='<svg viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 9.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>';
 const CHEV='<svg class="chev" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>';
 const EYE='<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-function layersChanged(){ structVer++;
+function layersChanged(){ structVer++; try{ if (AE.loaded) aeRefresh(); }catch(e){}
   if (!doc) return;
   if (!$('#layers').hidden){
     const list=$('#lyList'); list.textContent='';
@@ -5192,8 +5202,330 @@ $('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aim
   const r=$('#bAI').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
 document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePops(); const a=b.dataset.a; if (!doc) return;
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
-  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, critic:artDirector, set:genSettings})[a](); });
+  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, critic:artDirector, aiedit:()=>aeOpen(), set:genSettings})[a](); });
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,.tgm,.pickHere')) closePops(); },true);
+
+/* ============ AI Edit: the Photoshop plugin itself, running inside Проявка ============
+   The plugin is NOT copied here. Its index.html + main.js are read every time from the folder Photoshop installs it in
+   (the PC bridge serves them from %APPDATA%\Adobe\UXP\Plugins\External\com.alisa.aiedit_*), so whatever is changed in the
+   plugin shows up in Photoshop and in Проявка alike. Проявка plays the part of Photoshop: below is the small slice of the
+   UXP API the plugin uses (app / core / imaging / batchPlay / localFileSystem), mapped onto Проявка's document, layers and
+   selection. A command the plugin starts using later and this host does not know yet is reported on screen, not ignored. */
+const AE={ src:null, loaded:false, modal:null, lock:Promise.resolve(), tmp:new Map(), tokens:new Map(), seq:0, warned:new Set() };
+const AE_PID='com.alisa.aiedit', AE_CACHE='proyavka.aiedit.src', AE_POS='proyavka.aiedit.pos';
+async function aeFetch(url, opt={}, ms=15000){ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(), ms);
+  try{ return await fetch(url, Object.assign({signal:ctl.signal, cache:'no-store'}, opt)); } finally{ clearTimeout(T); } }
+async function aeLoadSrc(){
+  const base=sdBase(); let src=null, why='';
+  if (base){ try{
+      const m=await (await aeFetch(base+'/plugin/'+AE_PID+'/manifest',{},8000)).json(); if (!m || !m.files) throw new Error(m&&m.error||'плагин не найден на компьютере');
+      const get=async n=>{ if (!(n in m.files)) return null; const r=await aeFetch(base+'/plugin/'+AE_PID+'/file/'+n,{},20000); if (!r.ok) throw new Error(n+': HTTP '+r.status); return r.text(); };
+      const [html, js, cfg]=await Promise.all(['index.html','main.js','team-config.json'].map(get));
+      if (!html || !js) throw new Error('в папке плагина нет index.html или main.js');
+      src={html, js, cfg, ver:m.version, dir:m.dir, mtime:m.mtime, at:Date.now()};
+      try{ localStorage.setItem(AE_CACHE, JSON.stringify(src)); }catch(e){ console.warn('aiedit cache', e); }
+      src.from='pc';
+    }catch(e){ why=e.message||String(e); console.warn('AI Edit: с ПК не загрузился', e); } }
+  if (!src){ try{ src=JSON.parse(localStorage.getItem(AE_CACHE)||'null'); }catch(e){} if (src) src.from='cache'; }
+  if (!src) throw new Error(base ? 'компьютер не отдал плагин ('+(why||'нет ответа')+') — мост запущен?' : 'плагин живёт на компьютере: нужен мост (✦ ИИ → Настройки генерации → Свой ПК)');
+  src.why=why; return src;
+}
+/* the page the panel shows: the plugin's own index.html, with main.js inlined and the host shim in front of it */
+function aeShim(){ // runs INSIDE the panel frame
+  const H=parent.AEHOST;
+  window.require=function(n){ if (n==='photoshop') return H.ps; if (n==='uxp') return H.uxp; throw new Error('Проявка: модуль «'+n+'» здесь недоступен'); };
+  // Photoshop's fetch has no CORS — the browser's does, so calls to the services go through the bridge on the PC (when it is reachable)
+  const nf=window.fetch.bind(window);
+  window.fetch=async function(input, opt){ opt=opt||{}; const url=String(input && input.url || input);
+    const base=H.bridge(); if (!/^https?:/i.test(url) || !base || url.indexOf(base)===0) return nf(input, opt);
+    const hd={}, h=opt.headers||{}; if (typeof h.forEach==='function') h.forEach((v,k)=>{ hd[k]=v; }); else Object.assign(hd, h);
+    const ph={'X-Proxy-Url':encodeURIComponent(url), 'X-Proxy-Method':(opt.method||'GET').toUpperCase(), 'X-Proxy-Headers':encodeURIComponent(JSON.stringify(hd))};
+    const b=opt.body; if (b!=null && !(b instanceof FormData) && !(b instanceof Blob) && !(b instanceof URLSearchParams)){ ph['Content-Type']='application/x-proyavka-raw';
+      if (typeof b==='string' && !Object.keys(hd).some(k=>k.toLowerCase()==='content-type')){ hd['Content-Type']='text/plain;charset=UTF-8'; ph['X-Proxy-Headers']=encodeURIComponent(JSON.stringify(hd)); } }
+    let r; try{ r=await nf(base+'/net/proxy', {method:'POST', headers:ph, body:b==null?undefined:b, signal:opt.signal}); }
+    catch(e){ if (e && e.name==='AbortError') throw e; return nf(input, opt); } // bridge unreachable — straight to the service
+    if (r.headers.get('X-Proxy-Error')){ let m='нет связи'; try{ m=(await r.json()).error||m; }catch(e){} throw new TypeError(m); }
+    return r; };
+  // the Spectrum widgets UXP gives the plugin, as small light-DOM look-alikes
+  const def=(n,c)=>{ if (!customElements.get(n)) customElements.define(n,c); };
+  class SpCheck extends HTMLElement{ constructor(){ super(); this.addEventListener('click', e=>{ if (this.hasAttribute('disabled')) return; this.checked=!this.checked; this.dispatchEvent(new Event('change',{bubbles:true})); this.dispatchEvent(new Event('input',{bubbles:true})); }); }
+    get checked(){ return this.hasAttribute('checked'); } set checked(v){ if (v) this.setAttribute('checked',''); else this.removeAttribute('checked'); } }
+  class SpField extends HTMLElement{
+    static get observedAttributes(){ return ['placeholder','type','disabled']; }
+    _ensure(){ if (this._in) return this._in; const ta=this.localName==='sp-textarea'; const el=document.createElement(ta?'textarea':'input');
+      if (!ta) el.type=this.getAttribute('type')==='password'?'password':'text'; el.spellcheck=false; el.autocomplete='off';
+      if (this.hasAttribute('placeholder')) el.placeholder=this.getAttribute('placeholder'); if (this._v!==undefined) el.value=this._v;
+      this._in=el; return el; }
+    connectedCallback(){ const el=this._ensure(); if (el.parentNode!==this) this.appendChild(el); }
+    attributeChangedCallback(n,o,v){ const el=this._ensure(); if (n==='placeholder') el.placeholder=v||''; else if (n==='type' && el.localName==='input') el.type=v==='password'?'password':'text'; else if (n==='disabled') el.disabled=v!==null; }
+    get value(){ return this._in ? this._in.value : (this._v||''); } set value(v){ this._v=v==null?'':String(v); if (this._in) this._in.value=this._v; }
+    focus(){ this._ensure().focus(); } }
+  class SpButton extends HTMLElement{ connectedCallback(){ this.setAttribute('role','button'); if (!this.hasAttribute('tabindex')) this.tabIndex=0; } }
+  class SpPlain extends HTMLElement{}
+  def('sp-checkbox', SpCheck); def('sp-textfield', SpField); def('sp-textarea', class extends SpField{}); def('sp-button', SpButton);
+  ['sp-progressbar','sp-divider','sp-body','sp-heading','sp-detail','sp-label','sp-icon','sp-action-button'].forEach(n=>def(n, class extends SpPlain{}));
+  window.addEventListener('error', e=>H.err(e.message+' ('+(e.lineno||'?')+')'));
+  window.addEventListener('unhandledrejection', e=>H.err(e.reason && e.reason.message || String(e.reason)));
+}
+const AE_STYLE=`<style>
+:root{--uxp-host-text-color:#e6e7ea;--uxp-host-background-color:#212328;color-scheme:dark}
+html,body{background:#212328}
+body{font-family:"IBM Plex Sans",-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+sp-button{display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:0 10px;border-radius:12px;font-size:12px;cursor:pointer;
+  user-select:none;-webkit-user-select:none;border:1px solid rgba(128,128,128,.5);background:rgba(128,128,128,.12);color:#e6e7ea;white-space:nowrap;box-sizing:border-box}
+sp-button:hover{background:rgba(128,128,128,.25)} sp-button:active{transform:translateY(1px)}
+sp-button[quiet]{border-color:transparent;background:transparent} sp-button[quiet]:hover{background:rgba(128,128,128,.2)}
+sp-button[variant=cta]{background:#e2a65a;border-color:#e2a65a;color:#1d1406;font-weight:600;min-height:30px;border-radius:15px;font-size:13px}
+sp-button[variant=cta]:hover{background:#eab06a} sp-button[variant=primary]{background:rgba(226,166,90,.18);border-color:#e2a65a}
+sp-button[disabled]{opacity:.45;pointer-events:none}
+sp-checkbox{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;-webkit-user-select:none;padding:2px 0;line-height:1.3}
+sp-checkbox::before{content:'';flex:none;width:12px;height:12px;border-radius:3px;border:1.5px solid rgba(200,200,200,.6);box-sizing:border-box}
+sp-checkbox[checked]::before{background:#e2a65a;border-color:#e2a65a;box-shadow:inset 0 0 0 2px #212328}
+sp-textfield,sp-textarea{display:block;box-sizing:border-box}
+sp-textfield input,sp-textarea textarea{width:100%;box-sizing:border-box;border-radius:4px;border:1px solid rgba(128,128,128,.45);background:rgba(0,0,0,.18);color:#e6e7ea;font-family:inherit;font-size:12px;line-height:1.35;padding:4px 6px;outline:none}
+sp-textfield input{height:24px} sp-textarea textarea{height:100%;min-height:44px;resize:none}
+sp-textfield input:focus,sp-textarea textarea:focus{border-color:#e2a65a}
+sp-progressbar{display:block;height:4px;border-radius:2px;background:rgba(128,128,128,.25);overflow:hidden;position:relative}
+sp-progressbar::after{content:'';position:absolute;top:0;bottom:0;width:35%;background:#e2a65a;border-radius:2px;animation:aepb 1.1s ease-in-out infinite}
+@keyframes aepb{0%{left:-35%}100%{left:100%}}
+select.pick option{background:#2a2d33}
+::-webkit-scrollbar{width:8px} ::-webkit-scrollbar-thumb{background:rgba(128,128,128,.35);border-radius:4px}
+</style>`;
+function aeBuildHtml(src){
+  const js=src.js.replace(/<\/script/gi,'<\\/script')+'\n//# sourceURL=aiedit-main.js';
+  const head=AE_STYLE+'<script>('+aeShim.toString()+')();<\/script><script>'+js+'<\/script>';
+  let html=src.html, done=false;
+  html=html.replace(/<script[^>]*src=["']main\.js["'][^>]*>\s*<\/script>/i, ()=>{ done=true; return head; });
+  if (!done) html=html.replace(/<head[^>]*>/i, m=>{ done=true; return m+head; });
+  if (!done) html=head+html;
+  return html;
+}
+/* ---- the panel ---- */
+async function aeOpen(reload){
+  const w=$('#aiedit'); w.hidden=false; aePlace();
+  if (AE.loaded && !reload) return;
+  const ver=$('#aeVer'); ver.textContent='загружаю плагин с компьютера…';
+  try{ AE.src=await aeLoadSrc(); }
+  catch(e){ ver.textContent='не загрузился'; $('#aeFrame').srcdoc='<body style="background:#212328;color:#e6e7ea;font:13px system-ui;padding:16px">AI Edit не загрузился: '+String(e.message).replace(/</g,'&lt;')+'</body>'; return; }
+  const s=AE.src, d=s.mtime ? new Date(s.mtime*1000) : null, dt=d ? d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '';
+  ver.textContent=(s.from==='pc' ? 'с компьютера' : 'сохранённая копия (компьютер не ответил)')+' · v'+(s.ver||'?')+(dt?' · правка '+dt:'');
+  ver.title=s.from==='pc' ? 'Код взят из папки плагина Фотошопа: '+s.dir : 'Мост не ответил'+(s.why?' ('+s.why+')':'')+'. Запущена последняя копия, полученная с компьютера.';
+  AE.loaded=true; $('#aeFrame').srcdoc=aeBuildHtml(s);
+}
+function aeClose(){ $('#aiedit').hidden=true; }
+function aePlace(){ const w=$('#aiedit'), app=$('#app').getBoundingClientRect(); let p=null; try{ p=JSON.parse(localStorage.getItem(AE_POS)||'null'); }catch(e){}
+  const W=Math.min(400, app.width-16), H=Math.min(p&&p.h||900, app.height-80);
+  if (!p){ const lay=$('#layers'), lr=lay && !lay.hidden ? lay.getBoundingClientRect() : null; p={ x: lr ? lr.left-W-10 : app.width-W-12, y:62 }; }
+  w.style.width=W+'px'; w.style.height=H+'px'; w.style.left=clamp(p.x,4,Math.max(4,app.width-W-4))+'px'; w.style.top=clamp(p.y,4,Math.max(4,app.height-60))+'px'; }
+(function aeDrag(){ const w=$('#aiedit'), h=w.querySelector('.aeh'), g=w.querySelector('.aegrip'); let st=null;
+  const save=()=>{ try{ localStorage.setItem(AE_POS, JSON.stringify({x:w.offsetLeft, y:w.offsetTop, h:w.offsetHeight})); }catch(e){} };
+  const down=(e,mode)=>{ if (e.target.closest('button')) return; st={mode, x:e.clientX, y:e.clientY, l:w.offsetLeft, t:w.offsetTop, h:w.offsetHeight}; w.classList.add('drag'); e.target.setPointerCapture(e.pointerId); e.preventDefault(); };
+  const move=e=>{ if(!st) return; if (st.mode==='move'){ w.style.left=(st.l+e.clientX-st.x)+'px'; w.style.top=Math.max(0,st.t+e.clientY-st.y)+'px'; } else w.style.height=Math.max(220, st.h+e.clientY-st.y)+'px'; };
+  const up=()=>{ if(!st) return; st=null; w.classList.remove('drag'); save(); };
+  h.addEventListener('pointerdown', e=>down(e,'move')); g.addEventListener('pointerdown', e=>down(e,'size'));
+  for (const el of [h,g]){ el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); }
+  $('#aeClose').onclick=aeClose; $('#aeReload').onclick=()=>aeOpen(true);
+})();
+function aeErr(m){ console.error('AI Edit:', m); }
+function aeUnknown(what){ if (AE.warned.has(what)) return; AE.warned.add(what); console.warn('AI Edit: неизвестная команда Фотошопа', what);
+  toast('AI Edit попросил у «Фотошопа» то, чего Проявка ещё не умеет: «'+what+'». Скажи об этом в чате Проявки — добавлю.', 6000); }
+function aeRefresh(){ try{ const f=$('#aeFrame').contentWindow; if (!$('#aiedit').hidden && f && f.updateKeepState) f.updateKeepState(); }catch(e){} }
+
+/* ---- masks: a selection is a doc-size canvas with the selection in alpha; box = where it can be non-empty ---- */
+const aeM=(c,box)=>({c, box});
+// saved channels keep only their bounding box: on the iPad a document-size mask costs ~50 MB
+function aeChanFrom(name, m){ const b=aeMaskBounds(m); if (!b) return null; const c=mk(b.w,b.h); ctx2(c).drawImage(m.c, b.x,b.y,b.w,b.h, 0,0,b.w,b.h); return {name, b, c}; }
+function aeChanMask(ch){ const c=mk(doc.w,doc.h); ctx2(c).drawImage(ch.c, ch.b.x, ch.b.y); return aeM(c, Object.assign({}, ch.b)); }
+function aeMaskCopy(m){ if (!m) return null; const c=mk(doc.w,doc.h); ctx2(c).drawImage(m.c,0,0); return aeM(c, Object.assign({}, m.box)); }
+function aeSelNow(){ if (!sel) return null; const b=selBBox(); return aeMaskCopy(aeM(sel.mask, clipRect(b.x-2,b.y-2,b.w+4,b.h+4))); }
+function aeAlpha(m, r){ const d=ctx2(m.c,{willReadFrequently:true}).getImageData(r.x,r.y,r.w,r.h).data, a=new Uint8Array(r.w*r.h); for (let i=0,j=3;i<a.length;i++,j+=4) a[i]=d[j]; return a; }
+function aePutAlpha(m, r, a){ const x=ctx2(m.c), id=x.createImageData(r.w,r.h), d=id.data; for (let i=0,j=0;i<a.length;i++,j+=4){ d[j]=d[j+1]=d[j+2]=255; d[j+3]=a[i]; } x.clearRect(r.x,r.y,r.w,r.h); x.putImageData(id,r.x,r.y); }
+function aeMaskBounds(m){ // exact bounds of non-zero alpha
+  if (!m || !m.box.w || !m.box.h) return null; const r=m.box, a=aeAlpha(m,r); let x0=r.w,y0=r.h,x1=-1,y1=-1;
+  for (let y=0;y<r.h;y++){ const o=y*r.w; for (let x=0;x<r.w;x++) if (a[o+x]){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  return x1<0 ? null : {x:r.x+x0, y:r.y+y0, w:x1-x0+1, h:y1-y0+1}; }
+function aeMaskOp(m, pad, fn){ const r=clipRect(m.box.x-pad, m.box.y-pad, m.box.w+2*pad, m.box.h+2*pad); if (!r.w||!r.h) return m;
+  aePutAlpha(m, r, fn(aeAlpha(m,r), r.w, r.h)); m.box=r; return m; }
+function aeDilate(a, w, h, rad){ // Photoshop «Расширить»: round growth by rad px (chamfer distance), soft edges kept
+  const INF=1e9, d=new Float32Array(w*h); for (let i=0;i<d.length;i++) d[i]=a[i]>=128?0:INF; const D=Math.SQRT2;
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++){ const i=y*w+x; let v=d[i]; if (!v) continue;
+    if (x>0) v=Math.min(v,d[i-1]+1); if (y>0){ v=Math.min(v,d[i-w]+1); if (x>0) v=Math.min(v,d[i-w-1]+D); if (x<w-1) v=Math.min(v,d[i-w+1]+D); } d[i]=v; }
+  for (let y=h-1;y>=0;y--) for (let x=w-1;x>=0;x--){ const i=y*w+x; let v=d[i]; if (!v) continue;
+    if (x<w-1) v=Math.min(v,d[i+1]+1); if (y<h-1){ v=Math.min(v,d[i+w]+1); if (x<w-1) v=Math.min(v,d[i+w+1]+D); if (x>0) v=Math.min(v,d[i+w-1]+D); } d[i]=v; }
+  const o=new Uint8Array(w*h); for (let i=0;i<o.length;i++){ const t=d[i]<=rad ? 255 : d[i]<rad+1 ? Math.round(255*(rad+1-d[i])) : 0; o[i]=Math.max(a[i], t); } return o; }
+function aeBlur(a, w, h, radius){ // Photoshop «Растушевка»: three box passes ≈ gaussian
+  const rb=Math.max(1, Math.round(radius*0.9)); let src=Float32Array.from(a), tmp=new Float32Array(a.length);
+  const pass=(s,t,n,stride,count,step)=>{ for (let k=0;k<count;k++){ const base=k*step; let acc=0; const win=2*rb+1;
+      for (let i=-rb;i<=rb;i++) acc+=s[base+clamp(i,0,n-1)*stride];
+      for (let i=0;i<n;i++){ t[base+i*stride]=acc/win; acc+=s[base+clamp(i+rb+1,0,n-1)*stride]-s[base+clamp(i-rb,0,n-1)*stride]; } } };
+  for (let p=0;p<3;p++){ pass(src,tmp,w,1,h,w); pass(tmp,src,h,w,w,1); }
+  const o=new Uint8Array(a.length); for (let i=0;i<o.length;i++) o[i]=Math.round(src[i]); return o; }
+
+/* ---- image data in UXP's shape ---- */
+class AEImg{ constructor(w,h,comps,data,cs){ this.width=w; this.height=h; this.components=comps; this.componentSize=8; this.colorSpace=cs||(comps<3?'Grayscale':'RGB'); this.hasAlpha=comps===4||comps===2; this.pixelFormat=['','Gray','GrayA','RGB','RGBA'][comps]; this._d=data; }
+  async getData(){ return this._d; } dispose(){ this._d=null; } }
+function aeFromCanvas(c, comps){ const w=c.width, h=c.height, d=ctx2(c,{willReadFrequently:true}).getImageData(0,0,w,h).data;
+  if (comps===4) return new AEImg(w,h,4,new Uint8Array(d.buffer));
+  const o=new Uint8Array(w*h*comps); if (comps===3){ for (let i=0,j=0,k=0;i<w*h;i++,j+=4,k+=3){ o[k]=d[j]; o[k+1]=d[j+1]; o[k+2]=d[j+2]; } } else { for (let i=0,j=3;i<w*h;i++,j+=4) o[i]=d[j]; }
+  return new AEImg(w,h,comps,o); }
+function aeToCanvas(img){ const {width:w, height:h, components:n}=img, s=img._d, c=mk(w,h), x=ctx2(c), id=x.createImageData(w,h), d=id.data;
+  for (let i=0,j=0,k=0;i<w*h;i++,j+=4,k+=n){ if (n>=3){ d[j]=s[k]; d[j+1]=s[k+1]; d[j+2]=s[k+2]; d[j+3]=n===4?s[k+3]:255; } else { d[j]=d[j+1]=d[j+2]=s[k]; d[j+3]=n===2?s[k+1]:255; } }
+  x.putImageData(id,0,0); return c; }
+function aeGray(img){ const {width:w, height:h, components:n}=img, s=img._d, o=new Uint8Array(w*h); for (let i=0;i<w*h;i++) o[i]=s[i*n]; return o; }
+
+/* ---- layers ---- */
+function aeLayerById(id){ return doc && doc.layers.find(L=>L.id===id); }
+function aeFloatDraw(L){ const f=L._aeFloat, x=L.ctx; x.clearRect(0,0,doc.w,doc.h); x.imageSmoothingEnabled=true; x.imageSmoothingQuality='high'; x.drawImage(f.img, f.x, f.y, f.w, f.h); L.dirty=true; }
+function aeLayerBox(L){ if (L._aeFloat){ const f=L._aeFloat; return {x:f.x, y:f.y, w:f.w, h:f.h}; }
+  return aeMaskBounds(aeM(L.canvas, {x:0,y:0,w:doc.w,h:doc.h})) || {x:0,y:0,w:0,h:0}; }
+function aeTouch(L){ const M=AE.modal; if (M) M.touched.add(L); }
+function aeFloatOf(L){ // a layer about to be scaled/moved becomes a floating picture, like a smart object until it is rasterised
+  if (L._aeFloat) return L._aeFloat; const b=aeLayerBox(L), img=mk(b.w||1,b.h||1); ctx2(img).drawImage(L.canvas, b.x,b.y,b.w,b.h, 0,0,b.w,b.h);
+  const before=grab(L.canvas,{x:0,y:0,w:doc.w,h:doc.h}); if (AE.modal) AE.modal.hist.push(pxEntry(L.canvas,0,0,doc.w,doc.h,before));
+  return L._aeFloat={img, x:b.x, y:b.y, w:b.w, h:b.h}; }
+function aeLayerProxy(L){ return {
+  get id(){ return L.id; }, get name(){ return L.name; }, set name(v){ L.name=String(v); layersChanged(); },
+  get kind(){ return 'pixel'; }, get visible(){ return L.visible; }, set visible(v){ L.visible=!!v; requestRender(); },
+  get opacity(){ return Math.round(L.opacity*100); }, set opacity(v){ L.opacity=clamp(v/100,0,1); requestRender(); },
+  get bounds(){ const b=aeLayerBox(L); return {left:b.x, top:b.y, right:b.x+b.w, bottom:b.y+b.h, width:b.w, height:b.h}; },
+  get boundsNoEffects(){ return this.bounds; },
+  async scale(px, py){ const f=aeFloatOf(L), cx=f.x+f.w/2, cy=f.y+f.h/2; f.w=f.w*px/100; f.h=f.h*(py==null?px:py)/100; f.x=cx-f.w/2; f.y=cy-f.h/2; aeFloatDraw(L); aeTouch(L); },
+  async translate(dx, dy){ const f=aeFloatOf(L); f.x+=+dx||0; f.y+=+dy||0; aeFloatDraw(L); aeTouch(L); },
+  async delete(){ const i=doc.layers.indexOf(L); if (i<0) return; const prev=doc.active; doc.layers.splice(i,1); doc.active=clamp(doc.active>i?doc.active-1:doc.active,0,doc.layers.length-1);
+    if (AE.modal) AE.modal.hist.push({undo(){ doc.layers.splice(i,0,L); doc.active=prev; }, redo(){ doc.layers.splice(doc.layers.indexOf(L),1); doc.active=clamp(prev,0,doc.layers.length-1); }}); }
+}; }
+function aeDocProxy(){ if (!doc) return null; const D=doc; D._aeChans=D._aeChans||[]; return {
+  get id(){ return D.id; }, get name(){ return D.name; }, get title(){ return D.name; }, get width(){ return D.w; }, get height(){ return D.h; }, get resolution(){ return 72; },
+  get channels(){ return D._aeChans.map(c=>({name:c.name, kind:'selectionMask'})); },
+  get activeLayers(){ const L=D===doc && AL(); return L ? [aeLayerProxy(L)] : []; },
+  get layers(){ return D.layers.slice().reverse().map(aeLayerProxy); }
+}; }
+
+/* ---- executeAsModal: everything a command does becomes one undo step in Проявка ---- */
+async function aeModal(fn, opt){
+  if (AE.modal) return await fn({isCancelled:false, reportProgress(){}, hostControl:{}}); // nested call — already inside
+  const prev=AE.lock; let release; AE.lock=new Promise(r=>release=r); await prev;
+  if (xf){ release(); throw new Error('в Проявке открыт трансформ — примени или отмени его'); }
+  const M=AE.modal={ doc, vsel:aeSelNow(), selDirty:false, hist:[], touched:new Set(), name:opt&&opt.commandName||'AI Edit' };
+  try{ return await fn({isCancelled:false, reportProgress(){}, hostControl:{}}); }
+  finally{ AE.modal=null; try{ aeEndModal(M); }catch(e){ console.error('AI Edit: завершение', e); } release(); }
+}
+function aeEndModal(M){
+  if (M.doc!==doc) return;
+  for (const L of M.touched){ delete L._aeFloat; L.dirty=true; thumbSoon(L); }
+  if (M.hist.length) pushHist(compound(...M.hist));
+  if (M.selDirty){ const before=snapshotSel(); sel = M.vsel && aeMaskBounds(M.vsel) ? {mask:M.vsel.c, polys:[], inverted:false} : null; pushSelHist(before); updateSelBar(); }
+  if (M.hist.length || M.touched.size){ layersChanged(); markDirty(); }
+  requestRender();
+}
+function aeAuto(fn){ return AE.modal ? fn(AE.modal) : aeModal(()=>fn(AE.modal)); } // UXP allows some calls outside a modal scope
+
+/* ---- imaging ---- */
+const AE_IMAGING={
+  async getSelection(o){ return aeAuto(M=>{ const b=aeMaskBounds(M.vsel); if (!b) return {};
+    return {imageData:new AEImg(b.w,b.h,1,aeAlpha(M.vsel,b),'Grayscale'), sourceBounds:{left:b.x, top:b.y, right:b.x+b.w, bottom:b.y+b.h}, level:0}; }); },
+  async putSelection(o){ return aeAuto(M=>{ const t=o.targetBounds||{left:0,top:0}, img=o.imageData, r={x:Math.round(t.left||0), y:Math.round(t.top||0), w:img.width, h:img.height};
+    const m=o.replace===false && M.vsel ? M.vsel : aeM(mk(doc.w,doc.h), r); const rr=clipRect(r.x,r.y,r.w,r.h);
+    const g=aeGray(img), a=new Uint8Array(rr.w*rr.h); for (let y=0;y<rr.h;y++) for (let x=0;x<rr.w;x++) a[y*rr.w+x]=g[(y+rr.y-r.y)*r.w+(x+rr.x-r.x)];
+    if (m!==M.vsel){ aePutAlpha(m, rr, a); m.box=rr; } else { const old=aeAlpha(m,rr); for (let i=0;i<a.length;i++) a[i]=Math.max(a[i],old[i]); aePutAlpha(m,rr,a); const b=m.box; const x0=Math.min(b.x,rr.x), y0=Math.min(b.y,rr.y); m.box={x:x0,y:y0,w:Math.max(b.x+b.w,rr.x+rr.w)-x0,h:Math.max(b.y+b.h,rr.y+rr.h)-y0}; }
+    M.vsel=m; M.selDirty=true; }); },
+  async getPixels(o){ return aeAuto(M=>{ if (!doc) throw new Error('нет документа');
+    const s=o.sourceBounds||{left:0,top:0,right:doc.w,bottom:doc.h}, r=clipRect(s.left, s.top, s.right-s.left, s.bottom-s.top); if (!r.w||!r.h) throw new Error('пустая область');
+    const T=o.targetSize||null, tw=T&&T.width ? Math.round(T.width) : r.w, th=T&&T.height ? Math.round(T.height) : (T&&T.width ? Math.round(r.h*T.width/r.w) : r.h);
+    let c, comps;
+    if (o.layerID!=null){ const L=aeLayerById(o.layerID); if (!L) throw new Error('нет слоя '+o.layerID); c=mk(tw,th); const x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(L.canvas, r.x,r.y,r.w,r.h, 0,0,tw,th); comps=4; }
+    else { c=mk(tw,th); const x=ctx2(c,{willReadFrequently:true}); x.fillStyle='#fff'; x.fillRect(0,0,tw,th); x.drawImage(compositeRegion(r,tw,th),0,0); comps=3; }
+    return {imageData:aeFromCanvas(c, comps), sourceBounds:{left:r.x, top:r.y, right:r.x+r.w, bottom:r.y+r.h}, level:0}; }); },
+  async putPixels(o){ return aeAuto(M=>{ const L=aeLayerById(o.layerID!=null?o.layerID:AL().id); if (!L || isGroup(L)) throw new Error('нет слоя для записи');
+    const t=o.targetBounds||{left:0,top:0}, c=aeToCanvas(o.imageData), r=clipRect(Math.round(t.left||0), Math.round(t.top||0), c.width, c.height); if (!r.w||!r.h) return;
+    const before=grab(L.canvas,r), x=L.ctx; if (o.replace!==false) x.clearRect(r.x,r.y,r.w,r.h); x.drawImage(c, r.x-Math.round(t.left||0), r.y-Math.round(t.top||0), r.w, r.h, r.x, r.y, r.w, r.h);
+    M.hist.push(pxEntry(L.canvas,r.x,r.y,r.w,r.h,before)); delete L._aeFloat; aeTouch(L); }); },
+  async encodeImageData(o){ const c=aeToCanvas(o.imageData), jpg=/jpe?g/i.test(o.format||'jpg'); // Photoshop's default is JPEG
+    const url=c.toDataURL(jpg?'image/jpeg':'image/png', jpg ? clamp((o.quality||90)/100,0.1,1) : undefined);
+    if (o.base64) return url.slice(url.indexOf(',')+1); const b=atob(url.slice(url.indexOf(',')+1)), u=new Uint8Array(b.length); for (let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; },
+  async createImageDataFromBuffer(buf, o){ const n=o.components||(o.colorSpace==='Grayscale'?1:4); return new AEImg(o.width, o.height, n, buf instanceof Uint8Array ? buf : new Uint8Array(buf.buffer||buf), o.colorSpace); },
+  async createImageData(buf, o){ return AE_IMAGING.createImageDataFromBuffer(buf, o); },
+  async getLayerMask(o){ return aeAuto(M=>{ const L=aeLayerById(o.layerID); if (!L || !L.mask) return {}; const s=o.sourceBounds, r=s ? clipRect(s.left,s.top,s.right-s.left,s.bottom-s.top) : {x:0,y:0,w:doc.w,h:doc.h};
+    const c=mk(r.w,r.h); const x=ctx2(c); x.fillStyle='#000'; x.fillRect(0,0,r.w,r.h); x.drawImage(L.mask.canvas, r.x,r.y,r.w,r.h,0,0,r.w,r.h);
+    const d=x.getImageData(0,0,r.w,r.h).data, g=new Uint8Array(r.w*r.h); for (let i=0;i<g.length;i++) g[i]=d[i*4];
+    return {imageData:new AEImg(r.w,r.h,1,g,'Grayscale'), sourceBounds:{left:r.x,top:r.y,right:r.x+r.w,bottom:r.y+r.h}}; }); }
+};
+/* ---- batchPlay: the descriptors the plugin sends, done on Проявка's document ---- */
+async function aeBatch(list, opts){ return aeAuto(async M=>{ const out=[]; for (const d of list||[]) out.push(await aeDesc(M, d)); return out; }); }
+async function aeDesc(M, d){
+  const o=d._obj, t=(d._target||[])[0]||{}, chans=doc ? (doc._aeChans=doc._aeChans||[]) : [];
+  const isSelRef=t._ref==='channel' && t._property==='selection';
+  if (o==='duplicate' && isSelRef){ const ch=M.vsel && aeChanFrom(String(d.name||'Альфа '+(chans.length+1)), M.vsel); if (ch) chans.push(ch); return {}; }
+  if (o==='set' && isSelRef){ const to=d.to||{};
+    if (to._enum==='ordinal' && to._value==='none'){ M.vsel=null; M.selDirty=true; return {}; }
+    if (to._enum==='ordinal' && to._value==='allEnum'){ const c=mk(doc.w,doc.h), x=ctx2(c); x.fillStyle='#fff'; x.fillRect(0,0,doc.w,doc.h); M.vsel=aeM(c,{x:0,y:0,w:doc.w,h:doc.h}); M.selDirty=true; return {}; }
+    if (to._ref==='channel' && to._name){ const c=chans.find(c=>c.name===to._name); if (!c) return {_obj:'error', message:'Канал «'+to._name+'» не найден'}; M.vsel=aeChanMask(c); M.selDirty=true; return {}; }
+  }
+  if ((o==='hide' || o==='show') && ((d.null||[])[0]||{})._ref==='channel') return {};
+  if (o==='select' && t._ref==='channel') return {};
+  if (o==='delete' && t._ref==='channel' && t._name){ const i=chans.findIndex(c=>c.name===t._name); if (i>=0) chans.splice(i,1); return {}; }
+  if (o==='placeEvent'){ const ent=AE.tokens.get(d.null && d.null._path); if (!ent || !ent._bytes) throw new Error('Проявка: файл для «Поместить» не найден');
+    const bm=await createImageBitmap(new Blob([ent._bytes])), img=mk(bm.width,bm.height); ctx2(img).drawImage(bm,0,0); bm.close&&bm.close();
+    const L=newLayer(String(ent.name||'Слой').replace(/\.[^.]+$/,'')); L._aeFloat={img, x:Math.round((doc.w-img.width)/2), y:Math.round((doc.h-img.height)/2), w:img.width, h:img.height}; aeFloatDraw(L);
+    const prevActive=doc.active, idx=doc.active+1; if (AL()) L.parent=AL().parent;
+    const ins=()=>{ doc.layers.splice(idx,0,L); doc.active=idx; doc.editMask=false; }, rem=()=>{ doc.layers.splice(doc.layers.indexOf(L),1); doc.active=prevActive; };
+    ins(); M.hist.push({undo:rem, redo:ins, bytes:doc.w*doc.h*4}); aeTouch(L); layersChanged(); return {}; }
+  if (o==='rasterizeLayer') return {};
+  if (o==='make' && d.new && d.new._class==='channel' && d.at && d.at._value==='mask'){ const L=AL(); if (!L || isGroup(L)) throw new Error('маска: нет слоя');
+    const how=d.using && d.using._value || 'revealAll', mask=newMask(L,false), x=mask.ctx;
+    if (how==='revealSelection' || how==='hideSelection'){ x.clearRect(0,0,doc.w,doc.h); if (how==='hideSelection'){ x.fillStyle='#fff'; x.fillRect(0,0,doc.w,doc.h); x.globalCompositeOperation='destination-out'; }
+      if (M.vsel) x.drawImage(M.vsel.c,0,0); x.globalCompositeOperation='source-over'; M.vsel=null; M.selDirty=true; }
+    else if (how==='hideAll') x.clearRect(0,0,doc.w,doc.h);
+    const old=L.mask; L.mask=mask; doc.editMask=false; M.hist.push({undo(){ L.mask=old; }, redo(){ L.mask=mask; }, bytes:doc.w*doc.h*4}); aeTouch(L); return {}; }
+  if (o==='expand' || o==='contract'){ if (!M.vsel) return {}; const r=Math.round(d.by && d.by._value || 0); if (r<=0) return {};
+    if (o==='expand') aeMaskOp(M.vsel, r+1, (a,w,h)=>aeDilate(a,w,h,r));
+    else aeMaskOp(M.vsel, 1, (a,w,h)=>{ const inv=a.map(v=>255-v), g=aeDilate(inv,w,h,r); return g.map(v=>255-v); });
+    M.selDirty=true; return {}; }
+  if (o==='feather'){ if (!M.vsel) return {}; const r=+(d.radius && d.radius._value || 0); if (r<=0) return {};
+    aeMaskOp(M.vsel, Math.ceil(r*3)+1, (a,w,h)=>aeBlur(a,w,h,r)); M.selDirty=true; return {}; }
+  if (o==='get'){ const p=(d._target||[]).find(x=>x._property);
+    if (p && p._property==='foregroundColor'){ const c=String(S.color||'#000000').replace('#',''), n=parseInt(c.length===3?c.split('').map(x=>x+x).join(''):c,16)||0;
+      return {foregroundColor:{_obj:'RGBColor', red:(n>>16)&255, grain:(n>>8)&255, blue:n&255}}; } }
+  aeUnknown(o+(t._ref?' '+t._ref:'')+(t._property?' · '+t._property:'')); return {};
+}
+/* ---- files: plugin folder (from the PC), data folder (the plugin's own PluginData on the PC, shared with Photoshop), temp ---- */
+function aeEntry(name, bytes, write){ return { name, isFile:true, isFolder:false, nativePath:name, _bytes:bytes,
+  async read(o){ if (this._bytes==null) throw new Error('файл пуст'); return o && o.format==='binary' ? (this._bytes.buffer ? this._bytes.buffer.slice(this._bytes.byteOffset, this._bytes.byteOffset+this._bytes.byteLength) : this._bytes) : new TextDecoder().decode(this._bytes); },
+  async write(data, o){ const b = typeof data==='string' ? new TextEncoder().encode(data) : data instanceof Uint8Array ? data : new Uint8Array(data); this._bytes=b; if (write) await write(name, b); return b.length; },
+  async delete(){ AE.tmp.delete(name); } }; }
+const aeDataKey=n=>'proyavka.aiedit.data.'+n;
+async function aeDataRead(name){ const base=sdBase();
+  if (base){ try{ const r=await aeFetch(base+'/plugin/'+AE_PID+'/data/'+encodeURIComponent(name),{},8000); if (r.status===404) return null; if (r.ok){ const t=await r.text(); try{ localStorage.setItem(aeDataKey(name), t); }catch(e){} return t; } }catch(e){} }
+  return localStorage.getItem(aeDataKey(name)); }
+async function aeDataWrite(name, bytes){ let t=new TextDecoder().decode(bytes);
+  if (name==='runlog.jsonl'){ const prev=await aeDataRead(name)||''; if (t.startsWith(prev)) t=prev+t.slice(prev.length).replace(/^\{/gm,'{"host":"proyavka",'); }
+  try{ localStorage.setItem(aeDataKey(name), t.length>400000 ? t.slice(-400000) : t); }catch(e){}
+  const base=sdBase(); if (base){ try{ await aeFetch(base+'/plugin/'+AE_PID+'/data/'+encodeURIComponent(name),{method:'POST', headers:{'Content-Type':'text/plain'}, body:t},15000); }catch(e){ console.warn('AI Edit: данные не записались на ПК', e); } } }
+const AE_FOLDERS={
+  plugin:{ name:'plugin', isFolder:true, async getEntry(n){ const v= n==='team-config.json' ? AE.src&&AE.src.cfg : n==='main.js' ? AE.src&&AE.src.js : n==='index.html' ? AE.src&&AE.src.html : null; if (v==null) throw new Error('нет файла '+n); return aeEntry(n, new TextEncoder().encode(v)); }, async getEntries(){ return []; } },
+  data:{ name:'data', isFolder:true, async getEntry(n){ const t=await aeDataRead(n); if (t==null) throw new Error('нет файла '+n); return aeEntry(n, new TextEncoder().encode(t), aeDataWrite); },
+    async createFile(n, o){ const t=await aeDataRead(n); if (t!=null && o && o.overwrite===false) throw new Error('файл уже есть'); return aeEntry(n, t==null?null:new TextEncoder().encode(t), aeDataWrite); }, async getEntries(){ return []; } },
+  temp:{ name:'temp', isFolder:true, async getEntry(n){ const e=AE.tmp.get(n); if (!e) throw new Error('нет файла '+n); return e; }, async createFile(n){ const e=aeEntry(n,null); AE.tmp.set(n,e); return e; }, async getEntries(){ return [...AE.tmp.values()]; } }
+};
+const AE_FS={
+  getPluginFolder:async()=>AE_FOLDERS.plugin, getDataFolder:async()=>AE_FOLDERS.data, getTemporaryFolder:async()=>AE_FOLDERS.temp,
+  async createSessionToken(f){ const t='proyavka-file-'+(++AE.seq); AE.tokens.set(t,f); return t; },
+  getFileForOpening(o){ // must start inside the click — the browser opens a file dialog only from a user gesture
+    return new Promise(res=>{ const fd=$('#aeFrame').contentDocument||document, inp=fd.createElement('input'); inp.type='file'; inp.multiple=!!(o&&o.allowMultiple); inp.accept='image/*,.png,.jpg,.jpeg,.webp,.heic,.heif';
+      inp.style.cssText='position:fixed;left:-9999px'; fd.body.appendChild(inp); let done=false; const fin=v=>{ if(done) return; done=true; inp.remove(); res(v); };
+      inp.onchange=async()=>{ const fs=[...inp.files]; if (!fs.length) return fin(null); const es=await Promise.all(fs.map(async f=>aeEntry(f.name, new Uint8Array(await f.arrayBuffer())))); fin(o&&o.allowMultiple ? es : es[0]); };
+      inp.addEventListener('cancel', ()=>fin(null)); inp.click(); }); },
+  async createPersistentToken(f){ const t='aeref-'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); await mdbPut('aeref:'+t, {name:f.name, bytes:f._bytes}); return t; },
+  async getEntryForPersistentToken(t){ const v=await mdbGet('aeref:'+t); if (!v) throw new Error('файл больше не доступен'); return aeEntry(v.name, v.bytes); },
+  async getFileForSaving(){ throw new Error('сохранение файлов из плагина в Проявке пока не поддержано'); }
+};
+window.AEHOST={
+  bridge:()=>sdBase(), err:aeErr,
+  ps:{ app:{ get activeDocument(){ return aeDocProxy(); }, get documents(){ return doc ? [aeDocProxy()] : []; }, get foregroundColor(){ return {rgb:{hexValue:String(S.color||'#000').replace('#','')}}; }, showAlert:async m=>toast(String(m),4000) },
+       core:{ executeAsModal:aeModal, showAlert:async o=>toast(String(o&&o.message||o),4000) },
+       imaging:AE_IMAGING, action:{ batchPlay:aeBatch, recordAction:async()=>{} } },
+  uxp:{ storage:{ localFileSystem:AE_FS, formats:{utf8:'utf8', binary:'binary'} }, entrypoints:{ setup(){} }, host:{ name:'Проявка', get version(){ return APP_VERSION; } } }
+};
 
 /* ============ dialogs ============ */
 function dialog(html, buttons, opt={}){
@@ -5865,7 +6197,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №42 версия для ПК'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION = '2026-10-05 · №43 AI Edit'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
