@@ -3287,12 +3287,39 @@ function expandFill(e){
   const run=async words=>{ const img=regionImage(r,W,H), mask=mk(W,H), mx=ctx2(mask); mx.fillStyle='#000'; mx.fillRect(0,0,W,H); mx.drawImage(border,0,0,W,H);
     const fluxPrompt='Seamless natural extension of the scene beyond the original frame: continue the environment, architecture, lighting, perspective and grain.'+(words?' '+words+'.':'');
     if (genCfg.provider==='fal' && String(genCfg.falKey||'').trim()) return falFill({r,W,H,img,mask}, fluxPrompt, 2);
-    const ask='Extend this picture: the solid magenta border is empty canvas outside the original frame. Fill it with a seamless, natural continuation of the scene — environment, architecture, objects cut by the frame, lighting, perspective, colour and grain.'+(words?' Artist note: '+words+'.':'')+' Do not change the original picture in the middle. No magenta may remain.';
-    return orRequest(img, ask, 1, {mask, magenta:true}); };
+    // Nano Banana keeps flat magenta as "part of the picture" — so the new area gets a blurred stretch of the picture instead:
+    // the model sees a believable but soft border and is asked to repaint it sharp; the result is then lined up with the original
+    const ib={x:e.l*W/W1, y:e.t*H/H1, w:e.W0*W/W1, h:e.H0*H/H1};
+    const st=mk(W,H), stx=ctx2(st); stx.imageSmoothingQuality='high'; stx.drawImage(img, ib.x,ib.y,ib.w,ib.h, 0,0,W,H); stx.drawImage(img, ib.x,ib.y,ib.w,ib.h, ib.x,ib.y,ib.w,ib.h);
+    const pad=mk(W,H), px=ctx2(pad); px.imageSmoothingQuality='high'; px.drawImage(softBlur(st, Math.max(W,H)*0.03),0,0); px.fillStyle='rgba(0,0,0,.08)'; px.fillRect(0,0,W,H);
+    px.drawImage(img, ib.x,ib.y,ib.w,ib.h, ib.x,ib.y,ib.w,ib.h);
+    const pct=v=>Math.round(v*100)+'%';
+    const ask='This picture was padded to a larger canvas. The sharp rectangle (left '+pct(ib.x/W)+', top '+pct(ib.y/H)+', width '+pct(ib.w/W)+', height '+pct(ib.h/H)+' of the frame) is the original image. Everything outside it is only a blurry placeholder. Repaint the blurry placeholder areas as a sharp, detailed, seamless continuation of the scene — environment, architecture, objects cut by the original frame, people, lighting, perspective, colour and film grain, matching the original sharpness exactly.'+(words?' Artist note: '+words+'.':'')+' Keep the original rectangle unchanged, in exactly the same place and size: same framing, no zoom, no crop, no shift. Output the whole canvas.';
+    const res=await orRequest(pad, ask, 1, {mask});
+    res.bitmaps=res.bitmaps.map(c=>{ const a=expandAlign(img, c, ib); if (a.soft) setTimeout(()=>toast('Модель оставила новые края размытыми — попробуй «↻ Ещё»',4000),1500); return a.c; });
+    return res; };
   aiOpen({ title:'Расширить кадр', sub:'дорисовываю края', askWords:'Что по краям', placeholder:'можно оставить пустым', goLabel:'Дорисовать', busyText:'дорисовываю края…', auto:true,
     hint:'Края дорисовываются по всей картинке целиком, поэтому на очень большом холсте они мягче оригинала — их можно подтянуть резкостью.',
     layerName:'Расширение кадра', insertAt:()=>doc.layers.length, doneMsg:'Края легли верхним слоем — его можно подтереть или подвинуть',
     run, apply:(ctx,c)=>{ const t=mk(W1,H1), tx=ctx2(t); tx.imageSmoothingQuality='high'; tx.drawImage(c,0,0,W1,H1); tx.globalCompositeOperation='destination-in'; tx.drawImage(soft,0,0); ctx.drawImage(t,0,0); } });
+}
+/* line the model's frame up with the original (models like to zoom or nudge a little) and check the new edges are really drawn */
+function expandAlign(ref, out, ib){
+  const S=220/Math.max(ref.width,ref.height), w=Math.max(8,Math.round(ref.width*S)), h=Math.max(8,Math.round(ref.height*S));
+  const gray=c=>{ const t=mk(w,h), x=ctx2(t,{willReadFrequently:true}); x.imageSmoothingQuality='high'; x.drawImage(c,0,0,w,h); const d=x.getImageData(0,0,w,h).data, a=new Float32Array(w*h); for (let i=0;i<w*h;i++) a[i]=d[4*i]*.3+d[4*i+1]*.59+d[4*i+2]*.11; return a; };
+  const A=gray(ref), B=gray(out), x0=Math.ceil(ib.x*S)+3, y0=Math.ceil(ib.y*S)+3, x1=Math.floor((ib.x+ib.w)*S)-3, y1=Math.floor((ib.y+ib.h)*S)-3, cx=w/2, cy=h/2;
+  let mA=0,n=0; for (let y=y0;y<y1;y+=2) for (let x=x0;x<x1;x+=2){ mA+=A[y*w+x]; n++; } mA/=Math.max(1,n);
+  const err=(s,dx,dy)=>{ let e=0, m=0, k=0; const vals=[]; for (let y=y0;y<y1;y+=2) for (let x=x0;x<x1;x+=2){ const bx=Math.round((x-cx-dx)/s+cx), by=Math.round((y-cy-dy)/s+cy); if (bx<0||by<0||bx>=w||by>=h) continue; const v=B[by*w+bx]; vals.push(A[y*w+x], v); m+=v; k++; }
+    if (k<20) return 1e18; m/=k; for (let i=0;i<vals.length;i+=2){ const q=(vals[i]-mA)-(vals[i+1]-m); e+=q*q; } return e/k; };
+  let best={s:1,dx:0,dy:0,e:err(1,0,0)};
+  for (const s of [0.9,0.93,0.96,0.98,1,1.02,1.04,1.07,1.1]) for (let dy=-9;dy<=9;dy+=3) for (let dx=-9;dx<=9;dx+=3){ const v=err(s,dx,dy); if (v<best.e) best={s,dx,dy,e:v}; }
+  for (const s of [best.s-0.01,best.s,best.s+0.01]) for (let dy=best.dy-2;dy<=best.dy+2;dy++) for (let dx=best.dx-2;dx<=best.dx+2;dx++){ const v=err(s,dx,dy); if (v<best.e) best={s,dx,dy,e:v}; }
+  let c=out; if (best.s!==1 || best.dx || best.dy){ c=mk(out.width,out.height); const x=ctx2(c), k=out.width/w; x.imageSmoothingQuality='high';
+    x.setTransform(best.s,0,0,best.s, out.width/2*(1-best.s)+best.dx*k, out.height/2*(1-best.s)+best.dy*k); x.drawImage(out,0,0); }
+  // are the new edges drawn, or still the soft placeholder? compare fine detail outside vs inside the original
+  const C=gray(c); let din=0,nin=0,dout=0,nout=0;
+  for (let y=1;y<h-1;y++) for (let x=1;x<w-1;x++){ const i=y*w+x, l=Math.abs(4*C[i]-C[i-1]-C[i+1]-C[i-w]-C[i+w]); if (x>=x0&&x<x1&&y>=y0&&y<y1){ din+=l; nin++; } else if (x<x0-4||x>=x1+4||y<y0-4||y>=y1+4){ dout+=l; nout++; } }
+  return {c, s:best.s, dx:best.dx, dy:best.dy, soft: nout>50 && nin>0 && (dout/nout) < 0.3*(din/nin)};
 }
 /* ---- 4. art director: a vision model looks at the frame and leaves numbered notes on the canvas ---- */
 let crit=null;
@@ -6599,7 +6626,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №46.1 генерация: варианты'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №46.2 расширение кадра'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
