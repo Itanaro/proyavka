@@ -4048,7 +4048,7 @@ async function pcML(){
   if (Date.now()-PC.failAt<60000) return false;
   if (PC.alive!==null && Date.now()-PC.at<60000) return PC.alive;
   try{ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),2500);
-    const j=await (await fetch(sdBase()+'/bridge/ping',{signal:ctl.signal, cache:'no-store'})).json(); clearTimeout(T); PC.alive=!!j.ml; }
+    const j=await (await fetch(sdBase()+'/bridge/ping',{signal:ctl.signal, cache:'no-store'})).json(); clearTimeout(T); PC.alive=!!j.ml; PC.caps=j; }
   catch(e){ PC.alive=false; }
   PC.at=Date.now(); return PC.alive;
 }
@@ -4401,8 +4401,49 @@ function marchingSegs(a, W, H, thr, sx, sy){ // outline of mask a (W×H, 0..255)
   }
   return new Float32Array(out);
 }
+/* «Выделить объект». On the home PC: BiRefNet_HR at 2048 px on the video card (the bridge, birefnet/subject.py) — hair,
+   sheer fabric and thin details hold far better than ISNet. Without the PC: ISNet here, as before. */
+function subjectComposite(W,H){ const c=mk(W,H), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high';
+  composeTree(x, (x,L)=>{ let src=L.canvas;
+    if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const t=ctx2(src); t.drawImage(L.canvas,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0); }
+    x.globalAlpha=L.opacity; blendDraw(x, L.blend, src,0,0,W,H); }, {map:(c,cv)=>c.drawImage(cv,0,0,W,H)});
+  x.globalAlpha=1; x.globalCompositeOperation='destination-over'; x.fillStyle='#fff'; x.fillRect(0,0,W,H); x.globalCompositeOperation='source-over'; return c; }
+function subjectApply(a8, W, H){ // a8: 0..255 per pixel at W×H → the selection (new / add / subtract like the other tools)
+  const mc=mk(W,H), mx2=ctx2(mc), md=mx2.createImageData(W,H); let bx0=W,by0=H,bx1=-1,by1=-1;
+  for (let i=0;i<W*H;i++){ const v=a8[i], j=i*4; md.data[j]=md.data[j+1]=md.data[j+2]=255; md.data[j+3]=v;
+    if (v>127){ const xx=i%W, yy=(i/W)|0; if(xx<bx0)bx0=xx; if(xx>bx1)bx1=xx; if(yy<by0)by0=yy; if(yy>by1)by1=yy; } }
+  if (bx1<0){ busy(false); toast('Не нашла выраженного главного объекта'); return false; }
+  mx2.putImageData(md,0,0);
+  const before=snapshotSel(), mode = sel ? S.selMode : 'new', sxk=doc.w/W, syk=doc.h/H;
+  const full=mk(doc.w,doc.h), fx=ctx2(full); fx.imageSmoothingQuality='high'; fx.drawImage(mc,0,0,doc.w,doc.h);
+  const segs=marchingSegs(a8,W,H,127,sxk,syk);
+  const box=clipRect(bx0*sxk-4, by0*syk-4, (bx1-bx0+1)*sxk+8, (by1-by0+1)*syk+8);
+  if (mode==='new' || !sel){ sel={mask:full, polys:[], inverted:false, segs, box}; }
+  else {
+    const m=ctx2(sel.mask); m.globalCompositeOperation = mode==='sub' ? 'destination-out' : 'source-over'; m.drawImage(full,0,0); m.globalCompositeOperation='source-over';
+    const joined=new Float32Array((sel.segs?sel.segs.length:0)+segs.length); if(sel.segs) joined.set(sel.segs); joined.set(segs,sel.segs?sel.segs.length:0);
+    const ob=selBBox(); sel.segs=joined; sel.box = mode==='add' ? clipRect(Math.min(ob.x,box.x),Math.min(ob.y,box.y),Math.max(ob.x+ob.w,box.x+box.w)-Math.min(ob.x,box.x),Math.max(ob.y+ob.h,box.y+box.h)-Math.min(ob.y,box.y)) : ob;
+  }
+  pushSelHist(before); updateSelBar(); requestRender(); busy(false); return true;
+}
+async function pcSubject(){ // true — done on the PC; false — use the iPad model
+  const st=PC.caps && PC.caps.subject; if (!st || st.status==='error') return false;
+  if (st.status==='downloading'){ toast('Точная модель выделения ещё скачивается на компьютер ('+(st.note||'')+') — пока выделяю обычной',3200); return false; }
+  const k=Math.min(1, 2560/Math.max(doc.w,doc.h)), W=Math.max(1,Math.round(doc.w*k)), H=Math.max(1,Math.round(doc.h*k));
+  busy(true, st.status==='ready' ? 'Ищу главный объект на компьютере…' : 'Запускаю точную модель выделения на компьютере (первый раз ~20 с)…'); await nextFrame();
+  const img=subjectComposite(W,H), blob=await new Promise(r=>img.toBlob(r,'image/jpeg',0.95));
+  const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(), 240000); let r;
+  try{ r=await fetch(sdBase()+'/proyavka/subject',{method:'POST', headers:{'Content-Type':'image/jpeg'}, body:blob, signal:ctl.signal}); } finally{ clearTimeout(T); }
+  if (!r.ok){ let e='ошибка'; try{ e=(await r.json()).error; }catch(_){ } throw new Error(e); }
+  const bm=await createImageBitmap(await r.blob()); const c=mk(W,H), x=ctx2(c,{willReadFrequently:true}); x.drawImage(bm,0,0,W,H); bm.close&&bm.close();
+  const d=x.getImageData(0,0,W,H).data, a8=new Uint8Array(W*H); for (let i=0,j=0;i<a8.length;i++,j+=4) a8[i]=d[j];
+  PC.caps.subject={status:'ready', note:st.note};
+  if (subjectApply(a8,W,H)) toast('Объект выделен на компьютере (BiRefNet). Край можно поправить лассо или «Край…»',3200);
+  return true;
+}
 async function selectSubject(){
   if (!doc || xf || stroke) return;
+  if (await pcML()){ try{ if (await pcSubject()) return; }catch(e){ console.warn('pc subject', e); busy(false); toast('На компьютере не вышло ('+e.message+') — выделяю обычной моделью',3600); } }
   let sess;
   try{ sess=await loadSeg(); }
   catch(err){ console.error(err); busy(false);
@@ -4412,33 +4453,13 @@ async function selectSubject(){
     return; }
   busy(true,'Ищу главный объект…'); await nextFrame();
   try{
-    const N=SEG_SIZE, c=mk(N,N), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high';
-    composeTree(x, (x,L)=>{ let src=L.canvas;
-      if (L.mask&&L.mask.enabled){ src=mk(doc.w,doc.h); const t=ctx2(src); t.drawImage(L.canvas,0,0); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0); }
-      x.globalAlpha=L.opacity; blendDraw(x, L.blend, src,0,0,N,N); }, {map:(c,cv)=>c.drawImage(cv,0,0,N,N)});
+    const N=SEG_SIZE, c=subjectComposite(N,N), x=ctx2(c,{willReadFrequently:true});
     const px=x.getImageData(0,0,N,N).data, inp=new Float32Array(3*N*N);
     for (let i=0,j=0;i<N*N;i++,j+=4){ inp[i]=px[j]/255-.5; inp[i+N*N]=px[j+1]/255-.5; inp[i+2*N*N]=px[j+2]/255-.5; }
     const res=await sess.run({[sess.inputNames[0]]: new ort.Tensor('float32',inp,[1,3,N,N])});
     const y=res[sess.outputNames[0]].data; let mn=Infinity,mx=-Infinity; for(let i=0;i<N*N;i++){ if(y[i]<mn)mn=y[i]; if(y[i]>mx)mx=y[i]; }
-    const k=mx>mn?255/(mx-mn):0, mc=mk(N,N), mx2=ctx2(mc), md=mx2.createImageData(N,N), a8=new Uint8Array(N*N);
-    let bx0=N,by0=N,bx1=-1,by1=-1;
-    for (let i=0;i<N*N;i++){ const v=Math.round((y[i]-mn)*k); a8[i]=v; const j=i*4; md.data[j]=md.data[j+1]=md.data[j+2]=255; md.data[j+3]=v;
-      if (v>127){ const xx=i%N, yy=(i/N)|0; if(xx<bx0)bx0=xx; if(xx>bx1)bx1=xx; if(yy<by0)by0=yy; if(yy>by1)by1=yy; } }
-    if (bx1<0){ busy(false); toast('Не нашла выраженного главного объекта'); return; }
-    mx2.putImageData(md,0,0);
-    const before=snapshotSel(), mode = sel ? S.selMode : 'new';
-    const sxk=doc.w/N, syk=doc.h/N;
-    const full=mk(doc.w,doc.h), fx=ctx2(full); fx.imageSmoothingQuality='high'; fx.drawImage(mc,0,0,doc.w,doc.h);
-    const segs=marchingSegs(a8,N,N,127,sxk,syk);
-    const box=clipRect(bx0*sxk-4, by0*syk-4, (bx1-bx0+1)*sxk+8, (by1-by0+1)*syk+8);
-    if (mode==='new' || !sel){ sel={mask:full, polys:[], inverted:false, segs, box}; }
-    else {
-      const m=ctx2(sel.mask); m.globalCompositeOperation = mode==='sub' ? 'destination-out' : 'source-over'; m.drawImage(full,0,0); m.globalCompositeOperation='source-over';
-      const joined=new Float32Array((sel.segs?sel.segs.length:0)+segs.length); if(sel.segs) joined.set(sel.segs); joined.set(segs,sel.segs?sel.segs.length:0);
-      const ob=selBBox(); sel.segs=joined; sel.box = mode==='add' ? clipRect(Math.min(ob.x,box.x),Math.min(ob.y,box.y),Math.max(ob.x+ob.w,box.x+box.w)-Math.min(ob.x,box.x),Math.max(ob.y+ob.h,box.y+box.h)-Math.min(ob.y,box.y)) : ob;
-    }
-    pushSelHist(before); updateSelBar(); requestRender(); busy(false);
-    toast('Объект выделен. Край можно поправить лассо в режиме «Добавить» или «Вычесть»',3200);
+    const k=mx>mn?255/(mx-mn):0, a8=new Uint8Array(N*N); for (let i=0;i<N*N;i++) a8[i]=Math.round((y[i]-mn)*k);
+    if (subjectApply(a8,N,N)) toast('Объект выделен. Край можно поправить лассо в режиме «Добавить» или «Вычесть»',3200);
   }catch(err){ console.error(err); busy(false); toast('Выделение не получилось: '+(err.message||'ошибка'),4000); }
 }
 $('#bSubject').onclick=()=>{ if(xf){ toast('Сначала примени или отмени трансформ'); return; } selectSubject(); };
@@ -6451,7 +6472,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №44 марионетка'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №45 точное выделение (ПК)'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{

@@ -156,6 +156,22 @@ def net_proxy(h, body):
     except Exception as e:
         return 599, json.dumps({'error': 'нет связи с ' + u.hostname + ': ' + str(getattr(e, 'reason', e))}, ensure_ascii=False).encode(), 'application/json', ''
 
+# ---------- «Выделить объект» на видеокарте: BiRefNet_HR (birefnet/subject.py) ----------
+_subj = None
+def subject_mod():
+    global _subj
+    if _subj is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('proyavka_subject', os.path.join(HERE, 'birefnet', 'subject.py'))
+        _subj = importlib.util.module_from_spec(spec); spec.loader.exec_module(_subj)
+    return _subj
+def subject_state():
+    try:
+        m = subject_mod(); st = dict(m.STATE)
+        if st['status'] == 'not-loaded' and not os.path.exists(os.path.join(MODEL_DIR, m.WEIGHTS)): st['status'] = 'no-weights'
+        return st
+    except Exception as e: return {'status': 'error', 'note': str(e)}
+
 TOKEN = token()
 PREFIX = '/k/' + TOKEN
 
@@ -184,7 +200,14 @@ class H(BaseHTTPRequestHandler):
             return self.reply(403, json.dumps({'error': 'нужен адрес с ключом моста'}, ensure_ascii=False).encode())
         path = self.path[len(PREFIX):]
         if path == '/bridge/ping':
-            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True}).encode())
+            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'subject': subject_state()}, ensure_ascii=False).encode())
+        if path.startswith('/proyavka/subject'):
+            n = int(self.headers.get('Content-Length') or 0); body = self.rfile.read(n) if n else b''
+            try:
+                q = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query); size = int((q.get('size') or ['0'])[0]) or None
+                return self.reply(200, subject_mod().run(MODEL_DIR, body, size, p), 'image/png')
+            except Exception as e:
+                p('Выделение объекта — ошибка:', e); return self.reply(500, json.dumps({'error': str(e)}, ensure_ascii=False).encode())
         n = int(self.headers.get('Content-Length') or 0); body = self.rfile.read(n) if n else None
         if path.startswith('/plugin/'):
             parts = [urllib.parse.unquote(x) for x in path.split('?')[0].split('/')[2:]]
@@ -248,6 +271,25 @@ class Server(ThreadingHTTPServer):
         if isinstance(e, (ConnectionResetError, BrokenPipeError, ssl.SSLError, TimeoutError)): return
         p('Сбой соединения с', client_address[0], '—', e)
 
+# ---------- обновление моста без участия человека: файл поменялся — мост перезапускается сам ----------
+WATCH = [os.path.abspath(__file__), os.path.join(HERE, 'birefnet', 'subject.py')]
+def _stamp(): return tuple(os.path.getmtime(f) if os.path.exists(f) else 0 for f in WATCH)
+def watch_self(srv):
+    st = _stamp()
+    while True:
+        time.sleep(4)
+        try: now = _stamp()
+        except Exception: continue
+        if now == st: continue
+        time.sleep(2)  # let the copy finish
+        p(time.strftime('%H:%M:%S'), 'Мост обновлён — перезапускаюсь…')
+        try: srv.socket.close()  # free the port for the new process (shutdown() would wait on the serving loop)
+        except Exception: pass
+        log = open(os.path.join(HERE, 'bridge.log'), 'a', encoding='utf-8')
+        flags = (0x00000008 | 0x08000000) if os.name == 'nt' else 0  # DETACHED_PROCESS | CREATE_NO_WINDOW
+        subprocess.Popen([sys.executable, os.path.abspath(__file__)], cwd=HERE, stdout=log, stderr=log, stdin=subprocess.DEVNULL, creationflags=flags, close_fds=True)
+        os._exit(0)
+
 def main():
     ip = lan_ip(); ensure_certs(ip)
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.load_cert_chain(os.path.join(HERE, 'server.crt'), os.path.join(HERE, 'server.key'))
@@ -257,6 +299,11 @@ def main():
     except Exception: pass
     p(''); p('Мост «Проявки» работает.'); p('Адрес для «Проявки» на iPad (⚙ → Свой ПК):'); p('   ' + addr); p('')
     p('Это окно не закрывай, пока работаешь с iPad. Automatic1111 тоже должен быть запущен.')
+    try:  # the selection model downloads in the background once, so the first «Выделить объект» does not wait for it
+        sm = subject_mod()
+        if not os.path.exists(os.path.join(MODEL_DIR, sm.WEIGHTS)): __import__('threading').Thread(target=sm.download, args=(MODEL_DIR, p), daemon=True).start()
+    except Exception as e: p('Модель выделения недоступна:', e)
+    __import__('threading').Thread(target=watch_self, args=(srv,), daemon=True).start()
     srv.serve_forever()
 
 if __name__ == '__main__':
