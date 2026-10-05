@@ -766,6 +766,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <button data-a="expand">✦ Расширить кадр</button>
     <button data-a="critic">✦ Арт-директор <small>разбор кадра</small></button>
     <button data-a="aiedit">✦ AI Edit <small>плагин из Фотошопа</small></button>
+    <button data-a="rmbg">✦ Удалить фон <small>мягкий край, маской</small></button>
     <hr>
     <button data-a="set">Настройки генерации <small id="aiProv"></small></button>
   </div>
@@ -4448,6 +4449,48 @@ function marchingSegs(a, W, H, thr, sx, sy){ // outline of mask a (W×H, 0..255)
   }
   return new Float32Array(out);
 }
+/* «Удалить фон с мягким краем» (like Photoshop's Remove Background): a soft mask on the active layer.
+   On the PC — BiRefNet_HR matting (true semi-transparency of hair and sheer fabric); without the PC — ISNet here. */
+async function matteOf(src, kind){ // src canvas → {a8, W, H} soft alpha at (up to) 2560 px
+  const k=Math.min(1, 2560/Math.max(src.width,src.height)), W=Math.max(1,Math.round(src.width*k)), H=Math.max(1,Math.round(src.height*k));
+  const c=mk(W,H), x=ctx2(c,{willReadFrequently:true}); x.fillStyle='#fff'; x.fillRect(0,0,W,H); x.imageSmoothingQuality='high'; x.drawImage(src,0,0,W,H);
+  if (await pcML()){
+    const st=PC.caps && (PC.caps[kind]||PC.caps.subject); let use=kind;
+    if (kind==='matting' && (!PC.caps.matting || PC.caps.matting.status==='downloading' || PC.caps.matting.status==='error')) use='general';
+    const ok=st && (PC.caps[use]||{}).status!=='error' && (PC.caps[use]||{}).status!=='downloading';
+    if (ok){ try{
+      busy(true, (PC.caps[use]||{}).status==='ready' ? 'Отделяю фон на компьютере…' : 'Запускаю модель на компьютере (первый раз ~20 с)…'); await nextFrame();
+      const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.95)); const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),240000); let r;
+      try{ r=await fetch(sdBase()+'/proyavka/subject?kind='+use,{method:'POST', headers:{'Content-Type':'image/jpeg'}, body:blob, signal:ctl.signal}); } finally{ clearTimeout(T); }
+      if (!r.ok){ let e='ошибка'; try{ e=(await r.json()).error; }catch(_){ } throw new Error(e); }
+      const bm=await createImageBitmap(await r.blob()); const m=mk(W,H), mx=ctx2(m,{willReadFrequently:true}); mx.drawImage(bm,0,0,W,H); bm.close&&bm.close();
+      const d=mx.getImageData(0,0,W,H).data, a8=new Uint8Array(W*H); for (let i=0,j=0;i<a8.length;i++,j+=4) a8[i]=d[j];
+      return {a8, W, H, by: use==='matting' ? 'BiRefNet matting' : 'BiRefNet'}; }
+    catch(e){ console.warn('pc matte', e); toast('На компьютере не вышло ('+e.message+') — считаю здесь',3000); } }
+  }
+  const sess=await loadSeg(); busy(true,'Отделяю фон…'); await nextFrame();
+  const N=SEG_SIZE, q=mk(N,N), qx=ctx2(q,{willReadFrequently:true}); qx.imageSmoothingQuality='high'; qx.drawImage(c,0,0,N,N);
+  const px=qx.getImageData(0,0,N,N).data, inp=new Float32Array(3*N*N); for (let i=0,j=0;i<N*N;i++,j+=4){ inp[i]=px[j]/255-.5; inp[i+N*N]=px[j+1]/255-.5; inp[i+2*N*N]=px[j+2]/255-.5; }
+  const res=await sess.run({[sess.inputNames[0]]: new ort.Tensor('float32',inp,[1,3,N,N])}); const y=res[sess.outputNames[0]].data;
+  let mn=Infinity,mx=-Infinity; for (let i=0;i<N*N;i++){ if(y[i]<mn)mn=y[i]; if(y[i]>mx)mx=y[i]; }
+  const kk=mx>mn?255/(mx-mn):0, m=mk(N,N), mc=ctx2(m), id=mc.createImageData(N,N); for (let i=0,j=0;i<N*N;i++,j+=4){ id.data[j]=id.data[j+1]=id.data[j+2]=Math.round((y[i]-mn)*kk); id.data[j+3]=255; } mc.putImageData(id,0,0);
+  const big=mk(W,H), bx=ctx2(big,{willReadFrequently:true}); bx.imageSmoothingQuality='high'; bx.drawImage(m,0,0,W,H);
+  const d=bx.getImageData(0,0,W,H).data, a8=new Uint8Array(W*H); for (let i=0,j=0;i<a8.length;i++,j+=4) a8[i]=d[j];
+  return {a8, W, H, by:'ISNet'};
+}
+async function removeBackground(){
+  if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  const L=AL(); if (isGroup(L) || L.kind==='adj'){ toast('Выбери слой с картинкой',2000); return; }
+  const b=aeMaskBounds(aeM(L.canvas,{x:0,y:0,w:doc.w,h:doc.h})); if (!b){ toast('Слой пустой'); return; }
+  const src=mk(b.w,b.h); ctx2(src).drawImage(L.canvas, b.x,b.y,b.w,b.h, 0,0,b.w,b.h);
+  let r; try{ r=await matteOf(src,'matting'); }catch(e){ busy(false); console.error(e); toast('Фон не отделился: '+(e.message||'ошибка'),4000); return; }
+  const m=mk(r.W,r.H), mx=ctx2(m), id=mx.createImageData(r.W,r.H); for (let i=0,j=0;i<r.a8.length;i++,j+=4){ id.data[j]=id.data[j+1]=id.data[j+2]=255; id.data[j+3]=r.a8[i]; } mx.putImageData(id,0,0);
+  const full=mk(doc.w,doc.h), fx=ctx2(full); fx.imageSmoothingQuality='high'; fx.drawImage(m, b.x,b.y,b.w,b.h);
+  if (L.mask){ const before=grab(L.mask.canvas,{x:0,y:0,w:doc.w,h:doc.h}), t=L.mask.ctx; t.globalCompositeOperation='destination-in'; t.drawImage(full,0,0); t.globalCompositeOperation='source-over'; pushHist(pxEntry(L.mask.canvas,0,0,doc.w,doc.h,before)); }
+  else { const mask={canvas:full, ctx:fx, enabled:true}; L.mask=mask; pushHist({undo(){ L.mask=null; doc.editMask=false; }, redo(){ L.mask=mask; }, bytes:doc.w*doc.h*4}); }
+  L.dirty=true; thumbSoon(L); busy(false); layersChanged(); requestRender();
+  toast('Фон спрятан маской ('+r.by+') — край мягкий; маску можно поправить кистью',3200);
+}
 /* «Выделить объект». On the home PC: BiRefNet_HR at 2048 px on the video card (the bridge, birefnet/subject.py) — hair,
    sheer fabric and thin details hold far better than ISNet. Without the PC: ISNet here, as before. */
 function subjectComposite(W,H){ const c=mk(W,H), x=ctx2(c,{willReadFrequently:true}); x.imageSmoothingQuality='high';
@@ -5289,7 +5332,7 @@ $('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aim
   const r=$('#bAI').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
 document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePops(); const a=b.dataset.a; if (!doc) return;
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
-  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, critic:artDirector, aiedit:()=>aeOpen(), set:genSettings})[a](); });
+  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, critic:artDirector, aiedit:()=>aeOpen(), rmbg:removeBackground, set:genSettings})[a](); });
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,.tgm,.pickHere')) closePops(); },true);
 
 /* ============ AI Edit: the Photoshop plugin itself, running inside Проявка ============
@@ -6749,7 +6792,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №47 вкладки документов'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №48 удалить фон'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{

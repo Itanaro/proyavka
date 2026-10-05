@@ -165,11 +165,8 @@ def subject_mod():
         spec = importlib.util.spec_from_file_location('proyavka_subject', os.path.join(HERE, 'birefnet', 'subject.py'))
         _subj = importlib.util.module_from_spec(spec); spec.loader.exec_module(_subj)
     return _subj
-def subject_state():
-    try:
-        m = subject_mod(); st = dict(m.STATE)
-        if st['status'] == 'not-loaded' and not os.path.exists(os.path.join(MODEL_DIR, m.WEIGHTS)): st['status'] = 'no-weights'
-        return st
+def subject_state(kind='general'):
+    try: return subject_mod().status(MODEL_DIR, kind)
     except Exception as e: return {'status': 'error', 'note': str(e)}
 
 TOKEN = token()
@@ -200,12 +197,12 @@ class H(BaseHTTPRequestHandler):
             return self.reply(403, json.dumps({'error': 'нужен адрес с ключом моста'}, ensure_ascii=False).encode())
         path = self.path[len(PREFIX):]
         if path == '/bridge/ping':
-            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'subject': subject_state()}, ensure_ascii=False).encode())
+            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'subject': subject_state(), 'matting': subject_state('matting')}, ensure_ascii=False).encode())
         if path.startswith('/proyavka/subject'):
             n = int(self.headers.get('Content-Length') or 0); body = self.rfile.read(n) if n else b''
             try:
                 q = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query); size = int((q.get('size') or ['0'])[0]) or None
-                return self.reply(200, subject_mod().run(MODEL_DIR, body, size, p), 'image/png')
+                return self.reply(200, subject_mod().run(MODEL_DIR, body, size, p, (q.get('kind') or ['general'])[0]), 'image/png')
             except Exception as e:
                 p('Выделение объекта — ошибка:', e); return self.reply(500, json.dumps({'error': str(e)}, ensure_ascii=False).encode())
         n = int(self.headers.get('Content-Length') or 0); body = self.rfile.read(n) if n else None
@@ -301,7 +298,7 @@ def main():
     p('Это окно не закрывай, пока работаешь с iPad. Automatic1111 тоже должен быть запущен.')
     try:  # the selection model downloads in the background once, so the first «Выделить объект» does not wait for it
         sm = subject_mod()
-        if not os.path.exists(os.path.join(MODEL_DIR, sm.WEIGHTS)): __import__('threading').Thread(target=sm.download, args=(MODEL_DIR, p), daemon=True).start()
+        __import__('threading').Thread(target=sm.download_all, args=(MODEL_DIR, p), daemon=True).start()
     except Exception as e: p('Модель выделения недоступна:', e)
     __import__('threading').Thread(target=watch_self, args=(srv,), daemon=True).start()
     srv.serve_forever()
