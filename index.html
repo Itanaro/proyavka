@@ -3136,8 +3136,13 @@ async function orRequest(img, ask, n, opt={}){
     for (let i=0;i<hd.data.length;i+=4) if (hd.data[i]>127){ qd.data[i]=255; qd.data[i+1]=0; qd.data[i+2]=255; } qx.putImageData(qd,0,0); }
   const refs=[{type:'image_url', image_url:{url: opt.magenta ? q.toDataURL('image/png') : q.toDataURL('image/jpeg',0.93)}}]; // magenta must stay pure: no JPEG colour bleed
   for (const r of (opt.refs||[])){ const c=mk(SW,SH), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(r,0,0,SW,SH); refs.push({type:'image_url', image_url:{url:c.toDataURL('image/png')}}); }
-  const body={model:genCfg.orModel, prompt:ask, n, aspect_ratio:best[0]+':'+best[1], resolution:'1K', output_format:'png', input_references:refs};
-  const r=await (await netFetch(orBaseUrl()+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(body)},180000)).json();
+  // one request per variant: Google (Nano Banana) refuses n>1, and a provider that does not know resolution / output_format gets the request again without them
+  const base={model:genCfg.orModel, prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:'1K', output_format:'png', input_references:refs};
+  const one=async b=>{ try{ return await (await netFetch(orBaseUrl()+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(b)},180000)).json(); }
+    catch(e){ if (/requested parameter|not support/i.test(e.message) && (b.resolution||b.output_format)){ const c=Object.assign({},b); delete c.resolution; delete c.output_format; return one(c); } throw e; } };
+  const rs=await Promise.allSettled(Array.from({length:Math.max(1,n||1)}, ()=>one(base))), ok=rs.filter(x=>x.status==='fulfilled').map(x=>x.value);
+  if (!ok.length) throw rs[0].reason;
+  const r={ data:ok.flatMap(x=>x.data||[]), usage:{cost:ok.reduce((a,x)=>a+((x.usage&&x.usage.cost)||0),0)}, error:(ok.find(x=>x.error)||{}).error };
   if (!r.data || !r.data.length) throw new Error(r.error ? String(r.error.message||r.error).slice(0,200) : 'модель не вернула картинку');
   let rd=null, od=null;
   if (opt.mask){ const ring=mk(W,H), rx=ctx2(ring,{willReadFrequently:true}), g=Math.max(4,Math.round(Math.max(W,H)*0.03));
@@ -6594,7 +6599,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №46 клавиши как в ФШ'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №46.1 генерация: варианты'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
