@@ -2894,9 +2894,10 @@ function liqReset(){ // the whole session back to how the layer was
 /* ============ generative fill, like Firefly: selection → (optional words) → 3 variants that fit light and colour ============
    The picture around the selection (with generous context) and the selection as a mask go to an inpainting model on the
    PC (ComfyUI + FLUX.1 Fill). Only the selected area comes back: a new layer with the selection as its mask. */
-const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-2.5-flash-image', orBase:'https://openrouter.ai', orVision:'google/gemini-2.5-flash', sdUrl:'', sdPrompt:'', sdNeg:'(worst quality:2), (low quality:2), lowres, watermark, signature, blurry', sdDenoise:0.45, sdSteps:40, sdCfg:7, sdSampler:'Euler a', sdModel:'', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
+const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-2.5-flash-image', orBase:'https://openrouter.ai', orVision:'google/gemini-2.5-flash', sdUrl:'', sdPrompt:'', sdNeg:'(worst quality:2), (low quality:2), lowres, watermark, signature, blurry', sdDenoise:0.05, sdSteps:40, sdCfg:7, sdSampler:'Euler a', sdModel:'', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
 let genCfg=Object.assign({}, GEN_DEF); try{ Object.assign(genCfg, JSON.parse(localStorage.getItem('proyavka.gen')||'{}')); }catch(e){}
-if (genCfg.provider==='comfy') genCfg.provider='or'; // the PC now goes through the SD bridge, ComfyUI is no longer offered
+if (genCfg.provider==='comfy') genCfg.provider='or';
+if (!genCfg.sdV2){ genCfg.sdDenoise=0.05; genCfg.sdV2=1; } // her SD habit: barely-there denoise, native resolution, one variant // the PC now goes through the SD bridge, ComfyUI is no longer offered
 const genSave=()=>{ try{ localStorage.setItem('proyavka.gen', JSON.stringify(genCfg)); }catch(e){} };
 let gen=null; // {layer, r, W, H, img, mask, variants:[canvas], idx, prompt, str, busy, abort}
 const genBase=()=>String(genCfg.url||'').trim().replace(/\/+$/,'');
@@ -3320,7 +3321,7 @@ function sdBuild(){
   const slider=(label,key,min,max,fmt)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>'+label+'</label><div></div><span class="v"></span>';
     const v=r.lastChild, show=()=>v.textContent=fmt(g[key]); show(); hslider(r.children[1],{min,max,get:()=>g[key],set:x=>{ g[key]=key==='steps'?Math.round(x):x; show(); }}); box.append(r); };
   slider('Сила','str',0.05,1,x=>Math.round(x*100)+'%'); slider('Шаги','steps',10,80,x=>String(Math.round(x)));
-  const hint=document.createElement('div'); hint.className='gh'; hint.textContent='Кожа и ткань с сохранением формы — сила 30–50%, новое содержимое — 75% и выше. Генерирует твоя 4090, бесплатно.'; box.append(hint);
+  const hint=document.createElement('div'); hint.className='gh'; hint.textContent='Участок идёт в родном разрешении, по одному варианту. Сила 5% — обновить фактуру, 30–50% — переписать кожу или ткань с сохранением формы, 75%+ — новое. Генерирует твоя 4090.'; box.append(hint);
   if (g.variants.length){ const vr=document.createElement('div'); vr.className='gvars';
     g.variants.forEach((c,i)=>{ const b=document.createElement('button'); b.className='gvar'+(i===g.idx?' on':''); const t=mk(96,Math.max(1,Math.round(96*c.height/c.width))); ctx2(t).drawImage(c,0,0,t.width,t.height); b.append(t); b.onclick=()=>genPick(i); vr.append(b); }); box.append(vr); }
   const foot=document.createElement('div'); foot.className='eb'; const B=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
@@ -3329,15 +3330,27 @@ function sdBuild(){
   foot.append(st, sp, B('Отмена',genCancel), B(g.variants.length?'↻ Ещё':'Сгенерировать', genGo, g.variants.length?'':'pri'));
   if (g.variants.length) foot.append(B('Готово',genDone,'pri')); box.append(foot);
 }
+function sdPrep(){ // like the PC plugin: the selection at its own pixel size (no up/down-scaling), sides rounded to multiples of 8
+  const b=sel.box&&sel.box.w ? sel.box : selBBox(); if (!b || !b.w) throw new Error('пустое выделение');
+  const pad=Math.max(32, Math.round(Math.max(b.w,b.h)*0.08));
+  let r=clipRect(b.x-pad, b.y-pad, b.w+2*pad, b.h+2*pad);
+  const r8=v=>Math.ceil(v/8)*8; r=clipRect(r.x, r.y, Math.min(doc.w-r.x, r8(r.w)), Math.min(doc.h-r.y, r8(r.h)));
+  const big=Math.max(r.w,r.h), k = big>2048 ? 2048/big : 1; // only a very large area is reduced, so the 4090 does not run out of memory
+  const W=Math.max(64,Math.round(r.w*k/8)*8), H=Math.max(64,Math.round(r.h*k/8)*8);
+  const img=mk(W,H), ix=ctx2(img); ix.fillStyle='#fff'; ix.fillRect(0,0,W,H); ix.imageSmoothingQuality='high'; ix.drawImage(compositeRegion(r,W,H),0,0);
+  const mask=mk(W,H), mx=ctx2(mask); mx.fillStyle='#000'; mx.fillRect(0,0,W,H);
+  const wm=mk(W,H), wx=ctx2(wm); wx.fillStyle='#fff'; wx.fillRect(0,0,W,H); wx.globalCompositeOperation='destination-in'; wx.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,W,H); mx.drawImage(wm,0,0);
+  return {r, W, H, img, mask, scaled:k<1};
+}
 async function sdGo(){
   const g=gen; if (!g || g.busy) return; if (!sdBase()){ genSettings('sd'); return; }
   if (!g.prep && !sel){ toast('Выделение пропало — выдели заново'); return; }
   Object.assign(genCfg, { sdPrompt:g.prompt||'', sdNeg:g.neg||'', sdDenoise:g.str, sdSteps:g.steps, sdModel:g.model||'' }); genSave();
   g.cancelled=false;
   try{
-    if (!g.prep){ g.prep=genPrep(); g.selMask=mk(doc.w,doc.h); ctx2(g.selMask).drawImage(sel.mask,0,0); }
-    const P=g.prep, n=3;
-    g.busy='рисую на компьютере '+n+' варианта…'; genBuild();
+    if (!g.prep){ g.prep=sdPrep(); g.selMask=mk(doc.w,doc.h); ctx2(g.selMask).drawImage(sel.mask,0,0); if (g.prep.scaled) toast('Участок больше 2048 px — для SD он уменьшен, деталь будет мягче',3200); }
+    const P=g.prep, n=1;
+    g.busy='рисую на компьютере '+P.W+'×'+P.H+'…'; genBuild();
     const body={ init_images:[P.img.toDataURL('image/png')], mask:P.mask.toDataURL('image/png'), mask_blur:4, inpainting_fill:1, inpaint_full_res:false, inpainting_mask_invert:0,
       denoising_strength:g.str, prompt:g.prompt||'', negative_prompt:g.neg||'', steps:g.steps, cfg_scale:genCfg.sdCfg, sampler_name:genCfg.sdSampler,
       width:P.W, height:P.H, batch_size:n, n_iter:1, seed:-1, send_images:true, save_images:false };
@@ -5784,7 +5797,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-04 · №40 SD Inpaint со своего ПК'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №40.1 SD: 1 вариант, родное разрешение'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
