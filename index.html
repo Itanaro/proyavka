@@ -163,15 +163,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .fbar button{height:36px;padding:0 12px;border-radius:8px;white-space:nowrap;font-size:13px}
 .fbar button:active{background:var(--panel-2)}
 .fbar .pri{background:var(--accent);color:var(--accent-ink);font-weight:600}
-#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar,#objbar,#aibar,#critbar,#pupbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
-#edgebar .eh,#harmbar .eh,#adjbar .eh,#depthbar .eh,#filtbar .eh,#genbar .eh,#objbar .eh,#aibar .eh,#critbar .eh,#pupbar .eh{font-weight:600;font-size:14px}
-#edgebar .eh span,#harmbar .eh span,#adjbar .eh span,#depthbar .eh span,#filtbar .eh span,#genbar .eh span,#objbar .eh span,#aibar .eh span,#critbar .eh span,#pupbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
-#edgebar .er,#harmbar .er,#adjbar .er,#depthbar .er,#filtbar .er,#genbar .er,#objbar .er,#aibar .er,#critbar .er,#pupbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
-#edgebar .er label,#harmbar .er label,#adjbar .er label,#depthbar .er label,#filtbar .er label,#genbar .er label,#objbar .er label,#aibar .er label,#critbar .er label,#pupbar .er label{color:var(--muted)}
+#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar,#objbar,#aibar,#critbar,#pupbar,#cropbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
+#edgebar .eh,#harmbar .eh,#adjbar .eh,#depthbar .eh,#filtbar .eh,#genbar .eh,#objbar .eh,#aibar .eh,#critbar .eh,#pupbar .eh,#cropbar .eh{font-weight:600;font-size:14px}
+#edgebar .eh span,#harmbar .eh span,#adjbar .eh span,#depthbar .eh span,#filtbar .eh span,#genbar .eh span,#objbar .eh span,#aibar .eh span,#critbar .eh span,#pupbar .eh span,#cropbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+#edgebar .er,#harmbar .er,#adjbar .er,#depthbar .er,#filtbar .er,#genbar .er,#objbar .er,#aibar .er,#critbar .er,#pupbar .er,#cropbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
+#edgebar .er label,#harmbar .er label,#adjbar .er label,#depthbar .er label,#filtbar .er label,#genbar .er label,#objbar .er label,#aibar .er label,#critbar .er label,#pupbar .er label,#cropbar .er label{color:var(--muted)}
 #edgebar .er .v,#harmbar .er .v,#adjbar .er .v,#depthbar .er .v,#filtbar .er .v,#genbar .er .v,#objbar .er .v,#aibar .er .v,#critbar .er .v,#pupbar .er .v{font-family:var(--mono);font-size:12px;text-align:right}
 #edgebar .er .hs,#harmbar .er .hs,#adjbar .er .hs,#depthbar .er .hs,#filtbar .er .hs,#genbar .er .hs,#objbar .er .hs,#aibar .er .hs,#critbar .er .hs,#pupbar .er .hs{height:32px;width:auto}
 #edShift::after{content:"";position:absolute;left:50%;top:9px;width:2px;height:12px;margin-left:-1px;background:var(--muted);border-radius:1px}
-#edgebar .eb,#harmbar .eb,#adjbar .eb,#depthbar .eb,#filtbar .eb,#genbar .eb,#objbar .eb,#aibar .eb,#critbar .eb,#pupbar .eb{display:flex;gap:6px;margin-top:2px}
+#edgebar .eb,#harmbar .eb,#adjbar .eb,#depthbar .eb,#filtbar .eb,#genbar .eb,#objbar .eb,#aibar .eb,#critbar .eb,#pupbar .eb,#cropbar .eb{display:flex;gap:6px;margin-top:2px}
 
 /* layers */
 #layers{position:absolute;top:8px;right:8px;bottom:8px;width:290px;max-width:calc(100% - 16px);background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;box-shadow:0 10px 36px rgba(0,0,0,.5);z-index:5}
@@ -405,7 +405,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #status span{background:var(--glass-bg);border:1px solid var(--glass-edge);border-radius:10px;padding:4px 9px}
 .fbar{left:calc(50% + 36px);bottom:28px;border-radius:22px;padding:7px}
 #stage.lyopen .fbar{left:calc((100% - 316px + 72px)/2);max-width:calc(100% - 316px - 72px - 32px)}
-#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar,#objbar,#aibar,#critbar,#pupbar{padding:14px 16px;gap:11px}
+#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar,#objbar,#aibar,#critbar,#pupbar,#cropbar{padding:14px 16px;gap:11px}
 #toast{top:84px;border-radius:16px;padding:10px 18px}
 #menu{top:72px;left:10px;border-radius:20px;padding:8px}
 #picker{top:72px;right:10px;border-radius:22px}
@@ -473,7 +473,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 .fbar:not([hidden]){animation:pvBar .2s cubic-bezier(.2,.8,.3,1)}
 #menu small{max-width:150px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-#genbar .gh,#objbar .gh,#aibar .gh,#critbar .gh,#pupbar .gh{font-size:11.5px;color:var(--muted);margin-top:-4px;line-height:1.35}
+#genbar .gh,#objbar .gh,#aibar .gh,#critbar .gh,#pupbar .gh,#cropbar .gh{font-size:11.5px;color:var(--muted);margin-top:-4px;line-height:1.35}
 #genbar .gvars,#objbar .gvars,#aibar .gvars{display:flex;gap:8px;flex-wrap:wrap}
 #genbar .gvar,#objbar .gvar,#aibar .gvar{padding:3px;border-radius:12px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);height:auto}
 #genbar .gvar canvas,#objbar .gvar canvas,#aibar .gvar canvas{display:block;border-radius:9px;max-height:96px}
@@ -488,6 +488,11 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #gsOr input,#gsFal input,#gsComfy input{flex:1;min-width:0;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg);font:inherit}
 
 #critbar,#pupbar{max-height:min(62vh,560px)}
+#cropbar{width:min(580px,calc(100% - 24px))}
+#cropbar .er{grid-template-columns:auto 1fr}
+#cropbar .seg button{flex:none;padding:0 10px}
+.anc{display:grid;grid-template-columns:repeat(3,26px);gap:4px}.anc button{width:26px;height:26px;padding:0;border-radius:6px;background:var(--soft)}.anc button.on{background:var(--accent)}
+.dims{display:flex;gap:10px;flex-wrap:wrap}.dims label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}.dims input[type=number]{width:110px}
 #critbar .crl,#pupbar .crl{display:flex;flex-direction:column;gap:6px;overflow:auto;min-height:0;margin:0 -4px;padding:0 4px}
 #critbar .crn,#pupbar .crn{display:flex;gap:10px;align-items:flex-start;text-align:left;height:auto;padding:8px 10px;border-radius:12px;background:var(--soft);white-space:normal;line-height:1.35}
 #critbar .crn.on,#pupbar .crn.on{box-shadow:inset 0 0 0 2px #eab066}
@@ -706,6 +711,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <div class="fbar" id="aibar" hidden></div>
     <div class="fbar" id="critbar" hidden></div>
     <div class="fbar" id="pupbar" hidden></div>
+    <div class="fbar" id="cropbar" hidden></div>
     <div class="fbar" id="harmbar" hidden>
       <div class="eh">Гармонизация <span id="hmHint"></span></div>
       <div class="er"><label>Сила</label><div id="hm_str"></div><span class="v" id="hm_strV"></span></div>
@@ -777,6 +783,10 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <button data-m="restore">Восстановить из копии</button>
     <button data-m="open">Открыть PSD или картинку</button>
     <button data-m="place">Поместить картинку слоем</button>
+    <hr>
+    <button data-m="crop">Кадрировать <small>C</small></button>
+    <button data-m="isize">Размер изображения <small>Ctrl+Alt+I</small></button>
+    <button data-m="csize">Размер холста <small>Ctrl+Alt+C</small></button>
     <hr>
     <button data-m="png">Сохранить PNG <small>полный</small></button>
     <button data-m="png50">Сохранить PNG <small>50% превью</small></button>
@@ -1305,6 +1315,7 @@ function renderOverlay(){ if(!doc) return;
     ox.lineWidth = xf ? 1.5 : 1; ox.strokeStyle = xf ? 'rgba(255,255,255,.85)' : 'rgba(0,0,0,.55)'; ox.setLineDash(xf?[6,4]:[]); ox.stroke(); ox.setLineDash([]);
   }
   if (pup){ pupOverlay(ox); return; }
+  if (crop){ cropOverlay(ox); return; }
   if (xf){
     const M=xfMatrix(), w=xf.float.width, h=xf.float.height;
     polyPath([[0,0],[w,0],[w,h],[0,h]], M); ox.strokeStyle=cssVar('--accent'); ox.lineWidth=1.5; ox.stroke();
@@ -1356,8 +1367,8 @@ function pxEntry(canvas, x,y,w,h, before){
   return { undo:swap, redo:swap, bytes:w*h*4 };
 }
 const compound = (...es) => ({ undo(){ for(let i=es.length-1;i>=0;i--) es[i].undo(); }, redo(){ for(const e of es) e.redo(); }, bytes: es.reduce((a,e)=>a+(e.bytes||0),0) });
-function undo(){ if (pup){ toast('В марионетке: убери булавку или нажми «Сбросить»',1600); return; } if(edge){ edgeCancel(); return; } if (adjEdit) adjClose(); if(stroke||xf||liqStroke) return; const e=undoStack.pop(); if(!e){ toast('Нечего отменять'); return; } e.undo(); redoStack.push(e); afterHist('Отменено', e.sel); if (e.liq && liq===e.liq) liq.cv=contentVer; }
-function redo(){ if (pup) return; if (adjEdit) adjClose(); if(stroke||xf||liqStroke) return; const e=redoStack.pop(); if(!e){ toast("Нечего возвращать"); return; } e.redo(); undoStack.push(e); afterHist("Возвращено", e.sel); if (e.liq && liq===e.liq) liq.cv=contentVer; }
+function undo(){ if (crop){ toast('Сначала заверши кадрирование: Enter или Esc',1600); return; } if (pup){ toast('В марионетке: убери булавку или нажми «Сбросить»',1600); return; } if(edge){ edgeCancel(); return; } if (adjEdit) adjClose(); if(stroke||xf||liqStroke) return; const e=undoStack.pop(); if(!e){ toast('Нечего отменять'); return; } e.undo(); redoStack.push(e); afterHist('Отменено', e.sel); if (e.liq && liq===e.liq) liq.cv=contentVer; }
+function redo(){ if (pup||crop) return; if (adjEdit) adjClose(); if(stroke||xf||liqStroke) return; const e=redoStack.pop(); if(!e){ toast("Нечего возвращать"); return; } e.redo(); undoStack.push(e); afterHist("Возвращено", e.sel); if (e.liq && liq===e.liq) liq.cv=contentVer; }
 function afterHist(msg, selOnly){ if(selOnly){ requestRender(); toast(msg,900); return; } doc.active=clamp(doc.active,0,doc.layers.length-1); if(!AL().mask) doc.editMask=false; doc.layers.forEach(L=>L.dirty=true); layersChanged(); requestRender(); markDirty(); toast(msg,900); }
 function grab(canvas,r){ return ctx2(canvas).getImageData(r.x,r.y,r.w,r.h); }
 function clipRect(x,y,w,h){ const x0=clamp(Math.floor(x),0,doc.w), y0=clamp(Math.floor(y),0,doc.h), x1=clamp(Math.ceil(x+w),0,doc.w), y1=clamp(Math.ceil(y+h),0,doc.h); return {x:x0,y:y0,w:x1-x0,h:y1-y0}; }
@@ -5930,7 +5941,7 @@ function tabsAdopt(){ // called from layersChanged: whatever document is current
 function tabBusy(){
   if (stroke || (typeof liqStroke!=='undefined' && liqStroke)) return true;
   if (xf){ toast('Сначала примени или отмени трансформ'); return true; }
-  if (edge||harm||filt||gen||aip||(lift&&lift.open)||pup){ toast('Сначала закрой открытую панель — потом переключай документ',2400); return true; }
+  if (edge||harm||filt||gen||aip||(lift&&lift.open)||pup||crop){ toast('Сначала закрой открытую панель — потом переключай документ',2400); return true; }
   return false;
 }
 async function tabSwitch(t){
@@ -6046,6 +6057,7 @@ function showHelpPad(){
    <dt>Волшебная палочка (W)</dt><dd>Тап выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы.</dd>
    <dt>Тап по масштабу</dt><dd>Плашка внизу слева: вписать холст и сбросить поворот.</dd>
    <dt>Картинка слоем</dt><dd>Перетащи фото из «Фото» или «Файлов» прямо на холст (Split View или Slide Over), либо вставь из буфера.</dd>
+   <dt>Кадрирование, размер</dt><dd>Меню ☰ → «Кадрировать», «Размер изображения», «Размер холста» — как в фотошопе. Кадрирование: тяни углы рамки карандашом, «Кадрировать» — применить. Увеличение с сохранением деталей идёт через ИИ на компьютере, без него — чёткий Lanczos.</dd>
    <dt>Марионеточная деформация (P)</dt><dd>Трансформ → «Марионетка» (или клавиша P). На слой (или выделенную часть) ложится сетка; тап карандашом ставит булавку, тяни — изображение гнётся вслед, остальное держат другие булавки. «Жёстко / Обычно / Искажение» — насколько части тянутся. «Вперёд / Назад» — что окажется сверху при наложении. Enter / «Применить» — одна отмена.</dd>
    <dt>Маска</dt><dd>Кисть скрывает, ластик возвращает. Выбор между слоем и маской — тап по миниатюре.</dd>
   </dl>
@@ -6053,7 +6065,7 @@ function showHelpPad(){
   <p class="kbd">С клавиатурой: B кисть · E ластик · L лассо · M прямоугольник · V трансформ · I пипетка · [ ] размер · ⌘Z / ⇧⌘Z · ⌘D снять выделение · ⇧⌘I инвертировать выделение · ⌘I инвертировать маску · Enter применить · Esc отмена</p>`,
   [['Понятно', ()=>{ try{localStorage.setItem('kadr.help','1');}catch(e){} }, true]]);
 }
-const HELP_PC_TOOLS=[["Инструменты слева", "Похожие собраны в группы: рисование, выделение, умное выделение и глубина, ретушь, тон. Клик по группе берёт последний инструмент из неё, повторный клик или удержание открывает список."], ["Удаление · нейросеть (Shift+J)", "Закрась лишний объект или мусор и отпусти — нейросеть дорисует фон (на ПК — на видеокарте, через мост). Для выделения — «✦ Убрать» на нижней панели."], ["Точечная восстанавливающая кисть (J)", "Без источника: мажь по пятну, пылинке, прыщику — заполнится текстурой вокруг. Быстро и без нейросети."], ["Осветление (O), затемнение, губка, размытие, резкость, палец", "Группа «Тон и резкость». Работают кистью, мазки накапливаются — прошёл ещё раз, эффект сильнее. Осветление и затемнение: диапазон Тени / Средние / Света, «Экспозиция», «Сохранять цвет» (без пересвета и грязи). «＋ Серый слой» — неразрушающий вариант: слой 50% серого в «Мягком свете»; на нём осветление рисует светлым, затемнение — тёмным, картинка не трогается, а слабить можно прозрачностью слоя. Губка: «Приглушить» / «Насытить» — насыщенность под кистью; «Беречь яркие» не даёт пересытить и так яркие цвета. Палец размазывает, «Сила» — как далеко тянется краска. «Все слои» — берёт видимую картинку со всех слоёв и кладёт результат на текущий слой: удобно на пустом слое сверху."], ["Глубина", "Группа «Умное выделение и глубина». Нейросеть на ПК через мост (или в браузере) строит карту глубины (первый раз скачает модель ~27 МБ). «Выделение» — клик по объекту выделяет всё на его глубине, «Ближе» / «Дальше» расширяют диапазон. «Дымка» — новый слой цвета кисти с маской по глубине: чем дальше, тем гуще. «Размытие» — клик по тому, что должно остаться резким; дальнее и ближнее размоется, результат ложится новым слоем сверху. «Карта» — показать саму карту глубины."], ["Размытие / резкость слоя", "Панель слоёв → «Размытие / резкость»: размытие объектива (блики раскрываются в боке, форма диафрагмы — круг или лепестки, зерно, чтобы размытое не выглядело пластиком), размытие по Гауссу или контурная резкость (сила, радиус, порог) на весь активный слой. Если есть выделение — только на выделенное, с мягким краем. Пока двигаешь ползунки — видно сразу; «Применить» — одна отмена."], ["Корректирующие слои", "Панель слоёв → «+ Корректирующий слой»: кривые, уровни, цветовой тон / насыщенность, цветовой баланс. Меняют всё, что под ними, не трогая пиксели; настройки можно поменять в любой момент — клик по значку слоя. Кисть и ластик на таком слое рисуют его маску. «Только на слой ниже» — эффект только на слой прямо под ним (как обтравочная маска). Внутри группы с обычным наложением действует только на группу. «Слить вниз» впечатывает коррекцию в слой. В PSD уходят настоящими корректирующими слоями. Кривые: клик по линии — новая точка, тянуть — двигать, утащить за край — удалить."], ["Гармонизация", "Панель слоёв → «Гармонизация — цвет под фон». Подгоняет свет и цвет вставленного фрагмента под то, что под ним, как гармонизация в фотошопе. Без выделения берётся весь слой, с выделением — только выделенное (подойдёт и для склеенной картинки). «Ориентир»: «Вокруг» — смотрит на полосу фона вокруг фрагмента, «Весь фон» — на всю картинку под слоем. «Свет» и «Цвет» — что именно подгонять, «Насыщенность» — добавить или убрать сочности после подгонки."], ["Заплатка (Shift+J)", "Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение."], ["Штамп (S) и восстанавливающая кисть (Shift+J)", "Источник — кружок на холсте: перетащи его на чистое место (рядом появится лупа) или Alt + клик, потом рисуй. Штамп копирует как есть, восстанавливающая кисть ещё и подгоняет цвет и свет под место. «Выровнять» — источник едет вместе с кистью между мазками."], ["Снять выделение", "Ctrl+D, кнопка ✕ вверху или клик мимо картинки в инструментах выделения."], ["Край выделения", "Кнопка «Край…» на панели выделения: сгладить, растушевать, сузить или расширить. Красным подсвечено то, что не попадёт в выделение. Enter — применить, Esc — отмена."], ["Волшебная палочка (W)", "Клик выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы."], ["Картинка слоем", "Перетащи файл в окно или вставь из буфера (Ctrl+V)."], ["Марионеточная деформация (P)", "Трансформ → «Марионетка» или клавиша P. На слой (или выделенную часть) ложится сетка; клик ставит булавку, тяни — изображение гнётся, остальное держат другие булавки. Alt+клик по булавке или Delete — убрать. «Жёстко / Обычно / Искажение» — насколько части тянутся; «Вперёд / Назад» — что сверху при наложении. Enter — применить, Esc — отмена."], ["Маска", "Кисть скрывает, ластик возвращает. Выбор между слоем и маской — клик по миниатюре."]];
+const HELP_PC_TOOLS=[["Кадрирование (C)", "Рамка с затемнением снаружи и сеткой третей. Тяни углы и стороны, внутри — двигать, снаружи — новая рамка, Shift держит пропорции. Пропорции: свободно, оригинал, 1:1, 4:5, 3:2, 16:9, 9:16, «Повернуть рамку». Рамка может выйти за картинку — холст вырастет (новое поле прозрачное). Enter — кадрировать, Esc — отмена; одна отмена Ctrl+Z."],["Размер изображения (Ctrl+Alt+I)", "Как в фотошопе: ширина/высота в пикселях или процентах, разрешение ppi и размер отпечатка в см. «Сохранение деталей · ИИ» увеличивает через Real-ESRGAN в Automatic1111 на компьютере — новые детали вместо мыла; без компьютера — Lanczos (резкий, без ступенек). Для уменьшения — «Бикубическая, чётче». Маски и прозрачность масштабируются отдельно и чисто. Без «Менять пиксели» меняется только ppi."],["Размер холста (Ctrl+Alt+C)", "Картинка не масштабируется: холст растёт или обрезается вокруг привязки (сетка 3×3). «Относительно» — сколько добавить. Новое поле — прозрачное или залито цветом на нижнем слое; маски в новом поле открыты."],["Инструменты слева", "Похожие собраны в группы: рисование, выделение, умное выделение и глубина, ретушь, тон. Клик по группе берёт последний инструмент из неё, повторный клик или удержание открывает список."], ["Удаление · нейросеть (Shift+J)", "Закрась лишний объект или мусор и отпусти — нейросеть дорисует фон (на ПК — на видеокарте, через мост). Для выделения — «✦ Убрать» на нижней панели."], ["Точечная восстанавливающая кисть (J)", "Без источника: мажь по пятну, пылинке, прыщику — заполнится текстурой вокруг. Быстро и без нейросети."], ["Осветление (O), затемнение, губка, размытие, резкость, палец", "Группа «Тон и резкость». Работают кистью, мазки накапливаются — прошёл ещё раз, эффект сильнее. Осветление и затемнение: диапазон Тени / Средние / Света, «Экспозиция», «Сохранять цвет» (без пересвета и грязи). «＋ Серый слой» — неразрушающий вариант: слой 50% серого в «Мягком свете»; на нём осветление рисует светлым, затемнение — тёмным, картинка не трогается, а слабить можно прозрачностью слоя. Губка: «Приглушить» / «Насытить» — насыщенность под кистью; «Беречь яркие» не даёт пересытить и так яркие цвета. Палец размазывает, «Сила» — как далеко тянется краска. «Все слои» — берёт видимую картинку со всех слоёв и кладёт результат на текущий слой: удобно на пустом слое сверху."], ["Глубина", "Группа «Умное выделение и глубина». Нейросеть на ПК через мост (или в браузере) строит карту глубины (первый раз скачает модель ~27 МБ). «Выделение» — клик по объекту выделяет всё на его глубине, «Ближе» / «Дальше» расширяют диапазон. «Дымка» — новый слой цвета кисти с маской по глубине: чем дальше, тем гуще. «Размытие» — клик по тому, что должно остаться резким; дальнее и ближнее размоется, результат ложится новым слоем сверху. «Карта» — показать саму карту глубины."], ["Размытие / резкость слоя", "Панель слоёв → «Размытие / резкость»: размытие объектива (блики раскрываются в боке, форма диафрагмы — круг или лепестки, зерно, чтобы размытое не выглядело пластиком), размытие по Гауссу или контурная резкость (сила, радиус, порог) на весь активный слой. Если есть выделение — только на выделенное, с мягким краем. Пока двигаешь ползунки — видно сразу; «Применить» — одна отмена."], ["Корректирующие слои", "Панель слоёв → «+ Корректирующий слой»: кривые, уровни, цветовой тон / насыщенность, цветовой баланс. Меняют всё, что под ними, не трогая пиксели; настройки можно поменять в любой момент — клик по значку слоя. Кисть и ластик на таком слое рисуют его маску. «Только на слой ниже» — эффект только на слой прямо под ним (как обтравочная маска). Внутри группы с обычным наложением действует только на группу. «Слить вниз» впечатывает коррекцию в слой. В PSD уходят настоящими корректирующими слоями. Кривые: клик по линии — новая точка, тянуть — двигать, утащить за край — удалить."], ["Гармонизация", "Панель слоёв → «Гармонизация — цвет под фон». Подгоняет свет и цвет вставленного фрагмента под то, что под ним, как гармонизация в фотошопе. Без выделения берётся весь слой, с выделением — только выделенное (подойдёт и для склеенной картинки). «Ориентир»: «Вокруг» — смотрит на полосу фона вокруг фрагмента, «Весь фон» — на всю картинку под слоем. «Свет» и «Цвет» — что именно подгонять, «Насыщенность» — добавить или убрать сочности после подгонки."], ["Заплатка (Shift+J)", "Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение."], ["Штамп (S) и восстанавливающая кисть (Shift+J)", "Источник — кружок на холсте: перетащи его на чистое место (рядом появится лупа) или Alt + клик, потом рисуй. Штамп копирует как есть, восстанавливающая кисть ещё и подгоняет цвет и свет под место. «Выровнять» — источник едет вместе с кистью между мазками."], ["Снять выделение", "Ctrl+D, кнопка ✕ вверху или клик мимо картинки в инструментах выделения."], ["Край выделения", "Кнопка «Край…» на панели выделения: сгладить, растушевать, сузить или расширить. Красным подсвечено то, что не попадёт в выделение. Enter — применить, Esc — отмена."], ["Волшебная палочка (W)", "Клик выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы."], ["Картинка слоем", "Перетащи файл в окно или вставь из буфера (Ctrl+V)."], ["Марионеточная деформация (P)", "Трансформ → «Марионетка» или клавиша P. На слой (или выделенную часть) ложится сетка; клик ставит булавку, тяни — изображение гнётся, остальное держат другие булавки. Alt+клик по булавке или Delete — убрать. «Жёстко / Обычно / Искажение» — насколько части тянутся; «Вперёд / Назад» — что сверху при наложении. Enter — применить, Esc — отмена."], ["Маска", "Кисть скрывает, ластик возвращает. Выбор между слоем и маской — клик по миниатюре."]];
 /* the PC version: mouse, keyboard and pen tablet; laid out wide for a landscape monitor (the iPad sheet is a tall column) */
 function showHelpDesk(){
   const K=k=>k.split('+').map(x=>'<kbd>'+x+'</kbd>').join('<i>+</i>');
@@ -6061,7 +6073,7 @@ function showHelpDesk(){
   const html=`<h3>Клавиши и мышь</h3><p>Клавиши — как в фотошопе и работают в любой раскладке. Перо планшета рисует с нажимом, мышь — без.</p>
    <div class="hkgrid">`+
    card('Холст',[['Колёсико','масштаб'],['Alt+колёсико','поворот'],['Пробел / H','держать — рука'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум'],['Tab / F','спрятать панели']])+
-   card('Правка и файл',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить PSD'],['Ctrl+Shift+S','сохранить как…'],['Ctrl+T','трансформ'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
+   card('Правка и файл',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить PSD'],['Ctrl+Shift+S','сохранить как…'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
    card('Выделение и слои',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','при выделении — добавить / вычесть'],['Ctrl+Alt+R','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift++ / Shift+-','режим наложения']])+
    card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп'],['B / E','кисть / ластик'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
    `</div><h4 class="hkt">Инструменты подробно</h4><dl class="gest gcols">`+HELP_PC_TOOLS.map(([t,d])=>'<div><dt>'+t+'</dt><dd>'+d+'</dd></div>').join('')+'</dl>';
@@ -6085,7 +6097,7 @@ async function openPsd(f){
   if (!window.agPsd) throw new Error('Библиотека PSD не загрузилась');
   const buf=await f.arrayBuffer();
   const psd=agPsd.readPsd(buf,{skipThumbnail:true,skipCompositeImageData:false});
-  createDoc(psd.width, psd.height, f.name.replace(/\.psd$/i,''));
+  createDoc(psd.width, psd.height, f.name.replace(/\.psd$/i,'')); { const ri=psd.imageResources&&psd.imageResources.resolutionInfo; if (ri && ri.horizontalResolution) doc.dpi=Math.round(ri.horizontalResolution); }
   const layers=[];
   (function walk(ch, P){ for(const c of ch||[]){
     if(c.children){ const G=newGroup(c.name||'Группа'); G.visible=!c.hidden; G.opacity=c.opacity??1; G.blend=c.blendMode==='pass through'?'pass':psdToBlend(c.blendMode||'normal'); G.collapsed=!c.opened; G.parent=P;
@@ -6219,7 +6231,7 @@ async function exportImg(kind){
         if (L.mask){ const m=mk(doc.w,doc.h), mx=ctx2(m); mx.fillStyle='#000'; mx.fillRect(0,0,doc.w,doc.h); mx.drawImage(L.mask.canvas,0,0); o.mask={canvas:m,left:0,top:0,defaultColor:0,disabled:!L.mask.enabled}; }
         return o; });
       const children=build(null);
-      const buf=agPsd.writePsd({width:doc.w,height:doc.h,children,canvas:flatten(1)},{generateThumbnail:false});
+      const buf=agPsd.writePsd({width:doc.w,height:doc.h,children,canvas:flatten(1),imageResources:{resolutionInfo:{horizontalResolution:doc.dpi||72,horizontalResolutionUnit:'PPI',widthUnit:'Inches',verticalResolution:doc.dpi||72,verticalResolutionUnit:'PPI',heightUnit:'Inches'}}},{generateThumbnail:false});
       busy(false);
       if (!dl){ await saveFile(safeName()+'.psd', new Blob([buf],{type:'image/vnd.adobe.photoshop'})); return; }
       const zip=fflate.zipSync({[safeName()+'.psd']:new Uint8Array(buf)},{level:0});
@@ -6235,7 +6247,7 @@ const safeName=()=> (doc.name||'proyavka').replace(/[\\/:*?"<>|]+/g,'_');
 document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops(); const m=b.dataset.m;
   if (m==='noop') return;
   if (xf && m!=='help' && m!=='store'){ toast('Сначала примени или отмени трансформ'); return; }
-  if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click();
+  if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click(); else if(m==='crop') cropOpen(); else if(m==='isize') imageSizeDialog(); else if(m==='csize') canvasSizeDialog();
   else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='penpick'){ S.penHoldPick=!S.penHoldPick; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; savePrefs(); toast(S.penHoldPick?'Задержи карандаш на месте ~0.5 с — появится пипетка':'Пипетка карандашом выключена; палец по-прежнему берёт цвет удержанием'); } else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
   else exportImg(m);
 });
@@ -6325,7 +6337,7 @@ function endTouch(e){
     if (gesture && !gesture.moved && Date.now()-gesture.t0<350){
       if (gesture.max===2) undo(); else if (gesture.max===3) redo(); else if (gesture.max>=4) toggleUI();
       else if (gesture.max===1 && !S.fingerDraw && onePan && !onePan.pick && (S.tool==='clone'||S.tool==='heal')){ const [x,y]=toDoc(onePan.x,onePan.y); setCloneSrc(x,y); }
-      else if (gesture.max===1 && !S.fingerDraw && !xf && !edge && !pup && !onePan?.pick && S.tool!=='wand' && S.tool!=='tap' && sel) quickDeselect();
+      else if (gesture.max===1 && !S.fingerDraw && !xf && !edge && !pup && !crop && !onePan?.pick && S.tool!=='wand' && S.tool!=='tap' && sel) quickDeselect();
     }
     gesture=null; onePan=null; if (navigating) navEnd();
   } else if (touches.size>=2 && gesture) startPinch();
@@ -6363,6 +6375,7 @@ $('#zoomBadge').onclick=()=>fitView();
 let activeTool='brush', tmpMode=null;
 function toolDown(e,p){
   if (pup){ if (e.button===2) return; toolPtr=e.pointerId; activeTool='pup'; pupDown(e,p); return; }
+  if (crop){ if (e.button===2) return; toolPtr=e.pointerId; activeTool='crop'; cropDown(p); return; }
   if (sel && !xf && !edge && ['lasso','rect','wand','tap','patch'].includes(S.tool) && !altDown){ const [dx,dy]=toDoc(...p); if (dx<0||dy<0||dx>=doc.w||dy>=doc.h){ toolPtr=null; quickDeselect(); return; } }
   if (edge){ toast('Сначала примени или отмени край выделения'); toolPtr=null; return; }
   toolPtr=e.pointerId; hover=null;
@@ -6388,6 +6401,7 @@ function toolMove(e){
   const list = evs.length ? evs : [e];
   const t=activeTool;
   if (t==='pup'){ if (pup) pupMove(stagePos(e)); return; }
+  if (t==='crop'){ if (crop) cropMove(stagePos(e), e.shiftKey); return; }
   for (const ev of list){
     const p=stagePos(ev);
     if (srcDrag){ const [x,y]=toDoc(...p); cloneSrc={x:clamp(x+srcDrag.gx,0,doc.w-1), y:clamp(y+srcDrag.gy,0,doc.h-1)}; srcDrag.p=p; }
@@ -6448,6 +6462,7 @@ const CUR={
 function selModeNow(){ return altDown ? 'sub' : shiftDown ? 'add' : S.selMode; }
 function updateCursor(){
   const st=stage.style, t=S.tool, busyMode=xf || (typeof pup!=='undefined' && pup);
+  if (typeof crop!=='undefined' && crop){ st.cursor='crosshair'; return; }
   if (panDrag || rotDrag) { st.cursor='grabbing'; return; }
   if (spaceDown || hHeld) { st.cursor='grab'; return; }
   if (zHeld) { st.cursor = altDown ? 'zoom-out' : 'zoom-in'; return; }
@@ -6467,7 +6482,7 @@ document.addEventListener('keyup', e=>{
 });
 window.addEventListener('blur', ()=>{ spaceDown=altDown=shiftDown=hHeld=zHeld=rHeld=false; panDrag=zoomDrag=rotDrag=null; updateCursor(); });
 function toolUp(e){
-  const t=activeTool; toolPtr=null; if (t==='pup'){ activeTool=null; if (pup) pupUp(); return; } if (penHold){ clearTimeout(penHold.T); penHold=null; }
+  const t=activeTool; toolPtr=null; if (t==='pup'){ activeTool=null; if (pup) pupUp(); return; } if (t==='crop'){ activeTool=null; cropUp(); return; } if (penHold){ clearTimeout(penHold.T); penHold=null; }
   if (srcDrag){ srcDrag=null; cloneOff=null; renderOverlay(); toast('Источник на месте. Рисуй карандашом',1300); }
   else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)) strokeEnd(false);
   else if (t==='patch') patchUp();
@@ -6485,6 +6500,209 @@ function toolUp(e){
 }
 function toolCancel(){ toolPtr=null; if (pup) pup.drag=null; if(liqStroke) liqEnd(true); if(penHold){ clearTimeout(penHold.T); penHold=null; } if(eye) eyeEnd(true); srcDrag=null; if(patchDrag){ patchDrag=null; patchPrev=null; } if(t_patchLasso()) lassoPts=null; wandDrag=null; wandPrev=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
 
+/* ============ Кадрирование (C), Размер холста (Ctrl+Alt+C), Размер изображения (Ctrl+Alt+I) — like Photoshop ============ */
+/* new canvas rw×rh whose top-left is (rx,ry) of the old one: crop, extend or both; one undo step */
+function canvasReframe(rx, ry, rw, rh, fill){
+  rx=Math.round(rx); ry=Math.round(ry); rw=Math.max(1,Math.round(rw)); rh=Math.max(1,Math.round(rh));
+  const W0=doc.w, H0=doc.h; if (rx===0 && ry===0 && rw===W0 && rh===H0) return false;
+  if (rw*rh>(IS_DESK?160e6:48e6)){ toast('Слишком большой холст'+(IS_DESK?'':' для iPad')); return false; }
+  if (lift) objDone(true);
+  const items=[]; for (const L of doc.layers){ if (L.canvas && !isGroup(L) && L.kind!=='adj') items.push([L,'c']); if (L.mask && L.mask.canvas) items.push([L,'m']); }
+  const keep=items.map(([L,k])=>{ const c=k==='c'?L.canvas:L.mask.canvas, q=mk(c.width,c.height); ctx2(q).drawImage(c,0,0); return q; });
+  const bottom=doc.layers.find(L=>!isGroup(L) && L.kind!=='adj');
+  const apply=()=>{ items.forEach(([L,k],i)=>{ const c=k==='c'?L.canvas:L.mask.canvas; c.width=rw; c.height=rh; const x=ctx2(c);
+      if (k==='m'){ x.fillStyle='#fff'; x.fillRect(0,0,rw,rh); x.clearRect(-rx,-ry,W0,H0); } // new mask area: shown
+      else if (L===bottom && fill){ x.fillStyle=fill; x.fillRect(0,0,rw,rh); x.clearRect(-rx,-ry,W0,H0); }
+      x.drawImage(keep[i],-rx,-ry); }); reframeFix(rw,rh); };
+  const back=()=>{ items.forEach(([L,k],i)=>{ const c=k==='c'?L.canvas:L.mask.canvas; c.width=W0; c.height=H0; ctx2(c).drawImage(keep[i],0,0); }); reframeFix(W0,H0); };
+  apply(); pushHist({undo:back, redo:apply, bytes:(W0*H0+rw*rh)*4*items.length/2});
+  return true;
+}
+function reframeFix(w,h){ doc.w=w; doc.h=h; sel=null; if (typeof depthMap!=='undefined') depthMap=null; retouchCache=null; wandCache=null; liveCacheFree();
+  for (const L of doc.layers){ L.dirty=true; L.saved=false; if (L.ctx) L.ctx=ctx2(L.canvas); if (L.mask) L.mask.ctx=ctx2(L.mask.canvas); }
+  if (typeof thumbs!=='undefined') thumbs.clear(); structVer++; contentVer++; fitView(); layersChanged(); updateSelBar(); markDirty(); requestRender(); }
+
+/* ---- Crop tool ---- */
+let crop=null;
+const CROP_RATIOS=[['free','Свободно'],['orig','Оригинал'],['1:1','1:1'],['4:5','4:5'],['3:2','3:2'],['16:9','16:9'],['9:16','9:16']];
+function cropRatio(){ const r=crop.ratio; if (r==='free') return 0; if (r==='orig') return crop.flip ? doc.h/doc.w : doc.w/doc.h; const [a,b]=r.split(':').map(Number); return crop.flip ? b/a : a/b; }
+function cropOpen(){
+  if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  const b = sel ? selBBox() : {x:0,y:0,w:doc.w,h:doc.h};
+  crop={x:b.x, y:b.y, w:b.w||doc.w, h:b.h||doc.h, ratio:'free', flip:false, drag:null};
+  $('#cropbar').hidden=false; updateSelBar(); cropBuild(); renderOverlay();
+}
+function cropClose(){ crop=null; $('#cropbar').hidden=true; updateSelBar(); renderOverlay(); }
+function cropApply(){ if (!crop) return; const c=crop; cropClose(); if (canvasReframe(c.x,c.y,c.w,c.h, null)) toast('Кадрировано: '+Math.round(c.w)+'×'+Math.round(c.h),1500); }
+function cropFit(){ const k=cropRatio(); if (!k) return; const cx=crop.x+crop.w/2, cy=crop.y+crop.h/2; let w=crop.w, h=w/k; if (h>crop.h){ h=crop.h; w=h*k; }
+  // the largest box of this ratio inside the picture, if the old one was the whole picture
+  if (Math.abs(crop.w-doc.w)<2 && Math.abs(crop.h-doc.h)<2){ w=doc.w; h=w/k; if (h>doc.h){ h=doc.h; w=h*k; } }
+  crop.x=cx-w/2; crop.y=cy-h/2; crop.w=w; crop.h=h; }
+function cropBuild(){ const c=crop, box=$('#cropbar'); if (!c) return; box.textContent='';
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='Кадрирование <span></span>'; head.lastChild.textContent=Math.round(c.w)+'×'+Math.round(c.h)+' px'; box.append(head);
+  const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>Пропорции</label><div class="seg" style="flex-wrap:wrap"></div>';
+  for (const [k,t] of CROP_RATIOS){ const b=document.createElement('button'); b.textContent=t; b.classList.toggle('on',k===c.ratio); b.onclick=()=>{ c.ratio=k; cropFit(); cropBuild(); renderOverlay(); }; r.children[1].append(b); }
+  box.append(r);
+  const foot=document.createElement('div'); foot.className='eb'; const B=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
+  const sp=document.createElement('span'); sp.style.flex='1';
+  foot.append(B('↻ Повернуть рамку',()=>{ c.flip=!c.flip; const cx=c.x+c.w/2, cy=c.y+c.h/2, w=c.h, h=c.w; c.x=cx-w/2; c.y=cy-h/2; c.w=w; c.h=h; cropBuild(); renderOverlay(); }),
+    B('Весь кадр',()=>{ c.x=0; c.y=0; c.w=doc.w; c.h=doc.h; cropFit(); cropBuild(); renderOverlay(); }), sp, B('Отмена',()=>{ cropClose(); }), B('Кадрировать',cropApply,'pri'));
+  const hint=document.createElement('div'); hint.className='gh'; hint.textContent='Тяни углы и стороны, внутри — двигать рамку, снаружи — нарисовать новую. Рамка может выйти за картинку — холст станет больше. Enter — применить, Esc — отмена.';
+  box.append(hint, foot); }
+function cropHandles(){ const c=crop, pts=[[0,0],[.5,0],[1,0],[1,.5],[1,1],[.5,1],[0,1],[0,.5]]; return pts.map(([u,v])=>({u,v, s:toScr(c.x+u*c.w, c.y+v*c.h)})); }
+function cropDown(p){ const c=crop, [dx,dy]=toDoc(...p), R=IS_DESK?10:18;
+  const h=cropHandles().find(h=>Math.hypot(h.s[0]-p[0],h.s[1]-p[1])<R);
+  if (h){ c.drag={mode:'h', u:h.u, v:h.v, b:{x:c.x,y:c.y,w:c.w,h:c.h}}; return; }
+  if (dx>=c.x && dx<=c.x+c.w && dy>=c.y && dy<=c.y+c.h){ c.drag={mode:'move', ox:dx-c.x, oy:dy-c.y}; return; }
+  c.drag={mode:'new', x0:dx, y0:dy}; }
+function cropMove(p, shift){ const c=crop, d=c.drag; if (!d) return; const [x,y]=toDoc(...p); let k=cropRatio(); if (!k && shift) k = d.b ? d.b.w/d.b.h : 1;
+  if (d.mode==='move'){ c.x=x-d.ox; c.y=y-d.oy; }
+  else if (d.mode==='new'){ let w=x-d.x0, h=y-d.y0; if (k){ const s=Math.max(Math.abs(w),Math.abs(h)*k); w=Math.sign(w||1)*s; h=Math.sign(h||1)*s/k; } c.x=Math.min(d.x0,d.x0+w); c.y=Math.min(d.y0,d.y0+h); c.w=Math.max(4,Math.abs(w)); c.h=Math.max(4,Math.abs(h)); }
+  else { const b=d.b; let x0=b.x, y0=b.y, x1=b.x+b.w, y1=b.y+b.h;
+    if (d.u===0) x0=Math.min(x,x1-4); if (d.u===1) x1=Math.max(x,x0+4); if (d.v===0) y0=Math.min(y,y1-4); if (d.v===1) y1=Math.max(y,y0+4);
+    if (k){ let w=x1-x0, h=y1-y0; if (d.u===.5){ w=h*k; x0=b.x+b.w/2-w/2; x1=x0+w; } else if (d.v===.5){ h=w/k; y0=b.y+b.h/2-h/2; y1=y0+h; } else { if (w/h>k) w=h*k; else h=w/k; if (d.u===0) x0=x1-w; else x1=x0+w; if (d.v===0) y0=y1-h; else y1=y0+h; } }
+    c.x=x0; c.y=y0; c.w=x1-x0; c.h=y1-y0; }
+  const s=$('#cropbar .eh span'); if (s) s.textContent=Math.round(c.w)+'×'+Math.round(c.h)+' px'; requestOverlay(); }
+function cropUp(){ if (crop) crop.drag=null; renderOverlay(); }
+function cropOverlay(ox){ const c=crop, m=viewM(), T=(x,y)=>[m[0]*x+m[2]*y+m[4], m[1]*x+m[3]*y+m[5]];
+  const q=[T(c.x,c.y),T(c.x+c.w,c.y),T(c.x+c.w,c.y+c.h),T(c.x,c.y+c.h)];
+  ox.save(); ox.beginPath(); ox.rect(0,0,oc.width,oc.height); ox.moveTo(...q[0]); ox.lineTo(...q[3]); ox.lineTo(...q[2]); ox.lineTo(...q[1]); ox.closePath(); ox.fillStyle='rgba(10,11,13,.55)'; ox.fill('evenodd'); ox.restore();
+  ox.beginPath(); q.forEach((p,i)=>i?ox.lineTo(...p):ox.moveTo(...p)); ox.closePath(); ox.lineWidth=1.5; ox.strokeStyle='#fff'; ox.stroke();
+  ox.beginPath(); for (const t of [1/3,2/3]){ ox.moveTo(...T(c.x+c.w*t,c.y)); ox.lineTo(...T(c.x+c.w*t,c.y+c.h)); ox.moveTo(...T(c.x,c.y+c.h*t)); ox.lineTo(...T(c.x+c.w,c.y+c.h*t)); } ox.lineWidth=0.8; ox.strokeStyle='rgba(255,255,255,.45)'; ox.stroke();
+  for (const h of cropHandles()){ ox.beginPath(); ox.rect(h.s[0]-4,h.s[1]-4,8,8); ox.fillStyle='#fff'; ox.fill(); ox.lineWidth=1; ox.strokeStyle='#111'; ox.stroke(); } }
+
+/* ---- Canvas size ---- */
+function canvasSizeDialog(){
+  if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  const d=dialog(`<h3>Размер холста</h3><p>Сейчас ${doc.w}×${doc.h} px. Картинка не масштабируется — холст обрезается или растёт вокруг неё.</p>
+    <div class="dims"><label>Ширина <input id="csW" type="number" min="1" value="${doc.w}"></label><label>Высота <input id="csH" type="number" min="1" value="${doc.h}"></label>
+    </div><label class="chk" style="display:flex;gap:8px;align-items:center;margin:8px 0 4px"><input id="csRel" type="checkbox"> Относительно — сколько добавить (минус — срезать)</label>
+    <div style="display:flex;gap:16px;align-items:center;margin:10px 0"><div><div style="font-size:12.5px;color:var(--muted);margin:0 0 6px">Привязка</div><div id="csAnc" class="anc"></div></div>
+    <div class="row" style="flex:1;flex-direction:column;align-items:stretch;gap:6px"><label style="width:auto">Цвет нового поля (нижний слой)</label><select id="csFill" style="height:38px;min-height:38px"><option value="">прозрачный</option><option value="#ffffff">белый</option><option value="#000000">чёрный</option><option value="fg">основной цвет</option><option value="bg">фоновый цвет</option></select></div></div>`,
+    [['Отмена',null],['OK', dd=>{ const rel=dd.querySelector('#csRel').checked; let w=+dd.querySelector('#csW').value||0, h=+dd.querySelector('#csH').value||0; if (rel){ w+=doc.w; h+=doc.h; }
+      if (w<1||h<1){ toast('Размер должен быть больше нуля'); return false; } const [ax,ay]=anc; const rx=Math.round((doc.w-w)*ax/2), ry=Math.round((doc.h-h)*ay/2);
+      const f=dd.querySelector('#csFill').value, fill = f==='fg' ? S.color : f==='bg' ? (S.bgColor||'#fff') : (f||null);
+      if (canvasReframe(rx,ry,w,h,fill)) toast('Холст '+w+'×'+h,1400); }, true]]);
+  let anc=[1,1]; const g=d.querySelector('#csAnc');
+  for (let j=0;j<3;j++) for (let i=0;i<3;i++){ const b=document.createElement('button'); b.dataset.i=i; b.dataset.j=j; b.onclick=()=>{ anc=[i,j]; g.querySelectorAll('button').forEach(x=>x.classList.toggle('on', +x.dataset.i===i && +x.dataset.j===j)); }; b.classList.toggle('on', i===1&&j===1); g.append(b); }
+  d.querySelector('#csRel').onchange=e=>{ const on=e.target.checked; d.querySelector('#csW').value=on?0:doc.w; d.querySelector('#csH').value=on?0:doc.h; };
+}
+
+/* ---- Image size: resampling with detail preservation ---- */
+const RSGL={};
+function rsGL(){ // separable Lanczos-3 on the GPU (premultiplied alpha), any scale; float intermediate where available
+  if (RSGL.gl && !RSGL.gl.isContextLost()) return RSGL;
+  const c=document.createElement('canvas'); c.width=c.height=1; const gl=c.getContext('webgl2',{premultipliedAlpha:true, preserveDrawingBuffer:true, antialias:false, alpha:true, depth:false, stencil:false});
+  if (!gl) return null; const fl=!!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float');
+  const sh=(t,s)=>{ const o=gl.createShader(t); gl.shaderSource(o,s); gl.compileShader(o); if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const pr=gl.createProgram();
+  gl.attachShader(pr, sh(gl.VERTEX_SHADER, `#version 300 es
+in vec2 p; void main(){ gl_Position=vec4(p,0.0,1.0); }`));
+  gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, `#version 300 es
+precision highp float; uniform sampler2D src; uniform int dir; uniform float scale; uniform ivec2 srcSize; uniform int flip; uniform float outH; out vec4 o;
+float lz(float x){ x=abs(x); if (x<1e-5) return 1.0; if (x>=3.0) return 0.0; float a=3.14159265*x; return 3.0*sin(a)*sin(a/3.0)/(a*a); }
+void main(){ vec2 f=gl_FragCoord.xy; if (flip==1) f.y=outH-f.y;
+  float pos = dir==0 ? f.x : f.y; float s=(pos)/scale-0.5; float k=min(1.0,scale), sup=3.0/k;
+  int i0=int(floor(s-sup))+1, i1=int(floor(s+sup)); vec4 acc=vec4(0.0); float ws=0.0; int n = dir==0 ? srcSize.x : srcSize.y; int other = dir==0 ? int(f.y) : int(f.x);
+  for (int i=i0;i<=i1;i++){ if (i-i0>96) break; float w=lz((float(i)-s)*k); int ii=clamp(i,0,n-1); vec4 t = dir==0 ? texelFetch(src, ivec2(ii,other), 0) : texelFetch(src, ivec2(other,ii), 0); acc+=w*t; ws+=w; }
+  o=clamp(acc/ws, 0.0, 1.0); o.rgb=min(o.rgb, vec3(o.a)); }`));
+  gl.linkProgram(pr); if (!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+  const vb=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vb); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  Object.assign(RSGL,{gl,c,pr,fl,vb,max:gl.getParameter(gl.MAX_TEXTURE_SIZE)}); return RSGL;
+}
+function lanczosResize(src, W, H){ // canvas → new canvas W×H
+  const G=rsGL(); if (!G || Math.max(W,H,src.width,src.height)>G.max){ const c=mk(W,H), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(src,0,0,W,H); return c; }
+  const gl=G.gl; gl.useProgram(G.pr); const lp=gl.getAttribLocation(G.pr,'p'); gl.bindBuffer(gl.ARRAY_BUFFER,G.vb); gl.enableVertexAttribArray(lp); gl.vertexAttribPointer(lp,2,gl.FLOAT,false,0,0);
+  const t0=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t0); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,src);
+  for (const p of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST);
+  // pass 1: horizontal into a texture W×H0
+  const t1=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t1); if (G.fl) gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,W,src.height,0,gl.RGBA,gl.HALF_FLOAT,null); else gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,W,src.height,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+  for (const p of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST);
+  const fb=gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER,fb); gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t1,0);
+  gl.viewport(0,0,W,src.height); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,t0);
+  const U=n=>gl.getUniformLocation(G.pr,n); gl.uniform1i(U('src'),0); gl.uniform1i(U('dir'),0); gl.uniform1f(U('scale'),W/src.width); gl.uniform2i(U('srcSize'),src.width,src.height); gl.uniform1i(U('flip'),0); gl.uniform1f(U('outH'),src.height);
+  gl.disable(gl.BLEND); gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  // pass 2: vertical onto the canvas (flipped: the canvas' first row is at the bottom)
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null); G.c.width=W; G.c.height=H; gl.viewport(0,0,W,H); gl.bindTexture(gl.TEXTURE_2D,t1);
+  gl.uniform1i(U('dir'),1); gl.uniform1f(U('scale'),H/src.height); gl.uniform2i(U('srcSize'),W,src.height); gl.uniform1i(U('flip'),1); gl.uniform1f(U('outH'),H);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  const out=mk(W,H); ctx2(out).drawImage(G.c,0,0); gl.deleteTexture(t0); gl.deleteTexture(t1); gl.deleteFramebuffer(fb); G.c.width=G.c.height=1; return out;
+}
+async function aiUpscale(src, W, H, onStep){ // RGB through Real-ESRGAN on the PC (Automatic1111), alpha by Lanczos
+  const f=W/src.width, rgb=mk(src.width,src.height), x=ctx2(rgb); x.fillStyle='#808080'; x.fillRect(0,0,rgb.width,rgb.height); x.drawImage(src,0,0);
+  let ups=[]; try{ ups=(await (await sdFetch('/sdapi/v1/upscalers',{},15000)).json()).map(u=>u.name); }catch(e){}
+  const name=['R-ESRGAN 4x+','4x-UltraSharp','ESRGAN_4x','R-ESRGAN General 4xV3'].find(n=>ups.includes(n)) || ups.find(n=>/ESRGAN|SwinIR|DAT/i.test(n)); if (!name) throw new Error('в Automatic1111 нет ИИ-апскейлера');
+  if (onStep) onStep('ИИ-увеличение на компьютере ('+name+')…');
+  const b64=rgb.toDataURL('image/png').split(',')[1];
+  const r=await (await sdFetch('/sdapi/v1/extra-single-image',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({image:b64, resize_mode:0, upscaling_resize:Math.min(8,f*1.0001), upscaler_1:name, show_extras_results:true})}, 900000)).json();
+  if (!r.image) throw new Error(r.detail||r.error||'апскейлер не вернул картинку');
+  const im=await createImageBitmap(await (await fetch('data:image/png;base64,'+r.image)).blob());
+  const out=mk(W,H), ox=ctx2(out); ox.imageSmoothingQuality='high'; ox.drawImage(im,0,0,W,H); im.close&&im.close();
+  // alpha: Lanczos of the original alpha
+  const a=lanczosResize(src,W,H); ox.globalCompositeOperation='destination-in'; ox.drawImage(a,0,0); ox.globalCompositeOperation='source-over';
+  return out;
+}
+function resampleCanvas(src, W, H, method){
+  if (method==='nearest'){ const c=mk(W,H), x=ctx2(c); x.imageSmoothingEnabled=false; x.drawImage(src,0,0,W,H); return c; }
+  if (method==='bicubic'){ const c=mk(W,H), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(src,0,0,W,H); return c; }
+  return lanczosResize(src,W,H); // 'detail' and 'sharper'
+}
+async function imageResize(W, H, dpi, method){
+  W=Math.max(1,Math.round(W)); H=Math.max(1,Math.round(H)); const W0=doc.w, H0=doc.h;
+  if (W===W0 && H===H0){ if (dpi && dpi!==doc.dpi){ const o=doc.dpi; doc.dpi=dpi; pushHist({undo(){ doc.dpi=o; }, redo(){ doc.dpi=dpi; }}); markDirty(); toast('Разрешение '+dpi+' ppi',1200); } return; }
+  if (W*H>(IS_DESK?160e6:48e6)){ toast('Слишком большой размер'+(IS_DESK?'':' для iPad')); return; }
+  if (lift) objDone(true);
+  const up=W*H>W0*H0, m = method==='auto' ? (up ? (genCfg.sdUrl && await pcML() ? 'ai' : 'detail') : 'sharper') : method;
+  const items=[]; for (const L of doc.layers){ if (L.canvas && !isGroup(L) && L.kind!=='adj') items.push([L,'c']); if (L.mask && L.mask.canvas) items.push([L,'m']); }
+  const keep=items.map(([L,k])=>{ const c=k==='c'?L.canvas:L.mask.canvas, q=mk(c.width,c.height); ctx2(q).drawImage(c,0,0); return q; });
+  const made=[]; let aiFail=null;
+  try{
+    for (let i=0;i<items.length;i++){ const [L,k]=items[i], src=keep[i];
+      busy(true,'Меняю размер: '+L.name+(k==='m'?' (маска)':'')+' · '+(i+1)+' из '+items.length+'…'); await nextFrame();
+      let out=null;
+      if (m==='ai' && k==='c' && !aiFail){ const b=aeMaskBounds(aeM(src,{x:0,y:0,w:W0,h:H0}));
+        if (b){ try{ const kx=W/W0, ky=H/H0, piece=mk(b.w,b.h); ctx2(piece).drawImage(src,b.x,b.y,b.w,b.h,0,0,b.w,b.h);
+            const big=await aiUpscale(piece, Math.round(b.w*kx), Math.round(b.h*ky), t=>busy(true,t+' · '+L.name)); out=mk(W,H); ctx2(out).drawImage(big, Math.round(b.x*kx), Math.round(b.y*ky)); }
+          catch(e){ aiFail=e; console.warn('ai upscale', e); } }
+        else out=mk(W,H); }
+      made.push(out || resampleCanvas(src, W, H, m==='ai' ? 'detail' : m));
+    }
+  }catch(e){ busy(false); toast('Размер не изменился: '+e.message,4000); return; }
+  busy(false);
+  const o={dpi:doc.dpi||72}, dpi1=dpi||doc.dpi||72;
+  const apply=list=>{ items.forEach(([L,k],i)=>{ const c=k==='c'?L.canvas:L.mask.canvas, s=list[i]; c.width=s.width; c.height=s.height; ctx2(c).drawImage(s,0,0); }); };
+  const red=()=>{ apply(made); doc.dpi=dpi1; reframeFix(W,H); }, und=()=>{ apply(keep); doc.dpi=o.dpi; reframeFix(W0,H0); };
+  red(); pushHist({undo:und, redo:red, bytes:(W0*H0+W*H)*4*items.length/2});
+  toast('Размер '+W+'×'+H+(aiFail?' · ИИ не сработал ('+aiFail.message+'), увеличено Lanczos':m==='ai'?' · ИИ-увеличение':''),aiFail?5000:1800);
+}
+function imageSizeDialog(){
+  if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  const dpi0=doc.dpi||72, pc=!!genCfg.sdUrl;
+  const d=dialog(`<h3>Размер изображения</h3><p>Сейчас ${doc.w}×${doc.h} px · ${dpi0} ppi.</p>
+    <div class="dims"><label>Ширина, px <input id="isW" type="number" min="1" value="${doc.w}"></label><label>Высота, px <input id="isH" type="number" min="1" value="${doc.h}"></label><label>Разрешение, ppi <input id="isD" type="number" min="1" value="${dpi0}"></label></div>
+    <div class="seg" id="isPct" style="margin:8px 0;flex-wrap:wrap"><button data-k="0.5">50%</button><button data-k="1">100%</button><button data-k="1.5">150%</button><button data-k="2">200%</button><button data-k="3">300%</button><button data-k="4">400%</button></div>
+    <label class="chk" style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" id="isLink" checked> Сохранять пропорции</label>
+    <label class="chk" style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" id="isRes" checked> Менять пиксели (иначе меняется только разрешение для печати)</label>
+    <div class="row" style="margin:8px 0"><label>Метод</label><select id="isM" style="flex:1;min-width:0">
+      <option value="auto">Автоматически</option>
+      <option value="ai" ${pc?'':'disabled'}>Сохранение деталей · ИИ на компьютере (увеличение)</option>
+      <option value="detail">Сохранение деталей · Lanczos</option>
+      <option value="bicubic">Бикубическая (плавные градиенты)</option>
+      <option value="sharper">Бикубическая, чётче (уменьшение)</option>
+      <option value="nearest">По соседним пикселям (чёткие края)</option></select></div>
+    <p class="gh" id="isInfo" style="margin:6px 0 0"></p>`,
+    [['Отмена',null],['OK', dd=>{ const W=+dd.querySelector('#isW').value, H=+dd.querySelector('#isH').value, D=+dd.querySelector('#isD').value||dpi0;
+      if (!dd.querySelector('#isRes').checked){ imageResize(doc.w, doc.h, D, 'auto'); return; } setTimeout(()=>imageResize(W,H,D,dd.querySelector('#isM').value),30); }, true]]);
+  const w=d.querySelector('#isW'), h=d.querySelector('#isH'), D=d.querySelector('#isD'), link=d.querySelector('#isLink'), res=d.querySelector('#isRes'), info=d.querySelector('#isInfo'), M=d.querySelector('#isM');
+  const upd=()=>{ const cm=v=>(v/(+D.value||dpi0)*2.54).toFixed(1); info.textContent='Отпечаток: '+cm(+w.value)+' × '+cm(+h.value)+' см · '+(((+w.value)*(+h.value)*4)/1048576).toFixed(0)+' МБ на слой'+((+w.value)>doc.w && M.value==='auto' ? (pc?' · увеличение пойдёт через ИИ на компьютере':' · увеличение — Lanczos (ИИ — когда подключён компьютер)') : ''); };
+  w.oninput=()=>{ if (link.checked) h.value=Math.max(1,Math.round(+w.value*doc.h/doc.w)); upd(); };
+  h.oninput=()=>{ if (link.checked) w.value=Math.max(1,Math.round(+h.value*doc.w/doc.h)); upd(); };
+  D.oninput=()=>{ if (!res.checked) upd(); else upd(); }; M.onchange=upd;
+  res.onchange=()=>{ w.disabled=h.disabled=!res.checked; if (!res.checked){ w.value=doc.w; h.value=doc.h; } upd(); };
+  d.querySelectorAll('#isPct button').forEach(b=>b.onclick=()=>{ const k=+b.dataset.k; w.value=Math.round(doc.w*k); h.value=Math.round(doc.h*k); upd(); });
+  upd();
+}
+
 /* keyboard */
 /* Keys follow Photoshop (Windows; ⌘ works for Ctrl on a Mac keyboard). Letters are read from the physical key (e.code),
    so they work in the Russian layout too, like in Photoshop. */
@@ -6499,6 +6717,7 @@ document.addEventListener('keydown', e=>{
   if (e.key==='Shift'){ if (!shiftDown){ shiftDown=true; updateCursor(); } return; }
   const k=e.key.toLowerCase(), mod=e.metaKey||e.ctrlKey, C=e.code||'';
   const L = C.startsWith('Key') ? C.slice(3).toLowerCase() : C.startsWith('Digit') ? C.slice(5) : C.startsWith('Numpad') && /\d$/.test(C) ? C.slice(-1) : k;
+  if (crop){ if (k==='enter'){ e.preventDefault(); cropApply(); return; } if (k==='escape'){ e.preventDefault(); cropClose(); return; } if (!mod && L!=='h' && L!=='z' && L!=='r') return; }
   if (pup){ e.preventDefault(); if (k==='enter') pupApply(); else if (k==='escape') pupClose(); else if ((k==='delete'||k==='backspace') && pup.selPin>=0) pupDelPin(pup.selPin); else if (mod && L==='z') toast('В марионетке: убери булавку или нажми «Сбросить»',1600); return; }
   const st=()=>stage.getBoundingClientRect(), need=()=>{ if (!doc) return false; if (xf){ toast('Сначала примени или отмени трансформ'); return false; } return true; };
   if (mod){
@@ -6515,11 +6734,13 @@ document.addEventListener('keydown', e=>{
     if (!doc) return;
     if (L==='d') return go(()=> e.shiftKey ? reselect() : deselect());
     if (L==='a') return go(()=>{ if (need()) applySelPoly([[0,0],[doc.w,0],[doc.w,doc.h],[0,doc.h]]); });
+    if (L==='i' && e.altKey) return go(()=>imageSizeDialog());
     if (L==='i') return go(()=>{ if (!need()) return; if (e.shiftKey){ if (sel) invertSel(); } else if (AL().mask && doc.editMask) invertMask(); else invertPixels(); });
     if (L==='g') return go(()=>{ if (!need()) return; if (e.altKey) toast('Обтравочная маска: в Проявке она есть у корректирующих слоёв — «Только на слой ниже»',3000); else if (e.shiftKey) ungroup(); else makeGroup(); });
     if (L==='j') return go(()=>{ if (!need()) return; if (e.shiftKey){ if (sel) selCutToLayer(); else toast('Сначала выдели, что вырезать'); } else sel ? selCopyToLayer() : dupLayer(); });
     if (L==='s') return go(()=>{ saveFile.again=!e.shiftKey; exportImg('psd').finally(()=>{ saveFile.again=false; }); });
     if (L==='t') return go(()=>setTool('transform'));
+    if (L==='c' && e.altKey) return go(()=>canvasSizeDialog());
     if (L==='e') return go(()=>{ if (!need()) return; if (e.shiftKey && e.altKey) stampVisible(); else if (e.shiftKey) toast('«Слить видимые» пока нет — есть Ctrl+Alt+Shift+E (копия видимого новым слоем)',3000); else mergeDown(); });
     if (L==='n' && e.shiftKey) return go(()=>{ if (need()) $('#lyAdd').click(); });
     if (L==='m' || L==='l' || L==='u' || L==='b') return go(()=>{ if (need()) addAdj({m:'curves', l:'levels', u:'hue', b:'balance'}[L]); });
@@ -6535,6 +6756,7 @@ document.addEventListener('keydown', e=>{
   if (e.shiftKey && C==='F6'){ e.preventDefault(); if (sel) edgeOpen(); return; }
   if (k==='tab' || (L==='f' && !e.shiftKey)){ e.preventDefault(); toggleUI(); return; }
   if (L==='p'){ pupOpen(); return; }
+  if (L==='c' && !e.shiftKey){ if (!document.querySelector('.scrim')) cropOpen(); return; }
   if (L==='d'){ S.bgColor='#ffffff'; setColor('#000000'); toast('Цвета по умолчанию: чёрный / белый',1000); return; }
   if (L==='x'){ const f=S.color, b=S.bgColor||'#ffffff'; S.bgColor=f; setColor(b); toast('Цвета поменялись местами · основной '+b,1100); return; }
   if (L==='h'){ if (!e.repeat){ hHeld=true; updateCursor(); } return; }
@@ -6661,7 +6883,7 @@ async function autosave(force, D0){
         if (L.mask){ keys.push('m'+L.id); if (need) put[P+'m'+L.id]=await toBlobBg(L.mask.canvas,'image/png'); }
       }catch(e){ throw e; }
     }
-    put[P+'meta']={ w:D.w, h:D.h, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
+    put[P+'meta']={ w:D.w, h:D.h, dpi:D.dpi||72, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
     try{ const k=Math.min(1,360/Math.max(D.w,D.h)), cur=doc; let th; doc=D; try{ th=flatten(k,true); } finally{ doc=cur; } put[P+'thumb']=await toBlob(th,'image/jpeg',0.8); }catch(_){}
     const lib=await libGet(), e={id:D.id, name:D.name, w:D.w, h:D.h, t:Date.now(), n:D.layers.filter(x=>!isGroup(x)).length}, i=lib.findIndex(x=>x.id===D.id);
     if (i>=0) lib[i]=e; else lib.unshift(e);
@@ -6682,7 +6904,7 @@ async function restore(id){
     const P=PFX(id), m=await idbGet(P+'meta'); if(!m||!m.layers||!m.layers.length) return false;
     busy(true,'Открываю «'+(m.name||'документ')+'»…'); await nextFrame();
     resetDocState(); doc=null;
-    const D={id, keys:m.keys||[], w:m.w,h:m.h,name:m.name,layers:[],active:0,editMask:false}; doc=D;
+    const D={id, keys:m.keys||[], w:m.w,h:m.h,dpi:m.dpi||72,name:m.name,layers:[],active:0,editMask:false}; doc=D;
     const byId=new Map();
     for (const l of m.layers){
       if (l.kind==='group'){ const G=newGroup(l.name); G.id=l.id; Object.assign(G,{visible:l.visible,opacity:l.opacity,blend:l.blend,collapsed:l.collapsed}); G.__p=l.parent; byId.set(G.id,G);
@@ -6822,7 +7044,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №49 марионетка: маска и поворот'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №50 кадрирование, размер холста и изображения'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
