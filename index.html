@@ -4036,7 +4036,8 @@ async function pcSession(name){
       const res=await fetch(sdBase()+'/proyavka/ort/'+name,{method:'POST', headers:{'Content-Type':'application/octet-stream'}, body:new Blob([len,hb,...parts])});
       const buf=await res.arrayBuffer(); if (!res.ok){ let e='ошибка'; try{ e=JSON.parse(new TextDecoder().decode(buf)).error; }catch(_){ } throw new Error('ПК: '+e); }
       const hl=new DataView(buf).getUint32(0,true), h=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,4,hl))); let off=4+hl; const out={};
-      for (const k in h.out){ const t=h.out[k], C=TA[t.type]||Float32Array; out[k]={type:t.type, dims:t.dims, data:new C(buf.slice(off, off+t.len))}; off+=t.len; }
+      // an ordered list: names like «1890» would jump ahead in a JS object and the bytes would land in the wrong tensor
+      for (const t of h.out){ const C=TA[t.type]||Float32Array; out[t.name]={type:t.type, dims:t.dims, data:new C(buf.slice(off, off+t.len))}; off+=t.len; }
       return out; } };
   PC.sess[name]=sess; return sess;
 }
@@ -5849,7 +5850,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №41 тяжёлые нейросети на ПК'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №41.1 выделение на ПК исправлено'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{

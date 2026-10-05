@@ -87,10 +87,12 @@ def ort_run(name, body):
     hl = struct.unpack('<I', body[:4])[0]; head = json.loads(body[4:4 + hl].decode()); off = 4 + hl; feeds = {}
     for k, t in head['feeds'].items():
         n = t['len']; feeds[k] = np.frombuffer(body[off:off + n], dtype=DT[t['type']]).reshape(t['dims']); off += n
-    s = ort_session(name); t0 = time.time(); outs = s.run(None, feeds)
-    meta = {}; blobs = []
-    for o, v in zip(s.get_outputs(), outs):
-        v = np.ascontiguousarray(v); typ = str(v.dtype); b = v.tobytes(); meta[o.name] = {'type': typ, 'dims': list(v.shape), 'len': len(b)}; blobs.append(b)
+    s = ort_session(name); t0 = time.time()
+    want = head.get('outputs') or [s.get_outputs()[0].name]  # «Проявке» нужен только главный результат — промежуточные слои сети не гоняем по Wi-Fi
+    outs = s.run(want, feeds)
+    meta = []; blobs = []
+    for nm, v in zip(want, outs):
+        v = np.ascontiguousarray(v); typ = str(v.dtype); b = v.tobytes(); meta.append({'name': nm, 'type': typ, 'dims': list(v.shape), 'len': len(b)}); blobs.append(b)
     h = json.dumps({'out': meta, 'ms': round((time.time() - t0) * 1000)}).encode()
     return struct.pack('<I', len(h)) + h + b''.join(blobs)
 
