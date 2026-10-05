@@ -3085,7 +3085,7 @@ function genPrompt(t){ t=String(t||'').trim(); if (!t) return '';
   return t+'. Photorealistic, seamlessly blended into the surrounding scene, same lighting direction, colour temperature, perspective, grain and depth of field as the rest of the image.'; }
 function genPick(i, quiet){
   const g=gen; if (!g || !g.variants[i]) return; g.idx=i; const P=g.prep, c=g.variants[i];
-  if (!g.layer){ const L=newLayer((g.backend==='sd'?'SD':'Генерация')+(g.prompt.trim()?' · '+g.prompt.trim().slice(0,28):''));
+  if (!g.layer || !doc.layers.includes(g.layer)){ const L=newLayer((g.backend==='sd'?'SD':'Генерация')+(g.prompt.trim()?' · '+g.prompt.trim().slice(0,28):''));
     const m=newMask(L); m.ctx.clearRect(0,0,doc.w,doc.h); m.ctx.drawImage(g.selMask,0,0); L.mask=m;
     insertLayer(L, doc.active+1); g.layer=L; }
   const L=g.layer; L.ctx.clearRect(0,0,doc.w,doc.h); L.ctx.drawImage(c,P.r.x,P.r.y); L.dirty=true; thumbSoon(L); markDirty(); requestRender();
@@ -3330,7 +3330,7 @@ function sdBuild(){
     g.variants.forEach((c,i)=>{ const b=document.createElement('button'); b.className='gvar'+(i===g.idx?' on':''); const t=mk(96,Math.max(1,Math.round(96*c.height/c.width))); ctx2(t).drawImage(c,0,0,t.width,t.height); b.append(t); b.onclick=()=>genPick(i); vr.append(b); }); box.append(vr); }
   const foot=document.createElement('div'); foot.className='eb'; const B=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
   const st=B('⚙',()=>genSettings('sd')); st.title='Настройки моста'; const sp=document.createElement('span'); sp.style.flex='1';
-  if (g.busy){ foot.append(st, sp, B('Остановить',()=>{ g.cancelled=true; if(g.abort) g.abort.abort(); })); box.append(foot); return; }
+  if (g.busy){ foot.append(st, sp, B('Остановить',()=>{ g.cancelled=true; fetch(sdBase()+'/sdapi/v1/interrupt',{method:'POST'}).catch(()=>{}); if(g.abort) g.abort.abort(); })); box.append(foot); return; }
   foot.append(st, sp, B('Отмена',genCancel), B(g.variants.length?'↻ Ещё':'Сгенерировать', genGo, g.variants.length?'':'pri'));
   if (g.variants.length) foot.append(B('Готово',genDone,'pri')); box.append(foot);
 }
@@ -3359,7 +3359,19 @@ async function sdGo(){
       denoising_strength:g.str, prompt:g.prompt||'', negative_prompt:g.neg||'', steps:g.steps, cfg_scale:genCfg.sdCfg, sampler_name:genCfg.sdSampler,
       width:P.W, height:P.H, batch_size:n, n_iter:1, seed:-1, send_images:true, save_images:false };
     if (g.model) Object.assign(body, { override_settings:{ sd_model_checkpoint:g.model }, override_settings_restore_afterwards:false });
-    const r=await (await sdFetch('/sdapi/v1/img2img',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}, 600000)).json();
+    // live progress from Automatic1111 while it draws (and a way to see a stuck queue)
+    let polling=true; const t0=Date.now();
+    (async()=>{ let last=-1, lastChange=Date.now();
+      while (polling && gen===g){ await new Promise(r=>setTimeout(r,1200)); if (!polling || gen!==g) break;
+        try{ const pr=await (await fetch(sdBase()+'/sdapi/v1/progress?skip_current_image=true',{cache:'no-store'})).json(); const st=pr.state||{};
+          const pc=Math.round((pr.progress||0)*100); if (pc!==last){ last=pc; lastChange=Date.now(); }
+          const sec=Math.round((Date.now()-t0)/1000);
+          g.busy = st.job_count>0 && st.sampling_steps ? 'компьютер рисует: шаг '+(st.sampling_step||0)+' из '+st.sampling_steps+' · '+pc+'%'+(pr.eta_relative>1?' · ещё ~'+Math.round(pr.eta_relative)+' с':'')
+            : (sec<8 ? 'отправляю на компьютер…' : 'жду компьютер… '+sec+' с'+(Date.now()-lastChange>45000?' — проверь окно Automatic1111 (модель грузится или он занят)':''));
+          genBuild(); }catch(e){} } })();
+    let r;
+    try{ r=await (await sdFetch('/sdapi/v1/img2img',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}, 600000)).json(); }
+    finally{ polling=false; }
     if (gen!==g) return;
     const imgs=(r.images||[]).slice(0,n); if (!imgs.length) throw new Error(r.error||r.detail||'Automatic1111 не вернул картинку');
     for (const b64 of imgs){ const bm=await createImageBitmap(await (await fetch('data:image/png;base64,'+String(b64).split(',').pop())).blob());
@@ -5801,7 +5813,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №40.2 без логотипа в верхней панели'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №40.3 SD: прогресс и остановка'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
