@@ -2898,10 +2898,11 @@ function liqReset(){ // the whole session back to how the layer was
 /* ============ generative fill, like Firefly: selection → (optional words) → 3 variants that fit light and colour ============
    The picture around the selection (with generous context) and the selection as a mask go to an inpainting model on the
    PC (ComfyUI + FLUX.1 Fill). Only the selected area comes back: a new layer with the selection as its mask. */
-const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-2.5-flash-image', orBase:'https://openrouter.ai', orVision:'google/gemini-2.5-flash', sdUrl:'', sdPrompt:'', sdNeg:'(worst quality:2), (low quality:2), lowres, watermark, signature, blurry', sdDenoise:0.05, sdSteps:40, sdCfg:7, sdSampler:'Euler a', sdModel:'', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
+const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-2.5-flash-image', orBase:'https://openrouter.ai', orVision:'google/gemini-2.5-flash', sdUrl:'', sdPrompt:'', sdNeg:'(worst quality:2), (low quality:2), lowres, watermark, signature, blurry', sdDenoise:0.05, sdSteps:60, sdCfg:7, sdSampler:'Euler a', sdModel:'', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
 let genCfg=Object.assign({}, GEN_DEF); try{ Object.assign(genCfg, JSON.parse(localStorage.getItem('proyavka.gen')||'{}')); }catch(e){}
 if (genCfg.provider==='comfy') genCfg.provider='or';
-if (!genCfg.sdV2){ genCfg.sdDenoise=0.05; genCfg.sdV2=1; } // her SD habit: barely-there denoise, native resolution, one variant // the PC now goes through the SD bridge, ComfyUI is no longer offered
+if (!genCfg.sdV2){ genCfg.sdDenoise=0.05; genCfg.sdV2=1; }
+if (!genCfg.sdV3){ genCfg.sdSteps=60; genCfg.sdV3=1; } // as on her PC: 60 steps (A1111 runs steps × strength of them) // her SD habit: barely-there denoise, native resolution, one variant // the PC now goes through the SD bridge, ComfyUI is no longer offered
 const genSave=()=>{ try{ localStorage.setItem('proyavka.gen', JSON.stringify(genCfg)); }catch(e){} };
 let gen=null; // {layer, r, W, H, img, mask, variants:[canvas], idx, prompt, str, busy, abort}
 const genBase=()=>String(genCfg.url||'').trim().replace(/\/+$/,'');
@@ -5813,7 +5814,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №40.3 SD: прогресс и остановка'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-05 · №40.4 SD: 60 шагов'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
