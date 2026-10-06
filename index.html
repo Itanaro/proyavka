@@ -2973,12 +2973,19 @@ function liqReset(){ // the whole session back to how the layer was
 /* ============ generative fill, like Firefly: selection → (optional words) → 3 variants that fit light and colour ============
    The picture around the selection (with generous context) and the selection as a mask go to an inpainting model on the
    PC (ComfyUI + FLUX.1 Fill). Only the selected area comes back: a new layer with the selection as its mask. */
-const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-2.5-flash-image', orBase:'https://openrouter.ai', orVision:'google/gemini-2.5-flash', sdUrl:'', sdPrompt:'', sdNeg:'(worst quality:2), (low quality:2), lowres, watermark, signature, blurry', sdDenoise:0.05, sdSteps:60, sdCfg:7, sdSampler:'Euler a', sdModel:'', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
+const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-nano-banana-2.1', orRes:'1K', orBase:'https://openrouter.ai', orVision:'google/gemini-2.5-flash', sdUrl:'', sdPrompt:'', sdNeg:'(worst quality:2), (low quality:2), lowres, watermark, signature, blurry', sdDenoise:0.05, sdSteps:60, sdCfg:7, sdSampler:'Euler a', sdModel:'', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
 let genCfg=Object.assign({}, GEN_DEF); try{ Object.assign(genCfg, JSON.parse(localStorage.getItem('proyavka.gen')||'{}')); }catch(e){}
 if (genCfg.provider==='comfy') genCfg.provider='or';
 if (!genCfg.sdV2){ genCfg.sdDenoise=0.05; genCfg.sdV2=1; }
 if (!genCfg.sdV3){ genCfg.sdSteps=60; genCfg.sdV3=1; } // as on her PC: 60 steps (A1111 runs steps × strength of them) // her SD habit: barely-there denoise, native resolution, one variant // the PC now goes through the SD bridge, ComfyUI is no longer offered
 const genSave=()=>{ try{ localStorage.setItem('proyavka.gen', JSON.stringify(genCfg)); }catch(e){} };
+// Nano Banana 2.1 (Oct 2026): half the price of NB2, and Google switches gemini-3.1-flash-image off on 29 Oct — move the old Nano Banana choices over once
+const NB21='google/gemini-nano-banana-2.1';
+if (!genCfg.nb21 && /^google\/gemini-(2\.5|3\.1)-flash-image/.test(genCfg.orModel||'')){ genCfg.nbOld=genCfg.orModel; genCfg.orModel=NB21; genCfg.nb21=1; genSave(); setTimeout(()=>toast('Генерация переключена на Nano Banana 2.1 — вдвое дешевле прежней. Вернуть можно в ⚙ ИИ',5000),2500); }
+else if (!genCfg.nb21){ genCfg.nb21=1; genSave(); }
+// OpenRouter answer size: 1K ≈ 1 MP, 2K ≈ 4 MP, 4K ≈ 16 MP — the picture we send grows with it, so the detail is really there
+const orK=(A,up)=>Math.min(Math.sqrt(orMP()/A), Math.max(1, Math.min(up, Math.sqrt(1.05e6/A)))); // never blow a piece up past ~1 MP just because the answer is 2K/4K
+const orMP=()=>1.05e6*(genCfg.provider==='or' ? ({'2K':4,'4K':16}[genCfg.orRes]||1) : 1);
 let gen=null; // {layer, r, W, H, img, mask, variants:[canvas], idx, prompt, str, busy, abort}
 const genBase=()=>String(genCfg.url||'').trim().replace(/\/+$/,'');
 const genReady=()=> genCfg.provider==='fal' ? !!String(genCfg.falKey||'').trim() : genCfg.provider==='or' ? !!String(genCfg.orKey||'').trim() : !!genBase();
@@ -3119,7 +3126,7 @@ function genBuild(){
 function genPrep(){ // crop with context, size for the model (~1 MP, multiples of 16), mask white = to fill
   const b=sel.box&&sel.box.w ? sel.box : selBBox(); if (!b || !b.w) throw new Error('пустое выделение');
   const pad=Math.max(48, Math.round(Math.max(b.w,b.h)*0.4)), r=clipRect(b.x-pad, b.y-pad, b.w+2*pad, b.h+2*pad);
-  let k=Math.sqrt(1.05e6/(r.w*r.h)); k=Math.min(k, 3);
+  const k=orK(r.w*r.h, 3);
   const W=Math.max(64,Math.round(r.w*k/16)*16), H=Math.max(64,Math.round(r.h*k/16)*16);
   const img=mk(W,H), ix=ctx2(img); ix.fillStyle='#fff'; ix.fillRect(0,0,W,H); ix.imageSmoothingQuality='high'; ix.drawImage(compositeRegion(r,W,H),0,0);
   const sm=mk(W,H), sx=ctx2(sm); sx.imageSmoothingQuality='high'; sx.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,W,H);
@@ -3179,14 +3186,14 @@ function orNeed(){ if (String(genCfg.orKey||'').trim()) return true; toast('Ну
 async function orRequest(img, ask, n, opt={}){
   const W=img.width, H=img.height, ar=W/H;
   let best=OR_ASPECTS[0]; for (const a of OR_ASPECTS) if (Math.abs(Math.log(a[0]/a[1]/ar)) < Math.abs(Math.log(best[0]/best[1]/ar))) best=a;
-  const k=Math.sqrt(1.05e6/(best[0]*best[1])), SW=Math.round(best[0]*k/16)*16, SH=Math.round(best[1]*k/16)*16;
+  const k=Math.sqrt(orMP()/(best[0]*best[1])), SW=Math.round(best[0]*k/16)*16, SH=Math.round(best[1]*k/16)*16;
   const q=mk(SW,SH), qx=ctx2(q,{willReadFrequently:true}); qx.imageSmoothingQuality='high'; qx.drawImage(img,0,0,SW,SH);
   if (opt.magenta && opt.mask){ const hm=mk(SW,SH), hx=ctx2(hm,{willReadFrequently:true}); hx.imageSmoothingEnabled=false; hx.drawImage(opt.mask,0,0,SW,SH); const hd=hx.getImageData(0,0,SW,SH), qd=qx.getImageData(0,0,SW,SH);
     for (let i=0;i<hd.data.length;i+=4) if (hd.data[i]>127){ qd.data[i]=255; qd.data[i+1]=0; qd.data[i+2]=255; } qx.putImageData(qd,0,0); }
   const refs=[{type:'image_url', image_url:{url: opt.magenta ? q.toDataURL('image/png') : q.toDataURL('image/jpeg',0.93)}}]; // magenta must stay pure: no JPEG colour bleed
   for (const r of (opt.refs||[])){ const c=mk(SW,SH), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(r,0,0,SW,SH); refs.push({type:'image_url', image_url:{url:c.toDataURL('image/png')}}); }
   // one request per variant: Google (Nano Banana) refuses n>1, and a provider that does not know resolution / output_format gets the request again without them
-  const base={model:genCfg.orModel, prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:'1K', output_format:'png', input_references:refs};
+  const base={model:genCfg.orModel, prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:genCfg.orRes||'1K', output_format:'png', input_references:refs};
   const one=async b=>{ try{ return await (await netFetch(orBaseUrl()+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(b)},180000)).json(); }
     catch(e){ if (/requested parameter|not support/i.test(e.message) && (b.resolution||b.output_format)){ const c=Object.assign({},b); delete c.resolution; delete c.output_format; return one(c); } throw e; } };
   const rs=await Promise.allSettled(Array.from({length:Math.max(1,n||1)}, ()=>one(base))), ok=rs.filter(x=>x.status==='fulfilled').map(x=>x.value);
@@ -3208,7 +3215,7 @@ async function orRequest(img, ask, n, opt={}){
   return {bitmaps:out, cost:r.usage && r.usage.cost};
 }
 function regionFor(b, pad){ const p=Math.max(32, Math.round(Math.max(b.w,b.h)*pad)); return clipRect(b.x-p, b.y-p, b.w+2*p, b.h+2*p); }
-function modelSize(r){ let k=Math.sqrt(1.05e6/(r.w*r.h)); k=Math.min(k,2); return [Math.max(64,Math.round(r.w*k/16)*16), Math.max(64,Math.round(r.h*k/16)*16)]; }
+function modelSize(r){ const k=orK(r.w*r.h, 2); return [Math.max(64,Math.round(r.w*k/16)*16), Math.max(64,Math.round(r.h*k/16)*16)]; }
 function regionImage(r, W, H, hide){ const was=(hide||[]).map(L=>L.visible); (hide||[]).forEach(L=>L.visible=false);
   try{ const c=mk(W,H), x=ctx2(c); x.fillStyle='#fff'; x.fillRect(0,0,W,H); x.imageSmoothingQuality='high'; x.drawImage(compositeRegion(r,W,H),0,0); return c; }
   finally{ (hide||[]).forEach((L,i)=>L.visible=was[i]); } }
@@ -3360,7 +3367,7 @@ function expandFill(e){
    and feathered into its neighbours. The result is one more variant, so «Готово» / «Отмена» / switching variants still work. */
 function expandTiles(W1, H1, e){
   const inNew=(x,y,w,h)=>!(x>=e.l+8 && y>=e.t+8 && x+w<=e.l+e.W0-8 && y+h<=e.t+e.H0-8); // tile touches the new area
-  let T=1024, tiles=[];
+  let T=Math.round(Math.sqrt(orMP())), tiles=[];
   for (let pass=0; pass<6; pass++){
     const tw=Math.min(T,W1), th=Math.min(T,H1), ov=Math.round(Math.min(tw,th)*0.14);
     const xs=[], ys=[]; for (let x=0;;x+=tw-ov){ if (x+tw>=W1){ xs.push(W1-tw); break; } xs.push(x); } for (let y=0;;y+=th-ov){ if (y+th>=H1){ ys.push(H1-th); break; } ys.push(y); }
@@ -3543,10 +3550,12 @@ async function sdGo(){
   }catch(e){ g.busy=null; if (gen===g) genBuild(); if (e.message!=='cancel'){ console.error(e); toast('SD Inpaint: '+e.message,5000); } else toast('Остановлено',1200); }
 }
 function genSettings(tab){
-  const d=dialog(`<h3>Генерация: откуда брать модель</h3><p>Ключи хранятся только на этом iPad. OpenRouter — один аккаунт и много моделей (Nano Banana, FLUX.2, Seedream…). fal.ai — FLUX Fill, рисует строго по маске. Свой ПК — SD Inpaint на твоей 4090 через мост.</p>
+  const d=dialog(`<h3>Генерация: откуда брать модель</h3><p>Ключи хранятся только на этом iPad. OpenRouter — один аккаунт и много моделей (Nano Banana 2.1, FLUX.2, Seedream…). fal.ai — FLUX Fill, рисует строго по маске. Свой ПК — SD Inpaint на твоей 4090 через мост.</p>
     <div class="seg" id="gsProv" style="margin:4px 0 10px"><button data-p="or">OpenRouter</button><button data-p="fal">fal.ai</button><button data-p="sd">Свой ПК · SD</button></div>
     <div id="gsOr"><div class="row" style="margin:6px 0"><label>Ключ</label><input type="password" id="gsOrKey" autocomplete="off" spellcheck="false" placeholder="openrouter.ai → Keys"></div>
-      <div class="row" style="margin:6px 0"><label>Модель</label><select id="gsOrModel" style="min-width:0;flex:1"></select></div></div>
+      <div class="row" style="margin:6px 0"><label>Модель</label><select id="gsOrModel" style="min-width:0;flex:1"></select></div>
+      <div class="row" style="margin:6px 0"><label>Размер ответа</label><div class="seg" id="gsOrRes"><button data-r="1K">1K</button><button data-r="2K">2K</button><button data-r="4K">4K</button></div></div>
+      <p class="gh" id="gsOrResInfo" style="margin:0 0 4px"></p></div>
     <div id="gsFal"><div class="row" style="margin:6px 0"><label>Ключ</label><input type="password" id="gsFalKey" autocomplete="off" spellcheck="false" placeholder="fal.ai → Settings → Keys"></div>
       <div class="row" style="margin:6px 0"><label>Ключ Gemini</label><input type="password" id="gsGemKey" autocomplete="off" spellcheck="false" placeholder="необязательно: умная подсказка"></div></div>
     <div id="gsComfy"><p class="gh" style="margin:0 0 6px">Для SD Inpaint: на компьютере запусти Automatic1111 и «Мост Проявки» с рабочего стола, адрес моста — в его окне и в файле «Проявка-адрес-моста.txt».</p>
@@ -3558,12 +3567,16 @@ function genSettings(tab){
         p.then(t=>{ s.textContent='✓ '+t; }).catch(e=>{ s.textContent='✕ '+e.message; }); return false; }],
      ['Сохранить', d=>{ read(d); genSave(); if (gen){ gen.modelsAsked=false; genBuild(); } if (lift && lift.open) objBuild(); }, true]]);
   const sel_=d.querySelector('#gsOrModel');
-  const PRESET=[['google/gemini-2.5-flash-image','Nano Banana (Gemini 2.5 Flash Image)'],['black-forest-labs/flux.2-pro','FLUX.2 Pro'],['bytedance-seed/seedream-4.5','Seedream 4.5'],['openai/gpt-image-1','GPT Image 1']];
+  const PRESET=[[NB21,'Nano Banana 2.1'],['google/gemini-3.1-flash-image-preview','Nano Banana 2 (Google выключит 29 окт.)'],['google/gemini-2.5-flash-image','Nano Banana (Gemini 2.5 Flash Image)'],['black-forest-labs/flux.2-pro','FLUX.2 Pro'],['bytedance-seed/seedream-4.5','Seedream 4.5'],['openai/gpt-image-1','GPT Image 1']];
   const fillModels=list=>{ const cur=genCfg.orModel; sel_.textContent=''; const seen=new Set();
-    for (const m of list.length ? list.map(x=>[x.id,x.name]) : PRESET){ if (seen.has(m[0])) continue; seen.add(m[0]); const o=document.createElement('option'); o.value=m[0]; o.textContent=m[1]; sel_.append(o); }
+    const all=list.length ? list.map(x=>[x.id,x.name]) : PRESET; all.sort((a,b)=>(b[0]===NB21)-(a[0]===NB21));
+    for (const m of all){ if (seen.has(m[0])) continue; seen.add(m[0]); const o=document.createElement('option'); o.value=m[0]; o.textContent=m[1]; sel_.append(o); }
     if (!seen.has(cur)){ const o=document.createElement('option'); o.value=cur; o.textContent=cur; sel_.prepend(o); } sel_.value=cur; };
   fillModels([]);
-  const read=d=>{ genCfg.orKey=d.querySelector('#gsOrKey').value.trim(); genCfg.orModel=sel_.value||genCfg.orModel; genCfg.falKey=d.querySelector('#gsFalKey').value.trim(); genCfg.gemKey=d.querySelector('#gsGemKey').value.trim(); genCfg.sdUrl=d.querySelector('#gsSdUrl').value.trim(); genCfg.pcML=d.querySelector('#gsPcML').checked; sdModelsCache=null; PC.alive=null; PC.sess={}; PC.failAt=0; };
+  { const RS={'1K':'≈1 Мп, ~$0.03 за картинку у Nano Banana 2.1 — для правок и черновиков','2K':'≈4 Мп, ~$0.05 — заметно больше деталей на крупных кусках','4K':'≈16 Мп, ~$0.08 — медленно; для больших заливок и расширения кадра'};
+    const box=d.querySelector('#gsOrRes'), info=d.querySelector('#gsOrResInfo'), set=r=>{ box.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.r===r)); info.textContent=RS[r]+(sel_.value!==NB21 && r!=='1K' ? ' · другие модели могут не уметь 2K/4K — тогда ответ придёт в 1K' : ''); };
+    box.querySelectorAll('button').forEach(b=>b.onclick=()=>set(b.dataset.r)); sel_.addEventListener('change',()=>set(box.querySelector('.on')?.dataset.r||'1K')); set(genCfg.orRes||'1K'); }
+  const read=d=>{ genCfg.orKey=d.querySelector('#gsOrKey').value.trim(); genCfg.orModel=sel_.value||genCfg.orModel; genCfg.orRes=d.querySelector('#gsOrRes .on')?.dataset.r||genCfg.orRes||'1K'; genCfg.falKey=d.querySelector('#gsFalKey').value.trim(); genCfg.gemKey=d.querySelector('#gsGemKey').value.trim(); genCfg.sdUrl=d.querySelector('#gsSdUrl').value.trim(); genCfg.pcML=d.querySelector('#gsPcML').checked; sdModelsCache=null; PC.alive=null; PC.sess={}; PC.failAt=0; };
   d.querySelector('#gsOrKey').value=genCfg.orKey; d.querySelector('#gsFalKey').value=genCfg.falKey; d.querySelector('#gsGemKey').value=genCfg.gemKey; d.querySelector('#gsSdUrl').value=genCfg.sdUrl; d.querySelector('#gsPcML').checked=genCfg.pcML!==false;
   let view = tab==='sd' ? 'sd' : genCfg.provider;
   const sync=()=>{ d.querySelectorAll('#gsProv button').forEach(b=>b.classList.toggle('on', b.dataset.p===view)); d.querySelector('#gsOr').hidden=view!=='or'; d.querySelector('#gsFal').hidden=view!=='fal'; d.querySelector('#gsComfy').hidden=view!=='sd'; };
@@ -4378,7 +4391,7 @@ async function objCloud(){
   const l=lift; if (!liftAlive() || l.busy) return;
   if (!genCloud() || !genReady()){ toast('Чтобы перерисовать фон, нужен ключ OpenRouter или fal.ai — открываю настройки',2800); genSettings(); return; }
   if (!l.r){ toast('Нет данных о дыре — сдвинь объект заново'); return; }
-  const r0=l.r; let k=Math.sqrt(1.05e6/(r0.w*r0.h)); k=Math.min(k,3);
+  const r0=l.r; const k=orK(r0.w*r0.h, 3);
   const W=Math.max(64,Math.round(r0.w*k/16)*16), H=Math.max(64,Math.round(r0.h*k/16)*16);
   const hide=[l.OL,l.shL,l.cl].filter(Boolean), was=hide.map(L=>L.visible); hide.forEach(L=>L.visible=false);
   let img; try{ img=mk(W,H); const ix=ctx2(img); ix.fillStyle='#fff'; ix.fillRect(0,0,W,H); ix.imageSmoothingQuality='high'; ix.drawImage(compositeRegion(r0,W,H),0,0); }
@@ -7139,7 +7152,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-05 · №52 меню «Изображение», кадрирование на панели, проверки'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-06 · №53 Nano Banana 2.1, размер ответа 1K/2K/4K'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
