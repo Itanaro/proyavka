@@ -3009,14 +3009,14 @@ async function orFill(P, words, n){
 async function cloudFill(P, words, fluxPrompt, n){ return genCfg.provider==='fal' ? falFill(P, fluxPrompt, n) : orFill(P, words, n); }
 async function orPing(){
   const base=genCfg.orBase.replace(/\/+$/,''), H={'Authorization':'Bearer '+genCfg.orKey.trim()};
-  let r=await fetch(base+'/api/v1/key',{headers:H, mode:'cors'}).catch(()=>{ throw new Error('нет связи с OpenRouter (VPN?)'); });
-  if (r.status===404) r=await fetch(base+'/api/v1/auth/key',{headers:H, mode:'cors'});
+  let r=await cloudFetch(base+'/api/v1/key',{headers:H, mode:'cors'}).catch(()=>{ throw new Error('нет связи с OpenRouter (VPN?)'); });
+  if (r.status===404) r=await cloudFetch(base+'/api/v1/auth/key',{headers:H, mode:'cors'});
   if (r.status===401||r.status===403) throw new Error('ключ не подошёл');
   const j=await r.json().catch(()=>({})), d=j.data||{};
   const left = d.limit!=null ? ' · лимит ключа $'+(+d.limit).toFixed(2)+', потрачено $'+(+(d.usage||0)).toFixed(2) : '';
   return 'OpenRouter на связи'+left; }
 async function orModels(){ // image-output models available to this account
-  const base=genCfg.orBase.replace(/\/+$/,''); const j=await (await fetch(base+'/api/v1/models?output_modalities=image',{mode:'cors'})).json();
+  const base=genCfg.orBase.replace(/\/+$/,''); const j=await (await cloudFetch(base+'/api/v1/models?output_modalities=image',{mode:'cors'})).json();
   return (j.data||[]).filter(m=>{ const a=m.architecture||{}; return (a.output_modalities||[]).includes('image') && (a.input_modalities||['image']).includes('image'); }).map(m=>({id:m.id, name:m.name||m.id}));
 }
 const dataURL=(c,type,q)=>c.toDataURL(type,q);
@@ -3030,7 +3030,7 @@ function ggErr(e){ const m=String(e&&e.message||e);
   if (/billing|FREE_TIER|free tier/i.test(m)) return new Error('для картинок нужен платный уровень (Billing в AI Studio)');
   return e; }
 async function ggPing(){
-  const r=await fetch(ggBase()+'/v1beta/models?pageSize=1000&key='+encodeURIComponent(String(genCfg.gemKey||'').trim()),{mode:'cors'}).catch(()=>{ throw new Error('нет связи с Google (VPN?)'); });
+  const r=await cloudFetch(ggBase()+'/v1beta/models?pageSize=1000&key='+encodeURIComponent(String(genCfg.gemKey||'').trim()),{mode:'cors'}).catch(()=>{ throw new Error('нет связи с Google (VPN?)'); });
   const t=await r.text(); if (!r.ok) throw ggErr(new Error('HTTP '+r.status+' '+t.slice(0,200)));
   const j=JSON.parse(t||'{}'); ggModelsCache=(j.models||[]).filter(m=>/image|banana/i.test(m.name) && (m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>({id:m.name.replace(/^models\//,''), name:(m.displayName||m.name.replace(/^models\//,''))}));
   return 'Google AI Studio на связи, ключ принят'; }
@@ -3054,10 +3054,27 @@ async function ggVision(text, imgURL, opt={}){ // a looking model (Gemini Flash)
   let j; try{ j=await (await netFetch(ggUrl(opt.model||genCfg.gemModel||'gemini-2.5-flash','generateContent'),{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)},opt.ms||120000)).json(); }
   catch(e){ throw ggErr(e); }
   const c=(j.candidates||[])[0]; return ((c&&c.content&&c.content.parts)||[]).filter(p=>!p.thought).map(p=>p.text||'').join('').trim(); }
+/* «облако через компьютер»: on the iPad at home the calls to OpenRouter / Google / fal go through the bridge on the PC,
+   which goes out through the PC's VPN — so the iPad needs no VPN of its own. Keys only pass through her own computer.
+   auto = iPad + bridge says it has a way out (net:true); pc = always when the bridge answers; direct = never. */
+const CLOUD={via:null, at:0, host:''};
+async function cloudViaPC(){ const m=genCfg.cloudVia||'auto'; if (m==='direct' || !sdBase()) return false; if (m==='auto' && IS_DESK) return false;
+  if (CLOUD.via!==null && Date.now()-CLOUD.at<60000) return CLOUD.via;
+  let j=null; try{ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),2500); j=await (await fetch(sdBase()+'/bridge/ping',{signal:ctl.signal, cache:'no-store'})).json(); clearTimeout(T); }catch(e){}
+  CLOUD.via = !!(j && j.ok && (m==='pc' || j.net)); CLOUD.at=Date.now(); CLOUD.host=j&&j.host||''; return CLOUD.via; }
+async function cloudFetch(url, opt={}){
+  if (!(await cloudViaPC()) || (opt.body instanceof FormData)) return fetch(url, opt);
+  const hd={}, h=opt.headers||{}; if (typeof h.forEach==='function') h.forEach((v,k)=>{ hd[k]=v; }); else Object.assign(hd, h);
+  const ph={'X-Proxy-Url':encodeURIComponent(url), 'X-Proxy-Method':(opt.method||'GET').toUpperCase(), 'X-Proxy-Headers':encodeURIComponent(JSON.stringify(hd))};
+  if (opt.body!=null) ph['Content-Type']='application/x-proyavka-raw';
+  let r; try{ r=await fetch(sdBase()+'/net/proxy', {method:'POST', headers:ph, body:opt.body==null?undefined:opt.body, signal:opt.signal, cache:'no-store'}); }
+  catch(e){ if (e && e.name==='AbortError') throw e; CLOUD.via=false; CLOUD.at=Date.now(); return fetch(url, opt); } // the PC went to sleep — straight to the service
+  if (r.headers.get('X-Proxy-Error')){ let m='нет связи'; try{ m=(await r.json()).error||m; }catch(e){} throw new TypeError(m+' (через компьютер)'); }
+  return r; }
 let netSess=null; // the panel whose Stop button aborts the current request (gen-fill or object move)
 async function netFetch(url, opt={}, ms=30000){ // fetch with a timeout and Russian error words
   const ss=netSess||gen, ctl=new AbortController(), T=setTimeout(()=>ctl.abort(), ms); if (ss) ss.abort=ctl;
-  try{ const r=await fetch(url, Object.assign({mode:'cors', signal:ctl.signal}, opt)); if (!r.ok){ const t=(await r.text().catch(()=>'')).slice(0,240); throw new Error(r.status===401||r.status===403 ? 'ключ не подошёл ('+r.status+')' : r.status===402||/balance|credit|quota/i.test(t) ? 'закончился баланс' : 'HTTP '+r.status+' '+t); } return r; }
+  try{ const r=await cloudFetch(url, Object.assign({mode:'cors', signal:ctl.signal}, opt)); if (!r.ok){ const t=(await r.text().catch(()=>'')).slice(0,240); throw new Error(r.status===401||r.status===403 ? 'ключ не подошёл ('+r.status+')' : r.status===402||/balance|credit|quota/i.test(t) ? 'закончился баланс' : 'HTTP '+r.status+' '+t); } return r; }
   catch(e){ if (e.name==='AbortError') throw new Error(ss&&ss.cancelled?'cancel':'сервис не ответил'); if (/Load failed|Failed to fetch|NetworkError/i.test(e.message)) throw new Error('нет связи с сервисом (VPN?)'); throw e; }
   finally{ clearTimeout(T); } }
 /* cloud: FLUX.1 Fill [pro] on fal.ai — the key lives only on this iPad (for colleagues later: a small proxy keeps keys) */
@@ -3614,7 +3631,9 @@ function genSettings(tab){
       <div class="row" style="margin:6px 0"><label>Ключ Gemini</label><input type="password" id="gsGemKey" autocomplete="off" spellcheck="false" placeholder="необязательно: умная подсказка"></div></div>
     <div id="gsComfy"><p class="gh" style="margin:0 0 6px">Для SD Inpaint: на компьютере запусти Automatic1111 и «Мост Проявки» с рабочего стола, адрес моста — в его окне и в файле «Проявка-адрес-моста.txt».</p>
       <div class="row" style="margin:6px 0"><label>Адрес моста</label><input type="text" id="gsSdUrl" autocomplete="off" spellcheck="false" placeholder="https://192.168.…:7861/k/…"></div>
-      <label class="chk" style="margin:8px 0 0;display:flex;gap:8px;align-items:center"><input type="checkbox" id="gsPcML"> Тяжёлые нейросети считать на компьютере <span class="gh" style="margin:0">(выделение объекта, «Убрать», «Сдвинуть», глубина — когда мост на связи)</span></label></div>
+      <label class="chk" style="margin:8px 0 0;display:flex;gap:8px;align-items:center"><input type="checkbox" id="gsPcML"> Тяжёлые нейросети считать на компьютере <span class="gh" style="margin:0">(выделение объекта, «Убрать», «Сдвинуть», глубина — когда мост на связи)</span></label>
+      <div class="row" style="margin:10px 0 4px"><label>Облако через ПК</label><div class="seg" id="gsCloud"><button data-c="auto">Авто</button><button data-c="pc">Всегда</button><button data-c="direct">Нет</button></div></div>
+      <p class="gh" style="margin:0 0 4px">OpenRouter, Google и fal.ai — через компьютер и его VPN: дома айпаду свой VPN не нужен. «Авто» — с айпада, когда мост на связи и у него настроен выход через VPN; вне дома — напрямую. Ключи идут только через твой компьютер.</p></div>
     <p id="gsState" class="kbd" style="margin:10px 0 0;min-height:18px"></p>`,
     [['Проверить', d=>{ read(d); genSave(); const s=d.querySelector('#gsState'); s.textContent='проверяю…';
         const p=view==='sd' ? sdPing()
@@ -3631,6 +3650,7 @@ function genSettings(tab){
     for (const m of all){ if (seen.has(m[0])) continue; seen.add(m[0]); const o=document.createElement('option'); o.value=m[0]; o.textContent=m[1]; el.append(o); }
     if (cur && !seen.has(cur)){ const o=document.createElement('option'); o.value=cur; o.textContent=cur; el.prepend(o); } el.value=cur||top; };
   d.querySelectorAll('#gsCrit button').forEach(b=>{ b.classList.toggle('on',(b.dataset.m==='deep')===!!genCfg.critDeep); b.onclick=()=>{ genCfg.critDeep=b.dataset.m==='deep'; genSave(); d.querySelectorAll('#gsCrit button').forEach(x=>x.classList.toggle('on',x===b)); }; });
+  d.querySelectorAll('#gsCloud button').forEach(b=>{ b.classList.toggle('on', b.dataset.c===(genCfg.cloudVia||'auto')); b.onclick=()=>{ genCfg.cloudVia=b.dataset.c; genSave(); CLOUD.via=null; d.querySelectorAll('#gsCloud button').forEach(x=>x.classList.toggle('on',x===b)); }; });
   fillModels(sel_, [], PRESET, NB21, genCfg.orModel); fillModels(selG, ggModelsCache||[], GPRESET, GG_NB21, genCfg.ggModel||GG_NB21);
   const curModel=()=> view==='google' ? selG.value : sel_.value, nb=()=> curModel()===NB21 || curModel()===GG_NB21;
   const RS={'1K':'≈1 Мп, ~$0.03 за картинку у Nano Banana 2.1 — для правок и черновиков','2K':'≈4 Мп, ~$0.05 — заметно больше деталей на крупных кусках','4K':'≈16 Мп, ~$0.08 — медленно; для больших заливок и расширения кадра'};
@@ -3638,14 +3658,14 @@ function genSettings(tab){
   box.querySelectorAll('button').forEach(b=>b.onclick=()=>setRes(b.dataset.r)); [sel_,selG].forEach(el=>el.addEventListener('change',()=>setRes(box.querySelector('.on')?.dataset.r||'1K')));
   // one Google key, two fields (Google tab and the fal.ai smart prompt) — keep them in step
   const gk1=d.querySelector('#gsGgKey'), gk2=d.querySelector('#gsGemKey'); gk1.oninput=()=>{ gk2.value=gk1.value; }; gk2.oninput=()=>{ gk1.value=gk2.value; };
-  const read=d=>{ genCfg.orKey=d.querySelector('#gsOrKey').value.trim(); genCfg.orModel=sel_.value||genCfg.orModel; genCfg.ggModel=selG.value||genCfg.ggModel||GG_NB21; genCfg.orRes=d.querySelector('#gsOrRes .on')?.dataset.r||genCfg.orRes||'1K'; genCfg.falKey=d.querySelector('#gsFalKey').value.trim(); genCfg.gemKey=gk1.value.trim(); genCfg.sdUrl=d.querySelector('#gsSdUrl').value.trim(); genCfg.pcML=d.querySelector('#gsPcML').checked; sdModelsCache=null; PC.alive=null; PC.sess={}; PC.failAt=0; };
+  const read=d=>{ genCfg.orKey=d.querySelector('#gsOrKey').value.trim(); genCfg.orModel=sel_.value||genCfg.orModel; genCfg.ggModel=selG.value||genCfg.ggModel||GG_NB21; genCfg.orRes=d.querySelector('#gsOrRes .on')?.dataset.r||genCfg.orRes||'1K'; genCfg.falKey=d.querySelector('#gsFalKey').value.trim(); genCfg.gemKey=gk1.value.trim(); genCfg.sdUrl=d.querySelector('#gsSdUrl').value.trim(); genCfg.pcML=d.querySelector('#gsPcML').checked; sdModelsCache=null; PC.alive=null; PC.sess={}; PC.failAt=0; CLOUD.via=null; };
   d.querySelector('#gsOrKey').value=genCfg.orKey; d.querySelector('#gsFalKey').value=genCfg.falKey; gk1.value=gk2.value=genCfg.gemKey||''; d.querySelector('#gsSdUrl').value=genCfg.sdUrl; d.querySelector('#gsPcML').checked=genCfg.pcML!==false;
   let view = tab==='sd' ? 'sd' : genCfg.provider;
   const sync=()=>{ d.querySelectorAll('#gsProv button').forEach(b=>b.classList.toggle('on', b.dataset.p===view)); d.querySelector('#gsOr').hidden=view!=='or'; d.querySelector('#gsGg').hidden=view!=='google'; d.querySelector('#gsResBox').hidden=view!=='or'&&view!=='google'; d.querySelector('#gsFal').hidden=view!=='fal'; d.querySelector('#gsComfy').hidden=view!=='sd'; d.querySelector('#gsState').textContent=''; setRes(box.querySelector('.on')?.dataset.r||genCfg.orRes||'1K'); };
   d.querySelectorAll('#gsProv button').forEach(b=>b.onclick=()=>{ view=b.dataset.p; if (view!=='sd'){ genCfg.provider=view; genSave(); } sync(); }); setRes(genCfg.orRes||'1K'); sync();
 }
 async function falPing(){ // a key check without spending money: an empty request is refused with 422 when the key is valid
-  const base=genCfg.falBase.replace(/\/+$/,''); const r=await fetch(base+'/'+genCfg.falModel,{method:'POST', mode:'cors', headers:{'Authorization':'Key '+genCfg.falKey.trim(),'Content-Type':'application/json'}, body:'{}'}).catch(e=>{ throw new Error('нет связи с fal.ai (VPN?)'); });
+  const base=genCfg.falBase.replace(/\/+$/,''); const r=await cloudFetch(base+'/'+genCfg.falModel,{method:'POST', mode:'cors', headers:{'Authorization':'Key '+genCfg.falKey.trim(),'Content-Type':'application/json'}, body:'{}'}).catch(e=>{ throw new Error('нет связи с fal.ai (VPN?)'); });
   if (r.status===401||r.status===403) throw new Error('ключ не подошёл');
   return 'fal.ai на связи, ключ принят'+(genCfg.gemKey?' · Gemini проверится при первой генерации':''); }
 function filtMenu(){
@@ -7228,7 +7248,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №56 масштаб как в фотошопе, AI Edit мимо гео-блока'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №57 облако через компьютер: айпаду дома не нужен VPN'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{

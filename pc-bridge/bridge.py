@@ -151,7 +151,7 @@ def net_proxy(h, body):
         hdr['Content-Type'] = h.headers.get('Content-Type')
     req = urllib.request.Request(url, data=body if method not in ('GET', 'HEAD') else None, method=method, headers=hdr)
     try:
-        r = urllib.request.urlopen(req, timeout=300)
+        r = urllib.request.urlopen(req, timeout=600)  # a thinking model (Argon) may stay silent for minutes
         return r.status, r.read(), r.headers.get('Content-Type') or 'application/octet-stream', r.geturl()
     except urllib.error.HTTPError as e:
         return e.code, e.read(), e.headers.get('Content-Type') or 'text/plain', url
@@ -199,7 +199,7 @@ class H(BaseHTTPRequestHandler):
             return self.reply(403, json.dumps({'error': 'нужен адрес с ключом моста'}, ensure_ascii=False).encode())
         path = self.path[len(PREFIX):]
         if path == '/bridge/ping':
-            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'subject': subject_state(), 'matting': subject_state('matting')}, ensure_ascii=False).encode())
+            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'net': bool(os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')), 'subject': subject_state(), 'matting': subject_state('matting')}, ensure_ascii=False).encode())
         if path.startswith('/proyavka/subject'):
             n = int(self.headers.get('Content-Length') or 0); body = self.rfile.read(n) if n else b''
             try:
