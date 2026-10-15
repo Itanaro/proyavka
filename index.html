@@ -3607,7 +3607,9 @@ function genSettings(tab){
       <div class="row" style="margin:6px 0"><label>Модель</label><select id="gsGgModel" style="min-width:0;flex:1"></select></div>
       <p class="gh" style="margin:0 0 4px">Для картинок у ключа должен быть включён платный уровень (Billing в AI Studio). Из России — через VPN. Тот же ключ даёт арт-директора и умную подсказку для fal.ai.</p></div>
     <div id="gsResBox"><div class="row" style="margin:6px 0"><label>Размер ответа</label><div class="seg" id="gsOrRes"><button data-r="1K">1K</button><button data-r="2K">2K</button><button data-r="4K">4K</button></div></div>
-      <p class="gh" id="gsOrResInfo" style="margin:0 0 4px"></p></div>
+      <p class="gh" id="gsOrResInfo" style="margin:0 0 4px"></p>
+      <div class="row" style="margin:6px 0"><label>Арт-директор</label><div class="seg" id="gsCrit"><button data-m="fast">Быстрый · Flash</button><button data-m="deep">Глубокий · Argon</button></div></div>
+      <p class="gh" style="margin:0 0 4px">Argon (Gemini 4) разбирает кадр глубже, но думает до пары минут и стоит дороже. Переключается и прямо в панели арт-директора.</p></div>
     <div id="gsFal"><div class="row" style="margin:6px 0"><label>Ключ</label><input type="password" id="gsFalKey" autocomplete="off" spellcheck="false" placeholder="fal.ai → Settings → Keys"></div>
       <div class="row" style="margin:6px 0"><label>Ключ Gemini</label><input type="password" id="gsGemKey" autocomplete="off" spellcheck="false" placeholder="необязательно: умная подсказка"></div></div>
     <div id="gsComfy"><p class="gh" style="margin:0 0 6px">Для SD Inpaint: на компьютере запусти Automatic1111 и «Мост Проявки» с рабочего стола, адрес моста — в его окне и в файле «Проявка-адрес-моста.txt».</p>
@@ -3628,6 +3630,7 @@ function genSettings(tab){
     const all=list.length ? list.map(x=>[x.id,x.name]) : preset; all.sort((a,b)=>(b[0]===top)-(a[0]===top));
     for (const m of all){ if (seen.has(m[0])) continue; seen.add(m[0]); const o=document.createElement('option'); o.value=m[0]; o.textContent=m[1]; el.append(o); }
     if (cur && !seen.has(cur)){ const o=document.createElement('option'); o.value=cur; o.textContent=cur; el.prepend(o); } el.value=cur||top; };
+  d.querySelectorAll('#gsCrit button').forEach(b=>{ b.classList.toggle('on',(b.dataset.m==='deep')===!!genCfg.critDeep); b.onclick=()=>{ genCfg.critDeep=b.dataset.m==='deep'; genSave(); d.querySelectorAll('#gsCrit button').forEach(x=>x.classList.toggle('on',x===b)); }; });
   fillModels(sel_, [], PRESET, NB21, genCfg.orModel); fillModels(selG, ggModelsCache||[], GPRESET, GG_NB21, genCfg.ggModel||GG_NB21);
   const curModel=()=> view==='google' ? selG.value : sel_.value, nb=()=> curModel()===NB21 || curModel()===GG_NB21;
   const RS={'1K':'≈1 Мп, ~$0.03 за картинку у Nano Banana 2.1 — для правок и черновиков','2K':'≈4 Мп, ~$0.05 — заметно больше деталей на крупных кусках','4K':'≈16 Мп, ~$0.08 — медленно; для больших заливок и расширения кадра'};
@@ -7211,7 +7214,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №55 арт-директор: быстрый (Flash) / глубокий (Argon)'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №55.1 Argon и в настройках генерации'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
