@@ -5,7 +5,7 @@ set "SRC=D:\stable-diffusion-portable-main\proyavka-bridge\proyavka-bridge-autos
 set "DST=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\proyavka-bridge-autostart.vbs"
 copy /Y "%SRC%" "%DST%" >nul
 if exist "%DST%" (
-  echo Готово: мост Проявки будет сам запускаться через минуту после включения компьютера.
+  echo Готово: через минуту после включения компьютера сами запустятся мост Проявки (через туннель) и Automatic1111.
   echo Выключить автозапуск: Win+R, shell:startup, удалить proyavka-bridge-autostart.vbs
 ) else (
   echo Не получилось скопировать. Сделай вручную: Win+R, shell:startup и перетащи туда
