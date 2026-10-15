@@ -1,14 +1,17 @@
 @echo off
-chcp 65001 >nul
-rem Puts the bridge autostart file into the Windows Startup folder (run once).
+rem Proyavka: puts the autostart file into the Windows Startup folder (run once; running again is safe).
 set "SRC=D:\stable-diffusion-portable-main\proyavka-bridge\proyavka-bridge-autostart.vbs"
 set "DST=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\proyavka-bridge-autostart.vbs"
 copy /Y "%SRC%" "%DST%" >nul
 if exist "%DST%" (
-  echo Готово: через минуту после включения компьютера сами запустятся мост Проявки (через туннель) и Automatic1111.
-  echo Выключить автозапуск: Win+R, shell:startup, удалить proyavka-bridge-autostart.vbs
+  echo.
+  echo   OK - autostart is ON.
+  echo   One minute after Windows starts, the Proyavka bridge and Automatic1111 start by themselves.
+  echo   To turn it off: Win+R, shell:startup, delete proyavka-bridge-autostart.vbs
 ) else (
-  echo Не получилось скопировать. Сделай вручную: Win+R, shell:startup и перетащи туда
-  echo %SRC%
+  echo.
+  echo   FAILED to copy. Do it by hand: Win+R, shell:startup, and drag this file there:
+  echo   %SRC%
 )
+echo.
 pause
