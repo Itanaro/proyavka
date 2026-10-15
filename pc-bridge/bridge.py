@@ -27,8 +27,19 @@ def lan_ip():
 
 def remote_ip():
     """The PC's address in Tailscale (100.64.0.0/10), if Tailscale is installed: the iPad reaches the bridge there from any network."""
-    try: ips = socket.gethostbyname_ex(socket.gethostname())[2]
-    except Exception: ips = []
+    ips = []
+    try: ips += socket.gethostbyname_ex(socket.gethostname())[2]
+    except Exception: pass
+    if os.name == 'nt':  # the hostname lookup often misses the Tailscale adapter on Windows — ask Tailscale itself, then ipconfig
+        for exe in (r'C:\Program Files\Tailscale\tailscale.exe', 'tailscale'):
+            try:
+                r = subprocess.run([exe, 'ip', '-4'], capture_output=True, text=True, timeout=5, creationflags=0x08000000)
+                ips += r.stdout.split(); break
+            except Exception: pass
+        try:
+            r = subprocess.run(['ipconfig'], capture_output=True, timeout=5, creationflags=0x08000000)
+            ips += _re.findall(r'\b100\.\d+\.\d+\.\d+\b', r.stdout.decode('cp866', 'ignore'))
+        except Exception: pass
     for a in ips:
         try:
             o = [int(x) for x in a.split('.')]
