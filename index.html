@@ -223,6 +223,8 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #aiedit .aeh b{color:#f0b46a;font-weight:600;white-space:nowrap} #aeVer{flex:1;min-width:0;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #aiedit .aeh button{width:28px;height:26px;border-radius:7px;color:var(--muted);flex:none} #aiedit .aeh button:hover{background:var(--panel-2);color:var(--fg)}
 #aiedit iframe{flex:1;border:0;width:100%;min-height:0;background:var(--panel)} #aiedit.drag iframe{pointer-events:none}
+#aiedit:not(.pad) #aeHints{display:none} #aiedit #aeHints.on{color:#f0b46a}
+#aiedit.pad .aegrip{display:none}
 #aiedit .aegrip{height:10px;cursor:ns-resize;touch-action:none;flex:none;background:linear-gradient(var(--line),var(--line)) center/34px 2px no-repeat}
 .scrim{position:absolute;inset:0;z-index:30;background:rgba(8,9,11,.6);display:flex;align-items:center;justify-content:center;padding:16px}
 .dlg{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;width:min(520px,100%);max-height:100%;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.6)}
@@ -766,7 +768,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     </aside>
   </div>
 
-  <div id="aiedit" hidden><div class="aeh"><b>✦ AI Edit</b><span id="aeVer"></span><button id="aeReload" title="Перечитать плагин с компьютера">⟳</button><button id="aeClose" title="Закрыть панель">✕</button></div><iframe id="aeFrame" title="AI Edit"></iframe><div class="aegrip" title="Потяни, чтобы изменить высоту"></div></div>
+  <div id="aiedit" hidden><div class="aeh"><b>✦ AI Edit</b><span id="aeVer"></span><button id="aeHints" title="Показать / спрятать подсказки">?</button><button id="aeReload" title="Перечитать плагин с компьютера">⟳</button><button id="aeClose" title="Закрыть панель">✕</button></div><iframe id="aeFrame" title="AI Edit"></iframe><div class="aegrip" title="Потяни, чтобы изменить высоту"></div></div>
   <div class="pop" id="aimenu" hidden>
     <div class="aih">С выделением</div>
     <button data-a="gen" data-sel="1">✦ Генерация <small>дорисовать по словам</small></button>
@@ -5634,9 +5636,14 @@ sp-progressbar::after{content:'';position:absolute;top:0;bottom:0;width:35%;back
 select.pick option{background:#2a2d33}
 ::-webkit-scrollbar{width:8px} ::-webkit-scrollbar-thumb{background:rgba(128,128,128,.35);border-radius:4px}
 </style>`;
+const AE_PAD_STYLE=`<style>
+/* iPad: a compact panel — hints hidden (the «?» in the header shows them), tighter spacing, taller touch targets */
+body.aecompact .hint{display:none!important}
+sp-button{min-height:30px} select.pick{min-height:30px}
+</style>`;
 function aeBuildHtml(src){
   const js=src.js.replace(/<\/script/gi,'<\\/script')+'\n//# sourceURL=aiedit-main.js';
-  const head=AE_STYLE+'<script>('+aeShim.toString()+')();<\/script><script>'+js+'<\/script>';
+  const head=AE_STYLE+(IS_DESK?'':AE_PAD_STYLE)+'<script>('+aeShim.toString()+')();<\/script><script>'+js+'<\/script>';
   let html=src.html, done=false;
   html=html.replace(/<script[^>]*src=["']main\.js["'][^>]*>\s*<\/script>/i, ()=>{ done=true; return head; });
   if (!done) html=html.replace(/<head[^>]*>/i, m=>{ done=true; return m+head; });
@@ -5656,15 +5663,30 @@ async function aeOpen(reload){
   AE.loaded=true; $('#aeFrame').srcdoc=aeBuildHtml(s);
 }
 function aeClose(){ $('#aiedit').hidden=true; }
+/* iPad: the panel is as tall as its content (no empty half-screen), up to the bottom of the screen; then it scrolls inside */
+let aeRO=null;
+function aeFit(){ if (IS_DESK) return; const w=$('#aiedit'), f=$('#aeFrame'); if (w.hidden) return; let d=null; try{ d=f.contentDocument; }catch(e){} if (!d || !d.body) return;
+  let bottom=0; for (const el of d.body.children){ if (el.tagName==='SCRIPT' || el.tagName==='STYLE') continue; const r=el.getBoundingClientRect(); if (r.height) bottom=Math.max(bottom, r.bottom); }
+  const cs=d.defaultView.getComputedStyle(d.body), content=bottom+(d.scrollingElement?d.scrollingElement.scrollTop:0)+parseFloat(cs.paddingBottom||0)+parseFloat(cs.marginBottom||0)+6;
+  const app=$('#app').getBoundingClientRect(), head=w.querySelector('.aeh').offsetHeight, H=Math.max(160, Math.min(Math.ceil(content)+head+2, app.height-w.offsetTop-12));
+  if (Math.abs(w.offsetHeight-H)>2) w.style.height=H+'px'; }
+function aeHook(){ const f=$('#aeFrame'); f.onload=()=>{ let d=null; try{ d=f.contentDocument; }catch(e){} if (!d || IS_DESK) return;
+    let hints=false; try{ hints=localStorage.getItem('proyavka.aiedit.hints')==='1'; }catch(e){}
+    d.body.classList.toggle('aecompact', !hints); $('#aeHints').classList.toggle('on', hints);
+    clearInterval(aeRO); aeRO=setInterval(()=>{ if ($('#aiedit').hidden) return; aeFit(); }, 400); aeFit(); }; } // cheap poll: sections open/close, status lines appear
+aeHook();
+$('#aeHints').onclick=()=>{ let d=null; try{ d=$('#aeFrame').contentDocument; }catch(e){} if (!d || !d.body) return; const on=d.body.classList.toggle('aecompact')===false;
+  $('#aeHints').classList.toggle('on', on); try{ localStorage.setItem('proyavka.aiedit.hints', on?'1':'0'); }catch(e){} setTimeout(aeFit,50); };
 function aePlace(){ const w=$('#aiedit'), app=$('#app').getBoundingClientRect(); let p=null; try{ p=JSON.parse(localStorage.getItem(AE_POS)||'null'); }catch(e){}
-  const W=Math.min(400, app.width-16), H=Math.min(p&&p.h||900, app.height-80);
+  w.classList.toggle('pad', !IS_DESK);
+  const W=Math.min(IS_DESK?400:360, app.width-16), H=Math.min(p&&p.h||900, app.height-80);
   if (!p){ const lay=$('#layers'), lr=lay && !lay.hidden ? lay.getBoundingClientRect() : null; p={ x: lr ? lr.left-W-10 : app.width-W-12, y:62 }; }
-  w.style.width=W+'px'; w.style.height=H+'px'; w.style.left=clamp(p.x,4,Math.max(4,app.width-W-4))+'px'; w.style.top=clamp(p.y,4,Math.max(4,app.height-60))+'px'; }
+  w.style.width=W+'px'; w.style.height=H+'px'; w.style.left=clamp(p.x,4,Math.max(4,app.width-W-4))+'px'; w.style.top=clamp(p.y,4,Math.max(4,app.height-60))+'px'; if (!IS_DESK) setTimeout(aeFit,0); }
 (function aeDrag(){ const w=$('#aiedit'), h=w.querySelector('.aeh'), g=w.querySelector('.aegrip'); let st=null;
   const save=()=>{ try{ localStorage.setItem(AE_POS, JSON.stringify({x:w.offsetLeft, y:w.offsetTop, h:w.offsetHeight})); }catch(e){} };
   const down=(e,mode)=>{ if (e.target.closest('button')) return; st={mode, x:e.clientX, y:e.clientY, l:w.offsetLeft, t:w.offsetTop, h:w.offsetHeight}; w.classList.add('drag'); e.target.setPointerCapture(e.pointerId); e.preventDefault(); };
   const move=e=>{ if(!st) return; if (st.mode==='move'){ w.style.left=(st.l+e.clientX-st.x)+'px'; w.style.top=Math.max(0,st.t+e.clientY-st.y)+'px'; } else w.style.height=Math.max(220, st.h+e.clientY-st.y)+'px'; };
-  const up=()=>{ if(!st) return; st=null; w.classList.remove('drag'); save(); };
+  const up=()=>{ if(!st) return; st=null; w.classList.remove('drag'); save(); aeFit(); };
   h.addEventListener('pointerdown', e=>down(e,'move')); g.addEventListener('pointerdown', e=>down(e,'size'));
   for (const el of [h,g]){ el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); }
   $('#aeClose').onclick=aeClose; $('#aeReload').onclick=()=>aeOpen(true);
@@ -7269,7 +7291,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №58.2 видно, как айпад видит компьютер'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №59 AI Edit на iPad: компактная панель'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
