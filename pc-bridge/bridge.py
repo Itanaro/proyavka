@@ -25,17 +25,28 @@ def lan_ip():
         return socket.gethostbyname(socket.gethostname())
     finally: s.close()
 
+def remote_ip():
+    """The PC's address in Tailscale (100.64.0.0/10), if Tailscale is installed: the iPad reaches the bridge there from any network."""
+    try: ips = socket.gethostbyname_ex(socket.gethostname())[2]
+    except Exception: ips = []
+    for a in ips:
+        try:
+            o = [int(x) for x in a.split('.')]
+            if o[0] == 100 and 64 <= o[1] <= 127: return a
+        except Exception: pass
+    return ''
+
 def ossl(*args):
     env = dict(os.environ); env['OPENSSL_CONF'] = os.path.join(HERE, 'openssl.cnf'); env['MSYS2_ARG_CONV_EXCL'] = '*'; env['MSYS_NO_PATHCONV'] = '1'
     r = subprocess.run([OPENSSL, *args], cwd=HERE, capture_output=True, text=True, env=env)
     if r.returncode: raise RuntimeError('openssl: ' + (r.stderr or r.stdout))
 
-def ensure_certs(ip):
+def ensure_certs(ip, rip=''):
     host = socket.gethostname()
     with open(os.path.join(HERE, 'openssl.cnf'), 'w', encoding='ascii') as f:
         f.write('[req]\ndistinguished_name=dn\n[dn]\n[ca]\nbasicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\nsubjectKeyIdentifier=hash\n'
                 '[srv]\nbasicConstraints=CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n'
-                f'subjectAltName=IP:{ip},DNS:{host},DNS:{host}.local,DNS:localhost,IP:127.0.0.1\n')
+                f'subjectAltName=IP:{ip},' + (f'IP:{rip},' if rip else '') + f'DNS:{host},DNS:{host}.local,DNS:localhost,IP:127.0.0.1\n')
     ca_key, ca_crt = os.path.join(HERE, 'rootCA.key'), os.path.join(HERE, 'rootCA.crt')
     if not os.path.exists(ca_crt):
         p('Создаю свой корневой сертификат (один раз)…')
@@ -48,12 +59,13 @@ def ensure_certs(ip):
         except Exception as e: p('Не смогла положить сертификат на рабочий стол:', e)
     stamp = os.path.join(HERE, 'server.ip')
     old = open(stamp).read().strip() if os.path.exists(stamp) else ''
-    if old != ip or not os.path.exists(os.path.join(HERE, 'server.crt')):
-        p('Делаю сертификат моста для адреса', ip)
+    want = ip + ('+' + rip if rip else '')
+    if old != want or not os.path.exists(os.path.join(HERE, 'server.crt')):
+        p('Делаю сертификат моста для адреса', want)
         ossl('req', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'server.key', '-out', 'server.csr', '-subj', '/CN=' + ip, '-config', 'openssl.cnf')
         ossl('x509', '-req', '-in', 'server.csr', '-CA', 'rootCA.crt', '-CAkey', 'rootCA.key', '-CAcreateserial', '-out', 'server.crt',
              '-days', '800', '-sha256', '-extfile', 'openssl.cnf', '-extensions', 'srv')
-        open(stamp, 'w').write(ip)
+        open(stamp, 'w').write(want)
 
 def token():
     f = os.path.join(HERE, 'token.txt')
@@ -171,6 +183,7 @@ def subject_state(kind='general'):
     try: return subject_mod().status(MODEL_DIR, kind)
     except Exception as e: return {'status': 'error', 'note': str(e)}
 
+REMOTE_ADDR = ''
 TOKEN = token()
 PREFIX = '/k/' + TOKEN
 
@@ -199,7 +212,7 @@ class H(BaseHTTPRequestHandler):
             return self.reply(403, json.dumps({'error': 'нужен адрес с ключом моста'}, ensure_ascii=False).encode())
         path = self.path[len(PREFIX):]
         if path == '/bridge/ping':
-            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'net': bool(os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')), 'subject': subject_state(), 'matting': subject_state('matting')}, ensure_ascii=False).encode())
+            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'remote': REMOTE_ADDR, 'net': bool(os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')), 'subject': subject_state(), 'matting': subject_state('matting')}, ensure_ascii=False).encode())
         if path.startswith('/proyavka/subject'):
             n = int(self.headers.get('Content-Length') or 0); body = self.rfile.read(n) if n else b''
             try:
@@ -274,14 +287,17 @@ class Server(ThreadingHTTPServer):
 WATCH = [os.path.abspath(__file__), os.path.join(HERE, 'birefnet', 'subject.py')]
 def _stamp(): return tuple(os.path.getmtime(f) if os.path.exists(f) else 0 for f in WATCH)
 def watch_self(srv):
-    st = _stamp()
+    st = _stamp(); rip0 = remote_ip(); n = 0
     while True:
-        time.sleep(4)
-        try: now = _stamp()
+        time.sleep(4); n += 1
+        why = ''
+        try:
+            if _stamp() != st: why = 'Мост обновлён'
         except Exception: continue
-        if now == st: continue
+        if not why and n % 15 == 0 and remote_ip() != rip0: why = 'Адрес Tailscale изменился'  # Tailscale installed / turned on after the bridge started
+        if not why: continue
         time.sleep(2)  # let the copy finish
-        p(time.strftime('%H:%M:%S'), 'Мост обновлён — перезапускаюсь…')
+        p(time.strftime('%H:%M:%S'), why + ' — перезапускаюсь…')
         try: srv.socket.close()  # free the port for the new process (shutdown() would wait on the serving loop)
         except Exception: pass
         log = open(os.path.join(HERE, 'bridge.log'), 'a', encoding='utf-8')
@@ -290,13 +306,16 @@ def watch_self(srv):
         os._exit(0)
 
 def main():
-    ip = lan_ip(); ensure_certs(ip)
+    ip = lan_ip(); rip = remote_ip(); ensure_certs(ip, rip)
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.load_cert_chain(os.path.join(HERE, 'server.crt'), os.path.join(HERE, 'server.key'))
     srv = Server(('0.0.0.0', PORT), H); srv.socket = ctx.wrap_socket(srv.socket, server_side=True, do_handshake_on_connect=False)  # handshake in the worker thread, a slow client can't stall the rest
     addr = f'https://{ip}:{PORT}{PREFIX}'
-    try: open(os.path.join(DESKTOP, 'Проявка-адрес-моста.txt'), 'w', encoding='utf-8').write(addr + '\n')
+    global REMOTE_ADDR; REMOTE_ADDR = f'https://{rip}:{PORT}{PREFIX}' if rip else ''
+    try: open(os.path.join(DESKTOP, 'Проявка-адрес-моста.txt'), 'w', encoding='utf-8').write(addr + '\n' + (REMOTE_ADDR + '  (из любой сети, через Tailscale)\n' if REMOTE_ADDR else ''))
     except Exception: pass
-    p(''); p('Мост «Проявки» работает.'); p('Адрес для «Проявки» на iPad (⚙ → Свой ПК):'); p('   ' + addr); p('')
+    p(''); p('Мост «Проявки» работает.'); p('Адрес для «Проявки» на iPad (⚙ → Свой ПК):'); p('   ' + addr)
+    if REMOTE_ADDR: p('Из любой сети (Tailscale): ' + REMOTE_ADDR + '  — iPad узнает его сам, когда хоть раз подключится дома')
+    p('')
     p('Это окно не закрывай, пока работаешь с iPad. Automatic1111 тоже должен быть запущен.')
     try:  # the selection model downloads in the background once, so the first «Выделить объект» does not wait for it
         sm = subject_mod()

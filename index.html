@@ -3063,7 +3063,8 @@ async function cloudViaPC(){ const m=genCfg.cloudVia||'auto'; if (m==='direct' |
   let j=null; try{ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),2500); j=await (await fetch(sdBase()+'/bridge/ping',{signal:ctl.signal, cache:'no-store'})).json(); clearTimeout(T); }catch(e){}
   CLOUD.via = !!(j && j.ok && (m==='pc' || j.net)); CLOUD.at=Date.now(); CLOUD.host=j&&j.host||''; return CLOUD.via; }
 async function cloudFetch(url, opt={}){
-  if (!(await cloudViaPC()) || (opt.body instanceof FormData)) return fetch(url, opt);
+  const own=[sdBase(), clean(genCfg.sdUrl), clean(genCfg.sdRemote)].filter(Boolean).some(b=>String(url).indexOf(b)===0); // the bridge itself — never through itself
+  if (own || !/^https?:\/\//i.test(url) || (opt.body instanceof FormData) || !(await cloudViaPC())) return fetch(url, opt);
   const hd={}, h=opt.headers||{}; if (typeof h.forEach==='function') h.forEach((v,k)=>{ hd[k]=v; }); else Object.assign(hd, h);
   const ph={'X-Proxy-Url':encodeURIComponent(url), 'X-Proxy-Method':(opt.method||'GET').toUpperCase(), 'X-Proxy-Headers':encodeURIComponent(JSON.stringify(hd))};
   if (opt.body!=null) ph['Content-Type']='application/x-proyavka-raw';
@@ -3532,10 +3533,25 @@ function critOverlay(ox){ if (!crit || !crit.notes.length) return; const m=viewM
     ox.beginPath(); ox.arc(x,y,R,0,Math.PI*2); ox.stroke(); ox.setLineDash([]);
     ox.fillStyle='#ffb35c'; ox.beginPath(); ox.arc(x+R*0.71,y-R*0.71,11,0,Math.PI*2); ox.fill(); ox.shadowBlur=0; ox.fillStyle='#1b1208'; ox.font='600 12px system-ui'; ox.textAlign='center'; ox.textBaseline='middle'; ox.fillText(String(i+1),x+R*0.71,y-R*0.71+0.5); ox.restore(); }); }
 /* ============ SD Inpaint: Automatic1111 on the home PC, reached through the HTTPS bridge (proyavka-bridge on the PC) ============ */
-const sdBase=()=>String(genCfg.sdUrl||'').trim().replace(/\/+$/,'');
+/* the bridge has two addresses: at home — the PC's LAN address (genCfg.sdUrl), anywhere else — its Tailscale address, which the
+   bridge reports in its ping (genCfg.sdRemote, learned automatically at home). The one that answers is used. */
+const BR={base:'', at:0, busy:null};
+const clean=u=>String(u||'').trim().replace(/\/+$/,'');
+const sdBase=()=>BR.base || clean(genCfg.sdUrl);
+async function bridgePick(force){
+  if (BR.busy) return BR.busy; if (!force && Date.now()-BR.at<20000) return BR.base;
+  BR.busy=(async()=>{ const cand=[clean(genCfg.sdUrl), clean(genCfg.sdRemote)].filter((u,i,a)=>u && a.indexOf(u)===i); let got='';
+    for (const u of cand){ try{ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),2500); const j=await (await fetch(u+'/bridge/ping',{signal:ctl.signal, cache:'no-store'})).json(); clearTimeout(T);
+        if (j && j.ok){ got=u; if (j.remote && clean(j.remote)!==clean(genCfg.sdRemote)){ genCfg.sdRemote=clean(j.remote); genSave(); } break; } }catch(e){} }
+    if (got!==BR.base){ BR.base=got; if (typeof CLOUD!=='undefined') CLOUD.via=null; if (typeof PC!=='undefined'){ PC.alive=null; PC.failAt=0; } }
+    BR.at=Date.now(); BR.busy=null; return got; })();
+  return BR.busy; }
+setTimeout(()=>bridgePick(true), 1500); setInterval(()=>{ if (document.visibilityState==='visible') bridgePick(); }, 45000);
+document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible') bridgePick(true); }); window.addEventListener('online', ()=>bridgePick(true));
 async function sdFetch(path, opt={}, ms=30000){ if (!sdBase()) throw new Error('нужен адрес моста — кнопка ⚙');
   try{ return await netFetch(sdBase()+path, opt, ms); }
-  catch(e){ if (/нет связи/.test(e.message)) throw new Error('компьютер не отвечает: мост запущен? iPad в той же Wi-Fi? сертификат установлен?'); throw e; } }
+  catch(e){ if (/нет связи/.test(e.message)){ const was=sdBase(), nb=await bridgePick(true); if (nb && nb!==was) return await netFetch(nb+path, opt, ms); } // left home / came back: the other address
+    if (/нет связи/.test(e.message)) throw new Error('компьютер не отвечает: мост запущен? iPad в той же Wi-Fi (или включён Tailscale)? сертификат установлен?'); throw e; } }
 let sdModelsCache=null;
 async function sdModels(){ const r=await (await sdFetch('/sdapi/v1/sd-models',{},15000)).json(); sdModelsCache=(r||[]).map(m=>m.title); return sdModelsCache; }
 async function sdPing(){ const j=await (await sdFetch('/bridge/ping',{},8000)).json(); let n=0; try{ n=(await sdModels()).length; }catch(e){ return 'мост на связи ('+(j.host||'ПК')+'), но Automatic1111 не отвечает — запусти webui'; }
@@ -7248,7 +7264,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №57 облако через компьютер: айпаду дома не нужен VPN'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №58 мост из любой сети через Tailscale'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
