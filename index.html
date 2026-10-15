@@ -3542,8 +3542,8 @@ async function bridgePick(force){
   if (BR.busy) return BR.busy; if (!force && Date.now()-BR.at<20000) return BR.base;
   BR.busy=(async()=>{ const cand=[clean(genCfg.sdUrl), clean(genCfg.sdRemote)].filter((u,i,a)=>u && a.indexOf(u)===i); let got='';
     for (const u of cand){ try{ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),2500); const j=await (await fetch(u+'/bridge/ping',{signal:ctl.signal, cache:'no-store'})).json(); clearTimeout(T);
-        if (j && j.ok){ got=u; if (j.remote && clean(j.remote)!==clean(genCfg.sdRemote)){ genCfg.sdRemote=clean(j.remote); genSave(); } break; } }catch(e){} }
-    if (got!==BR.base){ BR.base=got; if (typeof CLOUD!=='undefined') CLOUD.via=null; if (typeof PC!=='undefined'){ PC.alive=null; PC.failAt=0; } }
+        if (j && j.ok){ got=u; if (j.remote && clean(j.remote)!==clean(genCfg.sdRemote)){ genCfg.sdRemote=clean(j.remote); genSave(); toast('Запомнила адрес компьютера для связи из любой сети (Tailscale)',3000); } break; } }catch(e){} }
+    if (got!==BR.base){ const prev=BR.base; BR.base=got; if (got && prev!==undefined && BR.at) toast(got===clean(genCfg.sdRemote) && got!==clean(genCfg.sdUrl) ? 'Компьютер на связи через Tailscale' : 'Компьютер на связи по домашней сети',1800); if (typeof CLOUD!=='undefined') CLOUD.via=null; if (typeof PC!=='undefined'){ PC.alive=null; PC.failAt=0; } }
     BR.at=Date.now(); BR.busy=null; return got; })();
   return BR.busy; }
 setTimeout(()=>bridgePick(true), 1500); setInterval(()=>{ if (document.visibilityState==='visible') bridgePick(); }, 45000);
@@ -3647,6 +3647,7 @@ function genSettings(tab){
       <div class="row" style="margin:6px 0"><label>Ключ Gemini</label><input type="password" id="gsGemKey" autocomplete="off" spellcheck="false" placeholder="необязательно: умная подсказка"></div></div>
     <div id="gsComfy"><p class="gh" style="margin:0 0 6px">Для SD Inpaint: на компьютере запусти Automatic1111 и «Мост Проявки» с рабочего стола, адрес моста — в его окне и в файле «Проявка-адрес-моста.txt».</p>
       <div class="row" style="margin:6px 0"><label>Адрес моста</label><input type="text" id="gsSdUrl" autocomplete="off" spellcheck="false" placeholder="https://192.168.…:7861/k/…"></div>
+      <p class="gh" id="gsRemote" style="margin:0 0 6px"></p>
       <label class="chk" style="margin:8px 0 0;display:flex;gap:8px;align-items:center"><input type="checkbox" id="gsPcML"> Тяжёлые нейросети считать на компьютере <span class="gh" style="margin:0">(выделение объекта, «Убрать», «Сдвинуть», глубина — когда мост на связи)</span></label>
       <div class="row" style="margin:10px 0 4px"><label>Облако через ПК</label><div class="seg" id="gsCloud"><button data-c="auto">Авто</button><button data-c="pc">Всегда</button><button data-c="direct">Нет</button></div></div>
       <p class="gh" style="margin:0 0 4px">OpenRouter, Google и fal.ai — через компьютер и его VPN: дома айпаду свой VPN не нужен. «Авто» — с айпада, когда мост на связи и у него настроен выход через VPN; вне дома — напрямую. Ключи идут только через твой компьютер.</p></div>
@@ -3666,6 +3667,10 @@ function genSettings(tab){
     for (const m of all){ if (seen.has(m[0])) continue; seen.add(m[0]); const o=document.createElement('option'); o.value=m[0]; o.textContent=m[1]; el.append(o); }
     if (cur && !seen.has(cur)){ const o=document.createElement('option'); o.value=cur; o.textContent=cur; el.prepend(o); } el.value=cur||top; };
   d.querySelectorAll('#gsCrit button').forEach(b=>{ b.classList.toggle('on',(b.dataset.m==='deep')===!!genCfg.critDeep); b.onclick=()=>{ genCfg.critDeep=b.dataset.m==='deep'; genSave(); d.querySelectorAll('#gsCrit button').forEach(x=>x.classList.toggle('on',x===b)); }; });
+  { const el=d.querySelector('#gsRemote'), show=()=>{ const r=clean(genCfg.sdRemote), now=sdBase();
+      el.textContent = r ? ('Из любой сети (Tailscale): '+r.replace(/\/k\/.*/,'')+' — запомнен ✓'+(now&&now===r?' · сейчас связь через Tailscale':now&&now===clean(genCfg.sdUrl)?' · сейчас связь по домашней сети':' · сейчас моста не видно'))
+                         : 'Адрес для связи из любой сети ещё не получен: открой Проявку дома, когда мост запущен (на компьютере — Tailscale).'; };
+    show(); bridgePick(true).then(show); }
   d.querySelectorAll('#gsCloud button').forEach(b=>{ b.classList.toggle('on', b.dataset.c===(genCfg.cloudVia||'auto')); b.onclick=()=>{ genCfg.cloudVia=b.dataset.c; genSave(); CLOUD.via=null; d.querySelectorAll('#gsCloud button').forEach(x=>x.classList.toggle('on',x===b)); }; });
   fillModels(sel_, [], PRESET, NB21, genCfg.orModel); fillModels(selG, ggModelsCache||[], GPRESET, GG_NB21, genCfg.ggModel||GG_NB21);
   const curModel=()=> view==='google' ? selG.value : sel_.value, nb=()=> curModel()===NB21 || curModel()===GG_NB21;
@@ -7264,7 +7269,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №58 мост из любой сети через Tailscale'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №58.2 видно, как айпад видит компьютер'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
