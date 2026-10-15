@@ -2973,7 +2973,7 @@ function liqReset(){ // the whole session back to how the layer was
 /* ============ generative fill, like Firefly: selection → (optional words) → 3 variants that fit light and colour ============
    The picture around the selection (with generous context) and the selection as a mask go to an inpainting model on the
    PC (ComfyUI + FLUX.1 Fill). Only the selected area comes back: a new layer with the selection as its mask. */
-const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-nano-banana-2.1', orRes:'1K', orBase:'https://openrouter.ai', orVision:'google/gemini-2.5-flash', sdUrl:'', sdPrompt:'', sdNeg:'(worst quality:2), (low quality:2), lowres, watermark, signature, blurry', sdDenoise:0.05, sdSteps:60, sdCfg:7, sdSampler:'Euler a', sdModel:'', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', ggModel:'gemini-nano-banana-2.1', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
+const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-nano-banana-2.1', orRes:'1K', orBase:'https://openrouter.ai', orVision:'google/gemini-2.5-flash', critDeep:false, sdUrl:'', sdPrompt:'', sdNeg:'(worst quality:2), (low quality:2), lowres, watermark, signature, blurry', sdDenoise:0.05, sdSteps:60, sdCfg:7, sdSampler:'Euler a', sdModel:'', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', ggModel:'gemini-nano-banana-2.1', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
 let genCfg=Object.assign({}, GEN_DEF); try{ Object.assign(genCfg, JSON.parse(localStorage.getItem('proyavka.gen')||'{}')); }catch(e){}
 if (genCfg.provider==='comfy') genCfg.provider='or';
 if (!genCfg.sdV2){ genCfg.sdDenoise=0.05; genCfg.sdV2=1; }
@@ -3047,10 +3047,11 @@ async function ggImage(b){ // b: the OpenRouter-shaped body built in orRequest �
   if (!ps.length){ const why=(j.promptFeedback&&j.promptFeedback.blockReason) || (c&&c.finishReason) || ''; throw new Error(why && why!=='STOP' ? 'Google отказался рисовать ('+why+')' : 'модель не вернула картинку'); }
   const p=ps[ps.length-1], d=p.inlineData||p.inline_data;
   return {data:[{b64_json:d.data, media_type:d.mimeType||d.mime_type||'image/png'}], usage:{cost:ggCost(j.usageMetadata, m)}}; }
+const CRIT_MODELS={ fast:{or:'google/gemini-2.5-flash', gg:'gemini-2.5-flash', name:'Flash'}, deep:{or:'google/gemini-4-argon', gg:'gemini-4-argon', name:'Argon'} }; // art director: quick look / deep review
 async function ggVision(text, imgURL, opt={}){ // a looking model (Gemini Flash) → plain text answer
   const i=imgURL.indexOf(','), body={contents:[{role:'user', parts:[{text},{inline_data:{mime_type:imgURL.slice(5,imgURL.indexOf(';')), data:imgURL.slice(i+1)}}]}], generationConfig:{temperature:opt.temperature??0.3}};
   if (opt.json) body.generationConfig.responseMimeType='application/json';
-  let j; try{ j=await (await netFetch(ggUrl(genCfg.gemModel||'gemini-2.5-flash','generateContent'),{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)},opt.ms||120000)).json(); }
+  let j; try{ j=await (await netFetch(ggUrl(opt.model||genCfg.gemModel||'gemini-2.5-flash','generateContent'),{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)},opt.ms||120000)).json(); }
   catch(e){ throw ggErr(e); }
   const c=(j.candidates||[])[0]; return ((c&&c.content&&c.content.parts)||[]).filter(p=>!p.thought).map(p=>p.text||'').join('').trim(); }
 let netSess=null; // the panel whose Stop button aborts the current request (gen-fill or object move)
@@ -3473,26 +3474,33 @@ let crit=null;
 const plur=(n,a,b,c)=>{ const m10=n%10, m100=n%100; return m10===1&&m100!==11 ? a : m10>=2&&m10<=4&&(m100<10||m100>=20) ? b : c; };
 async function artDirector(){
   if (!doc || !orNeed()) return; if (crit && crit.busy) return;
-  const k=Math.min(1,1568/Math.max(doc.w,doc.h)), W=Math.round(doc.w*k), H=Math.round(doc.h*k);
+  const mode=genCfg.critDeep ? 'deep' : 'fast', CM=CRIT_MODELS[mode];
+  const k=Math.min(1,(mode==='deep'?2048:1568)/Math.max(doc.w,doc.h)), W=Math.round(doc.w*k), H=Math.round(doc.h*k); // the deep one gets more pixels to look at
   const img=regionImage({x:0,y:0,w:doc.w,h:doc.h},W,H);
-  crit={busy:true, notes:[], summary:'', sel:-1}; critBuild(); $('#critbar').hidden=false;
+  crit={busy:true, notes:[], summary:'', sel:-1, mode, t0:Date.now()}; critBuild(); $('#critbar').hidden=false;
   const ask='Ты — арт-директор визуальных новелл. Перед тобой кат-сцена (иллюстрация) в работе: фотобаш плюс нейросети. Разбери кадр по-деловому и по-русски: свет и тени (согласованность источников, контактные тени), перспектива и масштаб, анатомия и позы, композиция и читаемость главного, цвет и тон, стыки фотобаша и следы нейросети (лишние пальцы, кривой текст, мыло, повторяющиеся текстуры). Только реальные проблемы, от важных к мелким, не больше 8. Ответь ТОЛЬКО JSON: {"summary":"одна-две фразы общего впечатления","notes":[{"x":0..1,"y":0..1,"r":0..0.5,"kind":"свет|перспектива|анатомия|композиция|цвет|стык|деталь","title":"коротко","text":"что не так и как поправить, 1–2 предложения"}]} где x,y — центр проблемного места в долях ширины и высоты, r — радиус области в долях ширины.';
-  const body={model:genCfg.orVision||'google/gemini-2.5-flash', messages:[{role:'user', content:[{type:'text', text:ask},{type:'image_url', image_url:{url:img.toDataURL('image/jpeg',0.9)}}]}], response_format:{type:'json_object'}, temperature:0.3};
+  const body={model: mode==='deep' ? CM.or : (genCfg.orVision||CM.or), messages:[{role:'user', content:[{type:'text', text:ask},{type:'image_url', image_url:{url:img.toDataURL('image/jpeg',0.9)}}]}], response_format:{type:'json_object'}, temperature:0.3};
   const c0=crit; netSess=c0;
   try{
     let r={}, txt='';
-    if (edProv()==='google') txt=await ggVision(ask, body.messages[0].content[1].image_url.url, {json:true});
-    else { r=await (await netFetch(orBaseUrl()+'/api/v1/chat/completions',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(body)},120000)).json();
+    const ms = mode==='deep' ? 360000 : 120000; // Argon thinks before it answers
+    if (edProv()==='google') txt=await ggVision(ask, body.messages[0].content[1].image_url.url, {json:true, model:CM.gg, ms});
+    else { r=await (await netFetch(orBaseUrl()+'/api/v1/chat/completions',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(body)},ms)).json();
       txt=(r.choices&&r.choices[0]&&r.choices[0].message&&r.choices[0].message.content)||''; } const m=String(txt).match(/\{[\s\S]*\}/); if (!m) throw new Error('модель ответила не по форме');
     const j=JSON.parse(m[0]); if (crit!==c0) return;
     c0.summary=String(j.summary||''); c0.notes=(j.notes||[]).slice(0,8).map(n=>({x:clamp(+n.x||0.5,0,1)*doc.w, y:clamp(+n.y||0.5,0,1)*doc.h, r:clamp(+n.r||0.06,0.02,0.5)*doc.w, kind:String(n.kind||''), title:String(n.title||''), text:String(n.text||'')}));
-    c0.cost=r.usage&&r.usage.cost;
+    c0.cost=r.usage&&r.usage.cost; c0.secs=Math.round((Date.now()-c0.t0)/1000);
   }catch(e){ if (e.message!=='cancel'){ console.error(e); toast('Арт-директор: '+e.message,4500); } if (crit===c0){ crit=null; $('#critbar').hidden=true; } return; }
   finally{ netSess=null; }
   c0.busy=false; critBuild(); requestRender();
 }
 function critBuild(){ const c=crit, box=$('#critbar'); if (!c) return; box.textContent='';
-  const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Арт-директор <span></span>'; head.lastChild.textContent= c.busy ? 'смотрю кадр…' : c.notes.length ? c.notes.length+' '+plur(c.notes.length,'замечание','замечания','замечаний')+(c.cost?' · $'+c.cost.toFixed(3):'') : 'серьёзных замечаний нет'; box.append(head);
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Арт-директор <span></span>'; head.lastChild.textContent= c.busy ? (c.mode==='deep' ? 'Argon разбирает кадр — это может занять пару минут…' : 'смотрю кадр…') : c.notes.length ? c.notes.length+' '+plur(c.notes.length,'замечание','замечания','замечаний')+(c.cost?' · $'+c.cost.toFixed(3):'') : 'серьёзных замечаний нет'; box.append(head);
+  { const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>Разбор</label><div class="seg"><button data-m="fast">Быстрый · Flash</button><button data-m="deep">Глубокий · Argon</button></div>';
+    r.querySelectorAll('button').forEach(b=>{ b.classList.toggle('on', (b.dataset.m==='deep')===!!genCfg.critDeep); b.disabled=c.busy;
+      b.onclick=()=>{ const deep=b.dataset.m==='deep'; if (deep===!!genCfg.critDeep) return; genCfg.critDeep=deep; genSave(); crit=null; artDirector(); }; });
+    box.append(r);
+    if (!c.busy && c.mode){ const g=document.createElement('div'); g.className='gh'; g.textContent=(c.mode==='deep'?'Глубокий разбор · Gemini 4 Argon':'Быстрый разбор · Gemini Flash')+(c.secs?' · '+c.secs+' с':'')+(c.mode==='fast'?' · для разбора глубже переключи на Argon (дольше и дороже)':''); box.append(g); } }
   if (c.summary){ const s=document.createElement('div'); s.className='gh'; s.style.fontSize='13px'; s.textContent=c.summary; box.append(s); }
   const list=document.createElement('div'); list.className='crl';
   c.notes.forEach((n,i)=>{ const b=document.createElement('button'); b.className='crn'+(i===c.sel?' on':''); b.innerHTML='<b></b><span><i></i><em></em></span>'; b.firstChild.textContent=i+1; b.querySelector('i').textContent=n.title+(n.kind?' · '+n.kind:''); b.querySelector('em').textContent=n.text;
@@ -7203,7 +7211,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-12 · №54 Google AI Studio напрямую, свой ключ у каждого'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №55 арт-директор: быстрый (Flash) / глубокий (Argon)'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
