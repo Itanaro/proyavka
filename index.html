@@ -5542,6 +5542,11 @@ function aeShim(){ // runs INSIDE the panel frame
     let r; try{ r=await nf(base+'/net/proxy', {method:'POST', headers:ph, body:b==null?undefined:b, signal:opt.signal}); }
     catch(e){ if (e && e.name==='AbortError') throw e; return nf(input, opt); } // bridge unreachable — straight to the service
     if (r.headers.get('X-Proxy-Error')){ let m='нет связи'; try{ m=(await r.json()).error||m; }catch(e){} throw new TypeError(m); }
+    // the bridge got out to the internet without the VPN (the VPN may cover only some programs) and the service turned it away by country —
+    // then this window (it does go through the VPN) asks the service itself; the answer is used if it is better
+    if (r.status>=400 && r.status<500 && !(b instanceof ReadableStream)){ let t=''; try{ t=await r.clone().text(); }catch(e){}
+      if (/location is not supported|unsupported_country|not available in your (country|region)|country, region, or territory/i.test(t)){ H.geoVia=(H.geoVia||0)+1;
+        try{ const d=await nf(input, opt); if (d.ok || !/location is not supported|unsupported_country/i.test(await d.clone().text().catch(()=>''))) return d; }catch(e){ if (e && e.name==='AbortError') throw e; } } }
     return r; };
   // the Spectrum widgets UXP gives the plugin, as small light-DOM look-alikes
   const def=(n,c)=>{ if (!customElements.get(n)) customElements.define(n,c); };
@@ -6235,7 +6240,7 @@ function showHelpDesk(){
   const card=(t,rows)=>'<section><h4>'+t+'</h4>'+rows.map(([k,v])=>'<div class="hk"><span>'+k.split(' / ').map(K).join('<i>/</i>')+'</span><b>'+v+'</b></div>').join('')+'</section>';
   const html=`<h3>Клавиши и мышь</h3><p>Клавиши — как в фотошопе и работают в любой раскладке. Перо планшета рисует с нажимом, мышь — без.</p>
    <div class="hkgrid">`+
-   card('Холст',[['Колёсико','масштаб'],['Alt+колёсико','поворот'],['Пробел / H','держать — рука'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум'],['Tab / F','спрятать панели']])+
+   card('Холст',[['Колёсико / Alt+колёсико','масштаб'],['Ctrl+колёсико','масштаб (на тачпаде — щипок)'],['Shift+колёсико','сдвиг вбок'],['Alt+Shift+колёсико','поворот'],['Пробел / H','держать — рука'],['Ctrl+Пробел / Alt+Пробел','клик — ближе / дальше, тянуть — плавно'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум по шагам фотошопа (50 · 67 · 100 · 200 %)'],['Tab / F','спрятать панели']])+
    card('Правка и файл',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить PSD'],['Ctrl+Shift+S','сохранить как…'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
    card('Выделение и слои',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','при выделении — добавить / вычесть'],['Ctrl+Alt+R','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
    card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп'],['B / E','кисть / ластик'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['C','кадрирование'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
@@ -6463,7 +6468,7 @@ stage.addEventListener('pointerdown', e=>{
     return;
   }
   // pen / mouse
-  if (zHeld && toolPtr===null){ zoomDrag={id:e.pointerId, x:e.clientX, p:stagePos(e), out:altDown||e.altKey, moved:false}; capture(e); return; }
+  if ((zHeld || spaceZoom()) && toolPtr===null){ zoomDrag={id:e.pointerId, x:e.clientX, p:stagePos(e), out:altDown||e.altKey, moved:false}; capture(e); return; }
   if (rHeld && toolPtr===null){ const st=stage.getBoundingClientRect(), p=stagePos(e); rotDrag={id:e.pointerId, cx:st.width/2, cy:st.height/2, a:Math.atan2(p[1]-st.height/2, p[0]-st.width/2)}; capture(e); updateCursor(); return; }
   if ((spaceDown || hHeld || e.button===1) && toolPtr===null){ panDrag={id:e.pointerId,x:e.clientX,y:e.clientY,vx:view.x,vy:view.y}; capture(e); updateCursor(); return; }
   lastPenT=Date.now();
@@ -6583,6 +6588,9 @@ function toolMove(e){
 }
 /* desktop: wheel zoom / rotate, space or middle-button pan, Alt eyedropper */
 let spaceDown=false, altDown=false, panDrag=null; // (shiftDown, hHeld, zHeld, rHeld: see updateCursor)
+const PS_ZOOMS=[.01,.015,.02,.03,.04,.05,.0625,.0833,.125,.1667,.25,.3333,.5,.6667,1,2,3,4,5,6,7,8,12,16,32];
+function psZoomStep(d){ // Ctrl+= / Ctrl+-: the next of Photoshop's zoom levels (… 33, 50, 67, 100, 200, 300 % …)
+  const s=view.s; if (d>0){ for (const z of PS_ZOOMS) if (z>s*1.001) return z; return 32; } for (let i=PS_ZOOMS.length-1;i>=0;i--) if (PS_ZOOMS[i]<s*0.999) return PS_ZOOMS[i]; return .01; }
 function zoomAt(px,py,k){
   const [dx,dy]=toDoc(px,py); view.s=clamp(view.s*k,0.02,32);
   const c=Math.cos(view.r)*view.s, sn=Math.sin(view.r)*view.s;
@@ -6599,15 +6607,18 @@ stage.addEventListener('wheel', e=>{
   navStart(); navEnd(200);
   const [px,py]=stagePos(e), k=e.deltaMode===1?16:(e.deltaMode===2?400:1);
   const dy=e.deltaY*k, dx=e.deltaX*k;
-  if (e.altKey) rotateAt(px,py,(dy||dx)*0.004);
+  const notch = e.deltaMode===1 || (e.deltaMode===0 && Math.abs(e.deltaY)>=50 && Number.isInteger(e.deltaY)); // a mouse wheel click, not a trackpad pinch
+  if (e.altKey && e.shiftKey) rotateAt(px,py,(dy||dx)*0.004);
+  else if (e.altKey) zoomAt(px,py,Math.exp(-(dy||dx)*0.0018)); // Photoshop: Alt + wheel = zoom
   else if (e.shiftKey){ view.x-=dy||dx; requestRender(); }
-  else if (e.ctrlKey||e.metaKey) zoomAt(px,py,Math.exp(-dy*0.01));
+  else if (e.ctrlKey||e.metaKey) zoomAt(px,py,Math.exp(-dy*(notch?0.0018:0.01))); // a wheel click with Ctrl — the same small step as without it; pinch stays quick
   else if (Math.abs(dx)>0 && Math.abs(dy)<40 && e.deltaMode===0 && Math.abs(dx)>=Math.abs(dy)*0.5){ view.x-=dx; view.y-=dy; requestRender(); }
   else zoomAt(px,py,Math.exp(-dy*0.0018));
 },{passive:false});
 /* Photoshop-like cursors on the PC: lasso (draws from the end of its rope), marquee cross, magic wand (the star tip),
    object selection, eyedropper (the tip). «+» / «−» for add / subtract (also while Shift / Alt is held), Caps Lock → precise cross.
    Held keys: Space / H — hand, Z — zoom, R — rotate view. */
+let ctrlDown=false; const spaceZoom=()=>spaceDown && (ctrlDown||altDown); // Photoshop: Ctrl+Space — zoom in, Alt+Space — zoom out
 let capsOn=false, shiftDown=false, hHeld=false, zHeld=false, rHeld=false, zoomDrag=null, rotDrag=null, lastDesel=null;
 const CUR_MARK={add:"M23 22h7M26.5 18.5v7", sub:"M23 22h7"};
 function svgCursor(paths, hx, hy, mode, extra){
@@ -6628,6 +6639,7 @@ function updateCursor(){
   const st=stage.style, t=S.tool, busyMode=xf || (typeof pup!=='undefined' && pup);
   if (typeof crop!=='undefined' && crop){ st.cursor='crosshair'; return; }
   if (panDrag || rotDrag) { st.cursor='grabbing'; return; }
+  if (spaceZoom()) { st.cursor = altDown ? 'zoom-out' : 'zoom-in'; return; }
   if (spaceDown || hHeld) { st.cursor='grab'; return; }
   if (zHeld) { st.cursor = altDown ? 'zoom-out' : 'zoom-in'; return; }
   if (rHeld) { st.cursor='grab'; return; }
@@ -6643,8 +6655,9 @@ document.addEventListener('keyup', e=>{
   if (e.getModifierState && capsOn!==e.getModifierState('CapsLock')){ capsOn=e.getModifierState('CapsLock'); updateCursor(); }
   if (e.key===' '){ spaceDown=false; updateCursor(); }
   if (e.key==='Alt'){ altDown=false; updateCursor(); }
+  if (e.key==='Control'){ ctrlDown=false; updateCursor(); }
 });
-window.addEventListener('blur', ()=>{ spaceDown=altDown=shiftDown=hHeld=zHeld=rHeld=false; panDrag=zoomDrag=rotDrag=null; updateCursor(); });
+window.addEventListener('blur', ()=>{ spaceDown=altDown=shiftDown=ctrlDown=hHeld=zHeld=rHeld=false; panDrag=zoomDrag=rotDrag=null; updateCursor(); });
 function toolUp(e){
   const t=activeTool; toolPtr=null; if (t==='pup'){ activeTool=null; if (pup) pupUp(); return; } if (t==='crop'){ activeTool=null; cropUp(); return; } if (penHold){ clearTimeout(penHold.T); penHold=null; }
   if (srcDrag){ srcDrag=null; cloneOff=null; renderOverlay(); toast('Источник на месте. Рисуй карандашом',1300); }
@@ -6884,6 +6897,7 @@ document.addEventListener('keydown', e=>{
   if (e.getModifierState){ const c=e.getModifierState('CapsLock'); if (c!==capsOn){ capsOn=c; updateCursor(); } }
   if (e.key===' '){ e.preventDefault(); if(!spaceDown){ spaceDown=true; updateCursor(); } return; }
   if (e.key==='Alt'){ e.preventDefault(); altDown=true; updateCursor(); return; }
+  if (e.key==='Control'){ if (!ctrlDown){ ctrlDown=true; updateCursor(); } return; }
   if (e.key==='Shift'){ if (!shiftDown){ shiftDown=true; updateCursor(); } return; }
   const k=e.key.toLowerCase(), mod=e.metaKey||e.ctrlKey, C=e.code||'';
   const L = C.startsWith('Key') ? C.slice(3).toLowerCase() : C.startsWith('Digit') ? C.slice(5) : C.startsWith('Numpad') && /\d$/.test(C) ? C.slice(-1) : k;
@@ -6894,8 +6908,8 @@ document.addEventListener('keydown', e=>{
     const go=f=>{ e.preventDefault(); f(); };
     if (L==='0') return go(()=>{ if (e.altKey){ const r=st(); zoomAt(r.width/2,r.height/2,1/view.s); } else fitView(); });
     if (L==='1') return go(()=>{ const r=st(); zoomAt(r.width/2,r.height/2,1/view.s); });
-    if (C==='Equal'||C==='NumpadAdd'||k==='='||k==='+') return go(()=>{ const r=st(); zoomAt(r.width/2,r.height/2,1.25); });
-    if (C==='Minus'||C==='NumpadSubtract'||k==='-') return go(()=>{ const r=st(); zoomAt(r.width/2,r.height/2,0.8); });
+    if (C==='Equal'||C==='NumpadAdd'||k==='='||k==='+') return go(()=>{ const r=st(); zoomAt(r.width/2,r.height/2,psZoomStep(1)/view.s); });
+    if (C==='Minus'||C==='NumpadSubtract'||k==='-') return go(()=>{ const r=st(); zoomAt(r.width/2,r.height/2,psZoomStep(-1)/view.s); });
     if (L==='z') return go(()=> e.shiftKey ? redo() : undo());
     if (k==='tab') return go(()=>tabNext(e.shiftKey?-1:1));
     if ((L==='w' && IS_ELECTRON) || C==='F4') return go(()=>tabClose());
@@ -7214,7 +7228,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №55.1 Argon и в настройках генерации'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №56 масштаб как в фотошопе, AI Edit мимо гео-блока'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{

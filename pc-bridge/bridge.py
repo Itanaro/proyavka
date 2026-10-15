@@ -145,6 +145,8 @@ def net_proxy(h, body):
     if u.scheme not in ('http', 'https') or not u.hostname or _private(u.hostname):
         return 400, json.dumps({'error': 'мост не ходит по этому адресу'}, ensure_ascii=False).encode(), 'application/json', ''
     hdr = {k: v for k, v in hdr.items() if k.lower() not in HOP}
+    # Python's own «Python-urllib» name is banned by Cloudflare (error 1010) — speak as a browser does
+    if not any(k.lower() == 'user-agent' for k in hdr): hdr['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 Proyavka-bridge'
     if body is not None and not any(k.lower() == 'content-type' for k in hdr) and h.headers.get('Content-Type') and 'x-proyavka-raw' not in h.headers.get('Content-Type'):
         hdr['Content-Type'] = h.headers.get('Content-Type')
     req = urllib.request.Request(url, data=body if method not in ('GET', 'HEAD') else None, method=method, headers=hdr)
