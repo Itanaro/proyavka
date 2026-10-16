@@ -785,6 +785,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <hr>
     <button data-a="fit">✦ Вписать в сцену <small id="aiFitL">активный слой</small></button>
     <button data-a="expand">✦ Расширить кадр</button>
+    <button data-a="detail">✦ Деталь <small>рамка → в полном разрешении</small></button>
     <button data-a="critic">✦ Арт-директор <small>разбор кадра</small></button>
     <button data-a="aiedit">✦ AI Edit <small>плагин из Фотошопа</small></button>
     <button data-a="rmbg">✦ Удалить фон <small>мягкий край, маской</small></button>
@@ -797,6 +798,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <button data-i="isize">Размер изображения… <small>Ctrl+Alt+I</small></button>
     <button data-i="csize">Размер холста… <small>Ctrl+Alt+C</small></button>
     <button data-i="expand">✦ Расширить кадр…</button>
+    <button data-i="detail">✦ Деталь <small>перерисовать кусок</small></button>
     <hr>
     <button data-i="xf">Трансформ <small>Ctrl+T</small></button>
     <button data-i="pup">Марионетка <small>P</small></button>
@@ -2996,7 +2998,7 @@ if (!genCfg.nb21 && /^google\/gemini-(2\.5|3\.1)-flash-image/.test(genCfg.orMode
 else if (!genCfg.nb21){ genCfg.nb21=1; genSave(); }
 // OpenRouter answer size: 1K ≈ 1 MP, 2K ≈ 4 MP, 4K ≈ 16 MP — the picture we send grows with it, so the detail is really there
 const orK=(A,up)=>Math.min(Math.sqrt(orMP()/A), Math.max(1, Math.min(up, Math.sqrt(1.05e6/A)))); // never blow a piece up past ~1 MP just because the answer is 2K/4K
-const orMP=()=>1.05e6*(edProv() && genCfg.provider!=='fal' ? ({'2K':4,'4K':16}[genCfg.orRes]||1) : 1);
+const orMP=res=>1.05e6*(edProv() && genCfg.provider!=='fal' ? ({'2K':4,'4K':16}[res||genCfg.orRes]||1) : 1);
 /* picture-edit service for the instruction tools (generation, fit into the scene, sketch, expand, art director):
    OpenRouter or Google AI Studio directly. Each person brings their own key; it stays on this device. */
 const hasKey=k=>!!String(genCfg[k]||'').trim();
@@ -3255,14 +3257,14 @@ function orNeed(){ if (edReady()) return true; toast('Нужен ключ OpenRo
 async function orRequest(img, ask, n, opt={}){
   const W=img.width, H=img.height, ar=W/H;
   let best=OR_ASPECTS[0]; for (const a of OR_ASPECTS) if (Math.abs(Math.log(a[0]/a[1]/ar)) < Math.abs(Math.log(best[0]/best[1]/ar))) best=a;
-  const k=Math.sqrt(orMP()/(best[0]*best[1])), SW=Math.round(best[0]*k/16)*16, SH=Math.round(best[1]*k/16)*16;
+  const k=Math.sqrt(orMP(opt.res)/(best[0]*best[1])), SW=Math.round(best[0]*k/16)*16, SH=Math.round(best[1]*k/16)*16;
   const q=mk(SW,SH), qx=ctx2(q,{willReadFrequently:true}); qx.imageSmoothingQuality='high'; qx.drawImage(img,0,0,SW,SH);
   if (opt.magenta && opt.mask){ const hm=mk(SW,SH), hx=ctx2(hm,{willReadFrequently:true}); hx.imageSmoothingEnabled=false; hx.drawImage(opt.mask,0,0,SW,SH); const hd=hx.getImageData(0,0,SW,SH), qd=qx.getImageData(0,0,SW,SH);
     for (let i=0;i<hd.data.length;i+=4) if (hd.data[i]>127){ qd.data[i]=255; qd.data[i+1]=0; qd.data[i+2]=255; } qx.putImageData(qd,0,0); }
   const refs=[{type:'image_url', image_url:{url: opt.magenta ? q.toDataURL('image/png') : q.toDataURL('image/jpeg',0.93)}}]; // magenta must stay pure: no JPEG colour bleed
   for (const r of (opt.refs||[])){ const c=mk(SW,SH), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(r,0,0,SW,SH); refs.push({type:'image_url', image_url:{url:c.toDataURL('image/png')}}); }
   // one request per variant: Google (Nano Banana) refuses n>1, and a provider that does not know resolution / output_format gets the request again without them
-  const base={model:genCfg.orModel, prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:genCfg.orRes||'1K', output_format:'png', input_references:refs};
+  const base={model:genCfg.orModel, prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:opt.res||genCfg.orRes||'1K', output_format:'png', input_references:refs};
   const one=async b=>{ if (edProv()==='google') return ggImage(b); try{ return await (await netFetch(orBaseUrl()+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(b)},180000)).json(); }
     catch(e){ if (/requested parameter|not support/i.test(e.message) && (b.resolution||b.output_format)){ const c=Object.assign({},b); delete c.resolution; delete c.output_format; return one(c); } throw e; } };
   const rs=await Promise.allSettled(Array.from({length:Math.max(1,n||1)}, ()=>one(base))), ok=rs.filter(x=>x.status==='fulfilled').map(x=>x.value);
@@ -5619,14 +5621,14 @@ $('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aim
   const r=$('#bAI').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
 document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePops(); const a=b.dataset.a; if (!doc) return;
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
-  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, critic:artDirector, aiedit:()=>aeOpen(), rmbg:removeBackground, set:genSettings})[a](); });
+  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, detail:()=>cropOpen({detail:true}), critic:artDirector, aiedit:()=>aeOpen(), rmbg:removeBackground, set:genSettings})[a](); });
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,#bImg,.tgm,.pickHere')) closePops(); },true);
 document.addEventListener('keydown',e=>{ if (e.key==='Escape' && !$('#lyCtx').hidden) $('#lyCtx').hidden=true; });
 $('#bImg').onclick=e=>{ e.stopPropagation(); closePops('imgmenu'); const m=$('#imgmenu'); if (!m.hidden){ m.hidden=true; return; }
   m.querySelector('#imgInfo').textContent = doc ? doc.w+'×'+doc.h+' px · '+(doc.dpi||72)+' ppi · '+((doc.w/(doc.dpi||72))*2.54).toFixed(1)+'×'+((doc.h/(doc.dpi||72))*2.54).toFixed(1)+' см' : '';
   const r=$('#bImg').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
 document.querySelectorAll('#imgmenu [data-i]').forEach(b=>b.onclick=()=>{ closePops(); if (!doc) return; const i=b.dataset.i;
-  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>{ if (!panelBusy()) removeBackground(); }, stamp:()=>{ if (!panelBusy()) stampVisible(); }})[i](); });
+  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, detail:()=>cropOpen({detail:true}), xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>{ if (!panelBusy()) removeBackground(); }, stamp:()=>{ if (!panelBusy()) stampVisible(); }})[i](); });
 $('#bCrop').onclick=()=>cropOpen();
 $('#docInfo').title='Размер изображения (Ctrl+Alt+I)'; $('#docInfo').onclick=()=>imageSizeDialog();
 
@@ -6900,19 +6902,20 @@ function reframeFix(w,h){ doc.w=w; doc.h=h; sel=null; if (typeof depthMap!=='und
 let crop=null;
 const CROP_RATIOS=[['free','Свободно'],['orig','Оригинал'],['1:1','1:1'],['4:5','4:5'],['3:2','3:2'],['16:9','16:9'],['9:16','9:16']];
 function cropRatio(){ const r=crop.ratio; if (r==='free') return 0; if (r==='orig') return crop.flip ? doc.h/doc.w : doc.w/doc.h; const [a,b]=r.split(':').map(Number); return crop.flip ? b/a : a/b; }
-function cropOpen(){
+function cropOpen(o={}){
   if (!doc) return; if (crop){ cropClose(); return; } if (panelBusy()) return;
+  if (o.detail){ crop=detailFrame(); updateCursor(); updateSelBar(); $('#cropbar').hidden=false; cropBuild(); renderOverlay(); return; }
   const b = sel ? selBBox() : {x:0,y:0,w:doc.w,h:doc.h};
   crop={x:b.x, y:b.y, w:b.w||doc.w, h:b.h||doc.h, ratio:'free', flip:false, drag:null};
   $('#cropbar').hidden=false; $('#bCrop')&&$('#bCrop').classList.add('on'); updateCursor(); updateSelBar(); cropBuild(); renderOverlay();
 }
 function cropClose(){ crop=null; $('#cropbar').hidden=true; $('#bCrop')&&$('#bCrop').classList.remove('on'); updateCursor(); updateSelBar(); renderOverlay(); }
-function cropApply(){ if (!crop) return; const c=crop; cropClose(); if (canvasReframe(c.x,c.y,c.w,c.h, null)) toast('Кадрировано: '+Math.round(c.w)+'×'+Math.round(c.h),1500); }
+function cropApply(){ if (!crop) return; const c=crop; cropClose(); if (c.detail){ detailRun(c); return; } if (canvasReframe(c.x,c.y,c.w,c.h, null)) toast('Кадрировано: '+Math.round(c.w)+'×'+Math.round(c.h),1500); }
 function cropFit(){ const k=cropRatio(); if (!k) return; const cx=crop.x+crop.w/2, cy=crop.y+crop.h/2; let w=crop.w, h=w/k; if (h>crop.h){ h=crop.h; w=h*k; }
   // the largest box of this ratio inside the picture, if the old one was the whole picture
   if (Math.abs(crop.w-doc.w)<2 && Math.abs(crop.h-doc.h)<2){ w=doc.w; h=w/k; if (h>doc.h){ h=doc.h; w=h*k; } }
-  crop.x=cx-w/2; crop.y=cy-h/2; crop.w=w; crop.h=h; }
-function cropBuild(){ const c=crop, box=$('#cropbar'); if (!c) return; box.textContent='';
+  crop.x=cx-w/2; crop.y=cy-h/2; crop.w=w; crop.h=h; if (crop.detail) detailClamp(crop); }
+function cropBuild(){ const c=crop, box=$('#cropbar'); if (!c) return; box.textContent=''; if (c.detail) return detailBuild(c, box);
   const head=document.createElement('div'); head.className='eh'; head.innerHTML='Кадрирование <span></span>'; head.lastChild.textContent=Math.round(c.w)+'×'+Math.round(c.h)+' px'; box.append(head);
   const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>Пропорции</label><div class="seg" style="flex-wrap:wrap"></div>';
   for (const [k,t] of CROP_RATIOS){ const b=document.createElement('button'); b.textContent=t; b.classList.toggle('on',k===c.ratio); b.onclick=()=>{ c.ratio=k; cropFit(); cropBuild(); renderOverlay(); }; r.children[1].append(b); }
@@ -6936,6 +6939,7 @@ function cropMove(p, shift){ const c=crop, d=c.drag; if (!d) return; const [x,y]
     if (d.u===0) x0=Math.min(x,x1-4); if (d.u===1) x1=Math.max(x,x0+4); if (d.v===0) y0=Math.min(y,y1-4); if (d.v===1) y1=Math.max(y,y0+4);
     if (k){ let w=x1-x0, h=y1-y0; if (d.u===.5){ w=h*k; x0=b.x+b.w/2-w/2; x1=x0+w; } else if (d.v===.5){ h=w/k; y0=b.y+b.h/2-h/2; y1=y0+h; } else { if (w/h>k) w=h*k; else h=w/k; if (d.u===0) x0=x1-w; else x1=x0+w; if (d.v===0) y0=y1-h; else y1=y0+h; } }
     c.x=x0; c.y=y0; c.w=x1-x0; c.h=y1-y0; }
+  if (c.detail) detailClamp(c);
   const s=$('#cropbar .eh span'); if (s) s.textContent=Math.round(c.w)+'×'+Math.round(c.h)+' px'; requestOverlay(); }
 function cropUp(){ if (crop) crop.drag=null; renderOverlay(); }
 // cursor over the crop frame, like Photoshop: arrows on the handles, move inside, crosshair outside
@@ -6944,6 +6948,60 @@ stage.addEventListener('pointermove', e=>{ if (!crop || crop.drag || spaceDown |
   if (h){ const a=(Math.atan2((h.v-.5),(h.u-.5))+view.r)*180/Math.PI, k=((Math.round(a/45)%4)+4)%4; cur=['ew-resize','nwse-resize','ns-resize','nesw-resize'][k]; }
   else { const [x,y]=toDoc(...p); if (x>=c.x && x<=c.x+c.w && y>=c.y && y<=c.y+c.h) cur='move'; }
   if (stage.style.cursor!==cur) stage.style.cursor=cur; });
+/* ---- Деталь: a frame of a model-native shape → the model redraws it at full resolution → back in place, masked to what changed ---- */
+const DETAIL_RATIOS=['1:1','3:4','4:3','2:3','3:2','9:16','16:9'];
+let detailLast=null;
+function detailClamp(c){ const k=c.w/c.h; if (c.w>doc.w){ c.w=doc.w; c.h=c.w/k; } if (c.h>doc.h){ c.h=doc.h; c.w=c.h*k; }
+  c.w=Math.max(32,c.w); c.h=Math.max(32,c.h); c.x=Math.max(0,Math.min(doc.w-c.w,c.x)); c.y=Math.max(0,Math.min(doc.h-c.h,c.y)); }
+function detailFrame(){ // last frame if the picture is the same size, else around the selection, else a third of the picture in the middle
+  if (detailLast && detailLast.dw===doc.w && detailLast.dh===doc.h) return Object.assign({drag:null, detail:true}, detailLast);
+  let b = sel ? selBBox() : null; if (b && b.w>4 && b.h>4){ const p=Math.max(b.w,b.h)*0.15; b={x:b.x-p, y:b.y-p, w:b.w+2*p, h:b.h+2*p}; }
+  else { const s=Math.min(doc.w,doc.h)/2.2; b={x:doc.w/2-s/2, y:doc.h/2-s/2, w:s, h:s}; }
+  const ar=b.w/b.h; let best='1:1'; for (const r of DETAIL_RATIOS){ const [u,v]=r.split(':').map(Number), [p,q]=best.split(':').map(Number); if (Math.abs(Math.log(u/v/ar)) < Math.abs(Math.log(p/q/ar))) best=r; }
+  const c={x:b.x, y:b.y, w:b.w, h:b.h, ratio:best, flip:false, drag:null, detail:true};
+  const [u,v]=best.split(':').map(Number), A=b.w*b.h, w=Math.sqrt(A*u/v), h=w*v/u, cx=b.x+b.w/2, cy=b.y+b.h/2; Object.assign(c,{x:cx-w/2, y:cy-h/2, w, h}); detailClamp(c); return c; }
+function detailRes(c){ const L=Math.max(c.w,c.h); return L<=1200 ? '1K' : L<=2400 ? '2K' : '4K'; }
+function detailBuild(c, box){
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Деталь <span></span>'; head.lastChild.textContent=Math.round(c.w)+'×'+Math.round(c.h)+' px'; box.append(head);
+  const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>Форма рамки</label><div class="seg" style="flex-wrap:wrap"></div>';
+  for (const k of DETAIL_RATIOS){ const b=document.createElement('button'); b.textContent=k; b.classList.toggle('on',k===c.ratio); b.onclick=()=>{ const cx=c.x+c.w/2, cy=c.y+c.h/2, A=c.w*c.h, [u,v]=k.split(':').map(Number); c.ratio=k; c.flip=false; c.w=Math.sqrt(A*u/v); c.h=c.w*v/u; c.x=cx-c.w/2; c.y=cy-c.h/2; detailClamp(c); cropBuild(); renderOverlay(); }; r.children[1].append(b); }
+  box.append(r);
+  const hint=document.createElement('div'); hint.className='gh'; hint.textContent='Поставь рамку на место, которое надо доработать: углы — размер, внутри — двигать. Форма рамки — родная для нейросети, поэтому кусок уйдёт в модель без обрезки и вернётся точно на место. Чем меньше рамка — тем больше деталей. Enter — дальше, Esc — отмена.';
+  const foot=document.createElement('div'); foot.className='eb'; const B=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
+  const sp=document.createElement('span'); sp.style.flex='1'; foot.append(sp, B('Отмена',()=>cropClose()), B('Дальше →',cropApply,'pri')); box.append(hint, foot); }
+function detailMask(orig, res, box, whole){ // soft mask (alpha) of where the model really changed something, faded at the frame borders
+  const W=orig.width, H=orig.height, S=Math.min(1, 480/Math.max(W,H)), w=Math.max(8,Math.round(W*S)), h=Math.max(8,Math.round(H*S)), n=w*h;
+  const px=c=>{ const t=mk(w,h), x=ctx2(t,{willReadFrequently:true}); x.imageSmoothingQuality='high'; x.drawImage(c,0,0,w,h); return x.getImageData(0,0,w,h).data; };
+  const blur=(a,r)=>{ if (r<1) return a; const t=new Float32Array(n), o=new Float32Array(n);
+    for (let y=0;y<h;y++){ let s=0; const row=y*w; for (let x=-r;x<=r;x++) s+=a[row+Math.min(w-1,Math.max(0,x))]; for (let x=0;x<w;x++){ t[row+x]=s/(2*r+1); s+=a[row+Math.min(w-1,x+r+1)]-a[row+Math.max(0,x-r)]; } }
+    for (let x=0;x<w;x++){ let s=0; for (let y=-r;y<=r;y++) s+=t[Math.min(h-1,Math.max(0,y))*w+x]; for (let y=0;y<h;y++){ o[y*w+x]=s/(2*r+1); s+=t[Math.min(h-1,y+r+1)*w+x]-t[Math.max(0,y-r)*w+x]; } } return o; };
+  let m=new Float32Array(n);
+  if (whole) m.fill(1);
+  else { const A=px(orig), B=px(res); let d=new Float32Array(n); for (let i=0;i<n;i++){ const j=4*i; d[i]=Math.max(Math.abs(A[j]-B[j]),Math.abs(A[j+1]-B[j+1]),Math.abs(A[j+2]-B[j+2])); }
+    d=blur(d,1); for (let i=0;i<n;i++){ const t=Math.min(1,Math.max(0,(d[i]-9)/20)); m[i]=t*t*(3-2*t); }
+    const g=Math.max(2,Math.round(Math.max(w,h)*0.012)); m=blur(m,g); for (let i=0;i<n;i++) m[i]=Math.min(1,m[i]*3); m=blur(m,g); }
+  // fade at the frame sides that are inside the picture (a side on the canvas edge needs no fade)
+  const e=Math.max(3,Math.round(Math.max(w,h)*0.05)), L=box.x>0.5, T=box.y>0.5, R=box.x+box.w<doc.w-0.5, Bo=box.y+box.h<doc.h-0.5; let cov=0;
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++){ let k=1; if (L) k=Math.min(k,x/e); if (R) k=Math.min(k,(w-1-x)/e); if (T) k=Math.min(k,y/e); if (Bo) k=Math.min(k,(h-1-y)/e); k=Math.max(0,Math.min(1,k)); const i=y*w+x; m[i]*=k*k*(3-2*k); cov+=m[i]; }
+  const c=mk(w,h), x=ctx2(c), id=x.createImageData(w,h); for (let i=0;i<n;i++){ id.data[4*i]=id.data[4*i+1]=id.data[4*i+2]=255; id.data[4*i+3]=Math.round(m[i]*255); } x.putImageData(id,0,0);
+  return {c, cov:cov/n}; }
+function detailRun(c){
+  const r={x:Math.round(c.x), y:Math.round(c.y), w:Math.round(c.w), h:Math.round(c.h)}; detailClamp(r); r.x=Math.round(r.x); r.y=Math.round(r.y); r.w=Math.round(r.w); r.h=Math.round(r.h);
+  detailLast={x:r.x, y:r.y, w:r.w, h:r.h, ratio:c.ratio, flip:c.flip, dw:doc.w, dh:doc.h};
+  const orig=regionImage(r, r.w, r.h), res=detailRes(r), whole={on:false}, masks=new Map();
+  aiOpen({ title:'Деталь', sub:r.w+'×'+r.h+' → модель '+res, askWords:'Что сделать в рамке', placeholder:'пусто — просто прорисовать детальнее', layerName:'Деталь',
+    hint:'Кусок уходит в нейросеть в разрешении '+res+' и возвращается слоем точно в рамку. Маска слоя открыта только там, где модель что-то поменяла — остальное не тронуто. Края рамки мягкие.',
+    insertAt:()=>doc.layers.length, doneMsg:'Деталь — отдельный слой с маской: маску можно докрасить кистью',
+    run: async words=>{ const ask='This image is a crop from a larger illustration. '+(words ? 'Edit it: '+words+'. ' : 'Redraw it with more fine detail: crisper forms, cleaner edges, refined textures and small details, as a finished high-end render. ')+
+        'Keep exactly the same framing, composition, position and scale of everything; do not zoom, crop, shift, rotate or reframe. Keep the same lighting, colour palette and art style. Change only what is asked; everything else stays as it is.';
+      const out=await orRequest(orig, ask, 1, {res});
+      return {bitmaps: out.bitmaps.map(b=>expandAlign(orig, b, {x:0,y:0,w:r.w,h:r.h}).c), cost:out.cost}; },
+    apply:(ctx,v)=>{ ctx.drawImage(v, r.x, r.y, r.w, r.h); const a=aip, L=a&&a.layer; if (!L) return;
+      let mm=masks.get(v); if (!mm){ mm={}; masks.set(v,mm); } if (!mm[whole.on]) mm[whole.on]=detailMask(orig, v, r, whole.on);
+      const m=mm[whole.on]; if (!L.mask) L.mask=newMask(L); const mx=L.mask.ctx; mx.clearRect(0,0,doc.w,doc.h); mx.imageSmoothingQuality='high'; mx.drawImage(m.c, r.x, r.y, r.w, r.h); L.mask.enabled=true;
+      if (!whole.on && m.cov<0.004) toast('Модель почти ничего не поменяла — попробуй слова поконкретнее или «Вся рамка»',3000); },
+    extra:()=>[whole.on ? '◐ Авто-маска' : '▢ Вся рамка', ()=>{ whole.on=!whole.on; aiPick(aip.idx); }, whole.on ? 'Маска только там, где модель что-то поменяла' : 'Показать весь перерисованный кусок (мягкие края)'] });
+}
 function cropOverlay(ox){ const c=crop, m=viewM(), T=(x,y)=>[m[0]*x+m[2]*y+m[4], m[1]*x+m[3]*y+m[5]];
   const q=[T(c.x,c.y),T(c.x+c.w,c.y),T(c.x+c.w,c.y+c.h),T(c.x,c.y+c.h)];
   ox.save(); ox.beginPath(); ox.rect(0,0,oc.width,oc.height); ox.moveTo(...q[0]); ox.lineTo(...q[3]); ox.lineTo(...q[2]); ox.lineTo(...q[1]); ox.closePath(); ox.fillStyle='rgba(10,11,13,.55)'; ox.fill('evenodd'); ox.restore();
@@ -7427,7 +7485,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №64.1 заплатка снова работает'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №65 Деталь'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
