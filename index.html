@@ -504,6 +504,8 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #critbar .crn em,#pupbar .crn em{font-style:normal;color:var(--muted);font-size:12.5px}
 
 #imgmenu{top:72px;left:200px;width:330px;display:flex;flex-direction:column;border-radius:20px;padding:8px}
+/* the stage's cursor (none for the brush, crosshair…) must not leak into the panels that live inside it */
+#stage > :not(canvas){cursor:default} #stage input,#stage textarea{cursor:auto} #stage select{cursor:default}
 .deskonly{display:none!important}body.desk .deskonly{display:inline-flex!important}body.desk .padonly{display:none!important}
 .pop{max-height:calc(100vh - 84px);overflow-y:auto}
 #status #docInfo{cursor:pointer;pointer-events:auto}
@@ -7326,7 +7328,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №61 Delete удаляет слой'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №61.1 курсор над панелями'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
