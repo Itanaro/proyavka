@@ -504,6 +504,9 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #critbar .crn i,#pupbar .crn i{font-style:normal;font-weight:600;font-size:13px}
 #critbar .crn em,#pupbar .crn em{font-style:normal;color:var(--muted);font-size:12.5px}
 
+#lyCtx{min-width:220px;display:flex;flex-direction:column;border-radius:14px;padding:6px;position:fixed;z-index:60}
+#lyCtx button{text-align:left;height:34px;padding:0 12px;border-radius:9px;display:flex;justify-content:space-between;align-items:center;gap:16px;white-space:nowrap}
+#lyCtx button:hover{background:var(--soft-3)} #lyCtx button.dg{color:#ff8a7a} #lyCtx small{color:var(--muted);font-family:var(--mono);font-size:11px} #lyCtx .aih{font-size:11px;color:var(--muted);padding:4px 12px 4px}
 #imgmenu{top:72px;left:200px;width:330px;display:flex;flex-direction:column;border-radius:20px;padding:8px}
 /* the stage's cursor (none for the brush, crosshair…) must not leak into the panels that live inside it */
 #stage > :not(canvas){cursor:default} #stage input,#stage textarea{cursor:auto} #stage select{cursor:default}
@@ -788,6 +791,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <hr>
     <button data-a="set">Настройки генерации <small id="aiProv"></small></button>
   </div>
+  <div class="pop" id="lyCtx" hidden></div>
   <div class="pop" id="imgmenu" hidden>
     <button data-i="crop">Кадрировать <small>C</small></button>
     <button data-i="isize">Размер изображения… <small>Ctrl+Alt+I</small></button>
@@ -5040,6 +5044,18 @@ function movePickedTo(T, zone, L){ // drag of several picked layers: their block
     for (const X of tops) X.parent=P; rest.splice(at,0,...blocks.flat()); doc.layers=rest; doc.active=doc.layers.indexOf(L); },
     'Перемещено '+tops.length+' '+plurN(tops.length,'слой','слоя','слоёв'));
 }
+/* right click on a layer (PC): a small menu — merge, group, delete; for several picked layers the actions take all of them */
+function layerMenu(L, x, y){
+  if (!doc) return; if (!(doc.pick && doc.pick.size>1 && doc.pick.has(L))){ doc.pick=null; doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); }
+  const m=$('#lyCtx'), n=picked().length, many=n>1; m.textContent='';
+  const head=document.createElement('div'); head.className='aih'; head.textContent= many ? 'Выделено слоёв: '+n : (AL().name||'Слой'); m.append(head);
+  const B=(t,k,fn,cls)=>{ const b=document.createElement('button'); b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=t; b.lastChild.textContent=k; if (cls) b.className=cls;
+    b.onclick=()=>{ m.hidden=true; if (!panelBusy()) fn(); }; m.append(b); };
+  if (many) B('Объединить в один слой','Ctrl+E',mergeDown); else if (isGroup(AL())) B('Слить группу в слой','Ctrl+E',mergeDown); else B('Слить с нижним','Ctrl+E',mergeDown);
+  B(many ? 'В группу' : (isGroup(AL()) ? 'Новая группа вокруг' : 'В группу'),'Ctrl+G',makeGroup);
+  B(many ? 'Удалить слои' : 'Удалить','Delete',deleteLayer,'dg');
+  closePops('lyCtx'); m.hidden=false; const r=m.getBoundingClientRect(); m.style.left=Math.min(x, innerWidth-r.width-8)+'px'; m.style.top=Math.min(y, innerHeight-r.height-8)+'px';
+}
 function plurN(n,a,b,c){ const m10=n%10, m100=n%100; return m10===1&&m100!==11 ? a : m10>=2&&m10<=4&&(m100<10||m100>=20) ? b : c; }
 function deleteLayer(){
   if (pickedMany()) return deletePicked();
@@ -5063,7 +5079,7 @@ $('#lyList').addEventListener('touchmove', e=>{ if (layerDragging) e.preventDefa
 function attachLayerDrag(row, L){
   let timer=null, drag=null, start=null;
   row.addEventListener('pointerdown', e=>{
-    if (e.target.closest('.eye')) return;
+    if (e.target.closest('.eye') || (e.pointerType==='mouse' && e.button!==0)) return;
     start={x:e.clientX,y:e.clientY,id:e.pointerId, mouse:e.pointerType==='mouse' && e.button===0};
     clearTimeout(timer); if (start.mouse) return; // the mouse drags right away (below), no press-and-hold
     timer=setTimeout(()=>{ drag={over:null}; layerDragging=true; row.classList.add('lift'); try{ row.setPointerCapture(start.id); }catch(_){} }, 320);
@@ -5097,7 +5113,7 @@ function attachLayerDrag(row, L){
       dragJustEnded=true; setTimeout(()=>dragJustEnded=false,50); }
     drag=null; start=null; layerDragging=false; };
   row.addEventListener('pointerup', finish); row.addEventListener('pointercancel', finish);
-  row.addEventListener('contextmenu', e=>e.preventDefault());
+  row.addEventListener('contextmenu', e=>{ e.preventDefault(); if (e.pointerType==='touch') return; layerMenu(L, e.clientX, e.clientY); });
 }
 function moveLayer(dir){
   const X=AL(), s=blockStart(X), e=doc.layers.indexOf(X), A=doc.layers;
@@ -5594,7 +5610,7 @@ function openPickerAt(el){ // the same colour picker, opened next to the control
   const r=el.getBoundingClientRect(), a=$('#app').getBoundingClientRect(), pw=p.offsetWidth, ph=p.offsetHeight;
   let top=r.top-a.top-ph-8; if (top<8) top=Math.min(a.height-ph-8, r.bottom-a.top+8);
   p.style.right='auto'; p.style.left=clamp(r.left-a.left+r.width/2-pw/2, 8, a.width-pw-8)+'px'; p.style.top=top+'px'; }
-function closePops(except){ for(const id of ['menu','aimenu','imgmenu','picker','flyout']) if(id!==except) $('#'+id).hidden=true; }
+function closePops(except){ for(const id of ['menu','aimenu','imgmenu','lyCtx','picker','flyout']) if(id!==except) $('#'+id).hidden=true; }
 $('#bMenu').onclick=e=>{ e.stopPropagation(); closePops('menu'); $('#menu').hidden=!$('#menu').hidden; };
 $('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aimenu'); if (!m.hidden){ m.hidden=true; return; }
   m.querySelectorAll('[data-sel]').forEach(b=>{ b.disabled=!sel; });
@@ -5605,6 +5621,7 @@ document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePo
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, critic:artDirector, aiedit:()=>aeOpen(), rmbg:removeBackground, set:genSettings})[a](); });
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,#bImg,.tgm,.pickHere')) closePops(); },true);
+document.addEventListener('keydown',e=>{ if (e.key==='Escape' && !$('#lyCtx').hidden) $('#lyCtx').hidden=true; });
 $('#bImg').onclick=e=>{ e.stopPropagation(); closePops('imgmenu'); const m=$('#imgmenu'); if (!m.hidden){ m.hidden=true; return; }
   m.querySelector('#imgInfo').textContent = doc ? doc.w+'×'+doc.h+' px · '+(doc.dpi||72)+' ppi · '+((doc.w/(doc.dpi||72))*2.54).toFixed(1)+'×'+((doc.h/(doc.dpi||72))*2.54).toFixed(1)+' см' : '';
   const r=$('#bImg').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
@@ -7410,7 +7427,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №63.2 перетаскивание нескольких слоёв'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №64 правый клик по слоям: объединить, в группу, удалить'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
