@@ -5052,13 +5052,15 @@ function attachLayerDrag(row, L){
   let timer=null, drag=null, start=null;
   row.addEventListener('pointerdown', e=>{
     if (e.target.closest('.eye')) return;
-    start={x:e.clientX,y:e.clientY,id:e.pointerId};
-    clearTimeout(timer);
+    start={x:e.clientX,y:e.clientY,id:e.pointerId, mouse:e.pointerType==='mouse' && e.button===0};
+    clearTimeout(timer); if (start.mouse) return; // the mouse drags right away (below), no press-and-hold
     timer=setTimeout(()=>{ drag={over:null}; layerDragging=true; row.classList.add('lift'); try{ row.setPointerCapture(start.id); }catch(_){} }, 320);
   });
   row.addEventListener('pointermove', e=>{
     if (!start) return;
-    if (!drag){ if (Math.hypot(e.clientX-start.x, e.clientY-start.y)>8){ clearTimeout(timer); start=null; } return; }
+    if (!drag){ const d=Math.hypot(e.clientX-start.x, e.clientY-start.y);
+      if (start.mouse){ if (d>5 && (e.buttons&1)){ drag={over:null}; layerDragging=true; row.classList.add('lift'); try{ row.setPointerCapture(start.id); }catch(_){} } else return; } // mouse: press and pull, like Photoshop
+      else { if (d>8){ clearTimeout(timer); start=null; } return; } }
     e.preventDefault();
     const rows=[...document.querySelectorAll('#lyList .ly')]; rows.forEach(r=>r.classList.remove('dropa','dropb'));
     let target=null, zone='above'; drag.over=null;
@@ -7395,7 +7397,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №63 несколько слоёв: Shift / Ctrl + клик'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №63.1 слои перетаскиваются мышью'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
