@@ -4207,7 +4207,7 @@ async function patchUp(){
   busy(true,'Ставлю заплатку…'); await nextFrame();
   try{
     const r=clipRect(P.b.x-6,P.b.y-6,P.b.w+12,P.b.h+12), N=r.w*r.h;
-    const Md=regionPixels(P.selMask,r.x,r.y,r.w,r.h), M=new Uint8Array(N); // the mask the drag started with (an undo meanwhile may have cleared sel) for(let i=0;i<N;i++) M[i]=Md[i*4+3];
+    const Md=regionPixels(P.selMask,r.x,r.y,r.w,r.h), M=new Uint8Array(N); for(let i=0;i<N;i++) M[i]=Md[i*4+3]; // the mask the drag started with (an undo meanwhile may have cleared sel)
     const Sd=regionPixels(P.src, r.x+dx, r.y+dy, r.w, r.h), Dd=destPixels(r), out=seamless(Sd,Dd,M,r.w,r.h);
     const res=new ImageData(r.w,r.h), d=res.data;
     if (S.retouchAll){
@@ -7427,7 +7427,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №64 правый клик по слоям: объединить, в группу, удалить'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №64.1 заплатка снова работает'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
