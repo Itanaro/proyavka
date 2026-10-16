@@ -476,6 +476,18 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 .fbar:not([hidden]){animation:pvBar .2s cubic-bezier(.2,.8,.3,1)}
 #menu small{max-width:150px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
+#aibar{max-height:calc(100% - 96px);overflow-y:auto}
+#aibar .aiml{display:flex;flex-direction:column;gap:6px;font-size:13px}
+#aibar .aiml label{color:var(--muted)}
+#aibar .aiml textarea{width:100%;box-sizing:border-box;min-height:62px;resize:none;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:8px 12px;color:var(--fg);font:inherit;font-size:13px;line-height:1.4}
+#aibar .drefs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+#aibar .dref{position:relative;width:52px;height:52px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#0003;display:flex;align-items:center;justify-content:center}
+#aibar .dref canvas{max-width:100%;max-height:100%}
+#aibar .dref b{position:absolute;left:3px;top:2px;font:600 10px var(--mono);color:#fff;text-shadow:0 0 3px #000}
+#aibar .dref button{position:absolute;right:1px;top:1px;width:18px;height:18px;min-height:0;padding:0;border-radius:9px;background:#000a;color:#fff;font-size:11px;line-height:18px}
+#aibar .drefs > button,#aibar .dtpl button{height:32px;padding:0 10px;border-radius:10px;font-size:12.5px}
+#aibar .dtpl{display:flex;gap:6px;align-items:center}
+#aibar .dtpl select{flex:1;min-width:0;height:32px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.22);color:var(--fg);padding:0 8px}
 #genbar .gh,#objbar .gh,#aibar .gh,#critbar .gh,#pupbar .gh,#cropbar .gh{font-size:11.5px;color:var(--muted);margin-top:-4px;line-height:1.35}
 #genbar .gvars,#objbar .gvars,#aibar .gvars{display:flex;gap:8px;flex-wrap:wrap}
 #genbar .gvar,#objbar .gvar,#aibar .gvar{padding:3px;border-radius:12px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);height:auto}
@@ -3262,9 +3274,11 @@ async function orRequest(img, ask, n, opt={}){
   if (opt.magenta && opt.mask){ const hm=mk(SW,SH), hx=ctx2(hm,{willReadFrequently:true}); hx.imageSmoothingEnabled=false; hx.drawImage(opt.mask,0,0,SW,SH); const hd=hx.getImageData(0,0,SW,SH), qd=qx.getImageData(0,0,SW,SH);
     for (let i=0;i<hd.data.length;i+=4) if (hd.data[i]>127){ qd.data[i]=255; qd.data[i+1]=0; qd.data[i+2]=255; } qx.putImageData(qd,0,0); }
   const refs=[{type:'image_url', image_url:{url: opt.magenta ? q.toDataURL('image/png') : q.toDataURL('image/jpeg',0.93)}}]; // magenta must stay pure: no JPEG colour bleed
+  for (const r of (opt.refsKeep||[])){ const L=Math.max(SW,SH), k=Math.min(1, L/Math.max(r.width,r.height)), w=Math.max(16,Math.round(r.width*k)), h=Math.max(16,Math.round(r.height*k));
+    const c=mk(w,h), x=ctx2(c); x.fillStyle='#fff'; x.fillRect(0,0,w,h); x.imageSmoothingQuality='high'; x.drawImage(r,0,0,w,h); refs.push({type:'image_url', image_url:{url:c.toDataURL('image/jpeg',0.93)}}); } // references keep their own shape
   for (const r of (opt.refs||[])){ const c=mk(SW,SH), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(r,0,0,SW,SH); refs.push({type:'image_url', image_url:{url:c.toDataURL('image/png')}}); }
   // one request per variant: Google (Nano Banana) refuses n>1, and a provider that does not know resolution / output_format gets the request again without them
-  const base={model:genCfg.orModel, prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:opt.res||genCfg.orRes||'1K', output_format:'png', input_references:refs};
+  const base={model:opt.model||genCfg.orModel, prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:opt.res||genCfg.orRes||'1K', output_format:'png', input_references:refs};
   const one=async b=>{ if (edProv()==='google') return ggImage(b); try{ return await (await netFetch(orBaseUrl()+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(b)},180000)).json(); }
     catch(e){ if (/requested parameter|not support/i.test(e.message) && (b.resolution||b.output_format)){ const c=Object.assign({},b); delete c.resolution; delete c.output_format; return one(c); } throw e; } };
   const rs=await Promise.allSettled(Array.from({length:Math.max(1,n||1)}, ()=>one(base))), ok=rs.filter(x=>x.status==='fulfilled').map(x=>x.value);
@@ -3307,9 +3321,13 @@ function aiBuild(){
   const a=aip, box=$('#aibar'); if (!a) return; box.textContent='';
   const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ '+a.title+' <span></span>';
   head.lastChild.textContent = a.busy || (a.variants.length ? 'вариант '+(a.idx+1)+' из '+a.variants.length : (edReady() ? a.sub||'' : 'нужен ключ OpenRouter или Google — кнопка ⚙')); box.append(head);
-  if (a.askWords){ const pr=document.createElement('div'); pr.className='er'; pr.innerHTML='<label>'+a.askWords+'</label><input type="text" autocomplete="off" spellcheck="false"><span></span>';
+  if (a.askWords && a.multiline){ const pr=document.createElement('div'); pr.className='aiml'; pr.innerHTML='<label>'+a.askWords+'</label><textarea rows="3" autocomplete="off" spellcheck="false"></textarea>';
+    const inp=pr.querySelector('textarea'); inp.placeholder=a.placeholder||'можно оставить пустым'; inp.value=a.words; const fit=()=>{ inp.style.height='auto'; inp.style.height=Math.min(220,Math.max(62,inp.scrollHeight+2))+'px'; };
+    inp.oninput=()=>{ a.words=inp.value; fit(); }; inp.onkeydown=e=>{ e.stopPropagation(); if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); inp.blur(); aiGo(); } }; box.append(pr); requestAnimationFrame(fit); }
+  else if (a.askWords){ const pr=document.createElement('div'); pr.className='er'; pr.innerHTML='<label>'+a.askWords+'</label><input type="text" autocomplete="off" spellcheck="false"><span></span>';
     const inp=pr.querySelector('input'); inp.placeholder=a.placeholder||'можно оставить пустым'; inp.value=a.words; inp.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg)';
     inp.oninput=()=>{ a.words=inp.value; }; inp.onkeydown=e=>{ if(e.key==='Enter'){ inp.blur(); aiGo(); } }; box.append(pr); }
+  if (a.rows && !a.busy) a.rows(box);
   if (a.hint){ const h=document.createElement('div'); h.className='gh'; h.textContent=a.hint+(a.cost?' · потрачено $'+a.cost.toFixed(2):''); box.append(h); }
   if (a.variants.length>1){ const vr=document.createElement('div'); vr.className='gvars';
     a.variants.forEach((c,i)=>{ const b=document.createElement('button'); b.className='gvar'+(i===a.idx?' on':''); const t=mk(96,Math.max(1,Math.round(96*c.height/c.width))); ctx2(t).drawImage(c,0,0,t.width,t.height); b.append(t); b.onclick=()=>aiPick(i); vr.append(b); }); box.append(vr); }
@@ -3673,7 +3691,7 @@ function genSettings(tab){
         p.then(t=>{ s.textContent='✓ '+t; }).catch(e=>{ s.textContent='✕ '+e.message; }); return false; }],
      ['Сохранить', d=>{ read(d); genSave(); if (gen){ gen.modelsAsked=false; genBuild(); } if (lift && lift.open) objBuild(); if (aip) aiBuild(); }, true]]);
   const sel_=d.querySelector('#gsOrModel'), selG=d.querySelector('#gsGgModel');
-  const PRESET=[[NB21,'Nano Banana 2.1'],['google/gemini-3.1-flash-image-preview','Nano Banana 2 (Google выключит 29 окт.)'],['google/gemini-2.5-flash-image','Nano Banana (Gemini 2.5 Flash Image)'],['black-forest-labs/flux.2-pro','FLUX.2 Pro'],['bytedance-seed/seedream-4.5','Seedream 4.5'],['openai/gpt-image-1','GPT Image 1']];
+  const PRESET=[[NB21,'Nano Banana 2.1'],['google/gemini-3.1-flash-image-preview','Nano Banana 2 (Google выключит 29 окт.)'],['google/gemini-2.5-flash-image','Nano Banana (Gemini 2.5 Flash Image)'],['black-forest-labs/flux.2-pro','FLUX.2 Pro'],['bytedance-seed/seedream-5-0-pro','Seedream 5.0 Pro'],['bytedance-seed/seedream-4.5','Seedream 4.5'],['openai/gpt-image-1','GPT Image 1']];
   const GPRESET=[[GG_NB21,'Nano Banana 2.1'],['gemini-3-pro-image-preview','Nano Banana Pro'],['gemini-2.5-flash-image','Nano Banana (2.5 Flash Image)']];
   const fillModels=(el, list, preset, top, cur)=>{ el.textContent=''; const seen=new Set();
     const all=list.length ? list.map(x=>[x.id,x.name]) : preset; all.sort((a,b)=>(b[0]===top)-(a[0]===top));
@@ -6464,7 +6482,7 @@ async function placeFile(f){
 /* drag & drop (Split View with Photos/Files) and paste */
 $('#stage').addEventListener('dragover', e=>{ e.preventDefault(); e.dataTransfer.dropEffect='copy'; });
 $('#stage').addEventListener('drop', e=>{ e.preventDefault(); const f=[...(e.dataTransfer.files||[])].find(f=>f.type.startsWith('image/')); if(f) placeFile(f); else toast('Сюда можно перетащить картинку'); });
-document.addEventListener('paste', e=>{ if(e.target.matches&&e.target.matches('input,textarea')) return; const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/')); const f=it&&it.getAsFile(); if(f){ e.preventDefault(); placeFile(f); } });
+document.addEventListener('paste', e=>{ if (aip && aip.detail && !aip.busy){ const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/')), f=it&&it.getAsFile(); if (f){ e.preventDefault(); detailRefFile([f]); return; } } if(e.target.matches&&e.target.matches('input,textarea')) return; const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/')); const f=it&&it.getAsFile(); if(f){ e.preventDefault(); placeFile(f); } });
 function flatten(scale=1, white){
   const w=Math.round(doc.w*scale), h=Math.round(doc.h*scale), c=mk(w,h), x=ctx2(c);
   x.imageSmoothingQuality='high'; if (white){ x.fillStyle='#fff'; x.fillRect(0,0,w,h); }
@@ -6985,16 +7003,62 @@ function detailMask(orig, res, box, whole){ // soft mask (alpha) of where the mo
   for (let y=0;y<h;y++) for (let x=0;x<w;x++){ let k=1; if (L) k=Math.min(k,x/e); if (R) k=Math.min(k,(w-1-x)/e); if (T) k=Math.min(k,y/e); if (Bo) k=Math.min(k,(h-1-y)/e); k=Math.max(0,Math.min(1,k)); const i=y*w+x; m[i]*=k*k*(3-2*k); cov+=m[i]; }
   const c=mk(w,h), x=ctx2(c), id=x.createImageData(w,h); for (let i=0;i<n;i++){ id.data[4*i]=id.data[4*i+1]=id.data[4*i+2]=255; id.data[4*i+3]=Math.round(m[i]*255); } x.putImageData(id,0,0);
   return {c, cov:cov/n}; }
+const DETAIL_TPL_DEF=[
+  {name:'Сходство лица и причёски с рефа', text:'Увеличь сходство женщины и её причёски на @img1 с @img2.\nРакурс, поза, цвет и освещение должны сохраняться как на @img1, но черты лица и причёска — с @img2.\nВыражение лица как на @img1.\nВолосы красиво лежат, не меняя контура.\nРендер реалистичный, высокое качество текстур кожи и волос.'},
+  {name:'Украшения / аксессуар с рефа', text:'Перенеси украшения и аксессуары с @img2 на @img1: форма, материал, количество и детали — как на @img2.\nПоложение, ракурс, свет и цвет сцены — как на @img1. Руки и всё остальное не меняй.\nРендер реалистичный, чёткий металл и камни.'},
+  {name:'Руки: анатомия и детали', text:'Исправь анатомию рук на @img1: правильное число пальцев, естественные суставы и ногти. Поза рук, ракурс, свет и цвет — как на @img1.\nРендер реалистичный, высокое качество текстуры кожи.'}];
+const detailTpl={ get(){ try{ const v=JSON.parse(localStorage.getItem('proyavka.detail.tpl')); if (Array.isArray(v)) return v; }catch(e){} return DETAIL_TPL_DEF.slice(); }, set(v){ try{ localStorage.setItem('proyavka.detail.tpl', JSON.stringify(v)); }catch(e){} } };
+const DETAIL_MODELS=[['','как в ⚙'],[NB21,'Banana 2.1'],['bytedance-seed/seedream-5-0-pro','Seedream 5 Pro']];
+let detailRefs=[]; // reference pictures (canvases), kept between runs: @img2, @img3…
+function detailRefAdd(c){ if (!c) return; if (detailRefs.length>=4){ toast('Хватит четырёх рефов — убери лишний ×'); return; } detailRefs.push(c); if (aip && aip.detail) aiBuild(); }
+async function detailRefFile(files){ for (const f of files){ try{ const bm=await createImageBitmap(f), c=mk(bm.width,bm.height); ctx2(c).drawImage(bm,0,0); bm.close&&bm.close(); detailRefAdd(c); }catch(e){ toast('Не открылся файл: '+f.name); } } }
+function detailRefLayer(){ const L=AL(); if (!L || !L.canvas){ toast('Выбери слой с картинкой'); return; }
+  const r = sel ? selBBox() : contentBBox(L.canvas); if (!r || r.w<4 || r.h<4){ toast('Слой пустой'); return; }
+  const c=mk(Math.round(r.w),Math.round(r.h)), x=ctx2(c); x.drawImage(L.canvas, Math.round(r.x),Math.round(r.y),c.width,c.height, 0,0,c.width,c.height);
+  if (sel){ x.globalCompositeOperation='destination-in'; x.drawImage(sel.mask, Math.round(r.x),Math.round(r.y),c.width,c.height, 0,0,c.width,c.height); }
+  detailRefAdd(c); toast('Реф @img'+(detailRefs.length+1)+': «'+L.name+'»'+(sel?' (выделенное)':''),1600); }
+function detailRows(box){ const a=aip;
+  const row=(label,el)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>'+label+'</label>'; el.style.gridColumn='2 / span 2'; r.append(el); box.append(r); return r; };
+  // model
+  const seg=document.createElement('div'); seg.className='seg'; seg.style.flexWrap='wrap'; const g=edProv()==='google';
+  for (const [id,t] of DETAIL_MODELS){ const b=document.createElement('button'); b.textContent=t; const cur=genCfg.detailModel||''; b.classList.toggle('on', id===cur);
+    if (g && id){ b.disabled=true; b.title='С ключом Google работает только Nano Banana — выбери OpenRouter в ⚙'; }
+    b.onclick=()=>{ genCfg.detailModel=id; genSave(); aiBuild(); }; seg.append(b); }
+  row('Модель',seg);
+  // references
+  const rf=document.createElement('div'); rf.className='drefs';
+  detailRefs.forEach((c,i)=>{ const d=document.createElement('div'); d.className='dref'; const t=mk(52,52), k=Math.min(52/c.width,52/c.height); t.width=Math.max(1,Math.round(c.width*k)); t.height=Math.max(1,Math.round(c.height*k)); ctx2(t).drawImage(c,0,0,t.width,t.height);
+    const lb=document.createElement('b'); lb.textContent='@img'+(i+2); const x=document.createElement('button'); x.textContent='×'; x.title='Убрать реф'; x.onclick=()=>{ detailRefs.splice(i,1); aiBuild(); }; d.append(t,lb,x); rf.append(d); });
+  const bf=document.createElement('button'); bf.textContent='+ Файл'; bf.onclick=()=>{ const i=document.createElement('input'); i.type='file'; i.accept='image/*'; i.multiple=true; i.onchange=()=>detailRefFile([...i.files]); i.click(); };
+  const bl=document.createElement('button'); bl.textContent='+ Слой'; bl.title='Активный слой (или выделенное на нём) — например, ассет героини, положенный скрытым слоем'; bl.onclick=detailRefLayer;
+  rf.append(bf,bl); row('Рефы',rf);
+  // templates
+  const tp=document.createElement('div'); tp.className='dtpl'; const list=detailTpl.get(), selT=document.createElement('select');
+  selT.innerHTML='<option value="">Шаблон промпта…</option>'+list.map((t,i)=>'<option value="'+i+'"></option>').join(''); list.forEach((t,i)=>{ selT.options[i+1].textContent=t.name; });
+  const i0=list.findIndex(t=>t.text===a.words); if (i0>=0) selT.value=String(i0);
+  selT.onchange=()=>{ const t=list[+selT.value]; if (t){ a.words=t.text; aiBuild(); } };
+  const sv=document.createElement('button'); sv.textContent='Сохранить'; sv.title='Сохранить текст как шаблон';
+  sv.onclick=()=>{ if (!a.words.trim()){ toast('Сначала напиши промпт'); return; } const cur=list[+selT.value];
+    const d=dialog('<h3>Сохранить шаблон</h3><p>То же название — шаблон перезапишется.</p><input id="dtN" type="text" style="width:100%;height:40px;box-sizing:border-box">', [['Отмена',null],['Сохранить', dd=>{ const n=dd.querySelector('#dtN').value.trim(); if (!n) return false;
+      const j=list.findIndex(t=>t.name===n); if (j>=0) list[j].text=a.words; else list.push({name:n, text:a.words}); detailTpl.set(list); toast('Шаблон «'+n+'» сохранён',1500); aiBuild(); }, true]]);
+    const inp=d.querySelector('#dtN'); inp.value=cur ? cur.name : a.words.trim().split('\n')[0].slice(0,40); setTimeout(()=>{ inp.focus(); inp.select(); },50); };
+  const dl=document.createElement('button'); dl.textContent='×'; dl.title='Удалить выбранный шаблон'; dl.onclick=()=>{ const j=+selT.value; if (!selT.value || !list[j]) return; const n=list[j].name; list.splice(j,1); detailTpl.set(list); toast('Шаблон «'+n+'» удалён',1500); aiBuild(); };
+  tp.append(selT,sv,dl); row('Шаблоны',tp);
+  const h=document.createElement('div'); h.className='gh'; h.textContent='В тексте: @img1 — кусок в рамке, @img2… — рефы по порядку. Реф можно вставить из буфера (Ctrl+V). Ctrl+Enter — запустить.'; box.append(h); }
 function detailRun(c){
   const r={x:Math.round(c.x), y:Math.round(c.y), w:Math.round(c.w), h:Math.round(c.h)}; detailClamp(r); r.x=Math.round(r.x); r.y=Math.round(r.y); r.w=Math.round(r.w); r.h=Math.round(r.h);
-  detailLast={x:r.x, y:r.y, w:r.w, h:r.h, ratio:c.ratio, flip:c.flip, dw:doc.w, dh:doc.h};
+  detailLast={x:r.x, y:r.y, w:r.w, h:r.h, ratio:c.ratio, flip:c.flip, dw:doc.w, dh:doc.h, words:(detailLast&&detailLast.words)||''};
   const orig=regionImage(r, r.w, r.h), res=detailRes(r), whole={on:false}, masks=new Map();
-  aiOpen({ title:'Деталь', sub:r.w+'×'+r.h+' → модель '+res, askWords:'Что сделать в рамке', placeholder:'пусто — просто прорисовать детальнее', layerName:'Деталь',
-    hint:'Кусок уходит в нейросеть в разрешении '+res+' и возвращается слоем точно в рамку. Маска слоя открыта только там, где модель что-то поменяла — остальное не тронуто. Края рамки мягкие.',
-    insertAt:()=>doc.layers.length, doneMsg:'Деталь — отдельный слой с маской: маску можно докрасить кистью',
-    run: async words=>{ const ask='This image is a crop from a larger illustration. '+(words ? 'Edit it: '+words+'. ' : 'Redraw it with more fine detail: crisper forms, cleaner edges, refined textures and small details, as a finished high-end render. ')+
-        'Keep exactly the same framing, composition, position and scale of everything; do not zoom, crop, shift, rotate or reframe. Keep the same lighting, colour palette and art style. Change only what is asked; everything else stays as it is.';
-      const out=await orRequest(orig, ask, 1, {res});
+  aiOpen({ title:'Деталь', detail:true, multiline:true, words:(detailLast.words||''), sub:r.w+'×'+r.h+' → модель '+res, askWords:'Что сделать в рамке', placeholder:'пусто — просто прорисовать детальнее. Можно по-русски, с @img1 / @img2', layerName:'Деталь',
+    hint:'Кусок уходит в нейросеть в разрешении '+res+' и возвращается слоем точно в рамку. Маска слоя открыта только там, где модель что-то поменяла.',
+    rows:detailRows, insertAt:()=>doc.layers.length, doneMsg:'Деталь — отдельный слой с маской: маску можно докрасить кистью',
+    run: async words=>{ detailLast.words=words; const refs=detailRefs.slice(), model=edProv()==='google' ? '' : (genCfg.detailModel||'');
+      const keep='Keep exactly the same framing, composition, position and scale as @img1; do not zoom, crop, shift, rotate or reframe. The output is the edited @img1 at the same framing.';
+      let ask;
+      if (refs.length){ const legend='Attached images: @img1 (image 1) is a crop from a larger illustration — this is the picture you edit. '+refs.map((_,i)=>'@img'+(i+2)+' (image '+(i+2)+')').join(', ')+(refs.length>1?' are visual references.':' is a visual reference.');
+        const t=words || 'Make @img1 match @img2: take the look of the matching subject from @img2.'; ask=legend+'\n\n'+t+(/@img2/.test(t)?'':'\nUse @img2 as the visual reference.')+'\n\n'+keep+' Keep the lighting and colour of @img1 unless asked otherwise.'; }
+      else ask='This image (@img1) is a crop from a larger illustration. '+(words ? 'Edit it:\n'+words+'\n' : 'Redraw it with more fine detail: crisper forms, cleaner edges, refined textures and small details, as a finished high-end render. ')+keep+' Keep the same lighting, colour palette and art style. Change only what is asked; everything else stays as it is.';
+      const out=await orRequest(orig, ask, 1, {res, refsKeep:refs, model});
       return {bitmaps: out.bitmaps.map(b=>expandAlign(orig, b, {x:0,y:0,w:r.w,h:r.h}).c), cost:out.cost}; },
     apply:(ctx,v)=>{ ctx.drawImage(v, r.x, r.y, r.w, r.h); const a=aip, L=a&&a.layer; if (!L) return;
       let mm=masks.get(v); if (!mm){ mm={}; masks.set(v,mm); } if (!mm[whole.on]) mm[whole.on]=detailMask(orig, v, r, whole.on);
@@ -7485,7 +7549,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №65 Деталь'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №66 Деталь по рефу'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
