@@ -457,6 +457,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #lyList{padding:2px 10px 10px;gap:3px}
 .ly{border-radius:14px;position:relative}
 .ly.act{background:linear-gradient(90deg,rgba(234,176,102,.20) 0%,rgba(234,176,102,.06) 100%);box-shadow:inset 0 0 0 1px rgba(234,176,102,.28)}
+.ly.pick{background:rgba(234,176,102,.10);box-shadow:inset 0 0 0 1px rgba(234,176,102,.22)}
 .ly.act::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:3px;background:var(--accent-grad)}
 .ly.grp{background:var(--soft)}
 .th{border-radius:10px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 2px 6px rgba(0,0,0,.3)}
@@ -4983,7 +4984,53 @@ function insertLayer(L, idx, msg){
   layersChanged(); requestRender(); if(msg) toast(msg,1200);
   return L;
 }
+
+/* ---- several layers at once (Photoshop): Shift+click — a range, Ctrl+click on the name — add / remove one.
+   Delete, Ctrl+G (into a group) and Ctrl+E (merge) then work on all of them; everything else works on the active layer. ---- */
+function picked(){ if (!doc || !doc.pick || doc.pick.size<2) return [AL()]; const a=doc.layers.filter(x=>doc.pick.has(x)); if (!a.includes(AL())) a.push(AL()); return a.length>1 ? a : [AL()]; }
+const pickedMany=()=>picked().length>1;
+function pickClear(){ if (doc && doc.pick){ doc.pick=null; } }
+function pickClick(L, e){ // true — the click was a multi-select one
+  if (!doc) return false; const i=doc.layers.indexOf(L);
+  if (e.shiftKey && !(e.ctrlKey||e.metaKey||e.altKey)){
+    const a=doc.pickAnchor!=null && doc.layers.includes(doc.pickAnchor) ? doc.layers.indexOf(doc.pickAnchor) : doc.active;
+    const lo=Math.min(a,i), hi=Math.max(a,i); doc.pick=new Set(); for (let k=lo;k<=hi;k++){ const x=doc.layers[k]; let hid=false; for (let q=x.parent;q;q=q.parent) if (q.collapsed) hid=true; if (!hid) doc.pick.add(x); }
+    doc.pickAnchor=doc.layers[a]; doc.active=i; doc.editMask=false; layersChanged(); return true; }
+  if ((e.ctrlKey||e.metaKey) && !e.shiftKey){
+    if (!doc.pick) doc.pick=new Set([AL()]);
+    if (doc.pick.has(L) && doc.pick.size>1){ doc.pick.delete(L); if (AL()===L){ const rest=doc.layers.filter(x=>doc.pick.has(x)); doc.active=doc.layers.indexOf(rest[rest.length-1]); } }
+    else { doc.pick.add(L); doc.active=i; }
+    doc.pickAnchor=L; doc.editMask=false; layersChanged(); return true; }
+  doc.pick=null; doc.pickAnchor=L; return false;
+}
+const pickTops=()=>{ const a=picked(); return a.filter(x=>!a.some(y=>y!==x && isDesc(x,y))); }; // without layers already inside a picked group
+function deletePicked(){
+  const tops=pickTops(), gone=new Set(); for (const X of tops){ const s=blockStart(X), e=doc.layers.indexOf(X); for (let k=s;k<=e;k++) gone.add(doc.layers[k]); }
+  if (!doc.layers.some(x=>!gone.has(x) && !isGroup(x))){ toast('Все слои удалить нельзя — хоть один должен остаться'); return; }
+  const n=tops.length; structEdit(()=>{ const lo=Math.min(...[...gone].map(x=>doc.layers.indexOf(x))); doc.layers=doc.layers.filter(x=>!gone.has(x)); doc.active=clamp(lo-1,0,doc.layers.length-1); doc.pick=null; },
+    plurN(n,'Удалён','Удалено','Удалено')+' '+n+' '+plurN(n,'слой','слоя','слоёв')+' · Ctrl+Z вернёт');
+}
+function groupPicked(){
+  const tops=pickTops().sort((a,b)=>doc.layers.indexOf(a)-doc.layers.indexOf(b)), top=tops[tops.length-1], G=newGroup();
+  structEdit(()=>{ const blocks=tops.map(X=>doc.layers.slice(blockStart(X), doc.layers.indexOf(X)+1)), moved=new Set(blocks.flat());
+    const topEnd=doc.layers.indexOf(top), before=doc.layers.slice(0,topEnd+1).filter(x=>moved.has(x)).length, at=topEnd+1-before;
+    const rest=doc.layers.filter(x=>!moved.has(x)); G.parent=top.parent; for (const X of tops) X.parent=G;
+    rest.splice(at,0,...blocks.flat(),G); doc.layers=rest; doc.active=doc.layers.indexOf(G); doc.pick=null; }, 'Слои собраны в группу');
+}
+function mergePicked(){
+  const leaves=[]; for (const X of pickTops()){ if (isGroup(X)){ for (const y of doc.layers) if (isDesc(y,X) && !isGroup(y)) leaves.push(y); } else leaves.push(X); }
+  const px=leaves.filter(x=>x.kind!=='adj').sort((a,b)=>doc.layers.indexOf(a)-doc.layers.indexOf(b));
+  if (px.length<2){ toast('Для слияния нужно хотя бы два обычных слоя'); return; }
+  const top=px[px.length-1], M=newLayer(top.name);
+  for (const x of px){ if (!x.visible) continue; leafFull(M.ctx, x); } // bottom → top, each with its mask, opacity and blend
+  const drop=new Set(pickTops()), all=new Set(); for (const X of drop){ const s=blockStart(X), e=doc.layers.indexOf(X); for (let k=s;k<=e;k++) all.add(doc.layers[k]); }
+  for (const x of leaves) if (x.kind==='adj') all.delete(x); // corrections stay as they were
+  structEdit(()=>{ const ti=doc.layers.indexOf(top); M.parent=top.parent; doc.layers.splice(ti+1,0,M); doc.layers=doc.layers.filter(x=>!all.has(x) || x===M); doc.active=doc.layers.indexOf(M); doc.pick=null; },
+    'Слито '+px.length+' '+plurN(px.length,'слой','слоя','слоёв')+' в один');
+}
+function plurN(n,a,b,c){ const m10=n%10, m100=n%100; return m10===1&&m100!==11 ? a : m10>=2&&m10<=4&&(m100<10||m100>=20) ? b : c; }
 function deleteLayer(){
+  if (pickedMany()) return deletePicked();
   const X=AL(), s=blockStart(X), e=doc.layers.indexOf(X);
   if (!doc.layers.some((x,i)=>!isGroup(x) && (i<s||i>e))){ toast('Последний слой удалить нельзя'); return; }
   if (isGroup(X)){ structEdit(()=>{ doc.layers.splice(s,e-s+1); doc.active=clamp(s-1,0,doc.layers.length-1); }, 'Группа удалена (можно отменить)'); return; }
@@ -5068,6 +5115,7 @@ function dupGroup(){
   structEdit(()=>{ doc.layers.splice(e+1,0,...blk); doc.active=e+1+blk.length-1; }, 'Группа скопирована');
 }
 function makeGroup(){
+  if (pickedMany()) return groupPicked();
   const X=AL(), e=doc.layers.indexOf(X), G=newGroup();
   structEdit(()=>{ G.parent=X.parent; doc.layers.splice(e+1,0,G); X.parent=G; doc.active=e+1; }, 'Новая группа. Перетаскивай в неё слои — удержи слой и тяни на папку');
 }
@@ -5110,6 +5158,7 @@ function removeMask(apply){
   L.dirty=true; layersChanged(); requestRender();
 }
 function mergeDown(){
+  if (pickedMany()) return mergePicked();
   if (isGroup(AL())){ mergeGroup(); return; }
   const i=doc.active; if(i<1){ toast('Ниже нет слоя'); return; }
   const up=doc.layers[i], lo=doc.layers[i-1];
@@ -5199,7 +5248,7 @@ function layersChanged(){ structVer++; try{ if (AE.loaded) aeRefresh(); }catch(e
     const list=$('#lyList'); list.textContent='';
     for (let i=doc.layers.length-1;i>=0;i--){
       const L=doc.layers[i]; let hidden=false; for(let p=L.parent;p;p=p.parent) if(p.collapsed) hidden=true; if (hidden) continue;
-      const row=document.createElement('div'); row.className='ly'+(i===doc.active?' act':'')+(L.parent&&!shown(L.parent)?' hid':'');
+      const row=document.createElement('div'); row.className='ly'+(i===doc.active?' act':'')+(i!==doc.active && doc.pick && doc.pick.size>1 && doc.pick.has(L)?' pick':'')+(L.parent&&!shown(L.parent)?' hid':'');
       row.style.marginLeft=(depthOf(L)*16)+'px';
       const eye=document.createElement('button'); eye.className='eye'+(L.visible?'':' off'); eye.innerHTML=EYE; eye.setAttribute('aria-label','Видимость');
       eye.onclick=e=>{ e.stopPropagation(); if (e.altKey){ soloLayer(L); return; } setProp(L,'visible',!L.visible); layersChanged(); };
@@ -5215,11 +5264,11 @@ function layersChanged(){ structVer++; try{ if (AE.loaded) aeRefresh(); }catch(e
         nm.innerHTML='<div class="nm"></div><div class="meta"></div>';
         nm.firstChild.textContent=L.name; nm.lastChild.textContent=n+' сл. · '+Math.round(L.opacity*100)+'% · '+(L.blend==='pass'?'Сквозной':(BLENDS.find(b=>b[0]===L.blend)||BLENDS[0])[1]);
         row.append(eye, fold); if (mcg) row.append(mcg); row.append(nm);
-        row.onclick=()=>{ if (dragJustEnded) return; doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); };
+        row.onclick=e=>{ if (dragJustEnded) return; if (pickClick(L,e)) return; doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); };
         row.dataset.idx=i; attachLayerDrag(row, L); list.append(row); continue;
       }
       const tc=thumbFor(L,false); tc.classList.toggle('sel', i===doc.active && !doc.editMask && !!L.mask);
-      tc.onclick=e=>{ e.stopPropagation(); if ((e.ctrlKey||e.metaKey) && L.kind!=='adj'){ selFromLayer(L,false, e.shiftKey?'add':e.altKey?'sub':'new'); return; } doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); if (L.kind==='adj') adjOpen(L); };
+      tc.onclick=e=>{ e.stopPropagation(); if (e.shiftKey && !(e.ctrlKey||e.metaKey||e.altKey)){ pickClick(L,e); return; } if (!(e.ctrlKey||e.metaKey)) pickClear(); if ((e.ctrlKey||e.metaKey) && L.kind!=='adj'){ selFromLayer(L,false, e.shiftKey?'add':e.altKey?'sub':'new'); return; } doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged(); if (L.kind==='adj') adjOpen(L); };
       row.append(eye, tc);
       if (L.mask){ const mc=thumbFor(L,true); mc.classList.toggle('sel', i===doc.active && doc.editMask); mc.style.opacity=L.mask.enabled?1:.4;
         mc.onclick=e=>{ e.stopPropagation(); if (e.ctrlKey||e.metaKey){ selFromLayer(L,true, e.shiftKey?'add':e.altKey?'sub':'new'); return; } if (e.shiftKey){ setProp(L.mask,'enabled',!L.mask.enabled); layersChanged(); requestRender(); return; } doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); toast('Рисуешь по маске: чёрный скрывает, белый и ластик возвращают',2600); };
@@ -5227,7 +5276,7 @@ function layersChanged(){ structVer++; try{ if (AE.loaded) aeRefresh(); }catch(e
       const nm=document.createElement('div'); nm.style.minWidth='0'; if (!L.mask) nm.style.gridColumn='span 2';
       nm.innerHTML='<div class="nm"></div><div class="meta"></div>';
       nm.firstChild.textContent=(L.clip?'↳ ':'')+L.name; nm.lastChild.textContent= L.kind==='adj' ? ADJ_NAMES[adjType(L)]+' · '+Math.round(L.opacity*100)+'%'+(L.clip?' · на слой ниже':'') : Math.round(L.opacity*100)+'% · '+(BLENDS.find(b=>b[0]===L.blend)||BLENDS[0])[1];
-      row.append(nm); row.onclick=()=>{ if (dragJustEnded) return; const same=doc.active===doc.layers.indexOf(L); doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged();
+      row.append(nm); row.onclick=e=>{ if (dragJustEnded) return; if (pickClick(L,e)) return; const same=doc.active===doc.layers.indexOf(L); doc.active=doc.layers.indexOf(L); doc.editMask=false; layersChanged();
         if (L.kind==='adj' && (same || adjEdit)) adjOpen(L); else if (adjEdit && adjEdit.L!==L) adjClose(); };
       row.dataset.idx=i; attachLayerDrag(row, L);
       list.append(row);
@@ -6309,7 +6358,7 @@ function showHelpDesk(){
    <div class="hkgrid">`+
    card('Холст',[['Колёсико / Alt+колёсико','масштаб'],['Ctrl+колёсико','масштаб (на тачпаде — щипок)'],['Shift+колёсико','сдвиг вбок'],['Alt+Shift+колёсико','поворот'],['Пробел / H','держать — рука'],['Ctrl+Пробел / Alt+Пробел','клик — ближе / дальше, тянуть — плавно'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум по шагам фотошопа (50 · 67 · 100 · 200 %)'],['Tab / F','спрятать панели']])+
    card('Правка и файл',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить (тот же файл)'],['Ctrl+Shift+S','сохранить как: PSD / PNG / JPG'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
-   card('Выделение и слои',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','при выделении — добавить / вычесть'],['Ctrl+Alt+R','выделение и маска (край)'],['Delete','стереть выделенное; без выделения — удалить слой'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
+   card('Выделение и слои',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','при выделении — добавить / вычесть'],['Ctrl+Alt+R','выделение и маска (край)'],['Delete','стереть выделенное; без выделения — удалить слой'],['Ctrl+клик миниатюры','выделить по слою'],['Shift+клик / Ctrl+клик по слою','несколько слоёв: Delete, Ctrl+G, Ctrl+E — для всех'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
    card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп'],['B / E','кисть / ластик'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['C','кадрирование'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
    `</div><h4 class="hkt">Инструменты подробно</h4><dl class="gest gcols">`+HELP_PC_TOOLS.map(([t,d])=>'<div><dt>'+t+'</dt><dd>'+d+'</dd></div>').join('')+'</dl>';
   const d=dialog(html, [['Понятно', ()=>{ try{localStorage.setItem('kadr.help','1');}catch(e){} }, true]]); d.classList.add('helpw');
@@ -7080,7 +7129,7 @@ document.addEventListener('keydown', e=>{
   if (k==='escape'){ if(xf) xfCancel(); else closePops(); return; }
   if ((k==='delete'||k==='backspace') && sel){ selDelete(); return; }
   // Photoshop: no selection — Delete removes the active layer (one undo step)
-  if ((k==='delete'||k==='backspace') && !sel && doc && !e.repeat){ e.preventDefault(); if (panelBusy()) return; const nm=AL()&&AL().name, n=doc.layers.length; deleteLayer(); if (doc.layers.length<n) toast('Слой «'+(nm||'')+'» удалён · Ctrl+Z вернёт',1600); }
+  if ((k==='delete'||k==='backspace') && !sel && doc && !e.repeat){ e.preventDefault(); if (panelBusy()) return; if (pickedMany()){ deleteLayer(); return; } const nm=AL()&&AL().name, n=doc.layers.length; deleteLayer(); if (doc.layers.length<n) toast('Слой «'+(nm||'')+'» удалён · Ctrl+Z вернёт',1600); }
 });
 /* ---- helpers for the Photoshop keys ---- */
 function setStrength(v, flow){ const t=S.tool; let what;
@@ -7346,7 +7395,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №62 Сохранить как: PSD, PNG, JPG'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №63 несколько слоёв: Shift / Ctrl + клик'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
