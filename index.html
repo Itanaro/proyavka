@@ -5028,6 +5028,18 @@ function mergePicked(){
   structEdit(()=>{ const ti=doc.layers.indexOf(top); M.parent=top.parent; doc.layers.splice(ti+1,0,M); doc.layers=doc.layers.filter(x=>!all.has(x) || x===M); doc.active=doc.layers.indexOf(M); doc.pick=null; },
     'Слито '+px.length+' '+plurN(px.length,'слой','слоя','слоёв')+' в один');
 }
+function movePickedTo(T, zone, L){ // drag of several picked layers: their blocks keep their order and land together
+  const tops=pickTops().sort((a,b)=>doc.layers.indexOf(a)-doc.layers.indexOf(b));
+  if (tops.some(X=>X===T || isDesc(T,X))){ toast('Нельзя положить слои внутрь самих себя',1600); return; }
+  structEdit(()=>{ const blocks=tops.map(X=>doc.layers.slice(blockStart(X), doc.layers.indexOf(X)+1)), moved=new Set(blocks.flat()), rest=doc.layers.filter(x=>!moved.has(x));
+    let at, P;
+    if (zone==='end'){ at=0; P=null; }
+    else if (zone==='above'){ at=rest.indexOf(T)+1; P=T.parent; }
+    else if (zone==='into' || (zone==='below' && isGroup(T) && !T.collapsed)){ at=rest.indexOf(T); P=T; if (T.collapsed) T.collapsed=false; }
+    else { let k=rest.indexOf(T); while (k>0 && isDesc(rest[k-1],T)) k--; at=k; P=T.parent; }
+    for (const X of tops) X.parent=P; rest.splice(at,0,...blocks.flat()); doc.layers=rest; doc.active=doc.layers.indexOf(L); },
+    'Перемещено '+tops.length+' '+plurN(tops.length,'слой','слоя','слоёв'));
+}
 function plurN(n,a,b,c){ const m10=n%10, m100=n%100; return m10===1&&m100!==11 ? a : m10>=2&&m10<=4&&(m100<10||m100>=20) ? b : c; }
 function deleteLayer(){
   if (pickedMany()) return deletePicked();
@@ -5075,6 +5087,7 @@ function attachLayerDrag(row, L){
     if (drag){ row.classList.remove('lift'); document.querySelectorAll('#lyList .ly').forEach(r=>r.classList.remove('dropa','dropb'));
       if (drag.over){ // the list shows the top layer first, so "below a row" means a lower index in doc.layers
         const {T, zone}=drag.over, ti=doc.layers.indexOf(T);
+        if (pickedMany() && picked().includes(L)){ movePickedTo(T, zone, L); dragJustEnded=true; setTimeout(()=>dragJustEnded=false,50); drag=null; start=null; layerDragging=false; return; }
         structEdit(()=>{
           if (zone==='end') return moveBlock(L, 0, null);
           if (zone==='above') return moveBlock(L, ti+1, T.parent);
@@ -7397,7 +7410,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №63.1 слои перетаскиваются мышью'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №63.2 перетаскивание нескольких слоёв'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
