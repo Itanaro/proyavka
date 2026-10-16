@@ -1367,6 +1367,8 @@ function renderOverlay(){ if(!doc) return;
     ox.beginPath(); [[0,0],[doc.w,0],[doc.w,doc.h],[0,doc.h]].forEach((q,i)=>{ const [a,b]=toScr(q[0],q[1]); i?ox.lineTo(a,b):ox.moveTo(a,b); }); ox.closePath();
     ox.lineWidth = xf ? 1.5 : 1; ox.strokeStyle = xf ? 'rgba(255,255,255,.85)' : 'rgba(0,0,0,.55)'; ox.setLineDash(xf?[6,4]:[]); ox.stroke(); ox.setLineDash([]);
   }
+  if (typeof aip!=='undefined' && aip && aip.frame){ const f=aip.frame; // Detail: the frame stays visible while the panel is open
+    polyPath([[f.x,f.y],[f.x+f.w,f.y],[f.x+f.w,f.y+f.h],[f.x,f.y+f.h]]); ox.lineWidth=1.5; ox.strokeStyle='rgba(0,0,0,.6)'; ox.stroke(); ox.setLineDash([7,5]); ox.strokeStyle=cssVar('--accent'); ox.stroke(); ox.setLineDash([]); }
   if (pup){ pupOverlay(ox); return; }
   if (crop){ cropOverlay(ox); return; }
   if (xf){
@@ -1840,7 +1842,7 @@ function drawEye(){
 }
 
 /* ============ selection ============ */
-const normRect = r => ({ x:Math.min(r.x0,r.x1), y:Math.min(r.y0,r.y1), w:Math.abs(r.x1-r.x0), h:Math.abs(r.y1-r.y0) });
+const normRect = r => { const x0=r.rx0??r.x0, y0=r.ry0??r.y0; return { x:Math.min(x0,r.x1), y:Math.min(y0,r.y1), w:Math.abs(r.x1-x0), h:Math.abs(r.y1-y0) }; }; // rx0/ry0 — the far corner when drawn from the centre
 function applySelPoly(pts){
   if (pts.length<3) { if(S.selMode==='new') deselect(); return; }
   if (!sel && S.selMode==='sub') return;
@@ -1945,6 +1947,26 @@ function selDelete(){
   else { t.globalCompositeOperation='destination-out'; t.drawImage(sel.mask,r.x,r.y,r.w,r.h,r.x,r.y,r.w,r.h); t.globalCompositeOperation='source-over'; }
   pushHist(pxEntry(tgt,r.x,r.y,r.w,r.h,before)); AL().dirty=true; thumbSoon(AL()); requestRender();
 }
+/* Ctrl+C / Ctrl+Shift+C (merged) and Ctrl+V, like Photoshop. The copy also goes to the system clipboard as PNG;
+   our own copy wins while the window keeps focus (nothing else could have been copied meanwhile). */
+let clip=null;
+addEventListener('blur', ()=>{ if (clip) clip.stale=true; });
+function copySel(merged){
+  if (!doc) return; const L=AL();
+  if (!merged && (isGroup(L) || L.kind==='adj' || !L.canvas)){ toast('Выбери слой с пикселями (или Ctrl+Shift+C — всё видимое)'); return; }
+  const src = merged ? compositeRegion({x:0,y:0,w:doc.w,h:doc.h}, doc.w, doc.h) : L.canvas;
+  const r0 = sel ? selBBox() : (merged ? {x:0,y:0,w:doc.w,h:doc.h} : contentBBox(src)); if (!r0 || r0.w<1 || r0.h<1){ toast(sel?'Пустое выделение':'Слой пустой'); return; }
+  const r={x:Math.max(0,Math.floor(r0.x)), y:Math.max(0,Math.floor(r0.y))}; r.w=Math.min(doc.w,Math.ceil(r0.x+r0.w))-r.x; r.h=Math.min(doc.h,Math.ceil(r0.y+r0.h))-r.y;
+  const c=mk(r.w,r.h), x=ctx2(c); x.drawImage(src, r.x,r.y,r.w,r.h, 0,0,r.w,r.h);
+  if (sel){ x.globalCompositeOperation='destination-in'; x.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,r.w,r.h); x.globalCompositeOperation='source-over'; }
+  if (!merged && L.mask && L.mask.enabled){ x.globalCompositeOperation='destination-in'; x.drawImage(L.mask.canvas, r.x,r.y,r.w,r.h, 0,0,r.w,r.h); x.globalCompositeOperation='source-over'; }
+  clip={c, x:r.x, y:r.y, name: merged ? 'Вставка' : L.name, stale:false};
+  try{ if (navigator.clipboard && window.ClipboardItem) navigator.clipboard.write([new ClipboardItem({'image/png': new Promise(res=>c.toBlob(res,'image/png'))})]).catch(()=>{}); }catch(e){}
+  toast((merged?'Видимое скопировано':'Скопировано')+' · '+r.w+'×'+r.h+(aip&&aip.detail?' · Ctrl+V — в рефы':''),1500); }
+function clipCopy(c){ const q=mk(c.width,c.height); ctx2(q).drawImage(c,0,0); return q; }
+function pasteClip(){ // new layer, in the place it was copied from
+  if (!doc || !clip) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  const L=newLayer(clip.name+' · копия'); L.ctx.drawImage(clip.c, clip.x, clip.y); L.parent=isGroup(AL())?AL():AL().parent; insertLayer(L, doc.active+1, 'Вставлено на новый слой'); }
 function selCopyToLayer(){
   if(!sel || !pixelOnly()) return; const src=AL();
   const L=newLayer(src.name+' · фрагмент'); L.ctx.drawImage(src.canvas,0,0);
@@ -5679,6 +5701,7 @@ document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePo
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, detail:()=>cropOpen({detail:true}), critic:artDirector, aiedit:()=>aeOpen(), rmbg:removeBackground, set:genSettings})[a](); });
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,#bImg,.tgm,.pickHere')) closePops(); },true);
+document.addEventListener('pointerdown',e=>{ const a=document.activeElement; if (a && a.matches && a.matches('input,textarea') && !e.target.closest('input,textarea,select,label,.dlg') && (e.target.closest('#stage canvas,.ly,#layers') || e.target.tagName==='CANVAS')) a.blur(); },true);
 document.addEventListener('keydown',e=>{ if (e.key==='Escape' && !$('#lyCtx').hidden) $('#lyCtx').hidden=true; });
 $('#bImg').onclick=e=>{ e.stopPropagation(); closePops('imgmenu'); const m=$('#imgmenu'); if (!m.hidden){ m.hidden=true; return; }
   m.querySelector('#imgInfo').textContent = doc ? doc.w+'×'+doc.h+' px · '+(doc.dpi||72)+' ppi · '+((doc.w/(doc.dpi||72))*2.54).toFixed(1)+'×'+((doc.h/(doc.dpi||72))*2.54).toFixed(1)+' см' : '';
@@ -6520,7 +6543,13 @@ async function placeFile(f){
 /* drag & drop (Split View with Photos/Files) and paste */
 $('#stage').addEventListener('dragover', e=>{ e.preventDefault(); e.dataTransfer.dropEffect='copy'; });
 $('#stage').addEventListener('drop', e=>{ e.preventDefault(); const f=[...(e.dataTransfer.files||[])].find(f=>f.type.startsWith('image/')); if(f) placeFile(f); else toast('Сюда можно перетащить картинку'); });
-document.addEventListener('paste', e=>{ if (aip && aip.detail && !aip.busy){ const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/')), f=it&&it.getAsFile(); if (f){ e.preventDefault(); detailRefFile([f]); return; } } if(e.target.matches&&e.target.matches('input,textarea')) return; const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/')); const f=it&&it.getAsFile(); if(f){ e.preventDefault(); placeFile(f); } });
+document.addEventListener('paste', e=>{
+  const items=[...(e.clipboardData?.items||[])], it=items.find(i=>i.type.startsWith('image/')), f=it&&it.getAsFile(), inField=e.target.matches&&e.target.matches('input,textarea');
+  const own = clip && !clip.stale && !(inField && items.some(i=>i.type==='text/plain')); // our Ctrl+C is the freshest copy
+  if (aip && aip.detail && !aip.busy){ if (own){ e.preventDefault(); detailRefAdd(clipCopy(clip.c)); toast('Реф @img'+(detailRefs.length+1)+' из скопированного',1400); return; } if (f){ e.preventDefault(); detailRefFile([f]); return; } }
+  if (inField) return;
+  if (own){ e.preventDefault(); pasteClip(); return; }
+  if (f){ e.preventDefault(); placeFile(f); } });
 function flatten(scale=1, white){
   const w=Math.round(doc.w*scale), h=Math.round(doc.h*scale), c=mk(w,h), x=ctx2(c);
   x.imageSmoothingQuality='high'; if (white){ x.fillStyle='#fff'; x.fillRect(0,0,w,h); }
@@ -6817,7 +6846,7 @@ function toolDown(e,p){
   if (t==='liquify'){ if(!liqBegin(p,penPressure(e))) toolPtr=null; return; }
   if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e),e); }
   else if (t==='lasso'){ lassoPts=[toDoc(...p)]; }
-  else if (t==='rect'){ const [x,y]=toDoc(...p); rectSel={x0:x,y0:y,x1:x,y1:y}; }
+  else if (t==='rect'){ const [x,y]=toDoc(...p); rectSel={x0:x,y0:y,x1:x,y1:y, sq:false, ctr:false, shiftLock:e.shiftKey&&!!sel, altLock:altDown&&!!sel}; }
   if ((t==='lasso'||t==='rect'||t==='wand'||t==='tap') && (e.shiftKey||altDown) && sel){ tmpMode=S.selMode; S.selMode= altDown ? 'sub' : 'add'; }
   if (t==='wand'){ wandDown(p); return; }
   else if (t==='transform'){ if(xf) xfDown(p[0],p[1]); }
@@ -6826,6 +6855,11 @@ function toolDown(e,p){
   if ((t==='brush'||t==='eraser') && S.penHoldPick && e.pointerType==='pen' && stroke){ penHold={p0:p, T:setTimeout(()=>{ if(!penHold||!stroke) return; strokeEnd(true); activeTool='picker'; penHold.picking=true; eyeStart(penHold.p0,false); }, 450)}; }
 }
 let tapDown=null, penHold=null;
+function rectMods(sh){ const r=rectSel; if (!r || r.mx==null) return; if (sh==null) sh=shiftDown;
+  if (!sh) r.shiftLock=false; if (!altDown) r.altLock=false; r.sq=sh && !r.shiftLock; r.ctr=altDown && !r.altLock; rectFix(r); requestOverlay(); }
+function rectFix(r){ // Shift — square, Alt — drawn from the centre
+  let dx=r.mx-r.x0, dy=r.my-r.y0; if (r.sq){ const m=Math.max(Math.abs(dx),Math.abs(dy)); dx=Math.sign(dx||1)*m; dy=Math.sign(dy||1)*m; }
+  if (r.ctr){ r.rx0=r.x0-dx; r.ry0=r.y0-dy; } else { r.rx0=r.x0; r.ry0=r.y0; } r.x1=r.x0+dx; r.y1=r.y0+dy; }
 function toolMove(e){
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
   const list = evs.length ? evs : [e];
@@ -6839,7 +6873,8 @@ function toolMove(e){
     else if (t==='patch') patchMove(p);
     else if (t==='liquify') liqMove(p,penPressure(ev));
     else if (t==='lasso' && lassoPts){ const q=toDoc(...p), l=lassoPts[lassoPts.length-1]; if(Math.hypot(q[0]-l[0],q[1]-l[1])*view.s>2) lassoPts.push(q); }
-    else if (t==='rect' && rectSel){ const [x,y]=toDoc(...p); rectSel.x1=x; rectSel.y1=y; }
+    else if (t==='rect' && rectSel){ const [x,y]=toDoc(...p); rectSel.mx=x; rectSel.my=y;
+      rectMods(ev.shiftKey); }
     else if (t==='transform' && xf) xfMove(p[0],p[1]);
     else if (t==='picker') eyeMove(p);
   }
@@ -6911,11 +6946,11 @@ function updateCursor(){
   st.cursor = (t==='liquify'||t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)) ? 'none' : (t==='transform' ? 'move' : 'crosshair');
 }
 document.addEventListener('keyup', e=>{
-  if (e.key==='Shift'){ shiftDown=false; updateCursor(); }
+  if (e.key==='Shift'){ shiftDown=false; updateCursor(); rectMods(false); }
   if (e.code==='KeyH' && hHeld){ hHeld=false; updateCursor(); } if (e.code==='KeyZ' && zHeld){ zHeld=false; zoomDrag=null; updateCursor(); } if (e.code==='KeyR' && rHeld){ rHeld=false; rotDrag=null; updateCursor(); }
   if (e.getModifierState && capsOn!==e.getModifierState('CapsLock')){ capsOn=e.getModifierState('CapsLock'); updateCursor(); }
   if (e.key===' '){ spaceDown=false; updateCursor(); }
-  if (e.key==='Alt'){ altDown=false; updateCursor(); }
+  if (e.key==='Alt'){ altDown=false; updateCursor(); rectMods(); }
   if (e.key==='Control'){ ctrlDown=false; updateCursor(); }
 });
 window.addEventListener('blur', ()=>{ spaceDown=altDown=shiftDown=ctrlDown=hHeld=zHeld=rHeld=false; panDrag=zoomDrag=rotDrag=null; updateCursor(); });
@@ -6926,7 +6961,7 @@ function toolUp(e){
   else if (t==='patch') patchUp();
   else if (t==='liquify') liqEnd(false);
   else if (t==='lasso' && lassoPts){ const pts=lassoPts; lassoPts=null; if(pts.length<3){ if(S.selMode==='new') deselect(); } else applySelPoly(pts); }
-  else if (t==='rect' && rectSel){ const r=normRect(rectSel); rectSel=null; if(r.w*view.s<4||r.h*view.s<4){ if(S.selMode==='new') deselect(); } else applySelPoly([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); }
+  else if (t==='rect' && rectSel){ const sq=rectSel.sq, r=normRect(rectSel); rectSel=null; r.x=Math.round(r.x); r.y=Math.round(r.y); r.w=Math.round(r.w); r.h=Math.round(r.h); if (sq) r.w=r.h=Math.max(r.w,r.h); /* whole pixels; a Shift square stays square */ if(r.w*view.s<4||r.h*view.s<4){ if(S.selMode==='new') deselect(); } else applySelPoly([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); }
   else if (t==='transform' && xf) xf.drag=null;
   else if (t==='picker'){ eyeEnd(false); if (penHold && penHold.picking){ /* back to the brush */ } else if (S.tool==='picker' && pickerBack){ setTool(pickerBack); } }
   else if (t==='wand' && wandDrag) wandUp();
@@ -7065,8 +7100,14 @@ function detailRefLayer(){ const L=AL(); if (!L || !L.canvas){ toast('Выбер
   const c=mk(Math.round(r.w),Math.round(r.h)), x=ctx2(c); x.drawImage(L.canvas, Math.round(r.x),Math.round(r.y),c.width,c.height, 0,0,c.width,c.height);
   if (sel){ x.globalCompositeOperation='destination-in'; x.drawImage(sel.mask, Math.round(r.x),Math.round(r.y),c.width,c.height, 0,0,c.width,c.height); }
   detailRefAdd(c); toast('Реф @img'+(detailRefs.length+1)+': «'+L.name+'»'+(sel?' (выделенное)':''),1600); }
+function detailReframe(){ const a=aip; if (!a || !a.detail || a.busy) return; if (detailLast) detailLast.words=a.words||'';
+  if (a.variants.length && a.layer){ aiDone(); toast('Готовый вариант остался слоем «'+a.layer.name+'» — двигай рамку дальше',2200); } else aiCancel();
+  cropOpen({detail:true}); }
 function detailRows(box){ const a=aip;
   const row=(label,el)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>'+label+'</label>'; el.style.gridColumn='2 / span 2'; r.append(el); box.append(r); return r; };
+  // frame
+  if (a.frame){ const fr=document.createElement('div'); fr.className='seg'; const t=document.createElement('span'); t.style.cssText='align-self:center;padding:0 8px;color:var(--muted);font-size:12.5px'; t.textContent=a.frame.w+'×'+a.frame.h+' · '+(detailLast&&detailLast.ratio||'');
+    const bt=document.createElement('button'); bt.textContent='▢ Изменить рамку'; bt.title='Вернуться к рамке: сдвинуть, поменять размер или форму. Промпт и рефы сохранятся'; bt.disabled=!!a.busy; bt.onclick=detailReframe; fr.append(t,bt); row('Рамка',fr); }
   // model
   const seg=document.createElement('div'); seg.className='seg'; seg.style.flexWrap='wrap'; const g=edProv()==='google';
   for (const [id,t] of DETAIL_MODELS){ const b=document.createElement('button'); b.textContent=t; const cur=genCfg.detailModel||''; b.classList.toggle('on', id===cur);
@@ -7269,9 +7310,9 @@ document.addEventListener('keydown', e=>{
   if (e.target.matches('input,select,textarea')) return;
   if (e.getModifierState){ const c=e.getModifierState('CapsLock'); if (c!==capsOn){ capsOn=c; updateCursor(); } }
   if (e.key===' '){ e.preventDefault(); if(!spaceDown){ spaceDown=true; updateCursor(); } return; }
-  if (e.key==='Alt'){ e.preventDefault(); altDown=true; updateCursor(); return; }
+  if (e.key==='Alt'){ e.preventDefault(); altDown=true; updateCursor(); rectMods(); return; }
   if (e.key==='Control'){ if (!ctrlDown){ ctrlDown=true; updateCursor(); } return; }
-  if (e.key==='Shift'){ if (!shiftDown){ shiftDown=true; updateCursor(); } return; }
+  if (e.key==='Shift'){ if (!shiftDown){ shiftDown=true; updateCursor(); rectMods(true); } return; }
   const k=e.key.toLowerCase(), mod=e.metaKey||e.ctrlKey, C=e.code||'';
   const L = C.startsWith('Key') ? C.slice(3).toLowerCase() : C.startsWith('Digit') ? C.slice(5) : C.startsWith('Numpad') && /\d$/.test(C) ? C.slice(-1) : k;
   if (crop){ if (k==='enter'){ e.preventDefault(); cropApply(); return; } if (k==='escape'){ e.preventDefault(); cropClose(); return; } if (!mod && L!=='h' && L!=='z' && L!=='r') return; }
@@ -7298,6 +7339,7 @@ document.addEventListener('keydown', e=>{
     if (L==='s') return go(()=>{ if (IS_DESK && window.showSaveFilePicker && !nativeApp) return saveAsDesk(!e.shiftKey); saveFile.again=!e.shiftKey; exportImg('psd').finally(()=>{ saveFile.again=false; }); });
     if (L==='t') return go(()=>setTool('transform'));
     if (L==='c' && e.altKey) return go(()=>canvasSizeDialog());
+    if (L==='c') return go(()=>copySel(e.shiftKey));
     if (L==='e') return go(()=>{ if (!need()) return; if (e.shiftKey && e.altKey) stampVisible(); else if (e.shiftKey) mergeVisible(); else mergeDown(); });
     if (L==='n' && e.shiftKey) return go(()=>{ if (need()) $('#lyAdd').click(); });
     if (L==='m' || L==='l' || L==='u' || L==='b') return go(()=>{ if (need()) addAdj({m:'curves', l:'levels', u:'hue', b:'balance'}[L]); });
@@ -7617,7 +7659,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №69 несколько слоёв: трансформ, глаз, непрозрачность; слить видимые; Деталь 2K'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №70 Деталь: рамка видна и меняется; Ctrl+C/V; квадрат по Shift'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
