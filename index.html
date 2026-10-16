@@ -114,6 +114,10 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #swatch{width:34px;height:34px;border-radius:50%;border:2px solid var(--fg);flex:none;box-shadow:0 0 0 2px var(--panel)}
 
 /* left tool rail */
+body.desk #swWrap{position:relative;width:46px;height:44px;flex:none;margin:8px 0 2px}
+body.desk #swWrap #swatch{position:absolute;left:0;top:0;width:30px;height:30px;z-index:1}
+body.desk #swatchBg{position:absolute;right:0;bottom:0;width:26px;height:26px;border-radius:50%;border:2px solid var(--fg);box-shadow:0 0 0 2px var(--panel);padding:0;opacity:.95}
+body.maskcol #swatch,body.maskcol #swatchBg{border-style:dashed}
 #rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;width:58px;overflow-y:auto;scrollbar-width:none}
 #rail .tb{width:44px;height:44px;padding:0}
 #rail .tb svg{width:22px;height:22px}
@@ -5307,7 +5311,7 @@ function thumbSoon(L){ thumbQ.add(L); clearTimeout(thumbT); thumbT=setTimeout(()
 const FOLDER='<svg viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 9.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>';
 const CHEV='<svg class="chev" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>';
 const EYE='<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-function layersChanged(){ structVer++; try{ if (AE.loaded) aeRefresh(); }catch(e){}
+function layersChanged(){ structVer++; try{ maskColorSync(); }catch(e){} try{ if (AE.loaded) aeRefresh(); }catch(e){}
   if (!doc) return;
   try{ if (!TABS.cur || TABS.cur.doc!==doc) tabsAdopt(); else if (TABS.cur.name!==doc.name){ TABS.cur.name=doc.name; tabsRender(); tabsPersist(); } }catch(_){}
   if (!$('#layers').hidden){
@@ -5610,13 +5614,23 @@ let hsv=[0,0,0.2]; const recent=[];
 function hexToRgb(h){ const n=parseInt(h.slice(1),16); return [n>>16&255,n>>8&255,n&255]; }
 function rgbToHsv(r,g,b){ r/=255;g/=255;b/=255; const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn; let h=0; if(d){ if(mx===r)h=((g-b)/d)%6; else if(mx===g)h=(b-r)/d+2; else h=(r-g)/d+4; h*=60; if(h<0)h+=360; } return [h, mx?d/mx:0, mx]; }
 function hsvToHex(h,s,v){ const f=n=>{ const k=(n+h/60)%6; return v-v*s*Math.max(0,Math.min(k,4-k,1)); }; return '#'+[f(5),f(3),f(1)].map(x=>Math.round(x*255).toString(16).padStart(2,'0')).join(''); }
+const bwOf=hex=>{ const [r,g,b]=hexToRgb(hex); return (r*.3+g*.59+b*.11)>=128 ? '#ffffff' : '#000000'; };
+function maskMode(){ return !!(doc && doc.editMask && AL() && AL().mask); }
 function setColor(hex, fromPicker){
-  S.color=hex.toLowerCase(); $('#swatch').style.background=S.color; spriteKey='';
+  if (maskMode()){ hex=bwOf(hex); S.bgColor = hex==='#ffffff' ? '#000000' : '#ffffff'; }
+  S.color=hex.toLowerCase(); swBgSync(); $('#swatch').style.background=S.color; spriteKey='';
   if (typeof dep!=='undefined' && dep && (dep.t.mode==='haze'||dep.t.mode==='light')){ const d=$('#dpSwatch'); if(d) d.style.background=S.color; if(!depRaf) depRaf=requestAnimationFrame(depthPreview); }
   if(!fromPicker){ hsv=rgbToHsv(...hexToRgb(S.color)); }
   if(!$('#picker').hidden) drawPicker();
   savePrefs();
 }
+function swBgSync(){ const b=$('#swatchBg'); if (b) b.style.background=S.bgColor||'#ffffff'; }
+// on a mask only black and white make sense: the colours lock to them and come back when you leave the mask (like Photoshop)
+let maskColSave=null;
+function maskColorSync(){ const on=maskMode();
+  if (on && !maskColSave){ maskColSave={fg:S.color, bg:S.bgColor||'#ffffff'}; const f=bwOf(S.color); S.bgColor = f==='#ffffff' ? '#000000' : '#ffffff'; setColor(f); $('#picker').hidden=true; }
+  else if (!on && maskColSave){ const m=maskColSave; maskColSave=null; S.bgColor=m.bg; setColor(m.fg); }
+  document.body.classList.toggle('maskcol', on); }
 function pushRecent(c){ const i=recent.indexOf(c); if(i>=0) recent.splice(i,1); recent.unshift(c); recent.length=Math.min(recent.length,16); }
 function drawPicker(){
   const sv=$('#sv'), x=ctx2(sv), W=sv.width, H=sv.height;
@@ -5638,7 +5652,7 @@ $('#hex').addEventListener('click',e=>{ const i=e.target; if(i.readOnly){ i.read
 $('#hex').addEventListener('blur',e=>{ e.target.readOnly=true; });
 $('#hex').addEventListener('keydown',e=>{ if(e.key==='Enter') e.target.blur(); });
 $('#hex').addEventListener('change',e=>{ let v=e.target.value.trim(); if(!v.startsWith('#')) v='#'+v; if(/^#[0-9a-f]{6}$/i.test(v)){ setColor(v); pushRecent(S.color); drawPicker(); } else toast('Нужен формат #RRGGBB'); });
-$('#swatch').onclick=e=>{ e.stopPropagation(); closePops('picker'); const p=$('#picker'); p.style.top=p.style.left=p.style.right=''; p.hidden=!p.hidden; if(!p.hidden){ hsv=rgbToHsv(...hexToRgb(S.color)); drawPicker(); } };
+$('#swatch').onclick=e=>{ e.stopPropagation(); if (maskMode()){ const f=S.color, b=S.bgColor||'#ffffff'; S.bgColor=f; setColor(b); toast('Маска: '+(S.color==='#ffffff'?'белый — показывает':'чёрный — скрывает'),900); return; } if (IS_DESK){ deskPicker(); return; } closePops('picker'); const p=$('#picker'); p.style.top=p.style.left=p.style.right=''; p.hidden=!p.hidden; if(!p.hidden){ hsv=rgbToHsv(...hexToRgb(S.color)); drawPicker(); } };
 function openPickerAt(el){ // the same colour picker, opened next to the control that asked for it
   closePops('picker'); const p=$('#picker'); if (!p.hidden){ p.hidden=true; return; }
   p.hidden=false; hsv=rgbToHsv(...hexToRgb(S.color)); drawPicker();
@@ -6551,6 +6565,12 @@ window.pvPencil = kind => { if (!doc) return;
 // reports touch points too, so the iPad is recognised by itself (iPadOS Safari calls itself «Macintosh» but has touch)
 const IS_IPAD = /iPad|iPhone/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints>1);
 const IS_DESK = (typeof IS_ELECTRON!=='undefined' && IS_ELECTRON) || (!IS_IPAD && !!window.showSaveFilePicker);
+if (IS_DESK){ const w=document.createElement('div'); w.id='swWrap'; const bg=document.createElement('button'); bg.id='swatchBg'; bg.setAttribute('aria-label','Фоновый цвет');
+  bg.title='Фоновый цвет — клик меняет местами (X)'; bg.onclick=e=>{ e.stopPropagation(); const f=S.color, b=S.bgColor||'#ffffff'; S.bgColor=f; setColor(b); };
+  const sw=$('#swatch'); sw.title='Основной цвет (X — поменять, D — чёрный/белый)'; w.append(bg, sw); $('#rail').insertBefore(w, $('#bLayers2')); swBgSync(); }
+function deskPicker(){ closePops('picker'); const p=$('#picker'); if (!p.hidden){ p.hidden=true; return; } p.hidden=false; hsv=rgbToHsv(...hexToRgb(S.color)); drawPicker();
+  const r=$('#swatch').getBoundingClientRect(), a=$('#app').getBoundingClientRect(), ph=p.offsetHeight;
+  p.style.right='auto'; p.style.left=(r.right-a.left+22)+'px'; p.style.top=clamp(r.top-a.top+r.height/2-ph/2, 8, a.height-ph-8)+'px'; }
 document.body.classList.toggle('desk', IS_DESK);
 /* ============ the PC speaks PC: the same interface, but «тап», «карандаш», «пальцы», «iPad» become mouse/pen words ============
    One place for it: every text the page shows on the PC (toasts, panels, hints, menus, dialogs, tooltips) passes through deskText,
@@ -7003,21 +7023,21 @@ function detailBuild(c, box){
   const foot=document.createElement('div'); foot.className='eb'; const B=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
   const sp=document.createElement('span'); sp.style.flex='1'; foot.append(sp, B('Отмена',()=>cropClose()), B('Дальше →',cropApply,'pri')); box.append(hint, foot); }
 function detailMask(orig, res, box, whole){ // soft mask (alpha) of where the model really changed something, faded at the frame borders
-  const W=orig.width, H=orig.height, S=Math.min(1, 480/Math.max(W,H)), w=Math.max(8,Math.round(W*S)), h=Math.max(8,Math.round(H*S)), n=w*h;
+  const W=orig.width, H=orig.height, S=Math.min(1, 900/Math.max(W,H)), w=Math.max(8,Math.round(W*S)), h=Math.max(8,Math.round(H*S)), n=w*h;
   const px=c=>{ const t=mk(w,h), x=ctx2(t,{willReadFrequently:true}); x.imageSmoothingQuality='high'; x.drawImage(c,0,0,w,h); return x.getImageData(0,0,w,h).data; };
   const blur=(a,r)=>{ if (r<1) return a; const t=new Float32Array(n), o=new Float32Array(n);
     for (let y=0;y<h;y++){ let s=0; const row=y*w; for (let x=-r;x<=r;x++) s+=a[row+Math.min(w-1,Math.max(0,x))]; for (let x=0;x<w;x++){ t[row+x]=s/(2*r+1); s+=a[row+Math.min(w-1,x+r+1)]-a[row+Math.max(0,x-r)]; } }
     for (let x=0;x<w;x++){ let s=0; for (let y=-r;y<=r;y++) s+=t[Math.min(h-1,Math.max(0,y))*w+x]; for (let y=0;y<h;y++){ o[y*w+x]=s/(2*r+1); s+=t[Math.min(h-1,y+r+1)*w+x]-t[Math.max(0,y-r)*w+x]; } } return o; };
-  let m=new Float32Array(n);
+  let m=new Float32Array(n); const A=px(orig), B=px(res); let md=0; for (let i=0;i<n*4;i+=4) md+=Math.abs(A[i]-B[i])+Math.abs(A[i+1]-B[i+1])+Math.abs(A[i+2]-B[i+2]); md/=3*n;
   if (whole) m.fill(1);
-  else { const A=px(orig), B=px(res); let d=new Float32Array(n); for (let i=0;i<n;i++){ const j=4*i; d[i]=Math.max(Math.abs(A[j]-B[j]),Math.abs(A[j+1]-B[j+1]),Math.abs(A[j+2]-B[j+2])); }
-    d=blur(d,1); for (let i=0;i<n;i++){ const t=Math.min(1,Math.max(0,(d[i]-9)/20)); m[i]=t*t*(3-2*t); }
+  else { let d=new Float32Array(n); for (let i=0;i<n;i++){ const j=4*i; d[i]=Math.max(Math.abs(A[j]-B[j]),Math.abs(A[j+1]-B[j+1]),Math.abs(A[j+2]-B[j+2])); }
+    d=blur(d,1); for (let i=0;i<n;i++){ const t=Math.min(1,Math.max(0,(d[i]-6)/16)); m[i]=t*t*(3-2*t); }
     const g=Math.max(2,Math.round(Math.max(w,h)*0.012)); m=blur(m,g); for (let i=0;i<n;i++) m[i]=Math.min(1,m[i]*3); m=blur(m,g); }
   // fade at the frame sides that are inside the picture (a side on the canvas edge needs no fade)
   const e=Math.max(3,Math.round(Math.max(w,h)*0.05)), L=box.x>0.5, T=box.y>0.5, R=box.x+box.w<doc.w-0.5, Bo=box.y+box.h<doc.h-0.5; let cov=0;
   for (let y=0;y<h;y++) for (let x=0;x<w;x++){ let k=1; if (L) k=Math.min(k,x/e); if (R) k=Math.min(k,(w-1-x)/e); if (T) k=Math.min(k,y/e); if (Bo) k=Math.min(k,(h-1-y)/e); k=Math.max(0,Math.min(1,k)); const i=y*w+x; m[i]*=k*k*(3-2*k); cov+=m[i]; }
   const c=mk(w,h), x=ctx2(c), id=x.createImageData(w,h); for (let i=0;i<n;i++){ id.data[4*i]=id.data[4*i+1]=id.data[4*i+2]=255; id.data[4*i+3]=Math.round(m[i]*255); } x.putImageData(id,0,0);
-  return {c, cov:cov/n}; }
+  return {c, cov:cov/n, md}; }
 const DETAIL_TPL_DEF=[
   {name:'Сходство лица и причёски с рефа', text:'Увеличь сходство женщины и её причёски на @img1 с @img2.\nРакурс, поза, цвет и освещение должны сохраняться как на @img1, но черты лица и причёска — с @img2.\nВыражение лица как на @img1.\nВолосы красиво лежат, не меняя контура.\nРендер реалистичный, высокое качество текстур кожи и волос.'},
   {name:'Украшения / аксессуар с рефа', text:'Перенеси украшения и аксессуары с @img2 на @img1: форма, материал, количество и детали — как на @img2.\nПоложение, ракурс, свет и цвет сцены — как на @img1. Руки и всё остальное не меняй.\nРендер реалистичный, чёткий металл и камни.'},
@@ -7063,23 +7083,23 @@ function detailRows(box){ const a=aip;
 function detailRun(c){
   const r={x:Math.round(c.x), y:Math.round(c.y), w:Math.round(c.w), h:Math.round(c.h)}; detailClamp(r); r.x=Math.round(r.x); r.y=Math.round(r.y); r.w=Math.round(r.w); r.h=Math.round(r.h);
   detailLast={x:r.x, y:r.y, w:r.w, h:r.h, ratio:c.ratio, flip:c.flip, dw:doc.w, dh:doc.h, words:(detailLast&&detailLast.words)||''};
-  const orig=regionImage(r, r.w, r.h), res=detailRes(r), whole={on:false}, masks=new Map();
+  const orig=regionImage(r, r.w, r.h), res=detailRes(r), whole={on:false, auto:true}, masks=new Map();
   aiOpen({ title:'Деталь', detail:true, multiline:true, words:(detailLast.words||''), sub:r.w+'×'+r.h+' → модель '+res, askWords:'Что сделать в рамке', placeholder:'пусто — просто прорисовать детальнее. Можно по-русски, с @img1 / @img2', layerName:'Деталь',
     hint:'Кусок уходит в нейросеть в разрешении '+res+' и возвращается слоем точно в рамку. Маска слоя открыта только там, где модель что-то поменяла.',
     rows:detailRows, insertAt:()=>doc.layers.length, doneMsg:'Деталь — отдельный слой с маской: маску можно докрасить кистью',
-    run: async words=>{ detailLast.words=words; const refs=detailRefs.slice(), model=edProv()==='google' ? '' : (genCfg.detailModel||'');
+    run: async words=>{ detailLast.words=words; if (whole.auto) whole.on = !words && !detailRefs.length; const refs=detailRefs.slice(), model=edProv()==='google' ? '' : (genCfg.detailModel||'');
       const keep='Keep exactly the same framing, composition, position and scale as @img1; do not zoom, crop, shift, rotate or reframe. The output is the edited @img1 at the same framing.';
       let ask;
       if (refs.length){ const legend='Attached images: @img1 (image 1) is a crop from a larger illustration — this is the picture you edit. '+refs.map((_,i)=>'@img'+(i+2)+' (image '+(i+2)+')').join(', ')+(refs.length>1?' are visual references.':' is a visual reference.');
         const t=words || 'Make @img1 match @img2: take the look of the matching subject from @img2.'; ask=legend+'\n\n'+t+(/@img2/.test(t)?'':'\nUse @img2 as the visual reference.')+'\n\n'+keep+' Keep the lighting and colour of @img1 unless asked otherwise.'; }
-      else ask='This image (@img1) is a crop from a larger illustration. '+(words ? 'Edit it:\n'+words+'\n' : 'Redraw it with more fine detail: crisper forms, cleaner edges, refined textures and small details, as a finished high-end render. ')+keep+' Keep the same lighting, colour palette and art style. Change only what is asked; everything else stays as it is.';
+      else ask='This image (@img1) is a crop from a larger illustration. '+(words ? 'Edit it:\n'+words+'\n' : 'Enhance it into a sharper, more detailed, higher-quality version: redraw every surface with fine detail — crisp facial features, eyes and lashes, skin texture, individual hair strands, fabric weave and folds, material and metal detail; remove blur, mush and AI artefacts; clean edges. Same content, as a finished high-end render. ')+keep+' Keep the same lighting, colour palette and art style. Change only what is asked; everything else stays as it is.';
       const out=await orRequest(orig, ask, 1, {res, refsKeep:refs, model});
       return {bitmaps: out.bitmaps.map(b=>expandAlign(orig, b, {x:0,y:0,w:r.w,h:r.h}).c), cost:out.cost}; },
     apply:(ctx,v)=>{ ctx.drawImage(v, r.x, r.y, r.w, r.h); const a=aip, L=a&&a.layer; if (!L) return;
       let mm=masks.get(v); if (!mm){ mm={}; masks.set(v,mm); } if (!mm[whole.on]) mm[whole.on]=detailMask(orig, v, r, whole.on);
       const m=mm[whole.on]; if (!L.mask) L.mask=newMask(L); const mx=L.mask.ctx; mx.clearRect(0,0,doc.w,doc.h); mx.imageSmoothingQuality='high'; mx.drawImage(m.c, r.x, r.y, r.w, r.h); L.mask.enabled=true;
-      if (!whole.on && m.cov<0.004) toast('Модель почти ничего не поменяла — попробуй слова поконкретнее или «Вся рамка»',3000); },
-    extra:()=>[whole.on ? '◐ Авто-маска' : '▢ Вся рамка', ()=>{ whole.on=!whole.on; aiPick(aip.idx); }, whole.on ? 'Маска только там, где модель что-то поменяла' : 'Показать весь перерисованный кусок (мягкие края)'] });
+      if (m.md<1.5) toast('Модель вернула почти копию куска (разница '+m.md.toFixed(1)+' из 255) — попробуй другую модель или добавь слова, что улучшить',3600); else if (!whole.on && m.cov<0.004) toast('Модель почти ничего не поменяла — попробуй слова поконкретнее или «Вся рамка»',3000); },
+    extra:()=>[whole.on ? '◐ Авто-маска' : '▢ Вся рамка', ()=>{ whole.on=!whole.on; whole.auto=false; aiPick(aip.idx); }, whole.on ? 'Маска только там, где модель что-то поменяла' : 'Показать весь перерисованный кусок (мягкие края)'] });
 }
 function cropOverlay(ox){ const c=crop, m=viewM(), T=(x,y)=>[m[0]*x+m[2]*y+m[4], m[1]*x+m[3]*y+m[5]];
   const q=[T(c.x,c.y),T(c.x+c.w,c.y),T(c.x+c.w,c.y+c.h),T(c.x,c.y+c.h)];
@@ -7564,7 +7584,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №67 переименование слоя двойным кликом'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №68 маска ч/б, цвета у кистей, Деталь заметнее'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
