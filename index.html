@@ -823,6 +823,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <hr>
     <button data-i="rmbg">✦ Удалить фон <small>маской</small></button>
     <button data-i="stamp">Копия видимого на слой <small>Ctrl+Alt+Shift+E</small></button>
+    <button data-i="mergevis">Слить видимые <small>Ctrl+Shift+E</small></button>
     <hr>
     <div class="aih" id="imgInfo"></div>
   </div>
@@ -4842,6 +4843,7 @@ function contentBBox(c){
 }
 function beginTransform(opts={}){
   if (xf) return;
+  if (!opts.float && pickedMany()){ beginGroupTransform(opts, pickTops()); return; } // several picked layers / groups — one frame for all of them
   if (!opts.float && isGroup(AL())){ beginGroupTransform(opts); return; }
   const L=AL(); if(!shown(L)){ toast('Слой скрыт'); return; }
   if (L.kind==='adj'){ toast('Корректирующий слой не двигается — у него нет пикселей'); return; }
@@ -4863,21 +4865,22 @@ function beginTransform(opts={}){
          cx:r.x+r.w/2, cy:r.y+r.h/2, sx:opts.scale||1, sy:opts.scale||1, rot:0, drag:null, prevTool:opts.prevTool };
   $('#xfbar').hidden=false; updateSelBar(); setTool('transform', true); requestRender();
 }
-function beginGroupTransform(opts){
-  const G=AL(); if(!shown(G)){ toast('Группа скрыта'); return; }
-  if (doc.editMask){ toast('Трансформ маски пока не поддерживается — выбери саму группу'); return; }
-  const mem=doc.layers.filter(x=>!isGroup(x) && isDesc(x,G)); if(!mem.length){ toast('В группе нет слоёв'); return; }
+function beginGroupTransform(opts, tops){ // a group, or several picked layers / groups (tops) — their layers move together
+  const G=AL(), many=!!tops; if(!many && !shown(G)){ toast('Группа скрыта'); return; }
+  if (doc.editMask){ toast('Трансформ маски пока не поддерживается — '+(many?'выбери сами слои':'выбери саму группу')); return; }
+  tops = tops || [G];
+  const mem=doc.layers.filter(x=>!isGroup(x) && tops.some(T=>x===T || isDesc(x,T))); if(!mem.length){ toast(many?'В выбранных слоях пусто':'В группе нет слоёв'); return; }
   let r, fromSel=false, selMask=null;
   if (sel){ r=selBBox(); if(!r.w||!r.h){ toast('Пустое выделение'); return; } fromSel=true; selMask=sel.mask; }
   else { let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
     for (const L of mem){ const b=contentBBox(L.canvas); if(!b) continue; x0=Math.min(x0,b.x); y0=Math.min(y0,b.y); x1=Math.max(x1,b.x+b.w); y1=Math.max(y1,b.y+b.h); }
-    if (x1<0 || x0===Infinity){ toast('В группе пусто'); return; } r={x:x0,y:y0,w:x1-x0,h:y1-y0}; }
+    if (x1<0 || x0===Infinity){ toast(many?'В выбранных слоях пусто':'В группе пусто'); return; } r={x:x0,y:y0,w:x1-x0,h:y1-y0}; }
   const parts=new Map(), float=mk(r.w,r.h), fx=ctx2(float);
   for (const L of mem){ const f=mk(r.w,r.h), x=ctx2(f); x.drawImage(L.canvas,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
     if (fromSel){ x.globalCompositeOperation='destination-in'; x.drawImage(sel.mask,r.x,r.y,r.w,r.h,0,0,r.w,r.h); }
     parts.set(L,f); if (shown(L)) fx.drawImage(f,0,0); }
   let maskParts=null;
-  if (!fromSel){ maskParts=new Map(); for (const x of [...mem, ...doc.layers.filter(g=>isGroup(g)&&(g===G||isDesc(g,G)))]) if (x.mask) maskParts.set(x, maskPatch(x,r)); }
+  if (!fromSel){ maskParts=new Map(); for (const x of [...mem, ...doc.layers.filter(g=>isGroup(g)&&tops.some(T=>g===T||isDesc(g,T)))]) if (x.mask) maskParts.set(x, maskPatch(x,r)); }
   xf = { layer:G, parts, maskParts, target:'content', float, fromSel, selMask, orig:r, placed:false,
          cx:r.x+r.w/2, cy:r.y+r.h/2, sx:1, sy:1, rot:0, drag:null, prevTool:opts.prevTool };
   $('#xfbar').hidden=false; updateSelBar(); setTool('transform', true); requestRender();
@@ -5077,6 +5080,7 @@ function layerMenu(L, x, y){
   const B=(t,k,fn,cls)=>{ const b=document.createElement('button'); b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=t; b.lastChild.textContent=k; if (cls) b.className=cls;
     b.onclick=()=>{ m.hidden=true; if (!panelBusy()) fn(); }; m.append(b); };
   if (many) B('Объединить в один слой','Ctrl+E',mergeDown); else if (isGroup(AL())) B('Слить группу в слой','Ctrl+E',mergeDown); else B('Слить с нижним','Ctrl+E',mergeDown);
+  B('Слить видимые','Ctrl+Shift+E',mergeVisible);
   B(many ? 'В группу' : (isGroup(AL()) ? 'Новая группа вокруг' : 'В группу'),'Ctrl+G',makeGroup);
   if (!many) B('Переименовать','двойной клик',()=>layerRename(AL()));
   B(many ? 'Удалить слои' : 'Удалить','Delete',deleteLayer,'dg');
@@ -5255,6 +5259,9 @@ function clearLayer(){
   const x=ctx2(tgt); if(tgt!==L.canvas){ x.fillStyle='#fff'; x.fillRect(0,0,doc.w,doc.h); } else x.clearRect(0,0,doc.w,doc.h);
   pushHist(pxEntry(tgt,0,0,doc.w,doc.h,before)); L.dirty=true; thumbSoon(L); requestRender();
 }
+function setPropMany(list,key,val){ // one undo step for several layers
+  const ch=list.filter(L=>L[key]!==val).map(L=>[L,L[key]]); if (!ch.length) return; if (ch.length===1){ setProp(ch[0][0],key,val); return; }
+  for (const [L] of ch){ L[key]=val; L.dirty=true; } pushHist({undo(){ for (const [L,o] of ch){ L[key]=o; L.dirty=true; } }, redo(){ for (const [L] of ch){ L[key]=val; L.dirty=true; } }}); requestRender(); }
 function setProp(L,key,val){
   const old=L[key]; if(old===val) return; L[key]=val;
   pushHist({undo(){L[key]=old;},redo(){L[key]=val;}}); L.dirty=true; requestRender();
@@ -5321,7 +5328,8 @@ function layersChanged(){ structVer++; try{ maskColorSync(); }catch(e){} try{ if
       const row=document.createElement('div'); row.className='ly'+(i===doc.active?' act':'')+(i!==doc.active && doc.pick && doc.pick.size>1 && doc.pick.has(L)?' pick':'')+(L.parent&&!shown(L.parent)?' hid':'');
       row.style.marginLeft=(depthOf(L)*16)+'px';
       const eye=document.createElement('button'); eye.className='eye'+(L.visible?'':' off'); eye.innerHTML=EYE; eye.setAttribute('aria-label','Видимость');
-      eye.onclick=e=>{ e.stopPropagation(); if (e.altKey){ soloLayer(L); return; } setProp(L,'visible',!L.visible); layersChanged(); };
+      eye.onclick=e=>{ e.stopPropagation(); if (e.altKey){ soloLayer(L); return; }
+        if (doc.pick && doc.pick.size>1 && doc.pick.has(L)) setPropMany(picked(),'visible',!L.visible); else setProp(L,'visible',!L.visible); layersChanged(); }; // an eye of a picked layer — all picked ones
       if (isGroup(L)){
         row.classList.add('grp'); if (L.collapsed) row.classList.add('col'); row.dataset.col=L.collapsed?'1':'0';
         const fold=document.createElement('button'); fold.className='fold'; fold.setAttribute('aria-label','Свернуть или развернуть группу'); fold.innerHTML=CHEV+FOLDER;
@@ -5377,10 +5385,11 @@ $('#lyName').addEventListener('keydown',e=>{ if(e.key==='Enter') e.target.blur()
 $('#lyName').addEventListener('change',e=>{ setProp(AL(),'name',e.target.value||'Слой'); layersChanged(); });
 let opacStart=null;
 const drawLyOpac = hslider($('#lyOpac'), {min:0, max:1, get:()=>doc?AL().opacity:1,
-  start:()=>{ opacStart=AL().opacity; },
-  set:x=>{ AL().opacity=Math.round(x*100)/100; $('#lyOpacV').textContent=Math.round(x*100); bumpContent(); requestRender(); },
-  end:()=>{ const L=AL(), v=L.opacity, o=opacStart??v; opacStart=null; if(o!==v) pushHist({undo(){L.opacity=o;},redo(){L.opacity=v;}}); layersChanged(); }});
-$('#lyBlend').addEventListener('change',e=>{ setProp(AL(),'blend',e.target.value); layersChanged(); });
+  start:()=>{ opacStart=new Map(picked().map(L=>[L,L.opacity])); }, // several picked layers — all get the same opacity, like Photoshop
+  set:x=>{ const v=Math.round(x*100)/100; for (const L of (opacStart?[...opacStart.keys()]:picked())){ L.opacity=v; L.dirty=true; } $('#lyOpacV').textContent=Math.round(x*100); bumpContent(); requestRender(); },
+  end:()=>{ const old=opacStart||new Map(), v=AL().opacity; opacStart=null; const ch=[...old].filter(([L,o])=>o!==L.opacity);
+    if (ch.length) pushHist({undo(){ for (const [L,o] of ch){ L.opacity=o; L.dirty=true; } }, redo(){ for (const [L] of ch){ L.opacity=v; L.dirty=true; } }}); layersChanged(); }});
+$('#lyBlend').addEventListener('change',e=>{ const v=e.target.value, ls=picked().filter(L=>L.kind!=='adj' && (v!=='pass' || isGroup(L))); setPropMany(ls.length?ls:[AL()],'blend',v); layersChanged(); });
 // step through the blend modes like Shift+/Shift− in Photoshop — watch the picture while tapping
 let blendStepH=null;
 function blendStep(d){ const L=AL(); if(!L || L.kind==='adj') return; const keys=(isGroup(L)?['pass']:[]).concat(BLENDS.map(b=>b[0]));
@@ -5675,7 +5684,7 @@ $('#bImg').onclick=e=>{ e.stopPropagation(); closePops('imgmenu'); const m=$('#i
   m.querySelector('#imgInfo').textContent = doc ? doc.w+'×'+doc.h+' px · '+(doc.dpi||72)+' ppi · '+((doc.w/(doc.dpi||72))*2.54).toFixed(1)+'×'+((doc.h/(doc.dpi||72))*2.54).toFixed(1)+' см' : '';
   const r=$('#bImg').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
 document.querySelectorAll('#imgmenu [data-i]').forEach(b=>b.onclick=()=>{ closePops(); if (!doc) return; const i=b.dataset.i;
-  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, detail:()=>cropOpen({detail:true}), xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>{ if (!panelBusy()) removeBackground(); }, stamp:()=>{ if (!panelBusy()) stampVisible(); }})[i](); });
+  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, detail:()=>cropOpen({detail:true}), xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>{ if (!panelBusy()) removeBackground(); }, stamp:()=>{ if (!panelBusy()) stampVisible(); }, mergevis:()=>{ if (!panelBusy()) mergeVisible(); }})[i](); });
 $('#bCrop').onclick=()=>cropOpen();
 $('#docInfo').title='Размер изображения (Ctrl+Alt+I)'; $('#docInfo').onclick=()=>imageSizeDialog();
 
@@ -6439,7 +6448,7 @@ function showHelpDesk(){
    <div class="hkgrid">`+
    card('Холст',[['Колёсико / Alt+колёсико','масштаб'],['Ctrl+колёсико','масштаб (на тачпаде — щипок)'],['Shift+колёсико','сдвиг вбок'],['Alt+Shift+колёсико','поворот'],['Пробел / H','держать — рука'],['Ctrl+Пробел / Alt+Пробел','клик — ближе / дальше, тянуть — плавно'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум по шагам фотошопа (50 · 67 · 100 · 200 %)'],['Tab / F','спрятать панели']])+
    card('Правка и файл',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить (тот же файл)'],['Ctrl+Shift+S','сохранить как: PSD / PNG / JPG'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
-   card('Выделение и слои',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','при выделении — добавить / вычесть'],['Ctrl+Alt+R','выделение и маска (край)'],['Delete','стереть выделенное; без выделения — удалить слой'],['Ctrl+клик миниатюры','выделить по слою'],['Shift+клик / Ctrl+клик по слою','несколько слоёв: Delete, Ctrl+G, Ctrl+E — для всех'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
+   card('Выделение и слои',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','при выделении — добавить / вычесть'],['Ctrl+Alt+R','выделение и маска (край)'],['Delete','стереть выделенное; без выделения — удалить слой'],['Ctrl+клик миниатюры','выделить по слою'],['Shift+клик / Ctrl+клик по слою','несколько слоёв: Delete, Ctrl+G, Ctrl+E, Ctrl+T, глаз, непрозрачность, режим — для всех'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Shift+E','слить видимые'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
    card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп'],['B / E','кисть / ластик'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['C','кадрирование'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
    `</div><h4 class="hkt">Инструменты подробно</h4><dl class="gest gcols">`+HELP_PC_TOOLS.map(([t,d])=>'<div><dt>'+t+'</dt><dd>'+d+'</dd></div>').join('')+'</dl>';
   const d=dialog(html, [['Понятно', ()=>{ try{localStorage.setItem('kadr.help','1');}catch(e){} }, true]]); d.classList.add('helpw');
@@ -7013,7 +7022,11 @@ function detailFrame(){ // last frame if the picture is the same size, else arou
   const ar=b.w/b.h; let best='1:1'; for (const r of DETAIL_RATIOS){ const [u,v]=r.split(':').map(Number), [p,q]=best.split(':').map(Number); if (Math.abs(Math.log(u/v/ar)) < Math.abs(Math.log(p/q/ar))) best=r; }
   const c={x:b.x, y:b.y, w:b.w, h:b.h, ratio:best, flip:false, drag:null, detail:true};
   const [u,v]=best.split(':').map(Number), A=b.w*b.h, w=Math.sqrt(A*u/v), h=w*v/u, cx=b.x+b.w/2, cy=b.y+b.h/2; Object.assign(c,{x:cx-w/2, y:cy-h/2, w, h}); detailClamp(c); return c; }
-function detailRes(c){ const L=Math.max(c.w,c.h); return L<=1200 ? '1K' : L<=2400 ? '2K' : '4K'; }
+// answer resolution: «Авто» — one step above the frame, so the answer is bigger than the piece and comes back downscaled (more real detail per pixel)
+const DETAIL_RES=[['','Авто'],['1K','1K'],['2K','2K'],['4K','4K']];
+function detailRes(c){ const p=genCfg.detailRes||''; if (p) return p; const L=Math.max(c.w,c.h); return L<=1200 ? '2K' : '4K'; }
+const detailSub=r=>{ const res=detailRes(r), L=Math.max(r.w,r.h), M={'1K':1024,'2K':2048,'4K':4096}[res]; return r.w+'×'+r.h+' → модель '+res+(M>L*1.15 ? ' · запас ×'+(M/L).toFixed(1) : ''); };
+const detailHint=r=>'Кусок уходит в нейросеть в разрешении '+detailRes(r)+' и возвращается слоем точно в рамку'+(({'1K':1024,'2K':2048,'4K':4096}[detailRes(r)]>Math.max(r.w,r.h)*1.15)?' — ответ крупнее рамки и ужимается в неё, поэтому деталей больше':'')+'. Маска слоя открыта только там, где модель что-то поменяла.';
 function detailBuild(c, box){
   const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Деталь <span></span>'; head.lastChild.textContent=Math.round(c.w)+'×'+Math.round(c.h)+' px'; box.append(head);
   const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>Форма рамки</label><div class="seg" style="flex-wrap:wrap"></div>';
@@ -7060,6 +7073,12 @@ function detailRows(box){ const a=aip;
     if (g && id){ b.disabled=true; b.title='С ключом Google работает только Nano Banana — выбери OpenRouter в ⚙'; }
     b.onclick=()=>{ genCfg.detailModel=id; genSave(); aiBuild(); }; seg.append(b); }
   row('Модель',seg);
+  // answer resolution
+  const rs=document.createElement('div'); rs.className='seg';
+  for (const [id,t] of DETAIL_RES){ const b=document.createElement('button'); b.textContent=t; b.classList.toggle('on', id===(genCfg.detailRes||''));
+    b.title = id ? 'Ответ модели '+id+' по длинной стороне' : 'На ступень крупнее рамки: до 1200 px — 2K, больше — 4K';
+    b.onclick=()=>{ genCfg.detailRes=id; genSave(); if (a.frame){ a.sub=detailSub(a.frame); a.hint=detailHint(a.frame); } aiBuild(); }; rs.append(b); }
+  row('Разрешение',rs);
   // references
   const rf=document.createElement('div'); rf.className='drefs';
   detailRefs.forEach((c,i)=>{ const d=document.createElement('div'); d.className='dref'; const t=mk(52,52), k=Math.min(52/c.width,52/c.height); t.width=Math.max(1,Math.round(c.width*k)); t.height=Math.max(1,Math.round(c.height*k)); ctx2(t).drawImage(c,0,0,t.width,t.height);
@@ -7083,9 +7102,9 @@ function detailRows(box){ const a=aip;
 function detailRun(c){
   const r={x:Math.round(c.x), y:Math.round(c.y), w:Math.round(c.w), h:Math.round(c.h)}; detailClamp(r); r.x=Math.round(r.x); r.y=Math.round(r.y); r.w=Math.round(r.w); r.h=Math.round(r.h);
   detailLast={x:r.x, y:r.y, w:r.w, h:r.h, ratio:c.ratio, flip:c.flip, dw:doc.w, dh:doc.h, words:(detailLast&&detailLast.words)||''};
-  const orig=regionImage(r, r.w, r.h), res=detailRes(r), whole={on:false, auto:true}, masks=new Map();
-  aiOpen({ title:'Деталь', detail:true, multiline:true, words:(detailLast.words||''), sub:r.w+'×'+r.h+' → модель '+res, askWords:'Что сделать в рамке', placeholder:'пусто — просто прорисовать детальнее. Можно по-русски, с @img1 / @img2', layerName:'Деталь',
-    hint:'Кусок уходит в нейросеть в разрешении '+res+' и возвращается слоем точно в рамку. Маска слоя открыта только там, где модель что-то поменяла.',
+  const orig=regionImage(r, r.w, r.h), whole={on:false, auto:true}, masks=new Map();
+  aiOpen({ title:'Деталь', detail:true, frame:r, multiline:true, words:(detailLast.words||''), sub:detailSub(r), askWords:'Что сделать в рамке', placeholder:'пусто — просто прорисовать детальнее. Можно по-русски, с @img1 / @img2', layerName:'Деталь',
+    hint:detailHint(r),
     rows:detailRows, insertAt:()=>doc.layers.length, doneMsg:'Деталь — отдельный слой с маской: маску можно докрасить кистью',
     run: async words=>{ detailLast.words=words; if (whole.auto) whole.on = !words && !detailRefs.length; const refs=detailRefs.slice(), model=edProv()==='google' ? '' : (genCfg.detailModel||'');
       const keep='Keep exactly the same framing, composition, position and scale as @img1; do not zoom, crop, shift, rotate or reframe. The output is the edited @img1 at the same framing.';
@@ -7093,7 +7112,7 @@ function detailRun(c){
       if (refs.length){ const legend='Attached images: @img1 (image 1) is a crop from a larger illustration — this is the picture you edit. '+refs.map((_,i)=>'@img'+(i+2)+' (image '+(i+2)+')').join(', ')+(refs.length>1?' are visual references.':' is a visual reference.');
         const t=words || 'Make @img1 match @img2: take the look of the matching subject from @img2.'; ask=legend+'\n\n'+t+(/@img2/.test(t)?'':'\nUse @img2 as the visual reference.')+'\n\n'+keep+' Keep the lighting and colour of @img1 unless asked otherwise.'; }
       else ask='This image (@img1) is a crop from a larger illustration. '+(words ? 'Edit it:\n'+words+'\n' : 'Enhance it into a sharper, more detailed, higher-quality version: redraw every surface with fine detail — crisp facial features, eyes and lashes, skin texture, individual hair strands, fabric weave and folds, material and metal detail; remove blur, mush and AI artefacts; clean edges. Same content, as a finished high-end render. ')+keep+' Keep the same lighting, colour palette and art style. Change only what is asked; everything else stays as it is.';
-      const out=await orRequest(orig, ask, 1, {res, refsKeep:refs, model});
+      const out=await orRequest(orig, ask, 1, {res:detailRes(r), refsKeep:refs, model});
       return {bitmaps: out.bitmaps.map(b=>expandAlign(orig, b, {x:0,y:0,w:r.w,h:r.h}).c), cost:out.cost}; },
     apply:(ctx,v)=>{ ctx.drawImage(v, r.x, r.y, r.w, r.h); const a=aip, L=a&&a.layer; if (!L) return;
       let mm=masks.get(v); if (!mm){ mm={}; masks.set(v,mm); } if (!mm[whole.on]) mm[whole.on]=detailMask(orig, v, r, whole.on);
@@ -7279,7 +7298,7 @@ document.addEventListener('keydown', e=>{
     if (L==='s') return go(()=>{ if (IS_DESK && window.showSaveFilePicker && !nativeApp) return saveAsDesk(!e.shiftKey); saveFile.again=!e.shiftKey; exportImg('psd').finally(()=>{ saveFile.again=false; }); });
     if (L==='t') return go(()=>setTool('transform'));
     if (L==='c' && e.altKey) return go(()=>canvasSizeDialog());
-    if (L==='e') return go(()=>{ if (!need()) return; if (e.shiftKey && e.altKey) stampVisible(); else if (e.shiftKey) toast('«Слить видимые» пока нет — есть Ctrl+Alt+Shift+E (копия видимого новым слоем)',3000); else mergeDown(); });
+    if (L==='e') return go(()=>{ if (!need()) return; if (e.shiftKey && e.altKey) stampVisible(); else if (e.shiftKey) mergeVisible(); else mergeDown(); });
     if (L==='n' && e.shiftKey) return go(()=>{ if (need()) $('#lyAdd').click(); });
     if (L==='m' || L==='l' || L==='u' || L==='b') return go(()=>{ if (need()) addAdj({m:'curves', l:'levels', u:'hue', b:'balance'}[L]); });
     if (L==='r' && e.altKey) return go(()=>{ if (sel) edgeOpen(); else toast('Сначала выдели — «Выделение и маска» уточняет край выделения'); });
@@ -7355,6 +7374,20 @@ function selCutToLayer(){ // Ctrl+Shift+J: the selected part moves to a new laye
   const e1=pxEntry(src.canvas,r.x,r.y,r.w,r.h,before), prevActive=doc.active, idx=doc.active+1; L.parent=src.parent;
   const ins=()=>{ doc.layers.splice(idx,0,L); doc.active=idx; doc.editMask=false; }, rem=()=>{ doc.layers.splice(doc.layers.indexOf(L),1); doc.active=prevActive; };
   ins(); pushHist(compound(e1,{undo:rem, redo:ins, bytes:doc.w*doc.h*4})); src.dirty=true; thumbSoon(src); layersChanged(); requestRender(); toast('Вырезано на новый слой',1200); }
+function mergeVisible(){ // Ctrl+Shift+E (Photoshop «Merge Visible»): every visible layer becomes one; hidden layers stay as they were
+  const vis=doc.layers.filter(x=>!isGroup(x) && shown(x)), px=vis.filter(x=>x.kind!=='adj');
+  if (px.length<2){ toast('Видимых слоёв меньше двух — сливать нечего'); return; }
+  const a=AL(), nameL = !isGroup(a) && a.kind!=='adj' && shown(a) ? a : px[px.length-1], topIdx=doc.layers.indexOf(vis[vis.length-1]);
+  const M=newLayer(nameL.name); M.ctx.drawImage(compositeRegion({x:0,y:0,w:doc.w,h:doc.h}, doc.w, doc.h),0,0);
+  const n=vis.length, kept=doc.layers.filter(x=>!isGroup(x) && !shown(x)).length;
+  structEdit(()=>{ const gone=new Set(vis);
+    // a group goes when nothing of it is left
+    for (const g of doc.layers.filter(isGroup).reverse()) if (shown(g) && !doc.layers.some(x=>x!==g && !gone.has(x) && isDesc(x,g))) gone.add(g);
+    const rest=[]; let at=0; doc.layers.forEach((x,i)=>{ if (gone.has(x)) return; rest.push(x); if (i<topIdx) at=rest.length; });
+    while (at>0 && at<rest.length && rest[at-1].parent) at++; // the merged layer sits at the top level: step past an unfinished group block
+    M.parent=null; rest.splice(at,0,M); doc.layers=rest; doc.active=doc.layers.indexOf(M); doc.pick=null; doc._solo=null; },
+    'Слито видимых: '+n+' '+plurN(n,'слой','слоя','слоёв')+(kept>0?' · скрытые не тронуты':''));
+}
 function stampVisible(){ // Ctrl+Alt+Shift+E: everything visible, merged into a new layer on top of the active one
   const L=newLayer('Слой (объединённый)'); L.ctx.drawImage(compositeRegion({x:0,y:0,w:doc.w,h:doc.h}, doc.w, doc.h),0,0); insertLayer(L, doc.active+1, 'Видимое собрано на новый слой'); }
 function selFromLayer(L, useMask, mode){ // Ctrl+click on a layer thumbnail (Shift — add, Alt — subtract)
@@ -7584,7 +7617,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №68 маска ч/б, цвета у кистей, Деталь заметнее'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №69 несколько слоёв: трансформ, глаз, непрозрачность; слить видимые; Деталь 2K'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
