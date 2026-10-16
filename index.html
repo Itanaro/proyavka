@@ -6429,7 +6429,10 @@ let pencilBack=null;
 window.pvPencil = kind => { if (!doc) return;
   if (kind==='squeeze'){ undo(); return; }
   if (S.tool==='eraser'){ setTool(pencilBack||'brush'); } else { pencilBack=S.tool; setTool('eraser'); } };
-const IS_DESK = !(navigator.maxTouchPoints>0) && !!window.showSaveFilePicker; // the PC version: Edge/Chrome with a mouse
+// the PC version: the Electron app always; a browser on a computer otherwise. A Windows PC with a pen tablet or a touch screen
+// reports touch points too, so the iPad is recognised by itself (iPadOS Safari calls itself «Macintosh» but has touch)
+const IS_IPAD = /iPad|iPhone/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints>1);
+const IS_DESK = (typeof IS_ELECTRON!=='undefined' && IS_ELECTRON) || (!IS_IPAD && !!window.showSaveFilePicker);
 document.body.classList.toggle('desk', IS_DESK);
 /* ============ the PC speaks PC: the same interface, but «тап», «карандаш», «пальцы», «iPad» become mouse/pen words ============
    One place for it: every text the page shows on the PC (toasts, panels, hints, menus, dialogs, tooltips) passes through deskText,
@@ -7328,7 +7331,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №61.1 курсор над панелями'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №61.2 ПК узнаётся и с планшетом'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
