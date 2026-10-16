@@ -814,6 +814,8 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <button data-m="isize" class="padonly">Размер изображения <small>Ctrl+Alt+I</small></button>
     <button data-m="csize" class="padonly">Размер холста <small>Ctrl+Alt+C</small></button>
     <hr>
+    <button data-m="save" class="deskonly">Сохранить <small>Ctrl+S</small></button>
+    <button data-m="saveas" class="deskonly">Сохранить как… <small>PSD · PNG · JPG</small></button>
     <button data-m="png">Сохранить PNG <small>полный</small></button>
     <button data-m="png50">Сохранить PNG <small>50% превью</small></button>
     <button data-m="jpg">Сохранить JPG</button>
@@ -6306,7 +6308,7 @@ function showHelpDesk(){
   const html=`<h3>Клавиши и мышь</h3><p>Клавиши — как в фотошопе и работают в любой раскладке. Перо планшета рисует с нажимом, мышь — без.</p>
    <div class="hkgrid">`+
    card('Холст',[['Колёсико / Alt+колёсико','масштаб'],['Ctrl+колёсико','масштаб (на тачпаде — щипок)'],['Shift+колёсико','сдвиг вбок'],['Alt+Shift+колёсико','поворот'],['Пробел / H','держать — рука'],['Ctrl+Пробел / Alt+Пробел','клик — ближе / дальше, тянуть — плавно'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум по шагам фотошопа (50 · 67 · 100 · 200 %)'],['Tab / F','спрятать панели']])+
-   card('Правка и файл',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить PSD'],['Ctrl+Shift+S','сохранить как…'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
+   card('Правка и файл',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить (тот же файл)'],['Ctrl+Shift+S','сохранить как: PSD / PNG / JPG'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
    card('Выделение и слои',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','при выделении — добавить / вычесть'],['Ctrl+Alt+R','выделение и маска (край)'],['Delete','стереть выделенное; без выделения — удалить слой'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
    card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп'],['B / E','кисть / ластик'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['C','кадрирование'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
    `</div><h4 class="hkt">Инструменты подробно</h4><dl class="gest gcols">`+HELP_PC_TOOLS.map(([t,d])=>'<div><dt>'+t+'</dt><dd>'+d+'</dd></div>').join('')+'</dl>';
@@ -6470,9 +6472,22 @@ if (IS_DESK){ deskFix(document.body);
 async function saveFileDesk(name, data, again){ // straight into a folder on disk; Ctrl+S then writes the same file again
   const blob = data instanceof Blob ? data : new Blob([data]); const ext=(name.match(/\.[a-z0-9]+$/i)||['.png'])[0].toLowerCase();
   const types={'.psd':{'image/vnd.adobe.photoshop':['.psd']}, '.png':{'image/png':['.png']}, '.jpg':{'image/jpeg':['.jpg','.jpeg']}, '.zip':{'application/zip':['.zip']}};
-  let h = again && doc && doc.fileHandle && doc.fileHandle.name.toLowerCase().endsWith(ext) ? doc.fileHandle : null;
+  let h = saveFile.handle || (again && doc && doc.fileHandle && doc.fileHandle.name.toLowerCase().endsWith(ext) ? doc.fileHandle : null);
   if (!h){ h=await window.showSaveFilePicker({suggestedName:name, types:[{description:name.split('.').pop().toUpperCase(), accept:types[ext]||{'application/octet-stream':[ext]}}]}); if (doc && ext==='.psd') doc.fileHandle=h; }
   const w=await h.createWritable(); await w.write(blob); await w.close(); toast('Сохранено: '+h.name,1500);
+}
+/* PC: Ctrl+Shift+S — «Сохранить как»: the system dialog with PSD / PNG / JPEG in its type list; the chosen type decides the format.
+   Ctrl+S — writes the same file again in its format (the first time — the same dialog). */
+async function saveAsDesk(again){
+  if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  let h = again && doc.fileHandle ? doc.fileHandle : null;
+  if (!h){ try{ h=await window.showSaveFilePicker({ suggestedName: safeName()+(doc.fileHandle ? (doc.fileHandle.name.match(/\.[a-z0-9]+$/i)||['.psd'])[0] : '.psd'), excludeAcceptAllOption:true,
+        types:[{description:'Photoshop PSD — со слоями', accept:{'image/vnd.adobe.photoshop':['.psd']}}, {description:'PNG — картинка с прозрачностью', accept:{'image/png':['.png']}}, {description:'JPEG — картинка', accept:{'image/jpeg':['.jpg','.jpeg']}}] }); }
+    catch(e){ if (e && e.name==='AbortError') toast('Сохранение отменено'); else { console.warn(e); toast('Не открылось окно сохранения: '+e.message,3000); } return; } }
+  const ext=(h.name.match(/\.[a-z0-9]+$/i)||['.psd'])[0].toLowerCase(), kind = ext==='.png' ? 'png' : (ext==='.jpg'||ext==='.jpeg') ? 'jpg' : 'psd';
+  doc.fileHandle=h; saveFile.handle=h;
+  try{ await exportImg(kind); } finally{ saveFile.handle=null; }
+  if (kind!=='psd' && doc.layers.filter(L=>!isGroup(L)).length>1) setTimeout(()=>toast('Сохранено: '+h.name+' — '+kind.toUpperCase()+' без слоёв (слои — в PSD)',2600),1600);
 }
 async function saveFile(name, data){
   if (IS_DESK && !nativeApp){ try{ return await saveFileDesk(name, data, saveFile.again); }catch(e){ if (e && e.name==='AbortError'){ toast('Сохранение отменено'); return; } console.warn('desk save', e); } }
@@ -6503,7 +6518,7 @@ async function exportImg(kind){
       const children=build(null);
       const buf=agPsd.writePsd({width:doc.w,height:doc.h,children,canvas:flatten(1),imageResources:{resolutionInfo:{horizontalResolution:doc.dpi||72,horizontalResolutionUnit:'PPI',widthUnit:'Inches',verticalResolution:doc.dpi||72,verticalResolutionUnit:'PPI',heightUnit:'Inches'}}},{generateThumbnail:false});
       busy(false);
-      if (!dl){ await saveFile(safeName()+'.psd', new Blob([buf],{type:'image/vnd.adobe.photoshop'})); return; }
+      if (!dl || saveFile.handle){ await saveFile(safeName()+'.psd', new Blob([buf],{type:'image/vnd.adobe.photoshop'})); return; }
       const zip=fflate.zipSync({[safeName()+'.psd']:new Uint8Array(buf)},{level:0});
       await saveFile(safeName()+'.psd.zip', new Blob([zip]));
       return;
@@ -6517,7 +6532,7 @@ const safeName=()=> (doc.name||'proyavka').replace(/[\\/:*?"<>|]+/g,'_');
 document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops(); const m=b.dataset.m;
   if (m==='noop') return;
   if (xf && m!=='help' && m!=='store'){ toast('Сначала примени или отмени трансформ'); return; }
-  if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click(); else if(m==='crop') cropOpen(); else if(m==='isize') imageSizeDialog(); else if(m==='csize') canvasSizeDialog();
+  if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click(); else if(m==='save') saveAsDesk(true); else if(m==='saveas') saveAsDesk(false); else if(m==='crop') cropOpen(); else if(m==='isize') imageSizeDialog(); else if(m==='csize') canvasSizeDialog();
   else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='penpick'){ S.penHoldPick=!S.penHoldPick; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; savePrefs(); toast(S.penHoldPick?'Задержи карандаш на месте ~0.5 с — появится пипетка':'Пипетка карандашом выключена; палец по-прежнему берёт цвет удержанием'); } else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
   else exportImg(m);
 });
@@ -7023,7 +7038,7 @@ document.addEventListener('keydown', e=>{
     if (L==='i') return go(()=>{ if (!need()) return; if (e.shiftKey){ if (sel) invertSel(); } else if (AL().mask && doc.editMask) invertMask(); else invertPixels(); });
     if (L==='g') return go(()=>{ if (!need()) return; if (e.altKey) toast('Обтравочная маска: в Проявке она есть у корректирующих слоёв — «Только на слой ниже»',3000); else if (e.shiftKey) ungroup(); else makeGroup(); });
     if (L==='j') return go(()=>{ if (!need()) return; if (e.shiftKey){ if (sel) selCutToLayer(); else toast('Сначала выдели, что вырезать'); } else sel ? selCopyToLayer() : dupLayer(); });
-    if (L==='s') return go(()=>{ saveFile.again=!e.shiftKey; exportImg('psd').finally(()=>{ saveFile.again=false; }); });
+    if (L==='s') return go(()=>{ if (IS_DESK && window.showSaveFilePicker && !nativeApp) return saveAsDesk(!e.shiftKey); saveFile.again=!e.shiftKey; exportImg('psd').finally(()=>{ saveFile.again=false; }); });
     if (L==='t') return go(()=>setTool('transform'));
     if (L==='c' && e.altKey) return go(()=>canvasSizeDialog());
     if (L==='e') return go(()=>{ if (!need()) return; if (e.shiftKey && e.altKey) stampVisible(); else if (e.shiftKey) toast('«Слить видимые» пока нет — есть Ctrl+Alt+Shift+E (копия видимого новым слоем)',3000); else mergeDown(); });
@@ -7331,7 +7346,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №61.2 ПК узнаётся и с планшетом'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №62 Сохранить как: PSD, PNG, JPG'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
