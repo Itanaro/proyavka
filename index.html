@@ -3351,7 +3351,7 @@ function aiBuild(){
   head.lastChild.textContent = a.busy || (a.variants.length ? 'вариант '+(a.idx+1)+' из '+a.variants.length : (edReady() ? a.sub||'' : 'нужен ключ OpenRouter или Google — кнопка ⚙')); box.append(head);
   if (a.askWords && a.multiline){ const pr=document.createElement('div'); pr.className='aiml'; pr.innerHTML='<label>'+a.askWords+'</label><textarea rows="3" autocomplete="off" spellcheck="false"></textarea>';
     const inp=pr.querySelector('textarea'); inp.placeholder=a.placeholder||'можно оставить пустым'; inp.value=a.words; const fit=()=>{ inp.style.height='auto'; inp.style.height=Math.min(220,Math.max(62,inp.scrollHeight+2))+'px'; };
-    inp.oninput=()=>{ a.words=inp.value; fit(); }; inp.onkeydown=e=>{ e.stopPropagation(); if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); inp.blur(); aiGo(); } }; box.append(pr); requestAnimationFrame(fit); }
+    inp.oninput=()=>{ a.words=inp.value; if (a.detail && detailLast) detailLast.words=a.words; fit(); }; inp.onkeydown=e=>{ e.stopPropagation(); if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); inp.blur(); aiGo(); } }; box.append(pr); requestAnimationFrame(fit); }
   else if (a.askWords){ const pr=document.createElement('div'); pr.className='er'; pr.innerHTML='<label>'+a.askWords+'</label><input type="text" autocomplete="off" spellcheck="false"><span></span>';
     const inp=pr.querySelector('input'); inp.placeholder=a.placeholder||'можно оставить пустым'; inp.value=a.words; inp.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg)';
     inp.oninput=()=>{ a.words=inp.value; }; inp.onkeydown=e=>{ if(e.key==='Enter'){ inp.blur(); aiGo(); } }; box.append(pr); }
@@ -3373,15 +3373,16 @@ async function aiGo(){
     a.busy=a.busyText||'нейросеть думает…'; aiBuild();
     const res=await a.run(a.words.trim()); if (aip!==a) return;
     if (res.cost) a.cost+=res.cost; const first=a.variants.length; a.variants.push(...res.bitmaps);
-    a.busy=null; aiPick(first); toast('Готово'+(res.cost?' · $'+res.cost.toFixed(3):''),1500);
+    a.busy=null; toast('Готово'+(res.cost?' · $'+res.cost.toFixed(3):''),1500); aiPick(first); if (res.warn) toast(res.warn,5000); // warnings from applying / checking the answer stay on screen
   }catch(e){ a.busy=null; if (e.message!=='cancel'){ console.error(e); toast(a.title+': '+e.message,4500); } }
   finally{ netSess=null; if (aip===a) aiBuild(); }
 }
 function aiPick(i){ const a=aip; if (!a || !a.variants[i]) return; a.idx=i;
   if (!a.layer || !doc.layers.includes(a.layer)){ a.layer=newLayer(a.layerName); insertLayer(a.layer, a.insertAt ? a.insertAt() : doc.active+1); a.entry=undoStack[undoStack.length-1]; }
   const L=a.layer; L.ctx.clearRect(0,0,doc.w,doc.h); a.apply(L.ctx, a.variants[i]); L.dirty=true; thumbSoon(L); layersChanged(); markDirty(); requestRender(); aiBuild(); }
-function aiDone(){ const a=aip; aip=null; $('#aibar').hidden=true; updateSelBar(); if (a && a.layer){ layersChanged(); if (a.doneMsg) toast(a.doneMsg,2600); } requestRender(); }
-function aiCancel(){ const a=aip; aip=null; $('#aibar').hidden=true; if (a){ a.cancelled=true; try{ a.abort&&a.abort.abort(); }catch(e){} if (a.layer && doc.layers.includes(a.layer)){ if (undoStack[undoStack.length-1]===a.entry) undo(); else { const k=undoStack.indexOf(a.entry); if (k>=0){ undoStack.splice(k,1); histBytes-=a.entry.bytes||0; } doc.layers.splice(doc.layers.indexOf(a.layer),1); doc.active=clamp(doc.active,0,doc.layers.length-1); layersChanged(); } } }
+function aiKeepWords(a){ if (a && a.detail && detailLast) detailLast.words=a.words||''; const f=document.activeElement; if (f && f.closest && f.closest('#aibar')) f.blur(); } // and the keys come back
+function aiDone(){ const a=aip; aiKeepWords(a); aip=null; $('#aibar').hidden=true; updateSelBar(); if (a && a.layer){ layersChanged(); if (a.doneMsg) toast(a.doneMsg,2600); } requestRender(); }
+function aiCancel(){ const a=aip; aiKeepWords(a); aip=null; $('#aibar').hidden=true; if (a){ a.cancelled=true; try{ a.abort&&a.abort.abort(); }catch(e){} if (a.layer && doc.layers.includes(a.layer)){ if (undoStack[undoStack.length-1]===a.entry) undo(); else { const k=undoStack.indexOf(a.entry); if (k>=0){ undoStack.splice(k,1); histBytes-=a.entry.bytes||0; } doc.layers.splice(doc.layers.indexOf(a.layer),1); doc.active=clamp(doc.active,0,doc.layers.length-1); layersChanged(); } } }
   updateSelBar(); requestRender(); }
 // paste a model-space canvas back into region r, clipped by a doc-space alpha source (canvas or layer)
 function pasteClipped(ctx, c, r, clip){ const t=mk(r.w,r.h), tx=ctx2(t); tx.imageSmoothingQuality='high'; tx.drawImage(c,0,0,r.w,r.h);
@@ -7059,7 +7060,8 @@ function detailFrame(){ // last frame if the picture is the same size, else arou
   const [u,v]=best.split(':').map(Number), A=b.w*b.h, w=Math.sqrt(A*u/v), h=w*v/u, cx=b.x+b.w/2, cy=b.y+b.h/2; Object.assign(c,{x:cx-w/2, y:cy-h/2, w, h}); detailClamp(c); return c; }
 // answer resolution: «Авто» — one step above the frame, so the answer is bigger than the piece and comes back downscaled (more real detail per pixel)
 const DETAIL_RES=[['','Авто'],['1K','1K'],['2K','2K'],['4K','4K']];
-function detailRes(c){ const p=genCfg.detailRes||''; if (p) return p; const L=Math.max(c.w,c.h); return L<=1200 ? '2K' : '4K'; }
+const detailModelNow=()=> edProv()==='google' ? '' : (genCfg.detailModel||genCfg.orModel||'');
+function detailRes(c){ const p=genCfg.detailRes||'', L=Math.max(c.w,c.h); let r = p || (L<=1200 ? '2K' : '4K'); if (r==='4K' && /seedream/i.test(detailModelNow())) r='2K'; return r; } // Seedream 5 Pro: only 1K / 2K
 const detailSub=r=>{ const res=detailRes(r), L=Math.max(r.w,r.h), M={'1K':1024,'2K':2048,'4K':4096}[res]; return r.w+'×'+r.h+' → модель '+res+(M>L*1.15 ? ' · запас ×'+(M/L).toFixed(1) : ''); };
 const detailHint=r=>'Кусок уходит в нейросеть в разрешении '+detailRes(r)+' и возвращается слоем точно в рамку'+(({'1K':1024,'2K':2048,'4K':4096}[detailRes(r)]>Math.max(r.w,r.h)*1.15)?' — ответ крупнее рамки и ужимается в неё, поэтому деталей больше':'')+'. Маска слоя открыта только там, где модель что-то поменяла.';
 function detailBuild(c, box){
@@ -7070,6 +7072,10 @@ function detailBuild(c, box){
   const hint=document.createElement('div'); hint.className='gh'; hint.textContent='Поставь рамку на место, которое надо доработать: углы — размер, внутри — двигать. Форма рамки — родная для нейросети, поэтому кусок уйдёт в модель без обрезки и вернётся точно на место. Чем меньше рамка — тем больше деталей. Enter — дальше, Esc — отмена.';
   const foot=document.createElement('div'); foot.className='eb'; const B=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
   const sp=document.createElement('span'); sp.style.flex='1'; foot.append(sp, B('Отмена',()=>cropClose()), B('Дальше →',cropApply,'pri')); box.append(hint, foot); }
+function detailSame(a, b){ // how much the answer still is the same picture: correlation of small grey copies (1 — same layout)
+  const n=48, g=c=>{ const t=mk(n,n), x=ctx2(t,{willReadFrequently:true}); x.imageSmoothingQuality='high'; x.drawImage(c,0,0,n,n); const d=x.getImageData(0,0,n,n).data, o=new Float32Array(n*n); for (let i=0;i<n*n;i++) o[i]=d[4*i]*.3+d[4*i+1]*.59+d[4*i+2]*.11; return o; };
+  const A=g(a), B=g(b); let ma=0, mb=0; for (let i=0;i<A.length;i++){ ma+=A[i]; mb+=B[i]; } ma/=A.length; mb/=B.length;
+  let sab=0, saa=0, sbb=0; for (let i=0;i<A.length;i++){ const p=A[i]-ma, q=B[i]-mb; sab+=p*q; saa+=p*p; sbb+=q*q; } return sab/Math.sqrt(saa*sbb+1e-9); }
 function detailMask(orig, res, box, whole){ // soft mask (alpha) of where the model really changed something, faded at the frame borders
   const W=orig.width, H=orig.height, S=Math.min(1, 900/Math.max(W,H)), w=Math.max(8,Math.round(W*S)), h=Math.max(8,Math.round(H*S)), n=w*h;
   const px=c=>{ const t=mk(w,h), x=ctx2(t,{willReadFrequently:true}); x.imageSmoothingQuality='high'; x.drawImage(c,0,0,w,h); return x.getImageData(0,0,w,h).data; };
@@ -7093,7 +7099,9 @@ const DETAIL_TPL_DEF=[
 const detailTpl={ get(){ try{ const v=JSON.parse(localStorage.getItem('proyavka.detail.tpl')); if (Array.isArray(v)) return v; }catch(e){} return DETAIL_TPL_DEF.slice(); }, set(v){ try{ localStorage.setItem('proyavka.detail.tpl', JSON.stringify(v)); }catch(e){} } };
 const DETAIL_MODELS=[['','как в ⚙'],[NB21,'Banana 2.1'],['bytedance-seed/seedream-5-0-pro','Seedream 5 Pro']];
 let detailRefs=[]; // reference pictures (canvases), kept between runs: @img2, @img3…
-function detailRefAdd(c){ if (!c) return; if (detailRefs.length>=4){ toast('Хватит четырёх рефов — убери лишний ×'); return; } detailRefs.push(c); if (aip && aip.detail) aiBuild(); }
+function refTrim(c){ // a reference without empty transparent margins: the model should not copy a blank background
+  const b=contentBBox(c); if (!b || (b.w>=c.width-2 && b.h>=c.height-2)) return c; const q=mk(b.w,b.h); ctx2(q).drawImage(c,b.x,b.y,b.w,b.h,0,0,b.w,b.h); return q; }
+function detailRefAdd(c){ if (!c) return; c=refTrim(c); if (detailRefs.length>=4){ toast('Хватит четырёх рефов — убери лишний ×'); return; } detailRefs.push(c); if (aip && aip.detail) aiBuild(); }
 async function detailRefFile(files){ for (const f of files){ try{ const bm=await createImageBitmap(f), c=mk(bm.width,bm.height); ctx2(c).drawImage(bm,0,0); bm.close&&bm.close(); detailRefAdd(c); }catch(e){ toast('Не открылся файл: '+f.name); } } }
 function detailRefLayer(){ const L=AL(); if (!L || !L.canvas){ toast('Выбери слой с картинкой'); return; }
   const r = sel ? selBBox() : contentBBox(L.canvas); if (!r || r.w<4 || r.h<4){ toast('Слой пустой'); return; }
@@ -7112,7 +7120,7 @@ function detailRows(box){ const a=aip;
   const seg=document.createElement('div'); seg.className='seg'; seg.style.flexWrap='wrap'; const g=edProv()==='google';
   for (const [id,t] of DETAIL_MODELS){ const b=document.createElement('button'); b.textContent=t; const cur=genCfg.detailModel||''; b.classList.toggle('on', id===cur);
     if (g && id){ b.disabled=true; b.title='С ключом Google работает только Nano Banana — выбери OpenRouter в ⚙'; }
-    b.onclick=()=>{ genCfg.detailModel=id; genSave(); aiBuild(); }; seg.append(b); }
+    b.onclick=()=>{ genCfg.detailModel=id; genSave(); if (a.frame){ a.sub=detailSub(a.frame); a.hint=detailHint(a.frame); } aiBuild(); }; seg.append(b); }
   row('Модель',seg);
   // answer resolution
   const rs=document.createElement('div'); rs.className='seg';
@@ -7143,23 +7151,26 @@ function detailRows(box){ const a=aip;
 function detailRun(c){
   const r={x:Math.round(c.x), y:Math.round(c.y), w:Math.round(c.w), h:Math.round(c.h)}; detailClamp(r); r.x=Math.round(r.x); r.y=Math.round(r.y); r.w=Math.round(r.w); r.h=Math.round(r.h);
   detailLast={x:r.x, y:r.y, w:r.w, h:r.h, ratio:c.ratio, flip:c.flip, dw:doc.w, dh:doc.h, words:(detailLast&&detailLast.words)||''};
-  const orig=regionImage(r, r.w, r.h), whole={on:false, auto:true}, masks=new Map();
+  const orig=regionImage(r, r.w, r.h), whole={on: genCfg.detailMaskMode!=='auto', auto:false}, masks=new Map();
   aiOpen({ title:'Деталь', detail:true, frame:r, multiline:true, words:(detailLast.words||''), sub:detailSub(r), askWords:'Что сделать в рамке', placeholder:'пусто — просто прорисовать детальнее. Можно по-русски, с @img1 / @img2', layerName:'Деталь',
     hint:detailHint(r),
     rows:detailRows, insertAt:()=>doc.layers.length, doneMsg:'Деталь — отдельный слой с маской: маску можно докрасить кистью',
     run: async words=>{ detailLast.words=words; if (whole.auto) whole.on = !words && !detailRefs.length; const refs=detailRefs.slice(), model=edProv()==='google' ? '' : (genCfg.detailModel||'');
       const keep='Keep exactly the same framing, composition, position and scale as @img1; do not zoom, crop, shift, rotate or reframe. The output is the edited @img1 at the same framing.';
       let ask;
-      if (refs.length){ const legend='Attached images: @img1 (image 1) is a crop from a larger illustration — this is the picture you edit. '+refs.map((_,i)=>'@img'+(i+2)+' (image '+(i+2)+')').join(', ')+(refs.length>1?' are visual references.':' is a visual reference.');
-        const t=words || 'Make @img1 match @img2: take the look of the matching subject from @img2.'; ask=legend+'\n\n'+t+(/@img2/.test(t)?'':'\nUse @img2 as the visual reference.')+'\n\n'+keep+' Keep the lighting and colour of @img1 unless asked otherwise.'; }
+      if (refs.length){ // short and direct, like a Magnific template: the user's words carry the edit; we only say which picture is which
+        const legend='Image 1 (@img1) is the picture to edit. '+refs.map((_,i)=>'Image '+(i+2)+' (@img'+(i+2)+')').join(', ')+(refs.length>1?' are references':' is a reference')+' for appearance only — take faces, hair, jewellery and details from '+(refs.length>1?'them':'it')+', never '+(refs.length>1?'their':'its')+' framing, pose, crop or background.';
+        const t=words || 'Make the person and details on @img1 match @img2.'; ask=legend+'\n\n'+t+'\n\nOutput: @img1 with these changes, same framing and size.'; }
       else ask='This image (@img1) is a crop from a larger illustration. '+(words ? 'Edit it:\n'+words+'\n' : 'Enhance it into a sharper, more detailed, higher-quality version: redraw every surface with fine detail — crisp facial features, eyes and lashes, skin texture, individual hair strands, fabric weave and folds, material and metal detail; remove blur, mush and AI artefacts; clean edges. Same content, as a finished high-end render. ')+keep+' Keep the same lighting, colour palette and art style. Change only what is asked; everything else stays as it is.';
       const out=await orRequest(orig, ask, 1, {res:detailRes(r), refsKeep:refs, model});
-      return {bitmaps: out.bitmaps.map(b=>expandAlign(orig, b, {x:0,y:0,w:r.w,h:r.h}).c), cost:out.cost}; },
+      const bms=out.bitmaps.map(b=>expandAlign(orig, b, {x:0,y:0,w:r.w,h:r.h}).c);
+      const warn = bms.length && detailSame(orig, bms[0])<0.45 ? 'Похоже, модель нарисовала другой кадр (например, взяла композицию рефа) — ↻ Ещё, другая модель или уточни в промпте, что @img2 только образец' : '';
+      return {bitmaps: bms, cost:out.cost, warn}; },
     apply:(ctx,v)=>{ ctx.drawImage(v, r.x, r.y, r.w, r.h); const a=aip, L=a&&a.layer; if (!L) return;
       let mm=masks.get(v); if (!mm){ mm={}; masks.set(v,mm); } if (!mm[whole.on]) mm[whole.on]=detailMask(orig, v, r, whole.on);
       const m=mm[whole.on]; if (!L.mask) L.mask=newMask(L); const mx=L.mask.ctx; mx.clearRect(0,0,doc.w,doc.h); mx.imageSmoothingQuality='high'; mx.drawImage(m.c, r.x, r.y, r.w, r.h); L.mask.enabled=true;
       if (m.md<1.5) toast('Модель вернула почти копию куска (разница '+m.md.toFixed(1)+' из 255) — попробуй другую модель или добавь слова, что улучшить',3600); else if (!whole.on && m.cov<0.004) toast('Модель почти ничего не поменяла — попробуй слова поконкретнее или «Вся рамка»',3000); },
-    extra:()=>[whole.on ? '◐ Авто-маска' : '▢ Вся рамка', ()=>{ whole.on=!whole.on; whole.auto=false; aiPick(aip.idx); }, whole.on ? 'Маска только там, где модель что-то поменяла' : 'Показать весь перерисованный кусок (мягкие края)'] });
+    extra:()=>[whole.on ? '◐ Авто-маска' : '▢ Вся рамка', ()=>{ whole.on=!whole.on; genCfg.detailMaskMode=whole.on?'whole':'auto'; genSave(); aiPick(aip.idx); }, whole.on ? 'Маска только там, где модель что-то поменяла' : 'Показать весь перерисованный кусок (мягкие края)'] });
 }
 function cropOverlay(ox){ const c=crop, m=viewM(), T=(x,y)=>[m[0]*x+m[2]*y+m[4], m[1]*x+m[3]*y+m[5]];
   const q=[T(c.x,c.y),T(c.x+c.w,c.y),T(c.x+c.w,c.y+c.h),T(c.x,c.y+c.h)];
@@ -7475,7 +7486,7 @@ function resetDocState(){
   if (typeof filt!=='undefined' && filt) filtClose();
   if (typeof gen!=='undefined' && gen){ gen.cancelled=true; try{ gen.abort&&gen.abort.abort(); }catch(e){} gen=null; $('#genbar').hidden=true; }
   if (typeof lift!=='undefined' && lift) objDone(true);
-  if (typeof aip!=='undefined' && aip){ aip.cancelled=true; aip=null; $('#aibar').hidden=true; }
+  if (typeof aip!=='undefined' && aip){ aiKeepWords(aip); aip.cancelled=true; aip=null; $('#aibar').hidden=true; }
   if (typeof crit!=='undefined' && crit){ crit=null; $('#critbar').hidden=true; }
   if (typeof pup!=='undefined' && pup){ pup=null; $('#pupbar').hidden=true; }
   if (typeof thumbs!=='undefined') thumbs.clear();
@@ -7659,7 +7670,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №70 Деталь: рамка видна и меняется; Ctrl+C/V; квадрат по Shift'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №71 Деталь: вся рамка по умолчанию, Seedream 2K, промпт не теряется'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
