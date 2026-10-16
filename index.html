@@ -774,7 +774,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <button data-a="gen" data-sel="1">✦ Генерация <small>дорисовать по словам</small></button>
     <button data-a="sketch" data-sel="1">✦ Отрисовать <small>набросок в рендер</small></button>
     <button data-a="lift" data-sel="1">✦ Сдвинуть <small>объект с фоном</small></button>
-    <button data-a="ai" data-sel="1">✦ Убрать <small>на iPad</small></button>
+    <button data-a="ai" data-sel="1">✦ Убрать <small class="padonly">на iPad</small><small class="deskonly">нейросеть</small></button>
     <button data-a="sd" data-sel="1">✦ SD Inpaint <small>свой ПК</small></button>
     <hr>
     <button data-a="fit">✦ Вписать в сцену <small id="aiFitL">активный слой</small></button>
@@ -6429,6 +6429,39 @@ window.pvPencil = kind => { if (!doc) return;
   if (S.tool==='eraser'){ setTool(pencilBack||'brush'); } else { pencilBack=S.tool; setTool('eraser'); } };
 const IS_DESK = !(navigator.maxTouchPoints>0) && !!window.showSaveFilePicker; // the PC version: Edge/Chrome with a mouse
 document.body.classList.toggle('desk', IS_DESK);
+/* ============ the PC speaks PC: the same interface, but «тап», «карандаш», «пальцы», «iPad» become mouse/pen words ============
+   One place for it: every text the page shows on the PC (toasts, panels, hints, menus, dialogs, tooltips) passes through deskText,
+   applied live to the DOM. Phrases first (they need different words, not just «тап» → «клик»), then general rules. */
+const DESK_PHRASES=[
+  [/тап двумя пальцами/g,'Ctrl+Shift+D'], [/тап четырьмя пальцами вернёт/g,'Tab вернёт'], [/[Пп]альцы двигают холст/g,'Пробел — двигать холст'],
+  [/тап пальцем по чистому месту \(на клавиатуре — Alt \+ клик\)/g,'Alt + клик по чистому месту'], [/тапнуть пальцем или Alt \+ клик/g,'Alt + клик'],
+  [/[Тт]ап по объекту(?= \(|$|»|['"<])/g, m=>m[0]==='Т'?'Выбор объекта':'выбор объекта'],
+  [/модель «тап по объекту»/g,'модель «выбор объекта»'], [/Умное выделение: объект, тап по объекту/g,'Умное выделение: объект, выбор объекта'],
+  [/удержи слой и тяни на папку/g,'перетащи слой на папку'], [/тап или удержание/g,'клик или удержание'],
+  [/(рисуй|Рисуй) карандашом/g,'$1'], [/[Пп]еретащи карандашом/g, m=>m[0]==='П'?'Перетащи':'перетащи'], [/веди карандашом/g,'веди пером или мышью'],
+  [/[Тт]апни карандашом/g, m=>m[0]==='Т'?'Кликни':'кликни'], [/[Тт]ап карандашом/g, m=>m[0]==='Т'?'Клик':'клик'], [/тяни углы рамки карандашом/g,'тяни углы рамки'],
+  [/Пипетка карандашом/g,'Пипетка пером'], [/Задержи карандаш на месте/g,'Задержи перо на месте'], [/палец по-прежнему берёт цвет удержанием/g,'Alt по-прежнему берёт цвет'],
+  [/прямо на iPad/g,'прямо в Проявке'], [/считаю на iPad/g,'считаю в браузере'], [/ на iPad(?=[»<'")\s.,;:]|$)/g,' в Проявке'], [/памяти iPad/g,'памяти Проявки'],
+  [/для iPad(?=[»<'")\s.,;:]|$)/g,''], [/только на этом iPad/g,'только на этом компьютере'],
+];
+const DESK_WORDS=[ // general: whole words only (Cyrillic has no \b in JS regex)
+  [/(^|[^а-яё])тапните/gi, (m,a)=>a+'кликните'], [/(^|[^а-яё])тапни(?![а-яё])/g, (m,a)=>a+'кликни'], [/(^|[^а-яё])Тапни(?![а-яё])/g, (m,a)=>a+'Кликни'],
+  [/(^|[^а-яё])тапнуть/g, (m,a)=>a+'кликнуть'], [/(^|[^а-яё])тап(?![а-яё])/g, (m,a)=>a+'клик'], [/(^|[^а-яё])Тап(?![а-яё])/g, (m,a)=>a+'Клик'],
+  [/карандашом/g,'пером или мышью'], [/(^|[^а-яё])карандаш(?![а-яё])/g, (m,a)=>a+'перо'], // «Карандаш» with a capital is a brush name — left alone
+];
+const DESK_TEST=/тап|Тап|карандаш|Карандаш|пальц|iPad/;
+function deskText(t){ if (!t || !DESK_TEST.test(t)) return t; for (const [r,v] of DESK_PHRASES) t=t.replace(r,v); for (const [r,v] of DESK_WORDS) t=t.replace(r,v); return t; }
+function deskFix(root){ // text nodes + tooltips under root
+  if (root.nodeType===3){ if (DESK_TEST.test(root.nodeValue)){ const v=deskText(root.nodeValue); if (v!==root.nodeValue) root.nodeValue=v; } return; }
+  if (root.nodeType!==1 || root.closest && root.closest('textarea,input,[contenteditable],#aiedit,script,style')) return;
+  for (const a of ['title','aria-label','placeholder']){ const v=root.getAttribute && root.getAttribute(a); if (v && DESK_TEST.test(v)){ const n=deskText(v); if (n!==v) root.setAttribute(a,n); } }
+  const w=document.createTreeWalker(root, NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT, { acceptNode:n=> n.nodeType===1 && /^(TEXTAREA|INPUT|SCRIPT|STYLE|IFRAME)$/.test(n.tagName) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  let n; while ((n=w.nextNode())){ if (n.nodeType===3){ if (DESK_TEST.test(n.nodeValue)){ const v=deskText(n.nodeValue); if (v!==n.nodeValue) n.nodeValue=v; } }
+    else for (const a of ['title','aria-label','placeholder']){ const v=n.getAttribute(a); if (v && DESK_TEST.test(v)){ const x=deskText(v); if (x!==v) n.setAttribute(a,x); } } } }
+if (IS_DESK){ deskFix(document.body);
+  new MutationObserver(ms=>{ for (const m of ms){ if (m.type==='characterData') deskFix(m.target); else if (m.type==='attributes') deskFix(m.target); else m.addedNodes.forEach(deskFix); } })
+    .observe(document.body, {subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:['title','aria-label','placeholder']}); }
+
 async function saveFileDesk(name, data, again){ // straight into a folder on disk; Ctrl+S then writes the same file again
   const blob = data instanceof Blob ? data : new Blob([data]); const ext=(name.match(/\.[a-z0-9]+$/i)||['.png'])[0].toLowerCase();
   const types={'.psd':{'image/vnd.adobe.photoshop':['.psd']}, '.png':{'image/png':['.png']}, '.jpg':{'image/jpeg':['.jpg','.jpeg']}, '.zip':{'application/zip':['.zip']}};
@@ -7291,7 +7324,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №59 AI Edit на iPad: компактная панель'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-16 · №60 ПК-версия говорит по-компьютерному'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
