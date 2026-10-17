@@ -414,6 +414,11 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #layers,.fbar,.pop,#flyout,.dlg,#optPop,#toast{background:var(--glass-bg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow)}
 .pop,#flyout,#optPop,.dlg{background:var(--glass-solid)}
 #layers{top:80px;right:10px;bottom:10px;border-radius:24px}
+#airail{position:absolute;z-index:7;display:flex;flex-direction:column;gap:4px;padding:6px;border-radius:20px;background:var(--glass-bg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow)}
+#airail .tb{width:40px;height:40px;padding:0;border-radius:12px;color:#f0b46a}
+#airail .tb svg{width:22px;height:22px}
+.hideui #airail{display:none}
+@keyframes pvDock{from{opacity:0}to{opacity:1}} #stage #aibar.dock{animation:none;box-sizing:border-box} #stage #aibar.dock .er{grid-template-columns:96px 1fr 44px} #aibar.dock .eh{cursor:move;touch-action:none;user-select:none}
 .hideui #layers{top:10px}
 #status{left:94px;top:84px;bottom:auto}
 #status span{background:var(--glass-bg);border:1px solid var(--glass-edge);border-radius:10px;padding:4px 9px}
@@ -771,6 +776,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
       <button id="xfCancel">Отмена</button>
       <button id="xfApply" class="pri">Применить</button>
     </div>
+    <div id="airail" class="airail"><button class="tb" data-ai="fit" title="Вписать в сцену — свет и цвет активного слоя под окружение" aria-label="Вписать в сцену — свет и цвет активного слоя под окружение"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8 15l3-3 2 2 3-3"/><path d="M17 4.5v3M15.5 6h3"/></svg></button><button class="tb" data-ai="expand" title="Расширить кадр" aria-label="Расширить кадр"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg></button><button class="tb" data-ai="detail" title="Деталь — рамка в полном разрешении модели" aria-label="Деталь — рамка в полном разрешении модели"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M10.5 8v5M8 10.5h5"/></svg></button><button class="tb" data-ai="critic" title="Арт-директор — разбор кадра" aria-label="Арт-директор — разбор кадра"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v10H10l-4.5 3.5v-3.5H4z"/><path d="M8 9.5h8M8 12h5"/></svg></button><button class="tb" data-ai="aiedit" title="AI Edit — плагин из Фотошопа" aria-label="AI Edit — плагин из Фотошопа"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l11-11"/><path d="M13.5 7.5l3 3"/><path d="M18 3v3M16.5 4.5h3M20 9v2M19 10h2M10 3v2M9 4h2"/></svg></button><button class="tb" data-ai="rmbg" title="Удалить фон — мягкий край, маской" aria-label="Удалить фон — мягкий край, маской"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M5.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M3 3l2 2M21 3l-2 2" stroke-dasharray="1.5 2"/></svg></button></div>
     <aside id="layers" hidden>
       <header><h2>Слои <small id="lyCount"></small></h2><button class="tb" id="lyClose" aria-label="Скрыть слои">✕</button></header>
       <div id="lyList"></div>
@@ -1163,7 +1169,7 @@ function fitView(){
   const st=$('#stage'), sr=st.getBoundingClientRect(), ui=!document.body.classList.contains('hideui');
   const tb=$('#tabs'), tabsB = ui && tb && !tb.hidden && tb.childElementCount ? Math.max(tb.getBoundingClientRect().bottom, $('#status').getBoundingClientRect().bottom) - sr.top + 4 : 0; // the picture starts under the tabs and counters
   const L = ui ? Math.max(0, $('#rail').getBoundingClientRect().right - sr.left) : 0, T = ui ? Math.max(0, $('#top').getBoundingClientRect().bottom - sr.top, tabsB) : 0;
-  const R = $('#layers').hidden ? 0 : Math.min(316, st.clientWidth*0.5);
+  const R = ($('#layers').hidden ? 0 : Math.min(316, st.clientWidth*0.5)) + (ui && $('#airail') ? 58 : 0);
   const W=st.clientWidth-L-R, H=st.clientHeight-T;
   const s = Math.min(W/doc.w, H/doc.h)*0.92;
   view = { s, r:0, x:L+(W-doc.w*s)/2, y:T+(H-doc.h*s)/2 };
@@ -3359,7 +3365,7 @@ let aip=null;
 function aiOpen(cfg){
   if (!doc) return; if (xf||filt||harm||dep||gen||(lift&&lift.open)||aip){ toast('Сначала закрой открытую панель'); return; }
   aip=Object.assign({ words:'', variants:[], idx:-1, layer:null, busy:null, cost:0 }, cfg);
-  aiBuild(); $('#aibar').hidden=false; updateSelBar();
+  aiBuild(); $('#aibar').hidden=false; aiDockPlace(); updateSelBar();
   if (cfg.auto && edReady()) aiGo();
 }
 function aiBuild(){
@@ -6422,13 +6428,32 @@ function tabsRender(){
   const plus=document.createElement('button'); plus.className='tplus'; plus.textContent='＋'; plus.title='Открыть ещё (можно сразу несколько файлов)'; plus.onclick=()=>$('#fOpen').click(); box.append(plus);
   tabsLayout(); const on=box.querySelector('.tab.on'); if (on) on.scrollIntoView({block:'nearest', inline:'nearest'});
 }
+function airailLayout(){ const r=$('#airail'); if (!r) return; const st=$('#stage').getBoundingClientRect(), ly=$('#layers');
+  const top = !ly.hidden ? ly.getBoundingClientRect().top-st.top : Math.max(8, $('#top').getBoundingClientRect().bottom-st.top+6);
+  const right = !ly.hidden ? st.right-ly.getBoundingClientRect().left+8 : 10; r.style.top=top+'px'; r.style.right=right+'px'; }
+document.querySelectorAll('#airail [data-ai]').forEach(b=>b.onclick=()=>{ const m=$('#aimenu [data-a="'+b.dataset.ai+'"]'); if (m) m.click(); });
+/* AI panel (Detail and the others) as a floating window next to the layers, like AI Edit: drag by the title, double click — back to its place */
+function aiDockPlace(){ const b=$('#aibar'); if (!b || b.hidden) return; b.classList.add('dock');
+  const st=$('#stage').getBoundingClientRect(), ly=$('#layers'), rr=$('#airail'), w=Math.min(440, st.width-24); let p=null; try{ p=JSON.parse(localStorage.getItem('proyavka.aidock')||'null'); }catch(e){}
+  let x, y; if (p){ x=p.x; y=p.y; }
+  else { const edge=(rr && rr.offsetParent ? rr.getBoundingClientRect().left : (!ly.hidden ? ly.getBoundingClientRect().left : st.right)) - st.left - 10; x=edge-w; y=Math.max(8, $('#status').getBoundingClientRect().bottom-st.top+10); }
+  x=Math.max(8, Math.min(st.width-w-8, x)); y=Math.max(8, Math.min(st.height-160, y));
+  Object.assign(b.style,{left:x+'px', top:y+'px', bottom:'auto', right:'auto', transform:'none', width:w+'px', maxWidth:'none', maxHeight:(st.height-y-10)+'px'}); }
+(function(){ const b=$('#aibar'); if (!b) return; let d=null;
+  b.addEventListener('pointerdown', e=>{ const h=e.target.closest('.eh'); if (!h || e.target.closest('button,input,select,textarea')) return; const r=b.getBoundingClientRect(), st=$('#stage').getBoundingClientRect();
+    d={id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, st}; try{ b.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
+  b.addEventListener('pointermove', e=>{ if (!d || e.pointerId!==d.id) return; const x=e.clientX-d.st.left-d.dx, y=e.clientY-d.st.top-d.dy;
+    try{ localStorage.setItem('proyavka.aidock', JSON.stringify({x,y})); }catch(_){} aiDockPlace(); });
+  const up=e=>{ if (d && e.pointerId===d.id) d=null; }; b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+  b.addEventListener('dblclick', e=>{ if (!e.target.closest('.eh') || e.target.closest('button')) return; try{ localStorage.removeItem('proyavka.aidock'); }catch(_){} aiDockPlace(); });
+  addEventListener('resize', ()=>setTimeout(aiDockPlace,60)); })();
 function tabsLayout(){ // tabs right under the top bar (like Photoshop), the counters (zoom, size, memory) under the tabs
   const box=$('#tabs'), stt=$('#status'); if (!box) return; stt.style.top='';
-  if (box.hidden) return; const st=$('#stage').getBoundingClientRect(), s=stt.getBoundingClientRect(), ly=$('#layers');
+  if (box.hidden){ airailLayout(); return; } const st=$('#stage').getBoundingClientRect(), s=stt.getBoundingClientRect(), ly=$('#layers');
   const upper = s.top-st.top < st.height/2, top = upper ? Math.max(4, $('#top').getBoundingClientRect().bottom-st.top+6) : 8, left = upper ? s.left-st.left : 10;
   const right = !ly.hidden ? st.right-ly.getBoundingClientRect().left+10 : 10;
   box.style.top=top+'px'; box.style.left=left+'px'; box.style.right=right+'px';
-  if (upper) stt.style.top=(top+box.getBoundingClientRect().height+6)+'px'; }
+  if (upper) stt.style.top=(top+box.getBoundingClientRect().height+6)+'px'; airailLayout(); }
 window.addEventListener('resize', ()=>setTimeout(tabsLayout,50));
 // drop several pictures onto the tab strip — each opens as its own document
 (function(){ const box=$('#tabs'); if (!box) return;
@@ -7741,7 +7766,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-17 · №78 меню «Файл» по-новому; клик сбрасывает выбор слоёв'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-17 · №79 ИИ-панель окном у слоёв, полоса ИИ-кнопок'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
