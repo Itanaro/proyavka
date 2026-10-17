@@ -3378,7 +3378,7 @@ function aiBuild(){
   if (a.busy){ foot.append(st, sp, B('Остановить',()=>{ a.cancelled=true; try{ a.abort&&a.abort.abort(); }catch(e){} })); box.append(foot); return; }
   foot.append(st, sp, B('Отмена',aiCancel), B(a.variants.length?'↻ Ещё вариант':(a.goLabel||'Сделать'), aiGo, a.variants.length?'alt':'pri'));
   if (a.variants.length && a.extra){ const x=a.extra(); if (x){ const b=B(x[0],x[1]); if (x[2]) b.title=x[2]; foot.insertBefore(b, sp.nextSibling); } }
-  if (a.variants.length) foot.append(B('✓ Оставить слой',aiDone,'pri')); box.append(foot);
+  if (a.variants.length) foot.append(B(a.perVariant && a.variants.length>1 ? '✓ Оставить слои' : '✓ Оставить слой',aiDone,'pri')); box.append(foot);
 }
 async function aiGo(){
   const a=aip; if (!a || a.busy) return; if (!orNeed()) return;
@@ -3392,11 +3392,21 @@ async function aiGo(){
   finally{ netSess=null; if (aip===a) aiBuild(); }
 }
 function aiPick(i){ const a=aip; if (!a || !a.variants[i]) return; a.idx=i;
+  if (a.perVariant){ // every variant is its own layer: the picked one is shown, the others wait hidden
+    a.vl=a.vl||new Map(); let L=a.vl.get(i);
+    if (!L || !doc.layers.includes(L)){ L=newLayer(a.layerName+' '+(i+1)); insertLayer(L, a.insertAt ? a.insertAt() : doc.active+1); a.vl.set(i,L); (a.entries=a.entries||[]).push(undoStack[undoStack.length-1]); }
+    a.layer=L; for (const [k,X] of a.vl) if (doc.layers.includes(X)) X.visible = k===i; doc.active=doc.layers.indexOf(L);
+    L.ctx.clearRect(0,0,doc.w,doc.h); a.apply(L.ctx, a.variants[i]); L.dirty=true; thumbSoon(L); layersChanged(); markDirty(); requestRender(); aiBuild(); return; }
   if (!a.layer || !doc.layers.includes(a.layer)){ a.layer=newLayer(a.layerName); insertLayer(a.layer, a.insertAt ? a.insertAt() : doc.active+1); a.entry=undoStack[undoStack.length-1]; }
   const L=a.layer; L.ctx.clearRect(0,0,doc.w,doc.h); a.apply(L.ctx, a.variants[i]); L.dirty=true; thumbSoon(L); layersChanged(); markDirty(); requestRender(); aiBuild(); }
 function aiKeepWords(a){ if (a && a.detail && detailLast) detailLast.words=a.words||''; const f=document.activeElement; if (f && f.closest && f.closest('#aibar')) f.blur(); } // and the keys come back
-function aiDone(){ const a=aip; aiKeepWords(a); aip=null; $('#aibar').hidden=true; updateSelBar(); if (a && a.layer){ layersChanged(); if (a.doneMsg) toast(a.doneMsg,2600); } requestRender(); }
-function aiCancel(){ const a=aip; aiKeepWords(a); aip=null; $('#aibar').hidden=true; if (a){ a.cancelled=true; try{ a.abort&&a.abort.abort(); }catch(e){} if (a.layer && doc.layers.includes(a.layer)){ if (undoStack[undoStack.length-1]===a.entry) undo(); else { const k=undoStack.indexOf(a.entry); if (k>=0){ undoStack.splice(k,1); histBytes-=a.entry.bytes||0; } doc.layers.splice(doc.layers.indexOf(a.layer),1); doc.active=clamp(doc.active,0,doc.layers.length-1); layersChanged(); } } }
+function aiDone(){ const a=aip; aiKeepWords(a); aip=null; $('#aibar').hidden=true; updateSelBar();
+  if (a && a.vl){ const n=[...a.vl.values()].filter(L=>doc.layers.includes(L)).length; layersChanged(); if (n>1){ toast('Оставлено слоёв: '+n+' — выбранный виден, остальные скрыты',2600); requestRender(); return; } }
+  if (a && a.layer){ layersChanged(); if (a.doneMsg) toast(a.doneMsg,2600); } requestRender(); }
+function aiCancel(){ const a=aip; aiKeepWords(a); aip=null; $('#aibar').hidden=true; if (a){ a.cancelled=true; try{ a.abort&&a.abort.abort(); }catch(e){}
+    if (a.vl){ for (const e of (a.entries||[])){ const k=undoStack.indexOf(e); if (k>=0){ undoStack.splice(k,1); histBytes-=e.bytes||0; } } // all variant layers go, with their history steps
+      const gone=new Set(a.vl.values()); if ([...gone].some(L=>doc.layers.includes(L))){ doc.layers=doc.layers.filter(L=>!gone.has(L)); doc.active=clamp(doc.active,0,doc.layers.length-1); layersChanged(); } a.layer=null; }
+    if (a.layer && doc.layers.includes(a.layer)){ if (undoStack[undoStack.length-1]===a.entry) undo(); else { const k=undoStack.indexOf(a.entry); if (k>=0){ undoStack.splice(k,1); histBytes-=a.entry.bytes||0; } doc.layers.splice(doc.layers.indexOf(a.layer),1); doc.active=clamp(doc.active,0,doc.layers.length-1); layersChanged(); } } }
   updateSelBar(); requestRender(); }
 // paste a model-space canvas back into region r, clipped by a doc-space alpha source (canvas or layer)
 function pasteClipped(ctx, c, r, clip){ const t=mk(r.w,r.h), tx=ctx2(t); tx.imageSmoothingQuality='high'; tx.drawImage(c,0,0,r.w,r.h);
@@ -7153,7 +7163,7 @@ function detailRefLayer(){ const L=AL(); if (!L || !L.canvas){ toast('Выбер
   if (sel){ x.globalCompositeOperation='destination-in'; x.drawImage(sel.mask, Math.round(r.x),Math.round(r.y),c.width,c.height, 0,0,c.width,c.height); }
   const u=refUnder(c, L, Math.round(r.x), Math.round(r.y)); detailRefAdd(u); if (sel) deselect(); toast('Реф @img'+(detailRefs.length+1)+': «'+L.name+'»'+(sel?' (выделенное)':'')+(u._under?' · фон — слои под ним':''),1800); }
 function detailReframe(){ const a=aip; if (!a || !a.detail || a.busy) return; if (detailLast) detailLast.words=a.words||'';
-  if (a.variants.length && a.layer){ aiDone(); toast('Готовый вариант остался слоем «'+a.layer.name+'» — двигай рамку дальше',2200); } else aiCancel();
+  if (a.variants.length && a.layer){ const n=a.vl?a.vl.size:1; aiDone(); toast((n>1?'Варианты остались слоями ('+n+')':'Готовый вариант остался слоем «'+a.layer.name+'»')+' — двигай рамку дальше',2200); } else aiCancel();
   cropOpen({detail:true}); }
 function detailRows(box){ const a=aip;
   const row=(label,el)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>'+label+'</label>'; el.style.gridColumn='2 / span 2'; r.append(el); box.append(r); return r; };
@@ -7196,7 +7206,7 @@ function detailRun(c){
   const r={x:Math.round(c.x), y:Math.round(c.y), w:Math.round(c.w), h:Math.round(c.h)}; detailClamp(r); r.x=Math.round(r.x); r.y=Math.round(r.y); r.w=Math.round(r.w); r.h=Math.round(r.h);
   detailLast={x:r.x, y:r.y, w:r.w, h:r.h, ratio:c.ratio, flip:c.flip, dw:doc.w, dh:doc.h, words:(detailLast&&detailLast.words)||''};
   const orig=regionImage(r, r.w, r.h), whole={on: genCfg.detailMaskMode!=='auto', auto:false}, masks=new Map();
-  aiOpen({ title:'Деталь', detail:true, frame:r, multiline:true, words:(detailLast.words||''), sub:detailSub(r), askWords:'Что сделать в рамке', placeholder:'пусто — просто прорисовать детальнее. Можно по-русски, с @img1 / @img2', layerName:'Деталь',
+  aiOpen({ title:'Деталь', detail:true, perVariant:true, frame:r, multiline:true, words:(detailLast.words||''), sub:detailSub(r), askWords:'Что сделать в рамке', placeholder:'пусто — просто прорисовать детальнее. Можно по-русски, с @img1 / @img2', layerName:'Деталь',
     hint:detailHint(r),
     rows:detailRows, insertAt:()=>doc.layers.length, doneMsg:'Деталь — отдельный слой с маской: маску можно докрасить кистью',
     run: async words=>{ const a0=aip; detailLast.words=words; if (whole.auto) whole.on = !words && !detailRefs.length; const refs=detailRefs.slice(), model=edProv()==='google' ? '' : (genCfg.detailModel||'');
@@ -7722,7 +7732,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-17 · №75 вкладки под верхней панелью, счётчики под ними'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-17 · №76 Деталь: каждый вариант — свой слой'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
