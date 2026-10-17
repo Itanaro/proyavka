@@ -145,7 +145,9 @@ body.maskcol #swatch,body.maskcol #swatchBg{border-style:dashed}
 .hideui #top,.hideui #rail,.hideui #layers,.hideui #selbar,.hideui #xfbar{display:none!important}
 .hideui #app{grid-template-rows:0 1fr;grid-template-columns:0 1fr}
 .hideui #status,.hideui #tabs{display:none}
-#tabs{position:absolute;z-index:6;display:flex;gap:4px;align-items:center;overflow-x:auto;scrollbar-width:none;padding:2px}
+#tabs{position:absolute;z-index:6;display:flex;gap:4px;align-items:center;overflow-x:auto;scrollbar-width:none;padding:2px;pointer-events:none}
+#tabs .tab,#tabs .tplus{pointer-events:auto;transition:opacity .15s}
+body.tooling #tabs .tab,body.tooling #tabs .tplus,body.tooling #zoomBadge{pointer-events:none;opacity:.3}
 #tabs::-webkit-scrollbar{display:none}
 #tabs .tab{flex:none;display:flex;align-items:center;gap:4px;height:28px;max-width:220px;padding:0 4px 0 11px;border-radius:9px;background:rgba(33,35,40,.78);border:1px solid var(--line);color:var(--muted);font-size:12.5px;cursor:pointer;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 #tabs .tab .tn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1156,7 +1158,8 @@ function fitView(){
   if (!doc || $('#stage').clientWidth<10 || $('#stage').clientHeight<10) return;
   // the bars float over the canvas: fit the picture into what they leave free
   const st=$('#stage'), sr=st.getBoundingClientRect(), ui=!document.body.classList.contains('hideui');
-  const L = ui ? Math.max(0, $('#rail').getBoundingClientRect().right - sr.left) : 0, T = ui ? Math.max(0, $('#top').getBoundingClientRect().bottom - sr.top) : 0;
+  const tb=$('#tabs'), tabsB = ui && tb && !tb.hidden && tb.childElementCount ? tb.getBoundingClientRect().bottom - sr.top + 4 : 0; // the picture starts under the tab strip
+  const L = ui ? Math.max(0, $('#rail').getBoundingClientRect().right - sr.left) : 0, T = ui ? Math.max(0, $('#top').getBoundingClientRect().bottom - sr.top, tabsB) : 0;
   const R = $('#layers').hidden ? 0 : Math.min(316, st.clientWidth*0.5);
   const W=st.clientWidth-L-R, H=st.clientHeight-T;
   const s = Math.min(W/doc.w, H/doc.h)*0.92;
@@ -6558,7 +6561,7 @@ $('#stage').addEventListener('drop', e=>{ e.preventDefault(); const f=[...(e.dat
 document.addEventListener('paste', e=>{
   const items=[...(e.clipboardData?.items||[])], it=items.find(i=>i.type.startsWith('image/')), f=it&&it.getAsFile(), inField=e.target.matches&&e.target.matches('input,textarea');
   const own = clip && !clip.stale && !(inField && items.some(i=>i.type==='text/plain')); // our Ctrl+C is the freshest copy
-  if (aip && aip.detail && !aip.busy){ if (own){ e.preventDefault(); detailRefAdd(clipCopy(clip.ref||clip.c)); toast('Реф @img'+(detailRefs.length+1)+' из скопированного'+(clip.ref&&clip.ref._under?' · фон — слои под ним':''),1600); return; } if (f){ e.preventDefault(); detailRefFile([f]); return; } }
+  if (aip && aip.detail && !aip.busy){ if (own){ e.preventDefault(); detailRefAdd(clipCopy(clip.ref||clip.c)); if (sel) deselect(); toast('Реф @img'+(detailRefs.length+1)+' из скопированного'+(clip.ref&&clip.ref._under?' · фон — слои под ним':''),1600); return; } if (f){ e.preventDefault(); detailRefFile([f]); return; } }
   if (inField) return;
   if (own){ e.preventDefault(); pasteClip(); return; }
   if (f){ e.preventDefault(); placeFile(f); } });
@@ -6797,7 +6800,9 @@ stage.addEventListener('pointermove', e=>{
   if (rotDrag && e.pointerId===rotDrag.id){ const p=stagePos(e), a=Math.atan2(p[1]-rotDrag.cy, p[0]-rotDrag.cx); navStart(); rotateAt(rotDrag.cx, rotDrag.cy, a-rotDrag.a); rotDrag.a=a; return; }
   if (panDrag && e.pointerId===panDrag.id){ navStart(); view.x=panDrag.vx+e.clientX-panDrag.x; view.y=panDrag.vy+e.clientY-panDrag.y; requestRender(); return; }
   if (e.pointerId===toolPtr){ if (e.buttons===0 && e.pointerType!=='touch'){ toolUp(e); hover=stagePos(e); renderOverlay(); return; } lastPenT=Date.now(); toolMove(e); return; } // pen already lifted (lost pointerup, Pencil hover)
-  if (e.pointerType==='pen' || e.pointerType==='mouse'){ hover = (e.buttons===0) ? stagePos(e) : null; requestOverlay(); }
+  if (e.pointerType==='pen' || e.pointerType==='mouse'){ hover = (e.buttons===0) ? stagePos(e) : null; requestOverlay();
+    if (hover && (S.tool==='lasso'||S.tool==='rect'||S.tool==='wand')){ const [x,y]=toDoc(...hover), inn=!!sel && !xf && selHitFast(x,y); if (inn!==selHoverIn){ selHoverIn=inn; updateCursor(); } }
+    else if (selHoverIn){ selHoverIn=false; updateCursor(); } }
 });
 function endTouch(e){
   if (!touches.has(e.pointerId)) return;
@@ -6849,7 +6854,7 @@ function toolDown(e,p){
   if (crop){ if (e.button===2) return; toolPtr=e.pointerId; activeTool='crop'; cropDown(p); return; }
   if (sel && !xf && !edge && ['lasso','rect','wand','tap','patch'].includes(S.tool) && !altDown){ const [dx,dy]=toDoc(...p); if (dx<0||dy<0||dx>=doc.w||dy>=doc.h){ toolPtr=null; quickDeselect(); return; } }
   if (edge){ toast('Сначала примени или отмени край выделения'); toolPtr=null; return; }
-  toolPtr=e.pointerId; hover=null;
+  toolPtr=e.pointerId; hover=null; document.body.classList.add('tooling');
   const isSelT=['lasso','rect','wand','tap'].includes(S.tool);
   const t = activeTool = (altDown && !isSelT && !['transform','clone','heal'].includes(S.tool)) ? 'picker' : S.tool;
   if ((t==='clone'||t==='heal') && (altDown || clonePick)){ const [x,y]=toDoc(...p); setCloneSrc(x,y); toolPtr=null; return; }
@@ -6880,7 +6885,7 @@ function toolMove(e){
   if (t==='pup'){ if (pup) pupMove(stagePos(e)); return; }
   if (t==='crop'){ if (crop) cropMove(stagePos(e), e.shiftKey); return; }
   if (selMv.p){ const q=stagePos(e), [x,y]=toDoc(...q); if (!selMv.on && Math.hypot(q[0]-selMv.p[0],q[1]-selMv.p[1])>4) selMv.on=true;
-    if (selMv.on && sel){ let dx=Math.round(x-selMv.x0), dy=Math.round(y-selMv.y0); if (e.shiftKey){ if (Math.abs(dx)>Math.abs(dy)) dy=0; else dx=0; } sel.mv={dx,dy}; requestOverlay(); } return; }
+    if (selMv.on && sel){ if (!selMv.cur){ selMv.cur=true; updateCursor(); } let dx=Math.round(x-selMv.x0), dy=Math.round(y-selMv.y0); if (e.shiftKey){ if (Math.abs(dx)>Math.abs(dy)) dy=0; else dx=0; } sel.mv={dx,dy}; requestOverlay(); } return; }
   for (const ev of list){
     const p=stagePos(ev);
     if (srcDrag){ const [x,y]=toDoc(...p); cloneSrc={x:clamp(x+srcDrag.gx,0,doc.w-1), y:clamp(y+srcDrag.gy,0,doc.h-1)}; srcDrag.p=p; }
@@ -6938,6 +6943,14 @@ function svgCursor(paths, hx, hy, mode, extra){
   const svg="<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>"+g(3.6,'#fff')+g(1.5,'#111')+(extra||'')+"</svg>";
   return 'url("data:image/svg+xml,'+encodeURIComponent(svg)+'") '+hx+' '+hy+', crosshair';
 }
+const CUR_SELMOVE=(()=>{ const ar="M5 3v17l4.5-4.2 3 6.6 2.8-1.2-3-6.4H18z", bx="M19 20h9v8h-9z";
+  const svg="<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='"+ar+"' fill='#111' stroke='#fff' stroke-width='1.4' stroke-linejoin='round'/><path d='"+bx+"' fill='none' stroke='#fff' stroke-width='3'/><path d='"+bx+"' fill='none' stroke='#111' stroke-width='1.4' stroke-dasharray='2 2'/></svg>";
+  return 'url("data:image/svg+xml,'+encodeURIComponent(svg)+'") 5 3, move'; })();
+let selHoverIn=false;
+function selHitFast(x,y){ // hover test on a small copy of the selection mask (no GPU read per mouse move)
+  if (!sel || sel.inverted) return false; let h=sel._hit;
+  if (!h){ const k=Math.min(1, 1024/Math.max(doc.w,doc.h)), w=Math.max(1,Math.round(doc.w*k)), hh=Math.max(1,Math.round(doc.h*k)), c=mk(w,hh), cx=ctx2(c,{willReadFrequently:true}); cx.drawImage(sel.mask,0,0,w,hh); h=sel._hit={k,w,h:hh,d:cx.getImageData(0,0,w,hh).data}; }
+  const X=Math.floor(x*h.k), Y=Math.floor(y*h.k); if (X<0||Y<0||X>=h.w||Y>=h.h) return false; return h.d[(Y*h.w+X)*4+3]>127; }
 const CUR={
   lasso:m=>svgCursor(["M29.6 7.4c0 3-5.2 5.6-11.6 5.6S6.4 10.4 6.4 7.4 11.6 1.8 18 1.8s11.6 2.6 11.6 5.6z","M9 11.4c-2.2 1.2-2.1 3.2-.4 4.3 1.8 1.2 1.6 3.3-.3 4.8L3.2 27.8"],3,28,m,"<circle cx='3' cy='28' r='1.1' fill='#111'/>"),
   rect:m=>svgCursor(["M12 2v8M12 14v8M2 12h8M14 12h8"],12,12,m),
@@ -6956,6 +6969,7 @@ function updateCursor(){
   if (rHeld) { st.cursor='grab'; return; }
   const selT=['lasso','rect','wand','tap'].includes(t);
   if (!busyMode && capsOn && (selT || t==='picker')) { st.cursor='crosshair'; return; }
+  if (!busyMode && (t==='lasso'||t==='rect'||t==='wand') && ((selMv.p && selMv.on) || (selHoverIn && !shiftDown && !altDown && !ctrlDown))) { st.cursor=CUR_SELMOVE; return; }
   if (!busyMode && selT) { st.cursor=CUR[t](selModeNow()); return; }
   if (!busyMode && (t==='picker' || (altDown && !['transform','clone','heal'].includes(t)))) { st.cursor=CUR.picker(); return; }
   st.cursor = (t==='liquify'||t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)) ? 'none' : (t==='transform' ? 'move' : 'crosshair');
@@ -6970,8 +6984,9 @@ document.addEventListener('keyup', e=>{
 });
 window.addEventListener('blur', ()=>{ spaceDown=altDown=shiftDown=ctrlDown=hHeld=zHeld=rHeld=false; panDrag=zoomDrag=rotDrag=null; updateCursor(); });
 function toolUp(e){
+  document.body.classList.remove('tooling');
   if (selMv.p){ const m=selMv; selMv={skip:false}; toolPtr=null;
-    if (m.on && sel && sel.mv){ selShift(sel.mv.dx, sel.mv.dy); return; }
+    if (m.on && sel && sel.mv){ selShift(sel.mv.dx, sel.mv.dy); updateCursor(); return; }
     if (sel) delete sel.mv; selMv.skip=true; try{ toolDown(m.ev, m.p); }finally{ selMv.skip=false; } } // just a click inside: what the tool does on a click
   const t=activeTool; toolPtr=null; if (t==='pup'){ activeTool=null; if (pup) pupUp(); return; } if (t==='crop'){ activeTool=null; cropUp(); return; } if (penHold){ clearTimeout(penHold.T); penHold=null; }
   if (srcDrag){ srcDrag=null; cloneOff=null; renderOverlay(); toast('Источник на месте. Рисуй карандашом',1300); }
@@ -6989,7 +7004,7 @@ function toolUp(e){
   if (e.pointerType!=='touch') hover=stagePos(e);
   renderOverlay();
 }
-function toolCancel(){ toolPtr=null; if (pup) pup.drag=null; if(liqStroke) liqEnd(true); if(penHold){ clearTimeout(penHold.T); penHold=null; } if(eye) eyeEnd(true); srcDrag=null; if(patchDrag){ patchDrag=null; patchPrev=null; } if(t_patchLasso()) lassoPts=null; wandDrag=null; wandPrev=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
+function toolCancel(){ document.body.classList.remove('tooling'); toolPtr=null; if (pup) pup.drag=null; if(liqStroke) liqEnd(true); if(penHold){ clearTimeout(penHold.T); penHold=null; } if(eye) eyeEnd(true); srcDrag=null; if(patchDrag){ patchDrag=null; patchPrev=null; } if(t_patchLasso()) lassoPts=null; wandDrag=null; wandPrev=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
 
 /* ============ Кадрирование (C), Размер холста (Ctrl+Alt+C), Размер изображения (Ctrl+Alt+I) — like Photoshop ============ */
 /* new canvas rw×rh whose top-left is (rx,ry) of the old one: crop, extend or both; one undo step */
@@ -7133,7 +7148,7 @@ function detailRefLayer(){ const L=AL(); if (!L || !L.canvas){ toast('Выбер
   const r = sel ? selBBox() : contentBBox(L.canvas); if (!r || r.w<4 || r.h<4){ toast('Слой пустой'); return; }
   const c=mk(Math.round(r.w),Math.round(r.h)), x=ctx2(c); x.drawImage(L.canvas, Math.round(r.x),Math.round(r.y),c.width,c.height, 0,0,c.width,c.height);
   if (sel){ x.globalCompositeOperation='destination-in'; x.drawImage(sel.mask, Math.round(r.x),Math.round(r.y),c.width,c.height, 0,0,c.width,c.height); }
-  const u=refUnder(c, L, Math.round(r.x), Math.round(r.y)); detailRefAdd(u); toast('Реф @img'+(detailRefs.length+1)+': «'+L.name+'»'+(sel?' (выделенное)':'')+(u._under?' · фон — слои под ним':''),1800); }
+  const u=refUnder(c, L, Math.round(r.x), Math.round(r.y)); detailRefAdd(u); if (sel) deselect(); toast('Реф @img'+(detailRefs.length+1)+': «'+L.name+'»'+(sel?' (выделенное)':'')+(u._under?' · фон — слои под ним':''),1800); }
 function detailReframe(){ const a=aip; if (!a || !a.detail || a.busy) return; if (detailLast) detailLast.words=a.words||'';
   if (a.variants.length && a.layer){ aiDone(); toast('Готовый вариант остался слоем «'+a.layer.name+'» — двигай рамку дальше',2200); } else aiCancel();
   cropOpen({detail:true}); }
@@ -7704,7 +7719,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-17 · №73 реф-вырезка с фоном из слоёв под ним'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-17 · №74 вкладки не мешают холсту; курсор сдвига выделения; выделение снимается после рефа'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
