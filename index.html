@@ -1970,7 +1970,7 @@ function copySel(merged){
   const c=mk(r.w,r.h), x=ctx2(c); x.drawImage(src, r.x,r.y,r.w,r.h, 0,0,r.w,r.h);
   if (sel){ x.globalCompositeOperation='destination-in'; x.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,r.w,r.h); x.globalCompositeOperation='source-over'; }
   if (!merged && L.mask && L.mask.enabled){ x.globalCompositeOperation='destination-in'; x.drawImage(L.mask.canvas, r.x,r.y,r.w,r.h, 0,0,r.w,r.h); x.globalCompositeOperation='source-over'; }
-  clip={c, x:r.x, y:r.y, name: merged ? 'Вставка' : L.name, stale:false};
+  clip={c, x:r.x, y:r.y, name: merged ? 'Вставка' : L.name, stale:false, ref: merged ? null : refUnder(c, L, r.x, r.y)};
   try{ if (navigator.clipboard && window.ClipboardItem) navigator.clipboard.write([new ClipboardItem({'image/png': new Promise(res=>c.toBlob(res,'image/png'))})]).catch(()=>{}); }catch(e){}
   toast((merged?'Видимое скопировано':'Скопировано')+' · '+r.w+'×'+r.h+(aip&&aip.detail?' · Ctrl+V — в рефы':''),1500); }
 function clipCopy(c){ const q=mk(c.width,c.height); ctx2(q).drawImage(c,0,0); return q; }
@@ -6558,7 +6558,7 @@ $('#stage').addEventListener('drop', e=>{ e.preventDefault(); const f=[...(e.dat
 document.addEventListener('paste', e=>{
   const items=[...(e.clipboardData?.items||[])], it=items.find(i=>i.type.startsWith('image/')), f=it&&it.getAsFile(), inField=e.target.matches&&e.target.matches('input,textarea');
   const own = clip && !clip.stale && !(inField && items.some(i=>i.type==='text/plain')); // our Ctrl+C is the freshest copy
-  if (aip && aip.detail && !aip.busy){ if (own){ e.preventDefault(); detailRefAdd(clipCopy(clip.c)); toast('Реф @img'+(detailRefs.length+1)+' из скопированного',1400); return; } if (f){ e.preventDefault(); detailRefFile([f]); return; } }
+  if (aip && aip.detail && !aip.busy){ if (own){ e.preventDefault(); detailRefAdd(clipCopy(clip.ref||clip.c)); toast('Реф @img'+(detailRefs.length+1)+' из скопированного'+(clip.ref&&clip.ref._under?' · фон — слои под ним':''),1600); return; } if (f){ e.preventDefault(); detailRefFile([f]); return; } }
   if (inField) return;
   if (own){ e.preventDefault(); pasteClip(); return; }
   if (f){ e.preventDefault(); placeFile(f); } });
@@ -7118,13 +7118,22 @@ const DETAIL_MODELS=[['','как в ⚙'],[NB21,'Banana 2.1'],['bytedance-seed/s
 let detailRefs=[]; // reference pictures (canvases), kept between runs: @img2, @img3…
 function refTrim(c){ // a reference without empty transparent margins: the model should not copy a blank background
   const b=contentBBox(c); if (!b || (b.w>=c.width-2 && b.h>=c.height-2)) return c; const q=mk(b.w,b.h); ctx2(q).drawImage(c,b.x,b.y,b.w,b.h,0,0,b.w,b.h); return q; }
+function refUnder(c, L, rx, ry){ // a cut-out reference gets what lies under it in the picture (layers below L), instead of an empty background
+  const b=contentBBox(c); if (!b) return c; let t=c;
+  if (b.w<c.width || b.h<c.height){ t=mk(b.w,b.h); ctx2(t).drawImage(c,b.x,b.y,b.w,b.h,0,0,b.w,b.h); }
+  const d=ctx2(t,{willReadFrequently:true}).getImageData(0,0,t.width,t.height).data; let holes=0; for (let i=3;i<d.length;i+=4*7) if (d[i]<250) holes++;
+  const i=doc.layers.indexOf(L); if (!holes || i<1) return t;
+  const r={x:rx+b.x, y:ry+b.y, w:t.width, h:t.height}, bg=compositeBelow(r, r.w, r.h, i);
+  const bd=ctx2(bg,{willReadFrequently:true}).getImageData(0,0,r.w,r.h).data; let filled=0; for (let k=3;k<bd.length;k+=4*7) if (bd[k]>200) filled++;
+  if (filled < holes*0.5) return t; // nothing much below — keep the cut-out, the neutral fill does the rest
+  const o=mk(r.w,r.h), x=ctx2(o); x.drawImage(bg,0,0); x.drawImage(t,0,0); o._under=true; return o; }
 function detailRefAdd(c){ if (!c) return; c=refTrim(c); if (detailRefs.length>=4){ toast('Хватит четырёх рефов — убери лишний ×'); return; } detailRefs.push(c); if (aip && aip.detail) aiBuild(); }
 async function detailRefFile(files){ for (const f of files){ try{ const bm=await createImageBitmap(f), c=mk(bm.width,bm.height); ctx2(c).drawImage(bm,0,0); bm.close&&bm.close(); detailRefAdd(c); }catch(e){ toast('Не открылся файл: '+f.name); } } }
 function detailRefLayer(){ const L=AL(); if (!L || !L.canvas){ toast('Выбери слой с картинкой'); return; }
   const r = sel ? selBBox() : contentBBox(L.canvas); if (!r || r.w<4 || r.h<4){ toast('Слой пустой'); return; }
   const c=mk(Math.round(r.w),Math.round(r.h)), x=ctx2(c); x.drawImage(L.canvas, Math.round(r.x),Math.round(r.y),c.width,c.height, 0,0,c.width,c.height);
   if (sel){ x.globalCompositeOperation='destination-in'; x.drawImage(sel.mask, Math.round(r.x),Math.round(r.y),c.width,c.height, 0,0,c.width,c.height); }
-  detailRefAdd(c); toast('Реф @img'+(detailRefs.length+1)+': «'+L.name+'»'+(sel?' (выделенное)':''),1600); }
+  const u=refUnder(c, L, Math.round(r.x), Math.round(r.y)); detailRefAdd(u); toast('Реф @img'+(detailRefs.length+1)+': «'+L.name+'»'+(sel?' (выделенное)':'')+(u._under?' · фон — слои под ним':''),1800); }
 function detailReframe(){ const a=aip; if (!a || !a.detail || a.busy) return; if (detailLast) detailLast.words=a.words||'';
   if (a.variants.length && a.layer){ aiDone(); toast('Готовый вариант остался слоем «'+a.layer.name+'» — двигай рамку дальше',2200); } else aiCancel();
   cropOpen({detail:true}); }
@@ -7695,7 +7704,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-17 · №72 двигать выделение; «Ещё вариант» заметнее; Деталь не копирует кадр рефа'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-17 · №73 реф-вырезка с фоном из слоёв под ним'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
