@@ -228,11 +228,11 @@ body.tooling #tabs .tab,body.tooling #tabs .tplus,body.tooling #zoomBadge{pointe
 #hue{width:100%;height:22px;border-radius:11px;touch-action:none;display:block}
 #recent{display:flex;flex-wrap:wrap;gap:6px}
 #recent button{width:26px;height:26px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
-#aiedit{position:absolute;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.55);display:flex;flex-direction:column;overflow:hidden;min-width:280px}
+#aiedit{position:absolute;z-index:20;background:var(--glass-bg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);border-radius:20px;box-shadow:var(--glass-hi),var(--glass-shadow);display:flex;flex-direction:column;overflow:hidden;min-width:280px}
 #aiedit .aeh{display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;border-bottom:1px solid var(--line);cursor:move;touch-action:none;font-size:13px}
 #aiedit .aeh b{color:#f0b46a;font-weight:600;white-space:nowrap} #aeVer{flex:1;min-width:0;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #aiedit .aeh button{width:28px;height:26px;border-radius:7px;color:var(--muted);flex:none} #aiedit .aeh button:hover{background:var(--panel-2);color:var(--fg)}
-#aiedit iframe{flex:1;border:0;width:100%;min-height:0;background:var(--panel)} #aiedit.drag iframe{pointer-events:none}
+#aiedit iframe{flex:1;border:0;width:100%;min-height:0;background:transparent} #aiedit.drag iframe{pointer-events:none}
 #aiedit:not(.pad) #aeHints{display:none} #aiedit #aeHints.on{color:#f0b46a}
 #aiedit.pad .aegrip{display:none}
 #aiedit .aegrip{height:10px;cursor:ns-resize;touch-action:none;flex:none;background:linear-gradient(var(--line),var(--line)) center/34px 2px no-repeat}
@@ -418,7 +418,8 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #airail .tb{width:40px;height:40px;padding:0;border-radius:12px;color:#f0b46a}
 #airail .tb svg{width:22px;height:22px}
 .hideui #airail{display:none}
-@keyframes pvDock{from{opacity:0}to{opacity:1}} #stage #aibar.dock{animation:none;box-sizing:border-box} #stage #aibar.dock .er{grid-template-columns:96px 1fr 44px} #aibar.dock .eh{cursor:move;touch-action:none;user-select:none}
+@keyframes pvDock{from{opacity:0}to{opacity:1}} #stage .fbar.dock{animation:none;box-sizing:border-box} #stage .fbar.dock .er{grid-template-columns:96px 1fr 44px} #stage .fbar.dock .eb{flex-wrap:wrap;row-gap:6px} #stage .fbar.dock{max-height:calc(100% - 20px);overflow-y:auto}
+#stage .fbar.dock .eh{cursor:move;touch-action:none;user-select:none} 
 .hideui #layers{top:10px}
 #status{left:94px;top:84px;bottom:auto}
 #status span{background:var(--glass-bg);border:1px solid var(--glass-edge);border-radius:10px;padding:4px 9px}
@@ -525,6 +526,16 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #cropbar .seg button{flex:none;padding:0 10px}
 .anc{display:grid;grid-template-columns:repeat(3,26px);gap:4px}.anc button{width:26px;height:26px;padding:0;border-radius:6px;background:var(--soft)}.anc button.on{background:var(--accent)}
 .dims{display:flex;gap:10px;flex-wrap:wrap}.dims label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}.dims input[type=number]{width:110px}
+#notesCard{position:absolute;z-index:6;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:18px;overflow-y:auto;background:var(--glass-bg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);font-size:12.5px;line-height:1.38}
+#notesCard .nh{display:flex;align-items:center;gap:6px} #notesCard .nh b{font-weight:600;color:#f0b46a} #notesCard .nh span{flex:1;color:var(--muted);font-size:11px}
+#notesCard .nh button{width:24px;height:24px;border-radius:7px;color:var(--muted)} #notesCard .nh button:hover{background:var(--soft-3);color:var(--fg)}
+#notesCard .ns{margin:0;color:var(--muted)}
+#notesCard .ni{display:flex;gap:8px;padding:7px 8px;border-radius:11px;background:var(--soft);cursor:pointer}
+#notesCard .ni.on{box-shadow:inset 0 0 0 1.5px #eab066}
+#notesCard .ni > b{flex:none;width:20px;height:20px;border-radius:10px;background:#ffb35c;color:#1b1208;font-size:11px;display:flex;align-items:center;justify-content:center}
+#notesCard .ni i{display:block;font-style:normal;font-weight:600;margin-bottom:2px} #notesCard .ni em{font-style:normal;color:var(--muted)}
+#notesChip{pointer-events:auto;cursor:pointer;color:#f0b46a}
+.hideui #notesCard{display:none}
 #critbar .crl,#pupbar .crl{display:flex;flex-direction:column;gap:6px;overflow:auto;min-height:0;margin:0 -4px;padding:0 4px}
 #critbar .crn,#pupbar .crn{display:flex;gap:10px;align-items:flex-start;text-align:left;height:auto;padding:8px 10px;border-radius:12px;background:var(--soft);white-space:normal;line-height:1.35}
 #critbar .crn.on,#pupbar .crn.on{box-shadow:inset 0 0 0 2px #eab066}
@@ -1375,7 +1386,8 @@ function renderOverlay(){ if(!doc) return;
       ants(); } }
   if (lassoPts && lassoPts.length>1){ ox.beginPath(); lassoPts.forEach((p,i)=>{const [sx,sy]=toScr(p[0],p[1]); i?ox.lineTo(sx,sy):ox.moveTo(sx,sy);}); ants(); }
   if (rectSel){ const r=normRect(rectSel); polyPath([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); ants(); }
-  if (typeof crit!=='undefined' && crit) critOverlay(ox);
+  if (typeof notesOverlay!=='undefined' && notesDocRef!==doc){ notesDocRef=doc; notesRender(); } // another document — its own notes
+  if (typeof crit!=='undefined' && crit) critOverlay(ox); else if (typeof notesOverlay!=='undefined'){ notesOverlay(ox); notesLayout(); }
   { // canvas frame, always crisp on top
     ox.beginPath(); [[0,0],[doc.w,0],[doc.w,doc.h],[0,doc.h]].forEach((q,i)=>{ const [a,b]=toScr(q[0],q[1]); i?ox.lineTo(a,b):ox.moveTo(a,b); }); ox.closePath();
     ox.lineWidth = xf ? 1.5 : 1; ox.strokeStyle = xf ? 'rgba(255,255,255,.85)' : 'rgba(0,0,0,.55)'; ox.setLineDash(xf?[6,4]:[]); ox.stroke(); ox.setLineDash([]);
@@ -3390,13 +3402,13 @@ function aiBuild(){
   if (a.variants.length) foot.append(B(a.perVariant && a.variants.length>1 ? '✓ Оставить слои' : '✓ Оставить слой',aiDone,'pri')); box.append(foot);
 }
 async function aiGo(){
-  const a=aip; if (!a || a.busy) return; if (!orNeed()) return;
+  const a=aip; if (!a || a.busy) return; if (!a.local && !orNeed()) return;
   a.cancelled=false; netSess=a;
   try{
     a.busy=a.busyText||'нейросеть думает…'; aiBuild();
     const res=await a.run(a.words.trim()); if (aip!==a) return;
     if (res.cost) a.cost+=res.cost; const first=a.variants.length; a.variants.push(...res.bitmaps);
-    a.busy=null; toast('Готово'+(res.cost?' · $'+res.cost.toFixed(3):''),1500); aiPick(first); if (res.warn) toast(res.warn,5000); // warnings from applying / checking the answer stay on screen
+    a.busy=null; if (!a.local) toast('Готово'+(res.cost?' · $'+res.cost.toFixed(3):''),1500); aiPick(first); if (res.warn) toast(res.warn,5000); // warnings from applying / checking the answer stay on screen
   }catch(e){ a.busy=null; if (e.message!=='cancel'){ console.error(e); toast(a.title+': '+e.message,4500); } }
   finally{ netSess=null; if (aip===a) aiBuild(); }
 }
@@ -3429,14 +3441,16 @@ function fitIntoScene(){
   if (sel){ cx.globalCompositeOperation='destination-in'; cx.drawImage(sel.mask,0,0); }
   const b=sel ? selBBox() : contentBBox(clip); if (!b || !b.w){ toast('На слое пусто'); return; }
   if (b.w*b.h > doc.w*doc.h*0.85){ toast('Слой занимает весь кадр — выдели вставку или выбери её слой',3200); return; }
-  const r=regionFor(b,0.35), [W,H]=modelSize(r);
-  aiOpen({ title:'Вписать в сцену', sub:'свет, цвет и зерно под окружение', askWords:'Подсказка', placeholder:'например: закатный свет слева, дым',
-    hint:'Модель перерисует вставку под свет сцены, форма и детали остаются. Ложится новым слоем поверх — силу меняй прозрачностью.', goLabel:'Вписать', busyText:'вписываю в сцену…', auto:true,
+  const r=regionFor(b,0.35), kk=Math.min(1, 3072/Math.max(r.w,r.h)), W=Math.max(64,Math.round(r.w*kk)), H=Math.max(64,Math.round(r.h*kk)); // native size: the answer is not blown up from ~1 MP any more
+  const fitRes=()=>{ const Lm=Math.max(W,H); let q = Lm<=1100 ? '2K' : '4K'; if (/seedream/i.test(edProv()==='google'?'':genCfg.orModel||'')) q='2K'; return q; };
+  aiOpen({ title:'Вписать в сцену', sub:'«'+L.name+'» · '+W+'×'+H+' → модель '+fitRes(), askWords:'Подсказка', placeholder:'например: закатный свет слева, дым',
+    hint:'Модель перерисует вставку под свет сцены, форма и детали остаются. Ложится новым слоем поверх — силу меняй прозрачностью.', goLabel:'Вписать', busyText:'вписываю в сцену…',
     layerName:'Вписано · '+L.name, insertAt:()=>doc.layers.indexOf(L)+1, doneMsg:'Готово. Слишком сильно — убавь прозрачность слоя «Вписано»',
     run:async words=>{ const img=regionImage(r,W,H), mask=maskOf(clip,r,W,H,2);
       const ask='This is a photobash composite. The subject in the middle was pasted in from another photo. Re-render ONLY that pasted subject so it truly belongs in this scene: match the light direction and softness, light colour and temperature, shadow density, bounce light and colour reflections from the surroundings, rim light, contrast, saturation, black levels, film grain, sharpness and depth of field.'
         +(words?' Artist note: '+words+'.':'')+' Keep its silhouette, pose, proportions, face and identity, clothing design and small details exactly the same, do not move or resize it. Do not change the background or anything outside the subject.';
-      return orRequest(img, ask, 1, {mask}); },
+      const out=await orRequest(img, ask, 1, {mask, res:fitRes()});
+      return {bitmaps: out.bitmaps.map(b=>expandAlign(img, b, {x:0,y:0,w:W,h:H}).c), cost:out.cost}; }, // models like to nudge the picture by a few pixels — line it back up
     apply:(ctx,c)=>pasteClipped(ctx,c,r,clip) });
 }
 /* ---- 2. sketch to render: a rough painted area inside the selection becomes a finished piece ---- */
@@ -3583,12 +3597,15 @@ function expandAlign(ref, out, ib){
 /* ---- 4. art director: a vision model looks at the frame and leaves numbered notes on the canvas ---- */
 let crit=null;
 const plur=(n,a,b,c)=>{ const m10=n%10, m100=n%100; return m10===1&&m100!==11 ? a : m10>=2&&m10<=4&&(m100<10||m100>=20) ? b : c; };
-async function artDirector(){
+function artDirector(){ // the panel opens first: mode, then «Разобрать»
+  if (!doc) return; if (crit){ $('#critbar').hidden=false; critBuild(); dockPlace($('#critbar')); return; }
+  crit={idle:true, notes:[], summary:'', sel:-1}; critBuild(); $('#critbar').hidden=false; dockPlace($('#critbar')); }
+async function critRun(){
   if (!doc || !orNeed()) return; if (crit && crit.busy) return;
   const mode=genCfg.critDeep ? 'deep' : 'fast', CM=CRIT_MODELS[mode];
   const k=Math.min(1,(mode==='deep'?2048:1568)/Math.max(doc.w,doc.h)), W=Math.round(doc.w*k), H=Math.round(doc.h*k); // the deep one gets more pixels to look at
   const img=regionImage({x:0,y:0,w:doc.w,h:doc.h},W,H);
-  crit={busy:true, notes:[], summary:'', sel:-1, mode, t0:Date.now()}; critBuild(); $('#critbar').hidden=false;
+  crit={busy:true, notes:[], summary:'', sel:-1, mode, t0:Date.now()}; critBuild(); $('#critbar').hidden=false; dockPlace($('#critbar'));
   const ask='Ты — арт-директор визуальных новелл. Перед тобой кат-сцена (иллюстрация) в работе: фотобаш плюс нейросети. Разбери кадр по-деловому и по-русски: свет и тени (согласованность источников, контактные тени), перспектива и масштаб, анатомия и позы, композиция и читаемость главного, цвет и тон, стыки фотобаша и следы нейросети (лишние пальцы, кривой текст, мыло, повторяющиеся текстуры). Только реальные проблемы, от важных к мелким, не больше 8. Ответь ТОЛЬКО JSON: {"summary":"одна-две фразы общего впечатления","notes":[{"x":0..1,"y":0..1,"r":0..0.5,"kind":"свет|перспектива|анатомия|композиция|цвет|стык|деталь","title":"коротко","text":"что не так и как поправить, 1–2 предложения"}]} где x,y — центр проблемного места в долях ширины и высоты, r — радиус области в долях ширины.';
   const body={model: mode==='deep' ? CM.or : (genCfg.orVision||CM.or), messages:[{role:'user', content:[{type:'text', text:ask},{type:'image_url', image_url:{url:img.toDataURL('image/jpeg',0.9)}}]}], response_format:{type:'json_object'}, temperature:0.3};
   const c0=crit; netSess=c0;
@@ -3606,10 +3623,10 @@ async function artDirector(){
   c0.busy=false; critBuild(); requestRender();
 }
 function critBuild(){ const c=crit, box=$('#critbar'); if (!c) return; box.textContent='';
-  const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Арт-директор <span></span>'; head.lastChild.textContent= c.busy ? (c.mode==='deep' ? 'Argon разбирает кадр — это может занять пару минут…' : 'смотрю кадр…') : c.notes.length ? c.notes.length+' '+plur(c.notes.length,'замечание','замечания','замечаний')+(c.cost?' · $'+c.cost.toFixed(3):'') : 'серьёзных замечаний нет'; box.append(head);
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Арт-директор <span></span>'; head.lastChild.textContent= c.idle ? 'разбор всего кадра' : c.busy ? (c.mode==='deep' ? 'Argon разбирает кадр — это может занять пару минут…' : 'смотрю кадр…') : c.notes.length ? c.notes.length+' '+plur(c.notes.length,'замечание','замечания','замечаний')+(c.cost?' · $'+c.cost.toFixed(3):'') : 'серьёзных замечаний нет'; box.append(head);
   { const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>Разбор</label><div class="seg"><button data-m="fast">Быстрый · Flash</button><button data-m="deep">Глубокий · Argon</button></div>';
     r.querySelectorAll('button').forEach(b=>{ b.classList.toggle('on', (b.dataset.m==='deep')===!!genCfg.critDeep); b.disabled=c.busy;
-      b.onclick=()=>{ const deep=b.dataset.m==='deep'; if (deep===!!genCfg.critDeep) return; genCfg.critDeep=deep; genSave(); crit=null; artDirector(); }; });
+      b.onclick=()=>{ const deep=b.dataset.m==='deep'; if (deep===!!genCfg.critDeep) return; genCfg.critDeep=deep; genSave(); if (c.idle){ critBuild(); return; } crit=null; critRun(); }; });
     box.append(r);
     if (!c.busy && c.mode){ const g=document.createElement('div'); g.className='gh'; g.textContent=(c.mode==='deep'?'Глубокий разбор · Gemini 4 Argon':'Быстрый разбор · Gemini Flash')+(c.secs?' · '+c.secs+' с':'')+(c.mode==='fast'?' · для разбора глубже переключи на Argon (дольше и дороже)':''); box.append(g); } }
   if (c.summary){ const s=document.createElement('div'); s.className='gh'; s.style.fontSize='13px'; s.textContent=c.summary; box.append(s); }
@@ -3617,9 +3634,41 @@ function critBuild(){ const c=crit, box=$('#critbar'); if (!c) return; box.textC
   c.notes.forEach((n,i)=>{ const b=document.createElement('button'); b.className='crn'+(i===c.sel?' on':''); b.innerHTML='<b></b><span><i></i><em></em></span>'; b.firstChild.textContent=i+1; b.querySelector('i').textContent=n.title+(n.kind?' · '+n.kind:''); b.querySelector('em').textContent=n.text;
     b.onclick=()=>{ c.sel = c.sel===i ? -1 : i; critBuild(); requestRender(); }; list.append(b); }); box.append(list);
   const foot=document.createElement('div'); foot.className='eb'; const sp=document.createElement('span'); sp.style.flex='1';
-  const again=document.createElement('button'); again.textContent='↻ Ещё раз'; again.onclick=()=>{ crit=null; artDirector(); }; again.disabled=c.busy;
-  const close=document.createElement('button'); close.className='pri'; close.textContent='Закрыть'; close.onclick=()=>{ if (crit){ crit.cancelled=true; try{ crit.abort&&crit.abort.abort(); }catch(e){} } crit=null; $('#critbar').hidden=true; requestRender(); };
+  const again=document.createElement('button'); again.textContent='↻ Ещё раз'; again.onclick=()=>{ crit=null; critRun(); }; again.disabled=c.busy;
+  const close=document.createElement('button'); close.textContent= c.busy ? 'Остановить' : 'Закрыть'; close.onclick=()=>{ if (crit){ crit.cancelled=true; try{ crit.abort&&crit.abort.abort(); }catch(e){} } crit=null; $('#critbar').hidden=true; requestRender(); };
+  if (c.idle){ const go=document.createElement('button'); go.className='pri'; go.textContent='Разобрать'; go.onclick=()=>{ crit=null; critRun(); };
+    if (doc && doc.notes && doc.notes.items.length){ const un=document.createElement('button'); un.textContent='Убрать заметки с полей'; un.onclick=()=>{ notesSet(null); critBuild(); }; foot.append(un); }
+    foot.append(sp, close, go); box.append(foot); return; }
+  if (!c.busy && c.notes.length){ const pin=document.createElement('button'); pin.className='alt'; pin.textContent='📌 На поля'; pin.title='Оставить замечания рядом с картинкой, на серой области — свериться во время работы';
+    pin.onclick=()=>{ notesSet({summary:c.summary, mode:c.mode, t:Date.now(), items:c.notes.map(n=>({x:n.x,y:n.y,r:n.r,title:n.title,kind:n.kind,text:n.text}))}); crit=null; $('#critbar').hidden=true; requestRender(); toast('Замечания на полях — переключить: кнопка «Заметки» у счётчиков',2600); };
+    foot.append(pin); }
   foot.append(sp, again, close); box.append(foot); }
+/* ---- art director's notes kept beside the picture (on the grey), saved with the document ---- */
+var notesDocRef;
+function notesSet(n){ if (!doc) return; doc.notes=n; doc.notesHide=false; markDirty(); notesRender(); requestRender(); }
+function notesRender(){ let box=$('#notesCard'), chip=$('#notesChip');
+  if (!box){ box=document.createElement('div'); box.id='notesCard'; $('#stage').append(box); chip=document.createElement('span'); chip.id='notesChip'; chip.title='Заметки арт-директора — показать / спрятать'; $('#status').append(chip);
+    chip.onclick=()=>{ if (!doc||!doc.notes) return; doc.notesHide=!doc.notesHide; notesRender(); requestRender(); }; }
+  const n=doc && doc.notes; chip.hidden=!n; box.hidden=!n || doc.notesHide; if (!n) return; chip.textContent='📌 Заметки '+n.items.length+(doc.notesHide?' · скрыты':'');
+  if (box.dataset.t!==String(n.t)){ box.dataset.t=String(n.t); box.textContent='';
+    const h=document.createElement('div'); h.className='nh'; h.innerHTML='<b>Арт-директор</b><span></span><button title="Спрятать (кнопка «Заметки» вернёт)">—</button><button title="Убрать заметки">×</button>';
+    h.querySelector('span').textContent=n.mode==='deep'?'Argon':'Flash'; const [hb,xb]=h.querySelectorAll('button'); hb.onclick=()=>{ doc.notesHide=true; notesRender(); requestRender(); }; xb.onclick=()=>{ notesSet(null); };
+    box.append(h); if (n.summary){ const sm=document.createElement('p'); sm.className='ns'; sm.textContent=n.summary; box.append(sm); }
+    n.items.forEach((it,i)=>{ const d=document.createElement('div'); d.className='ni'; d.innerHTML='<b></b><div><i></i><em></em></div>'; d.firstChild.textContent=i+1; d.querySelector('i').textContent=it.title+(it.kind?' · '+it.kind:''); d.querySelector('em').textContent=it.text;
+      d.onclick=()=>{ doc.notesSel = doc.notesSel===i ? -1 : i; box.querySelectorAll('.ni').forEach((e,k)=>e.classList.toggle('on',k===doc.notesSel)); requestRender(); }; box.append(d); }); }
+  notesLayout(); }
+function notesLayout(){ const box=$('#notesCard'); if (!box || box.hidden || !doc) return; const st=$('#stage').getBoundingClientRect(), m=viewM();
+  const xs=[[0,0],[doc.w,0],[0,doc.h],[doc.w,doc.h]].map(([x,y])=>m[0]*x+m[2]*y+m[4]), right=Math.max(...xs), left=Math.min(...xs);
+  const rr=$('#airail'), ly=$('#layers'), edgeR=(rr && rr.offsetParent ? rr.getBoundingClientRect().left : !ly.hidden ? ly.getBoundingClientRect().left : st.right)-st.left-10;
+  const edgeL=$('#rail').getBoundingClientRect().right-st.left+10, top=Math.max(8, $('#status').getBoundingClientRect().bottom-st.top+10);
+  const roomR=edgeR-(right+14), roomL=(left-14)-edgeL; let w, x;
+  if (roomR>=220){ w=Math.min(320,roomR); x=right+14; } else if (roomL>=220){ w=Math.min(320,roomL); x=left-14-w; } else { w=300; x=edgeR-w; } // no grey left: float at the side
+  Object.assign(box.style,{left:x+'px', top:top+'px', width:w+'px', maxHeight:(st.height-top-12)+'px'}); }
+function notesOverlay(ox){ if (!doc || !doc.notes || doc.notesHide) return; const m=viewM(), sc=Math.hypot(m[0],m[1]);
+  doc.notes.items.forEach((n,i)=>{ const [x,y]=toScr(n.x,n.y), on=i===doc.notesSel, R=Math.max(12,n.r*sc);
+    ox.save(); ox.shadowColor='rgba(0,0,0,.6)'; ox.shadowBlur=4;
+    if (on){ ox.lineWidth=2; ox.setLineDash([6,5]); ox.strokeStyle='rgba(255,179,92,.9)'; ox.beginPath(); ox.arc(x,y,R,0,Math.PI*2); ox.stroke(); ox.setLineDash([]); }
+    const bx=on?x+R*0.71:x, by=on?y-R*0.71:y; ox.fillStyle=on?'#ffb35c':'rgba(255,179,92,.78)'; ox.beginPath(); ox.arc(bx,by,9,0,Math.PI*2); ox.fill(); ox.shadowBlur=0; ox.fillStyle='#1b1208'; ox.font='600 11px system-ui'; ox.textAlign='center'; ox.textBaseline='middle'; ox.fillText(String(i+1),bx,by+0.5); ox.restore(); }); }
 function critOverlay(ox){ if (!crit || !crit.notes.length) return; const m=viewM(), sc=Math.hypot(m[0],m[1]);
   crit.notes.forEach((n,i)=>{ const [x,y]=toScr(n.x,n.y), R=Math.max(14,n.r*sc), on=i===crit.sel;
     ox.save(); ox.lineWidth=on?3:2; ox.setLineDash(on?[]:[6,5]); ox.strokeStyle=on?'#ffb35c':'rgba(255,179,92,.85)'; ox.shadowColor='rgba(0,0,0,.6)'; ox.shadowBlur=4;
@@ -4757,6 +4806,7 @@ async function matteOf(src, kind){ // src canvas → {a8, W, H} soft alpha at (u
       const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.95)); const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),240000); let r;
       try{ r=await fetch(sdBase()+'/proyavka/subject?kind='+use,{method:'POST', headers:{'Content-Type':'image/jpeg'}, body:blob, signal:ctl.signal}); } finally{ clearTimeout(T); }
       if (!r.ok){ let e='ошибка'; try{ e=(await r.json()).error; }catch(_){ } throw new Error(e); }
+      if (PC.caps && PC.caps[use]) PC.caps[use].status='ready'; // loaded now — no «first time ~20 s» on the next run
       const bm=await createImageBitmap(await r.blob()); const m=mk(W,H), mx=ctx2(m,{willReadFrequently:true}); mx.drawImage(bm,0,0,W,H); bm.close&&bm.close();
       const d=mx.getImageData(0,0,W,H).data, a8=new Uint8Array(W*H); for (let i=0,j=0;i<a8.length;i++,j+=4) a8[i]=d[j];
       return {a8, W, H, by: use==='matting' ? 'BiRefNet matting' : 'BiRefNet'}; }
@@ -4772,6 +4822,10 @@ async function matteOf(src, kind){ // src canvas → {a8, W, H} soft alpha at (u
   const d=bx.getImageData(0,0,W,H).data, a8=new Uint8Array(W*H); for (let i=0,j=0;i<a8.length;i++,j+=4) a8[i]=d[j];
   return {a8, W, H, by:'ISNet'};
 }
+function rmbgOpen(){ if (!doc || panelBusy()) return; const L=AL(); if (!L || isGroup(L) || L.kind==='adj'){ toast('Выбери слой с картинкой',2000); return; }
+  aiOpen({ title:'Удалить фон', local:true, sub:'слой «'+L.name+'»', goLabel:'Удалить фон', busyText:'отделяю фон…',
+    hint:'Фон прячется маской слоя с мягким краем (волосы, ткань) — пиксели не трогаются, маску можно докрасить кистью. На компьютере — точная модель BiRefNet, без него — модель здесь.',
+    run: async()=>{ const a=aip; await removeBackground(); setTimeout(()=>{ if (aip===a) aiDone(); },0); return {bitmaps:[]}; }, apply:()=>{} }); }
 async function removeBackground(){
   if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   const L=AL(); if (isGroup(L) || L.kind==='adj'){ toast('Выбери слой с картинкой',2000); return; }
@@ -5733,7 +5787,7 @@ $('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aim
   const r=$('#bAI').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
 document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePops(); const a=b.dataset.a; if (!doc) return;
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
-  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, detail:()=>cropOpen({detail:true}), critic:artDirector, aiedit:()=>aeOpen(), rmbg:removeBackground, set:genSettings})[a](); });
+  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, detail:()=>cropOpen({detail:true}), critic:artDirector, aiedit:()=>aeOpen(), rmbg:rmbgOpen, set:genSettings})[a](); });
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,#bImg,.tgm,.pickHere')) closePops(); },true);
 document.addEventListener('pointerdown',e=>{ const a=document.activeElement; if (a && a.matches && a.matches('input,textarea') && !e.target.closest('input,textarea,select,label,.dlg') && (e.target.closest('#stage canvas,.ly,#layers') || e.target.tagName==='CANVAS')) a.blur(); },true);
 document.addEventListener('keydown',e=>{ if (e.key==='Escape' && !$('#lyCtx').hidden) $('#lyCtx').hidden=true; });
@@ -5741,7 +5795,7 @@ $('#bImg').onclick=e=>{ e.stopPropagation(); closePops('imgmenu'); const m=$('#i
   m.querySelector('#imgInfo').textContent = doc ? doc.w+'×'+doc.h+' px · '+(doc.dpi||72)+' ppi · '+((doc.w/(doc.dpi||72))*2.54).toFixed(1)+'×'+((doc.h/(doc.dpi||72))*2.54).toFixed(1)+' см' : '';
   const r=$('#bImg').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
 document.querySelectorAll('#imgmenu [data-i]').forEach(b=>b.onclick=()=>{ closePops(); if (!doc) return; const i=b.dataset.i;
-  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, detail:()=>cropOpen({detail:true}), xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>{ if (!panelBusy()) removeBackground(); }, stamp:()=>{ if (!panelBusy()) stampVisible(); }, mergevis:()=>{ if (!panelBusy()) mergeVisible(); }})[i](); });
+  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, detail:()=>cropOpen({detail:true}), xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>rmbgOpen(), stamp:()=>{ if (!panelBusy()) stampVisible(); }, mergevis:()=>{ if (!panelBusy()) mergeVisible(); }})[i](); });
 $('#bCrop').onclick=()=>cropOpen();
 $('#docInfo').title='Размер изображения (Ctrl+Alt+I)'; $('#docInfo').onclick=()=>imageSizeDialog();
 
@@ -5814,7 +5868,7 @@ function aeShim(){ // runs INSIDE the panel frame
 }
 const AE_STYLE=`<style>
 :root{--uxp-host-text-color:#e6e7ea;--uxp-host-background-color:#212328;color-scheme:dark}
-html,body{background:#212328}
+html,body{background:transparent!important}
 body{font-family:"IBM Plex Sans",-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
 sp-button{display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:0 10px;border-radius:12px;font-size:12px;cursor:pointer;
   user-select:none;-webkit-user-select:none;border:1px solid rgba(128,128,128,.5);background:rgba(128,128,128,.12);color:#e6e7ea;white-space:nowrap;box-sizing:border-box}
@@ -5880,7 +5934,9 @@ $('#aeHints').onclick=()=>{ let d=null; try{ d=$('#aeFrame').contentDocument; }c
 function aePlace(){ const w=$('#aiedit'), app=$('#app').getBoundingClientRect(); let p=null; try{ p=JSON.parse(localStorage.getItem(AE_POS)||'null'); }catch(e){}
   w.classList.toggle('pad', !IS_DESK);
   const W=Math.min(IS_DESK?400:360, app.width-16), H=Math.min(p&&p.h||900, app.height-80);
-  if (!p){ const lay=$('#layers'), lr=lay && !lay.hidden ? lay.getBoundingClientRect() : null; p={ x: lr ? lr.left-W-10 : app.width-W-12, y:62 }; }
+  const rr=$('#airail'), railL = rr && rr.offsetParent ? rr.getBoundingClientRect().left-app.left : null;
+  if (!p){ const lay=$('#layers'), lr=lay && !lay.hidden ? lay.getBoundingClientRect() : null; p={ x: railL!=null ? railL-W-10 : lr ? lr.left-W-10 : app.width-W-12, y:80 }; }
+  else if (railL!=null && p.x+W > railL-4 && p.x < railL+52) p={...p, x:railL-W-10}; // never over the AI buttons
   w.style.width=W+'px'; w.style.height=H+'px'; w.style.left=clamp(p.x,4,Math.max(4,app.width-W-4))+'px'; w.style.top=clamp(p.y,4,Math.max(4,app.height-60))+'px'; if (!IS_DESK) setTimeout(aeFit,0); }
 (function aeDrag(){ const w=$('#aiedit'), h=w.querySelector('.aeh'), g=w.querySelector('.aegrip'); let st=null;
   const save=()=>{ try{ localStorage.setItem(AE_POS, JSON.stringify({x:w.offsetLeft, y:w.offsetTop, h:w.offsetHeight})); }catch(e){} };
@@ -6433,20 +6489,22 @@ function airailLayout(){ const r=$('#airail'); if (!r) return; const st=$('#stag
   const right = !ly.hidden ? st.right-ly.getBoundingClientRect().left+8 : 10; r.style.top=top+'px'; r.style.right=right+'px'; }
 document.querySelectorAll('#airail [data-ai]').forEach(b=>b.onclick=()=>{ const m=$('#aimenu [data-a="'+b.dataset.ai+'"]'); if (m) m.click(); });
 /* AI panel (Detail and the others) as a floating window next to the layers, like AI Edit: drag by the title, double click — back to its place */
-function aiDockPlace(){ const b=$('#aibar'); if (!b || b.hidden) return; b.classList.add('dock');
+function dockPlace(b){ if (!b || b.hidden) return; b.classList.add('dock');
   const st=$('#stage').getBoundingClientRect(), ly=$('#layers'), rr=$('#airail'), w=Math.min(440, st.width-24); let p=null; try{ p=JSON.parse(localStorage.getItem('proyavka.aidock')||'null'); }catch(e){}
   let x, y; if (p){ x=p.x; y=p.y; }
   else { const edge=(rr && rr.offsetParent ? rr.getBoundingClientRect().left : (!ly.hidden ? ly.getBoundingClientRect().left : st.right)) - st.left - 10; x=edge-w; y=Math.max(8, $('#status').getBoundingClientRect().bottom-st.top+10); }
   x=Math.max(8, Math.min(st.width-w-8, x)); y=Math.max(8, Math.min(st.height-160, y));
   Object.assign(b.style,{left:x+'px', top:y+'px', bottom:'auto', right:'auto', transform:'none', width:w+'px', maxWidth:'none', maxHeight:(st.height-y-10)+'px'}); }
-(function(){ const b=$('#aibar'); if (!b) return; let d=null;
-  b.addEventListener('pointerdown', e=>{ const h=e.target.closest('.eh'); if (!h || e.target.closest('button,input,select,textarea')) return; const r=b.getBoundingClientRect(), st=$('#stage').getBoundingClientRect();
+function aiDockPlace(){ dockPlace($('#aibar')); dockPlace($('#critbar')); if (typeof crop!=='undefined' && crop && crop.detail) dockPlace($('#cropbar')); }
+function undock(b){ if (!b) return; b.classList.remove('dock'); for (const k of ['left','top','bottom','right','transform','width','maxWidth','maxHeight']) b.style[k]=''; }
+for (const id of ['#aibar','#critbar','#cropbar']) (function(){ const b=$(id); if (!b) return; let d=null;
+  b.addEventListener('pointerdown', e=>{ const h=e.target.closest('.eh'); if (!b.classList.contains('dock') || !h || e.target.closest('button,input,select,textarea')) return; const r=b.getBoundingClientRect(), st=$('#stage').getBoundingClientRect();
     d={id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, st}; try{ b.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
   b.addEventListener('pointermove', e=>{ if (!d || e.pointerId!==d.id) return; const x=e.clientX-d.st.left-d.dx, y=e.clientY-d.st.top-d.dy;
-    try{ localStorage.setItem('proyavka.aidock', JSON.stringify({x,y})); }catch(_){} aiDockPlace(); });
+    if (!b.classList.contains('dock')) return; try{ localStorage.setItem('proyavka.aidock', JSON.stringify({x,y})); }catch(_){} dockPlace(b); });
   const up=e=>{ if (d && e.pointerId===d.id) d=null; }; b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
-  b.addEventListener('dblclick', e=>{ if (!e.target.closest('.eh') || e.target.closest('button')) return; try{ localStorage.removeItem('proyavka.aidock'); }catch(_){} aiDockPlace(); });
-  addEventListener('resize', ()=>setTimeout(aiDockPlace,60)); })();
+  b.addEventListener('dblclick', e=>{ if (!b.classList.contains('dock') || !e.target.closest('.eh') || e.target.closest('button')) return; try{ localStorage.removeItem('proyavka.aidock'); }catch(_){} dockPlace(b); }); })();
+addEventListener('resize', ()=>setTimeout(aiDockPlace,60));
 function tabsLayout(){ // tabs right under the top bar (like Photoshop), the counters (zoom, size, memory) under the tabs
   const box=$('#tabs'), stt=$('#status'); if (!box) return; stt.style.top='';
   if (box.hidden){ airailLayout(); return; } const st=$('#stage').getBoundingClientRect(), s=stt.getBoundingClientRect(), ly=$('#layers');
@@ -7081,7 +7139,8 @@ const CROP_RATIOS=[['free','Свободно'],['orig','Оригинал'],['1:1
 function cropRatio(){ const r=crop.ratio; if (r==='free') return 0; if (r==='orig') return crop.flip ? doc.h/doc.w : doc.w/doc.h; const [a,b]=r.split(':').map(Number); return crop.flip ? b/a : a/b; }
 function cropOpen(o={}){
   if (!doc) return; if (crop){ cropClose(); return; } if (panelBusy()) return;
-  if (o.detail){ crop=detailFrame(); updateCursor(); updateSelBar(); $('#cropbar').hidden=false; cropBuild(); renderOverlay(); return; }
+  if (o.detail){ crop=detailFrame(); updateCursor(); updateSelBar(); $('#cropbar').hidden=false; cropBuild(); dockPlace($('#cropbar')); renderOverlay(); return; }
+  undock($('#cropbar'));
   const b = sel ? selBBox() : {x:0,y:0,w:doc.w,h:doc.h};
   crop={x:b.x, y:b.y, w:b.w||doc.w, h:b.h||doc.h, ratio:'free', flip:false, drag:null};
   $('#cropbar').hidden=false; $('#bCrop')&&$('#bCrop').classList.add('on'); updateCursor(); updateSelBar(); cropBuild(); renderOverlay();
@@ -7175,6 +7234,8 @@ const DETAIL_TPL_DEF=[
   {name:'Сходство лица и причёски с рефа', text:'Увеличь сходство женщины и её причёски на @img1 с @img2.\nРакурс, поза, цвет и освещение должны сохраняться как на @img1, но черты лица и причёска — с @img2.\nВыражение лица как на @img1.\nВолосы красиво лежат, не меняя контура.\nРендер реалистичный, высокое качество текстур кожи и волос.'},
   {name:'Украшения / аксессуар с рефа', text:'Перенеси украшения и аксессуары с @img2 на @img1: форма, материал, количество и детали — как на @img2.\nПоложение, ракурс, свет и цвет сцены — как на @img1. Руки и всё остальное не меняй.\nРендер реалистичный, чёткий металл и камни.'},
   {name:'Руки: анатомия и детали', text:'Исправь анатомию рук на @img1: правильное число пальцев, естественные суставы и ногти. Поза рук, ракурс, свет и цвет — как на @img1.\nРендер реалистичный, высокое качество текстуры кожи.'}];
+const detailRecent={ get(){ try{ const v=JSON.parse(localStorage.getItem('proyavka.detail.recent')); if (Array.isArray(v)) return v; }catch(e){} return []; }, set(v){ try{ localStorage.setItem('proyavka.detail.recent', JSON.stringify(v.slice(0,15))); }catch(e){} },
+  add(t){ t=String(t||'').trim(); if (!t) return; const l=this.get().filter(x=>x!==t); l.unshift(t); this.set(l); } }; // the last prompts actually run, like AI Edit
 const detailTpl={ get(){ try{ const v=JSON.parse(localStorage.getItem('proyavka.detail.tpl')); if (Array.isArray(v)) return v; }catch(e){} return DETAIL_TPL_DEF.slice(); }, set(v){ try{ localStorage.setItem('proyavka.detail.tpl', JSON.stringify(v)); }catch(e){} } };
 const DETAIL_MODELS=[['','как в ⚙'],[NB21,'Banana 2.1'],['bytedance-seed/seedream-5-0-pro','Seedream 5 Pro']];
 let detailRefs=[]; // reference pictures (canvases), kept between runs: @img2, @img3…
@@ -7235,6 +7296,11 @@ function detailRows(box){ const a=aip;
     const inp=d.querySelector('#dtN'); inp.value=cur ? cur.name : a.words.trim().split('\n')[0].slice(0,40); setTimeout(()=>{ inp.focus(); inp.select(); },50); };
   const dl=document.createElement('button'); dl.textContent='×'; dl.title='Удалить выбранный шаблон'; dl.onclick=()=>{ const j=+selT.value; if (!selT.value || !list[j]) return; const n=list[j].name; list.splice(j,1); detailTpl.set(list); toast('Шаблон «'+n+'» удалён',1500); aiBuild(); };
   tp.append(selT,sv,dl); row('Шаблоны',tp);
+  const rec=detailRecent.get(); if (rec.length){ const rc=document.createElement('div'); rc.className='dtpl'; const sr=document.createElement('select');
+    sr.innerHTML='<option value="">Недавние промпты ('+rec.length+')…</option>'; rec.forEach((t,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=t.replace(/\s+/g,' ').slice(0,90)+(t.length>90?'…':''); o.title=t; sr.append(o); });
+    sr.onchange=()=>{ const t=rec[+sr.value]; if (sr.value==='' || t==null) return; a.words=t; if (detailLast) detailLast.words=t; aiBuild(); };
+    const cl=document.createElement('button'); cl.textContent='×'; cl.title='Очистить список недавних'; cl.onclick=()=>{ detailRecent.set([]); aiBuild(); };
+    rc.append(sr,cl); row('Недавние',rc); }
   const h=document.createElement('div'); h.className='gh'; h.textContent='В тексте: @img1 — кусок в рамке, @img2… — рефы по порядку. Реф можно вставить из буфера (Ctrl+V). Ctrl+Enter — запустить.'; box.append(h); }
 function detailRun(c){
   const r={x:Math.round(c.x), y:Math.round(c.y), w:Math.round(c.w), h:Math.round(c.h)}; detailClamp(r); r.x=Math.round(r.x); r.y=Math.round(r.y); r.w=Math.round(r.w); r.h=Math.round(r.h);
@@ -7243,7 +7309,7 @@ function detailRun(c){
   aiOpen({ title:'Деталь', detail:true, perVariant:true, frame:r, multiline:true, words:(detailLast.words||''), sub:detailSub(r), askWords:'Что сделать в рамке', placeholder:'пусто — просто прорисовать детальнее. Можно по-русски, с @img1 / @img2', layerName:'Деталь',
     hint:detailHint(r),
     rows:detailRows, insertAt:()=>doc.layers.length, doneMsg:'Деталь — отдельный слой с маской: маску можно докрасить кистью',
-    run: async words=>{ const a0=aip; detailLast.words=words; if (whole.auto) whole.on = !words && !detailRefs.length; const refs=detailRefs.slice(), model=edProv()==='google' ? '' : (genCfg.detailModel||'');
+    run: async words=>{ const a0=aip; detailLast.words=words; detailRecent.add(words); if (whole.auto) whole.on = !words && !detailRefs.length; const refs=detailRefs.slice(), model=edProv()==='google' ? '' : (genCfg.detailModel||'');
       const keep='Keep exactly the same framing, composition, position and scale as @img1; do not zoom, crop, shift, rotate or reframe. The output is the edited @img1 at the same framing.';
       let ask;
       if (refs.length){ // short and direct, like a Magnific template: the user's words carry the edit; we only say which picture is which
@@ -7605,7 +7671,7 @@ async function autosave(force, D0){
         if (L.mask){ keys.push('m'+L.id); if (need) put[P+'m'+L.id]=await toBlobBg(L.mask.canvas,'image/png'); }
       }catch(e){ throw e; }
     }
-    put[P+'meta']={ w:D.w, h:D.h, dpi:D.dpi||72, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
+    put[P+'meta']={ w:D.w, h:D.h, dpi:D.dpi||72, notes:D.notes||null, notesHide:!!D.notesHide, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
     try{ const k=Math.min(1,360/Math.max(D.w,D.h)), cur=doc; let th; doc=D; try{ th=flatten(k,true); } finally{ doc=cur; } put[P+'thumb']=await toBlob(th,'image/jpeg',0.8); }catch(_){}
     const lib=await libGet(), e={id:D.id, name:D.name, w:D.w, h:D.h, t:Date.now(), n:D.layers.filter(x=>!isGroup(x)).length}, i=lib.findIndex(x=>x.id===D.id);
     if (i>=0) lib[i]=e; else lib.unshift(e);
@@ -7626,7 +7692,7 @@ async function restore(id){
     const P=PFX(id), m=await idbGet(P+'meta'); if(!m||!m.layers||!m.layers.length) return false;
     busy(true,'Открываю «'+(m.name||'документ')+'»…'); await nextFrame();
     resetDocState(); doc=null;
-    const D={id, keys:m.keys||[], w:m.w,h:m.h,dpi:m.dpi||72,name:m.name,layers:[],active:0,editMask:false}; doc=D;
+    const D={id, keys:m.keys||[], w:m.w,h:m.h,dpi:m.dpi||72,notes:m.notes||null,notesHide:!!m.notesHide,name:m.name,layers:[],active:0,editMask:false}; doc=D;
     const byId=new Map();
     for (const l of m.layers){
       if (l.kind==='group'){ const G=newGroup(l.name); G.id=l.id; Object.assign(G,{visible:l.visible,opacity:l.opacity,blend:l.blend,collapsed:l.collapsed}); G.__p=l.parent; byId.set(G.id,G);
@@ -7766,7 +7832,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-17 · №79 ИИ-панель окном у слоёв, полоса ИИ-кнопок'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-17 · №80 ИИ-окна справа и с кнопкой запуска; заметки арт-директора на полях; недавние промпты'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
