@@ -1158,7 +1158,7 @@ function fitView(){
   if (!doc || $('#stage').clientWidth<10 || $('#stage').clientHeight<10) return;
   // the bars float over the canvas: fit the picture into what they leave free
   const st=$('#stage'), sr=st.getBoundingClientRect(), ui=!document.body.classList.contains('hideui');
-  const tb=$('#tabs'), tabsB = ui && tb && !tb.hidden && tb.childElementCount ? tb.getBoundingClientRect().bottom - sr.top + 4 : 0; // the picture starts under the tab strip
+  const tb=$('#tabs'), tabsB = ui && tb && !tb.hidden && tb.childElementCount ? Math.max(tb.getBoundingClientRect().bottom, $('#status').getBoundingClientRect().bottom) - sr.top + 4 : 0; // the picture starts under the tabs and counters
   const L = ui ? Math.max(0, $('#rail').getBoundingClientRect().right - sr.left) : 0, T = ui ? Math.max(0, $('#top').getBoundingClientRect().bottom - sr.top, tabsB) : 0;
   const R = $('#layers').hidden ? 0 : Math.min(316, st.clientWidth*0.5);
   const W=st.clientWidth-L-R, H=st.clientHeight-T;
@@ -6401,7 +6401,7 @@ async function tabsBoot(){ // documents that were open last time come back as ta
 }
 function tabsRender(){
   const box=$('#tabs'); if (!box) return; const show = TABS.list.length>1 || (IS_DESK && TABS.list.length>0);
-  box.hidden=!show; if (!show) return; box.textContent='';
+  box.hidden=!show; if (!show){ tabsLayout(); return; } box.textContent='';
   for (const t of TABS.list){ const b=document.createElement('div'); b.className='tab'+(t===TABS.cur?' on':'')+(t.parked||!t.doc?' parked':''); b.title=(t.name||'Без названия')+(t.parked?' · не в памяти, откроется с диска':'');
     const nm=document.createElement('span'); nm.className='tn'; nm.textContent=(t===TABS.cur&&doc?doc.name:t.name)||'Без названия';
     const x=document.createElement('button'); x.className='tx'; x.textContent='✕'; x.setAttribute('aria-label','Закрыть'); x.onclick=e=>{ e.stopPropagation(); tabClose(t); };
@@ -6409,10 +6409,13 @@ function tabsRender(){
   const plus=document.createElement('button'); plus.className='tplus'; plus.textContent='＋'; plus.title='Открыть ещё (можно сразу несколько файлов)'; plus.onclick=()=>$('#fOpen').click(); box.append(plus);
   tabsLayout(); const on=box.querySelector('.tab.on'); if (on) on.scrollIntoView({block:'nearest', inline:'nearest'});
 }
-function tabsLayout(){ const box=$('#tabs'); if (!box || box.hidden) return; const st=$('#stage').getBoundingClientRect(), s=$('#status').getBoundingClientRect(), ly=$('#layers');
-  const top = s.top-st.top < st.height/2 ? s.bottom-st.top+6 : 8, left = s.top-st.top < st.height/2 ? s.left-st.left : 10;
+function tabsLayout(){ // tabs right under the top bar (like Photoshop), the counters (zoom, size, memory) under the tabs
+  const box=$('#tabs'), stt=$('#status'); if (!box) return; stt.style.top='';
+  if (box.hidden) return; const st=$('#stage').getBoundingClientRect(), s=stt.getBoundingClientRect(), ly=$('#layers');
+  const upper = s.top-st.top < st.height/2, top = upper ? Math.max(4, $('#top').getBoundingClientRect().bottom-st.top+6) : 8, left = upper ? s.left-st.left : 10;
   const right = !ly.hidden ? st.right-ly.getBoundingClientRect().left+10 : 10;
-  box.style.top=top+'px'; box.style.left=left+'px'; box.style.right=right+'px'; }
+  box.style.top=top+'px'; box.style.left=left+'px'; box.style.right=right+'px';
+  if (upper) stt.style.top=(top+box.getBoundingClientRect().height+6)+'px'; }
 window.addEventListener('resize', ()=>setTimeout(tabsLayout,50));
 // drop several pictures onto the tab strip — each opens as its own document
 (function(){ const box=$('#tabs'); if (!box) return;
@@ -7719,7 +7722,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-17 · №74 вкладки не мешают холсту; курсор сдвига выделения; выделение снимается после рефа'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-17 · №75 вкладки под верхней панелью, счётчики под ними'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
