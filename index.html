@@ -365,6 +365,7 @@ body{-webkit-font-smoothing:antialiased}
 .fbar button{height:36px;padding:0 9px;font-size:13px;border-radius:10px;transition:background-color .12s}
 .fbar button:active:not(.pri){background:var(--panel-3)}
 .fbar .pri{box-shadow:0 2px 10px color-mix(in srgb,var(--accent) 35%,transparent)}
+.fbar .alt{border:1.5px solid var(--accent);color:var(--accent);font-weight:600;background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .fsep{width:1px;height:22px;background:var(--line);margin:0 3px;flex:none}
 .fbar .ai{color:var(--accent)}
 /* small things */
@@ -1353,11 +1354,11 @@ function renderOverlay(){ if(!doc) return;
   const ants = () => { ox.setLineDash([]); ox.strokeStyle='#000'; ox.stroke(); ox.setLineDash([5,5]); ox.lineDashOffset=-antsPhase; ox.strokeStyle='#fff'; ox.stroke(); ox.setLineDash([]); };
   if (depPrev && dep){ const m=viewM(); ox.save(); ox.setTransform(dpr*m[0],dpr*m[1],dpr*m[2],dpr*m[3],dpr*m[4],dpr*m[5]); ox.imageSmoothingEnabled=true; ox.imageSmoothingQuality='high'; ox.drawImage(depPrev,0,0,doc.w,doc.h); ox.restore(); ox.setTransform(dpr,0,0,dpr,0,0); }
   if (edgePrev && edge){ const m=viewM(); ox.save(); ox.setTransform(dpr*m[0],dpr*m[1],dpr*m[2],dpr*m[3],dpr*m[4],dpr*m[5]); ox.imageSmoothingEnabled=true; ox.drawImage(edgePrev,0,0,doc.w,doc.h); ox.restore(); ox.setTransform(dpr,0,0,dpr,0,0); }
-  else if (sel && !xf && sel.outline){ const m=viewM(); ox.beginPath();
+  else if (sel && !xf && sel.outline){ const m=viewM().slice(); if (sel.mv){ m[4]+=m[0]*sel.mv.dx+m[2]*sel.mv.dy; m[5]+=m[1]*sel.mv.dx+m[3]*sel.mv.dy; } ox.beginPath();
     for (const ln of sel.outline){ ox.moveTo(m[0]*ln[0]+m[2]*ln[1]+m[4], m[1]*ln[0]+m[3]*ln[1]+m[5]); for(let i=2;i<ln.length;i+=2) ox.lineTo(m[0]*ln[i]+m[2]*ln[i+1]+m[4], m[1]*ln[i]+m[3]*ln[i+1]+m[5]); ox.closePath(); }
     ants(); }
-  else if (sel && !xf){ for(const p of sel.polys){ polyPath(p); ants(); }
-    if (sel.segs){ const g=sel.segs, m=viewM(); ox.beginPath();
+  else if (sel && !xf){ const mvM=sel.mv?[1,0,0,1,sel.mv.dx,sel.mv.dy]:undefined; for(const p of sel.polys){ polyPath(p,mvM); ants(); }
+    if (sel.segs){ const g=sel.segs, m=viewM().slice(); if (sel.mv){ m[4]+=m[0]*sel.mv.dx+m[2]*sel.mv.dy; m[5]+=m[1]*sel.mv.dx+m[3]*sel.mv.dy; } ox.beginPath();
       for (let i=0;i<g.length;i+=4){ ox.moveTo(m[0]*g[i]+m[2]*g[i+1]+m[4], m[1]*g[i]+m[3]*g[i+1]+m[5]); ox.lineTo(m[0]*g[i+2]+m[2]*g[i+3]+m[4], m[1]*g[i+2]+m[3]*g[i+3]+m[5]); }
       ants(); } }
   if (lassoPts && lassoPts.length>1){ ox.beginPath(); lassoPts.forEach((p,i)=>{const [sx,sy]=toScr(p[0],p[1]); i?ox.lineTo(sx,sy):ox.moveTo(sx,sy);}); ants(); }
@@ -1913,6 +1914,15 @@ function pushSelHist(before){
              redo(){ sel = selFrom(after); updateSelBar(); }, sel:true,
              bytes: selBytes(before)+selBytes(after) });
 }
+/* move the selection outline (not the pixels), like Photoshop: drag inside it with a selection tool, or the arrows (Shift — by 10) */
+let selMv={skip:false};
+function selHit(x,y){ if (!sel || sel.inverted) return false; x=Math.floor(x); y=Math.floor(y); if (x<0||y<0||x>=doc.w||y>=doc.h) return false;
+  const b=sel.box; if (b && b.w && (x<b.x||y<b.y||x>b.x+b.w||y>b.y+b.h)) return false;
+  try{ return ctx2(sel.mask).getImageData(x,y,1,1).data[3]>127; }catch(e){ return false; } }
+function selShift(dx,dy){ dx=Math.round(dx); dy=Math.round(dy); if (!sel){ return; } delete sel.mv; if (!dx && !dy){ requestOverlay(); return; }
+  const before=snapshotSel(), nm=mk(doc.w,doc.h), x=ctx2(nm); x.drawImage(sel.mask,dx,dy);
+  sel={mask:nm, polys:sel.polys.map(p=>p.map(([a,b])=>[a+dx,b+dy])), inverted:false, segs:null, box:sel.box?{x:sel.box.x+dx,y:sel.box.y+dy,w:sel.box.w,h:sel.box.h}:null};
+  pushSelHist(before); updateSelBar(); requestRender(); }
 function deselect(silent){ if(!sel) return; const b=snapshotSel(); lastDesel=b; sel=null; if(!silent) pushSelHist(b); updateSelBar(); requestRender(); }
 function invertSel(){
   const b=snapshotSel();
@@ -3230,8 +3240,8 @@ function genBuild(){
   const sp=document.createElement('span'); sp.style.flex='1';
   const cancel=document.createElement('button'); cancel.textContent= g.busy ? 'Остановить' : 'Отмена'; cancel.onclick= g.busy ? ()=>{ g.cancelled=true; if(g.abort) g.abort.abort(); } : genCancel;
   foot.append(st, sp, cancel);
-  if (!g.busy){ const go=document.createElement('button'); go.className= g.variants.length ? '' : 'pri'; go.textContent= g.variants.length ? '↻ Ещё' : 'Сгенерировать'; go.onclick=genGo; foot.append(go);
-    if (g.variants.length){ const ok=document.createElement('button'); ok.className='pri'; ok.textContent='Готово'; ok.onclick=genDone; foot.append(ok); } }
+  if (!g.busy){ const go=document.createElement('button'); go.className= g.variants.length ? 'alt' : 'pri'; go.textContent= g.variants.length ? '↻ Ещё вариант' : 'Сгенерировать'; go.onclick=genGo; foot.append(go);
+    if (g.variants.length){ const ok=document.createElement('button'); ok.className='pri'; ok.textContent='✓ Оставить слой'; ok.onclick=genDone; foot.append(ok); } }
   box.append(foot);
 }
 function genPrep(){ // crop with context, size for the model (~1 MP, multiples of 16), mask white = to fill
@@ -3303,7 +3313,8 @@ async function orRequest(img, ask, n, opt={}){
     for (let i=0;i<hd.data.length;i+=4) if (hd.data[i]>127){ qd.data[i]=255; qd.data[i+1]=0; qd.data[i+2]=255; } qx.putImageData(qd,0,0); }
   const refs=[{type:'image_url', image_url:{url: opt.magenta ? q.toDataURL('image/png') : q.toDataURL('image/jpeg',0.93)}}]; // magenta must stay pure: no JPEG colour bleed
   for (const r of (opt.refsKeep||[])){ const L=Math.max(SW,SH), k=Math.min(1, L/Math.max(r.width,r.height)), w=Math.max(16,Math.round(r.width*k)), h=Math.max(16,Math.round(r.height*k));
-    const c=mk(w,h), x=ctx2(c); x.fillStyle='#fff'; x.fillRect(0,0,w,h); x.imageSmoothingQuality='high'; x.drawImage(r,0,0,w,h); refs.push({type:'image_url', image_url:{url:c.toDataURL('image/jpeg',0.93)}}); } // references keep their own shape
+    const c=mk(w,h), x=ctx2(c); x.fillStyle=opt.refBg||'#fff'; x.fillRect(0,0,w,h); x.imageSmoothingQuality='high'; x.drawImage(r,0,0,w,h); refs.push({type:'image_url', image_url:{url:c.toDataURL('image/jpeg',0.93)}}); } // references keep their own shape
+  if (opt.targetLast && refs.length>1) refs.push(refs.shift()); // some models edit the last picture more willingly
   for (const r of (opt.refs||[])){ const c=mk(SW,SH), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(r,0,0,SW,SH); refs.push({type:'image_url', image_url:{url:c.toDataURL('image/png')}}); }
   // one request per variant: Google (Nano Banana) refuses n>1, and a provider that does not know resolution / output_format gets the request again without them
   const base={model:opt.model||genCfg.orModel, prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:opt.res||genCfg.orRes||'1K', output_format:'png', input_references:refs};
@@ -3362,9 +3373,9 @@ function aiBuild(){
   const foot=document.createElement('div'); foot.className='eb'; const B=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
   const st=B('⚙',genSettings); st.title='Настройки генерации'; const sp=document.createElement('span'); sp.style.flex='1';
   if (a.busy){ foot.append(st, sp, B('Остановить',()=>{ a.cancelled=true; try{ a.abort&&a.abort.abort(); }catch(e){} })); box.append(foot); return; }
-  foot.append(st, sp, B('Отмена',aiCancel), B(a.variants.length?'↻ Ещё':(a.goLabel||'Сделать'), aiGo, a.variants.length?'':'pri'));
+  foot.append(st, sp, B('Отмена',aiCancel), B(a.variants.length?'↻ Ещё вариант':(a.goLabel||'Сделать'), aiGo, a.variants.length?'alt':'pri'));
   if (a.variants.length && a.extra){ const x=a.extra(); if (x){ const b=B(x[0],x[1]); if (x[2]) b.title=x[2]; foot.insertBefore(b, sp.nextSibling); } }
-  if (a.variants.length) foot.append(B('Готово',aiDone,'pri')); box.append(foot);
+  if (a.variants.length) foot.append(B('✓ Оставить слой',aiDone,'pri')); box.append(foot);
 }
 async function aiGo(){
   const a=aip; if (!a || a.busy) return; if (!orNeed()) return;
@@ -3640,8 +3651,8 @@ function sdBuild(){
   const foot=document.createElement('div'); foot.className='eb'; const B=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
   const st=B('⚙',()=>genSettings('sd')); st.title='Настройки моста'; const sp=document.createElement('span'); sp.style.flex='1';
   if (g.busy){ foot.append(st, sp, B('Остановить',()=>{ g.cancelled=true; fetch(sdBase()+'/sdapi/v1/interrupt',{method:'POST'}).catch(()=>{}); if(g.abort) g.abort.abort(); })); box.append(foot); return; }
-  foot.append(st, sp, B('Отмена',genCancel), B(g.variants.length?'↻ Ещё':'Сгенерировать', genGo, g.variants.length?'':'pri'));
-  if (g.variants.length) foot.append(B('Готово',genDone,'pri')); box.append(foot);
+  foot.append(st, sp, B('Отмена',genCancel), B(g.variants.length?'↻ Ещё вариант':'Сгенерировать', genGo, g.variants.length?'alt':'pri'));
+  if (g.variants.length) foot.append(B('✓ Оставить слой',genDone,'pri')); box.append(foot);
 }
 function sdPrep(){ // exactly as the PC plugin com.alisa.sdinpaint («точный режим»): selection + 48 px, not squared, native resolution; only >1536 or <256 px is rescaled
   const hint=selBBox(), b=aeMaskBounds(aeM(sel.mask, clipRect(hint.x-2,hint.y-2,hint.w+4,hint.h+4))); if (!b || !b.w) throw new Error('пустое выделение');
@@ -6472,7 +6483,7 @@ function showHelpDesk(){
    <div class="hkgrid">`+
    card('Холст',[['Колёсико / Alt+колёсико','масштаб'],['Ctrl+колёсико','масштаб (на тачпаде — щипок)'],['Shift+колёсико','сдвиг вбок'],['Alt+Shift+колёсико','поворот'],['Пробел / H','держать — рука'],['Ctrl+Пробел / Alt+Пробел','клик — ближе / дальше, тянуть — плавно'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум по шагам фотошопа (50 · 67 · 100 · 200 %)'],['Tab / F','спрятать панели']])+
    card('Правка и файл',[['Ctrl+Z','отменить'],['Ctrl+C / Ctrl+Shift+C','копировать выделенное: слой / всё видимое'],['Ctrl+V','вставить новым слоем на то же место; в Детали — в рефы'],['Ctrl+Shift+Z','вернуть'],['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить (тот же файл)'],['Ctrl+Shift+S','сохранить как: PSD / PNG / JPG'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
-   card('Выделение и слои',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','при выделении — добавить / вычесть'],['Ctrl+Alt+R','выделение и маска (край)'],['Delete','стереть выделенное; без выделения — удалить слой'],['Ctrl+клик миниатюры','выделить по слою'],['Shift+клик / Ctrl+клик по слою','несколько слоёв: Delete, Ctrl+G, Ctrl+E, Ctrl+T, глаз, непрозрачность, режим — для всех'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Shift+E','слить видимые'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
+   card('Выделение и слои',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','при выделении — добавить / вычесть'],['Тянуть внутри выделения','сдвинуть выделение (лассо, прямоугольник, палочка); стрелки — на 1 px, Shift — на 10'],['Ctrl+Alt+R','выделение и маска (край)'],['Delete','стереть выделенное; без выделения — удалить слой'],['Ctrl+клик миниатюры','выделить по слою'],['Shift+клик / Ctrl+клик по слою','несколько слоёв: Delete, Ctrl+G, Ctrl+E, Ctrl+T, глаз, непрозрачность, режим — для всех'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Shift+E','слить видимые'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
    card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп'],['B / E','кисть / ластик'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['C','кадрирование'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
    `</div><h4 class="hkt">Инструменты подробно</h4><dl class="gest gcols">`+HELP_PC_TOOLS.map(([t,d])=>'<div><dt>'+t+'</dt><dd>'+d+'</dd></div>').join('')+'</dl>';
   const d=dialog(html, [['Понятно', ()=>{ try{localStorage.setItem('kadr.help','1');}catch(e){} }, true]]); d.classList.add('helpw');
@@ -6843,6 +6854,7 @@ function toolDown(e,p){
   const t = activeTool = (altDown && !isSelT && !['transform','clone','heal'].includes(S.tool)) ? 'picker' : S.tool;
   if ((t==='clone'||t==='heal') && (altDown || clonePick)){ const [x,y]=toDoc(...p); setCloneSrc(x,y); toolPtr=null; return; }
   if ((t==='clone'||t==='heal') && cloneSrc && srcHit(p)){ const [x,y]=toDoc(...p); try{ retouchSource(); }catch(_){} srcDrag={gx:cloneSrc.x-x, gy:cloneSrc.y-y, p}; renderOverlay(); return; }
+  if ((t==='lasso'||t==='rect'||t==='wand') && !selMv.skip && sel && !e.shiftKey && !altDown && !(e.ctrlKey||e.metaKey) && e.button!==2){ const [x,y]=toDoc(...p); if (selHit(x,y)){ selMv={x0:x, y0:y, p, ev:e, on:false, dx:0, dy:0}; return; } }
   if (t==='patch'){ patchDown(p); return; }
   if (t==='liquify'){ if(!liqBegin(p,penPressure(e))) toolPtr=null; return; }
   if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e),e); }
@@ -6867,6 +6879,8 @@ function toolMove(e){
   const t=activeTool;
   if (t==='pup'){ if (pup) pupMove(stagePos(e)); return; }
   if (t==='crop'){ if (crop) cropMove(stagePos(e), e.shiftKey); return; }
+  if (selMv.p){ const q=stagePos(e), [x,y]=toDoc(...q); if (!selMv.on && Math.hypot(q[0]-selMv.p[0],q[1]-selMv.p[1])>4) selMv.on=true;
+    if (selMv.on && sel){ let dx=Math.round(x-selMv.x0), dy=Math.round(y-selMv.y0); if (e.shiftKey){ if (Math.abs(dx)>Math.abs(dy)) dy=0; else dx=0; } sel.mv={dx,dy}; requestOverlay(); } return; }
   for (const ev of list){
     const p=stagePos(ev);
     if (srcDrag){ const [x,y]=toDoc(...p); cloneSrc={x:clamp(x+srcDrag.gx,0,doc.w-1), y:clamp(y+srcDrag.gy,0,doc.h-1)}; srcDrag.p=p; }
@@ -6956,6 +6970,9 @@ document.addEventListener('keyup', e=>{
 });
 window.addEventListener('blur', ()=>{ spaceDown=altDown=shiftDown=ctrlDown=hHeld=zHeld=rHeld=false; panDrag=zoomDrag=rotDrag=null; updateCursor(); });
 function toolUp(e){
+  if (selMv.p){ const m=selMv; selMv={skip:false}; toolPtr=null;
+    if (m.on && sel && sel.mv){ selShift(sel.mv.dx, sel.mv.dy); return; }
+    if (sel) delete sel.mv; selMv.skip=true; try{ toolDown(m.ev, m.p); }finally{ selMv.skip=false; } } // just a click inside: what the tool does on a click
   const t=activeTool; toolPtr=null; if (t==='pup'){ activeTool=null; if (pup) pupUp(); return; } if (t==='crop'){ activeTool=null; cropUp(); return; } if (penHold){ clearTimeout(penHold.T); penHold=null; }
   if (srcDrag){ srcDrag=null; cloneOff=null; renderOverlay(); toast('Источник на месте. Рисуй карандашом',1300); }
   else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)) strokeEnd(false);
@@ -7155,17 +7172,23 @@ function detailRun(c){
   aiOpen({ title:'Деталь', detail:true, frame:r, multiline:true, words:(detailLast.words||''), sub:detailSub(r), askWords:'Что сделать в рамке', placeholder:'пусто — просто прорисовать детальнее. Можно по-русски, с @img1 / @img2', layerName:'Деталь',
     hint:detailHint(r),
     rows:detailRows, insertAt:()=>doc.layers.length, doneMsg:'Деталь — отдельный слой с маской: маску можно докрасить кистью',
-    run: async words=>{ detailLast.words=words; if (whole.auto) whole.on = !words && !detailRefs.length; const refs=detailRefs.slice(), model=edProv()==='google' ? '' : (genCfg.detailModel||'');
+    run: async words=>{ const a0=aip; detailLast.words=words; if (whole.auto) whole.on = !words && !detailRefs.length; const refs=detailRefs.slice(), model=edProv()==='google' ? '' : (genCfg.detailModel||'');
       const keep='Keep exactly the same framing, composition, position and scale as @img1; do not zoom, crop, shift, rotate or reframe. The output is the edited @img1 at the same framing.';
       let ask;
       if (refs.length){ // short and direct, like a Magnific template: the user's words carry the edit; we only say which picture is which
         const legend='Image 1 (@img1) is the picture to edit. '+refs.map((_,i)=>'Image '+(i+2)+' (@img'+(i+2)+')').join(', ')+(refs.length>1?' are references':' is a reference')+' for appearance only — take faces, hair, jewellery and details from '+(refs.length>1?'them':'it')+', never '+(refs.length>1?'their':'its')+' framing, pose, crop or background.';
         const t=words || 'Make the person and details on @img1 match @img2.'; ask=legend+'\n\n'+t+'\n\nOutput: @img1 with these changes, same framing and size.'; }
       else ask='This image (@img1) is a crop from a larger illustration. '+(words ? 'Edit it:\n'+words+'\n' : 'Enhance it into a sharper, more detailed, higher-quality version: redraw every surface with fine detail — crisp facial features, eyes and lashes, skin texture, individual hair strands, fabric weave and folds, material and metal detail; remove blur, mush and AI artefacts; clean edges. Same content, as a finished high-end render. ')+keep+' Keep the same lighting, colour palette and art style. Change only what is asked; everything else stays as it is.';
-      const out=await orRequest(orig, ask, 1, {res:detailRes(r), refsKeep:refs, model});
-      const bms=out.bitmaps.map(b=>expandAlign(orig, b, {x:0,y:0,w:r.w,h:r.h}).c);
-      const warn = bms.length && detailSame(orig, bms[0])<0.45 ? 'Похоже, модель нарисовала другой кадр (например, взяла композицию рефа) — ↻ Ещё, другая модель или уточни в промпте, что @img2 только образец' : '';
-      return {bitmaps: bms, cost:out.cost, warn}; },
+      const bg=(()=>{ const t=mk(1,1), x=ctx2(t,{willReadFrequently:true}); x.drawImage(orig,0,0,1,1); const d=x.getImageData(0,0,1,1).data; return 'rgb('+d[0]+','+d[1]+','+d[2]+')'; })(); // transparent parts of a reference: the crop's own average colour, not a white studio backdrop the model would copy
+      let out=await orRequest(orig, ask, 1, {res:detailRes(r), refsKeep:refs, model, refBg:bg}), cost=out.cost||0;
+      let bms=out.bitmaps.map(b=>expandAlign(orig, b, {x:0,y:0,w:r.w,h:r.h}).c), warn='';
+      if (refs.length && bms.length && detailSame(orig, bms[0])<0.45 && !a0.cancelled){ // the model redrew the reference instead of editing the crop: one more try, the crop goes last and is named so
+        a0.busy='модель взяла кадр рефа — пробую ещё раз…'; aiBuild();
+        const ask2='The LAST attached image is the picture to edit — a crop from a larger illustration; keep its framing, pose, size and background exactly. '+(refs.length>1?'The other images are references':'The first image is a reference')+' for appearance only (face, hair, jewellery, details): never copy '+(refs.length>1?'their':'its')+' framing, crop or background.\n\n'+(words||'Make the person and details match the reference.').replace(/@img1/g,'the last image').replace(/@img(\d)/g,(m,n)=>'reference '+(n-1))+'\n\nOutput: the last image with these changes, same framing and size.';
+        const o2=await orRequest(orig, ask2, 1, {res:detailRes(r), refsKeep:refs, model, refBg:bg, targetLast:true}); cost+=o2.cost||0;
+        const b2=o2.bitmaps.map(b=>expandAlign(orig, b, {x:0,y:0,w:r.w,h:r.h}).c);
+        if (b2.length && detailSame(orig,b2[0])>=0.45){ bms=b2; warn='Первый ответ был кадром рефа — оставила второй, исправленный'; } else { bms=b2.length?b2:bms; warn='Модель дважды нарисовала кадр рефа вместо правки — попробуй другую модель или обрежь реф до нужного (лицо / украшение)'; } }
+      return {bitmaps: bms, cost, warn}; },
     apply:(ctx,v)=>{ ctx.drawImage(v, r.x, r.y, r.w, r.h); const a=aip, L=a&&a.layer; if (!L) return;
       let mm=masks.get(v); if (!mm){ mm={}; masks.set(v,mm); } if (!mm[whole.on]) mm[whole.on]=detailMask(orig, v, r, whole.on);
       const m=mm[whole.on]; if (!L.mask) L.mask=newMask(L); const mx=L.mask.ctx; mx.clearRect(0,0,doc.w,doc.h); mx.imageSmoothingQuality='high'; mx.drawImage(m.c, r.x, r.y, r.w, r.h); L.mask.enabled=true;
@@ -7367,6 +7390,8 @@ document.addEventListener('keydown', e=>{
   if (k==='tab' || (L==='f' && !e.shiftKey)){ e.preventDefault(); toggleUI(); return; }
   if (L==='p'){ pupOpen(); return; }
   if (L==='c' && !e.shiftKey){ if (!document.querySelector('.scrim')) cropOpen(); return; }
+  if (/^arrow/.test(k) && sel && !sel.inverted && !xf && !edge && ['lasso','rect','wand','tap'].includes(S.tool)){ e.preventDefault(); const d=e.shiftKey?10:1;
+    selShift(k==='arrowleft'?-d:k==='arrowright'?d:0, k==='arrowup'?-d:k==='arrowdown'?d:0); return; }
   if (L==='d'){ S.bgColor='#ffffff'; setColor('#000000'); toast('Цвета по умолчанию: чёрный / белый',1000); return; }
   if (L==='x'){ const f=S.color, b=S.bgColor||'#ffffff'; S.bgColor=f; setColor(b); toast('Цвета поменялись местами · основной '+b,1100); return; }
   if (L==='h'){ if (!e.repeat){ hHeld=true; updateCursor(); } return; }
@@ -7670,7 +7695,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-16 · №71 Деталь: вся рамка по умолчанию, Seedream 2K, промпт не теряется'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-17 · №72 двигать выделение; «Ещё вариант» заметнее; Деталь не копирует кадр рефа'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
