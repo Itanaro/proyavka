@@ -6055,6 +6055,7 @@ const AE_IMAGING={
     const T=o.targetSize||null, tw=T&&T.width ? Math.round(T.width) : r.w, th=T&&T.height ? Math.round(T.height) : (T&&T.width ? Math.round(r.h*T.width/r.w) : r.h);
     let c, comps;
     if (o.layerID!=null){ const L=aeLayerById(o.layerID); if (!L) throw new Error('нет слоя '+o.layerID); c=mk(tw,th); const x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(L.canvas, r.x,r.y,r.w,r.h, 0,0,tw,th); comps=4; }
+    else if (o.applyAlpha===false){ c=mk(tw,th); ctx2(c,{willReadFrequently:true}).drawImage(compositeRegion(r,tw,th),0,0); comps=4; } // composite with its transparency, not multiplied (Detail fills it itself)
     else { c=mk(tw,th); const x=ctx2(c,{willReadFrequently:true}); x.fillStyle='#fff'; x.fillRect(0,0,tw,th); x.drawImage(compositeRegion(r,tw,th),0,0); comps=3; }
     return {imageData:aeFromCanvas(c, comps), sourceBounds:{left:r.x, top:r.y, right:r.x+r.w, bottom:r.y+r.h}, level:0}; }); },
   async putPixels(o){ return aeAuto(M=>{ const L=aeLayerById(o.layerID!=null?o.layerID:AL().id); if (!L || isGroup(L)) throw new Error('нет слоя для записи');
@@ -6080,9 +6081,24 @@ async function aeDesc(M, d){
   if (o==='set' && isSelRef){ const to=d.to||{};
     if (to._enum==='ordinal' && to._value==='none'){ M.vsel=null; M.selDirty=true; return {}; }
     if (to._enum==='ordinal' && to._value==='allEnum'){ const c=mk(doc.w,doc.h), x=ctx2(c); x.fillStyle='#fff'; x.fillRect(0,0,doc.w,doc.h); M.vsel=aeM(c,{x:0,y:0,w:doc.w,h:doc.h}); M.selDirty=true; return {}; }
+    if (to._obj==='rectangle'){ const v=k=>Math.round(+((to[k]&&to[k]._value!=null)?to[k]._value:to[k])||0); // Detail: the frame as a rectangular selection
+      const r=clipRect(v('left'), v('top'), v('right')-v('left'), v('bottom')-v('top')); if (!r.w||!r.h){ M.vsel=null; M.selDirty=true; return {}; }
+      const c=mk(doc.w,doc.h), x=ctx2(c); x.fillStyle='#fff'; x.fillRect(r.x,r.y,r.w,r.h); M.vsel=aeM(c,r); M.selDirty=true; return {}; }
     if (to._ref==='channel' && to._name){ const c=chans.find(c=>c.name===to._name); if (!c) return {_obj:'error', message:'Канал «'+to._name+'» не найден'}; M.vsel=aeChanMask(c); M.selDirty=true; return {}; }
   }
   if ((o==='hide' || o==='show') && ((d.null||[])[0]||{})._ref==='channel') return {};
+  if ((o==='hide' || o==='show') && ((d.null||[])[0]||{})._ref==='layer'){ const L=aeLayerById(d.null[0]._id); if (!L) return {_obj:'error', message:'нет слоя'}; // Detail: only the picked variant is visible
+    const v=o==='show', old=L.visible; if (old!==v){ L.visible=v; M.hist.push({undo(){ L.visible=old; }, redo(){ L.visible=v; }}); aeTouch(L); } return {}; }
+  if (o==='delete' && t._ref==='layer' && t._id!=null){ const L=aeLayerById(t._id); if (!L) return {_obj:'error', message:'нет слоя'}; await aeLayerProxy(L).delete(); layersChanged(); return {}; }
+  if (o==='paste'){ // Detail: a reference from the clipboard — our own Ctrl+C first, then the system clipboard
+    let img=null, px=null, py=null;
+    if (typeof clip!=='undefined' && clip && !clip.stale){ img=clip.c; px=clip.x; py=clip.y; }
+    else { try{ for (const it of await navigator.clipboard.read()){ const tp=it.types.find(x=>x.startsWith('image/')); if (tp){ const bm=await createImageBitmap(await it.getType(tp)); img=mk(bm.width,bm.height); ctx2(img).drawImage(bm,0,0); bm.close&&bm.close(); break; } } }catch(e){} }
+    if (!img) return {_obj:'error', message:'в буфере нет картинки'};
+    const L=newLayer('Вставка'); if (px==null){ px=Math.round((doc.w-img.width)/2); py=Math.round((doc.h-img.height)/2); } L.ctx.drawImage(img,px,py);
+    const prevActive=doc.active, idx=doc.active+1; if (AL()) L.parent=AL().parent;
+    const ins=()=>{ doc.layers.splice(idx,0,L); doc.active=idx; doc.editMask=false; }, rem=()=>{ doc.layers.splice(doc.layers.indexOf(L),1); doc.active=prevActive; };
+    ins(); M.hist.push({undo:rem, redo:ins, bytes:doc.w*doc.h*4}); aeTouch(L); layersChanged(); return {}; }
   if (o==='select' && t._ref==='channel') return {};
   if (o==='delete' && t._ref==='channel' && t._name){ const i=chans.findIndex(c=>c.name===t._name); if (i>=0) chans.splice(i,1); return {}; }
   if (o==='placeEvent'){ const ent=AE.tokens.get(d.null && d.null._path); if (!ent || !ent._bytes) throw new Error('Проявка: файл для «Поместить» не найден');
@@ -7832,7 +7848,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-17 · №80 ИИ-окна справа и с кнопкой запуска; заметки арт-директора на полях; недавние промпты'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-17 · №81 AI Edit в Проявке понимает команды Детали'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
