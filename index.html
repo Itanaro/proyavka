@@ -6688,6 +6688,8 @@ async function saveAsDesk(again){
     catch(e){ if (e && e.name==='AbortError') toast('Сохранение отменено'); else { console.warn(e); toast('Не открылось окно сохранения: '+e.message,3000); } return; } }
   const ext=(h.name.match(/\.[a-z0-9]+$/i)||['.psd'])[0].toLowerCase(), kind = ext==='.png' ? 'png' : (ext==='.jpg'||ext==='.jpeg') ? 'jpg' : 'psd';
   doc.fileHandle=h; saveFile.handle=h;
+  const nm=h.name.replace(/\.[a-z0-9]+$/i,'').trim(); // «Сохранить как…» under a new name: the document takes it (tab, top bar, «Мои документы»)
+  if (nm && nm!==doc.name){ doc.name=nm; if (TABS.cur) TABS.cur.name=nm; try{ setText('#docName span', nm); }catch(_){} tabsRender(); renameDoc(doc.id, nm).catch(()=>{}); markDirty(); }
   try{ await exportImg(kind); } finally{ saveFile.handle=null; }
   if (kind!=='psd' && doc.layers.filter(L=>!isGroup(L)).length>1) setTimeout(()=>toast('Сохранено: '+h.name+' — '+kind.toUpperCase()+' без слоёв (слои — в PSD)',2600),1600);
 }
@@ -7732,7 +7734,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-17 · №76 Деталь: каждый вариант — свой слой'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-17 · №77 «Сохранить как» переименовывает документ'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
