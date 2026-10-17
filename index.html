@@ -214,9 +214,13 @@ body.tooling #tabs .tab,body.tooling #tabs .tplus,body.tooling #zoomBadge{pointe
 
 /* popovers / dialogs */
 .pop{position:absolute;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.55);padding:8px}
-#menu{top:54px;left:8px;width:250px;display:flex;flex-direction:column}
+#menu{top:54px;left:8px;width:270px;display:flex;flex-direction:column}
 #menu button{text-align:left;height:40px;padding:0 12px;border-radius:8px;display:flex;justify-content:space-between;align-items:center}
 #menu button:active{background:var(--panel-2)}
+#menu .mrow{display:flex;align-items:center;gap:4px;padding:2px 4px 2px 12px;min-height:40px}
+#menu .mrow span{flex:1;font-size:inherit}
+#menu .mrow button{height:30px;padding:0 9px;white-space:nowrap;flex:none;border-radius:9px;border:1px solid var(--line);font-size:12.5px;justify-content:center}
+#menu .mrow button:hover{border-color:var(--accent);color:var(--fg)}
 #menu small{color:var(--muted);font-family:var(--mono);font-size:11px}
 #menu hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
 #picker{top:54px;right:8px;width:260px;padding:12px;display:flex;flex-direction:column;gap:10px}
@@ -831,23 +835,22 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <div class="aih" id="imgInfo"></div>
   </div>
   <div class="pop" id="menu" hidden>
+    <button data-m="new">Новый документ <small class="deskonly">Ctrl+N</small></button>
+    <button data-m="open">Открыть… <small class="deskonly">Ctrl+O</small><small class="padonly">PSD, картинка</small></button>
     <button data-m="lib">Мои документы</button>
-    <button data-m="new">Новый документ</button>
-    <button data-m="backup">Резервная копия <small>все документы</small></button>
-    <button data-m="restore">Восстановить из копии</button>
-    <button data-m="open">Открыть PSD или картинку</button>
     <button data-m="place">Поместить картинку слоем</button>
+    <hr>
+    <button data-m="save" class="deskonly">Сохранить <small>Ctrl+S</small></button>
+    <button data-m="saveas" class="deskonly">Сохранить как… <small>Ctrl+Shift+S</small></button>
+    <button data-m="psd" class="padonly">Сохранить PSD <small>со слоями</small></button>
+    <div class="mrow"><span>Экспорт</span><button data-m="png">PNG</button><button data-m="png50" title="PNG, 50% — превью">PNG ½</button><button data-m="jpg">JPG</button></div>
     <hr class="padonly">
     <button data-m="crop" class="padonly">Кадрировать <small>C</small></button>
     <button data-m="isize" class="padonly">Размер изображения <small>Ctrl+Alt+I</small></button>
     <button data-m="csize" class="padonly">Размер холста <small>Ctrl+Alt+C</small></button>
     <hr>
-    <button data-m="save" class="deskonly">Сохранить <small>Ctrl+S</small></button>
-    <button data-m="saveas" class="deskonly">Сохранить как… <small>PSD · PNG · JPG</small></button>
-    <button data-m="png">Сохранить PNG <small>полный</small></button>
-    <button data-m="png50">Сохранить PNG <small>50% превью</small></button>
-    <button data-m="jpg">Сохранить JPG</button>
-    <button data-m="psd">Сохранить PSD</button>
+    <button data-m="backup">Резервная копия <small>все документы</small></button>
+    <button data-m="restore">Восстановить из копии</button>
     <hr>
     <button data-m="finger" class="padonly">Рисовать пальцем <small id="mFinger">выкл</small></button>
     <button data-m="penpick">Пипетка карандашом <small id="mPenPick">вкл</small></button>
@@ -6767,6 +6770,10 @@ function stagePos(e){ const r=stageRect||(stageRect=stage.getBoundingClientRect(
 window.addEventListener('scroll', ()=>{ stageRect=null; }, true);
 function penPressure(e){ if(e.pointerType==='mouse') return e.buttons?1:0; return e.pressure||0.5; }
 
+// several picked layers: a plain click on the picture or on an empty part of the layer list drops back to one (the active) layer
+function pickDropOn(e){ if (!doc || !doc.pick || doc.pick.size<2 || e.shiftKey || e.ctrlKey || e.metaKey || xf || S.tool==='transform') return; doc.pick=null; layersChanged(); }
+stage.addEventListener('pointerdown', e=>{ if (e.target===stage || e.target.tagName==='CANVAS') pickDropOn(e); }, true);
+$('#lyList').addEventListener('pointerdown', e=>{ if (!e.target.closest('.ly')) pickDropOn(e); });
 stage.addEventListener('pointerdown', e=>{
   if (e.target!==oc && e.target!==vc) return;
   e.preventDefault();
@@ -7216,7 +7223,7 @@ function detailRun(c){
       let ask;
       if (refs.length){ // short and direct, like a Magnific template: the user's words carry the edit; we only say which picture is which
         const legend='Image 1 (@img1) is the picture to edit. '+refs.map((_,i)=>'Image '+(i+2)+' (@img'+(i+2)+')').join(', ')+(refs.length>1?' are references':' is a reference')+' for appearance only — take faces, hair, jewellery and details from '+(refs.length>1?'them':'it')+', never '+(refs.length>1?'their':'its')+' framing, pose, crop or background.';
-        const t=words || 'Make the person and details on @img1 match @img2.'; ask=legend+'\n\n'+t+'\n\nOutput: @img1 with these changes, same framing and size.'; }
+        const t=words || (detailTpl.get().find(x=>/Сходство лица/.test(x.name))||DETAIL_TPL_DEF[0]).text; ask=legend+'\n\n'+t+'\n\nOutput: @img1 with these changes, same framing and size.'; }
       else ask='This image (@img1) is a crop from a larger illustration. '+(words ? 'Edit it:\n'+words+'\n' : 'Enhance it into a sharper, more detailed, higher-quality version: redraw every surface with fine detail — crisp facial features, eyes and lashes, skin texture, individual hair strands, fabric weave and folds, material and metal detail; remove blur, mush and AI artefacts; clean edges. Same content, as a finished high-end render. ')+keep+' Keep the same lighting, colour palette and art style. Change only what is asked; everything else stays as it is.';
       const bg=(()=>{ const t=mk(1,1), x=ctx2(t,{willReadFrequently:true}); x.drawImage(orig,0,0,1,1); const d=x.getImageData(0,0,1,1).data; return 'rgb('+d[0]+','+d[1]+','+d[2]+')'; })(); // transparent parts of a reference: the crop's own average colour, not a white studio backdrop the model would copy
       let out=await orRequest(orig, ask, 1, {res:detailRes(r), refsKeep:refs, model, refBg:bg}), cost=out.cost||0;
@@ -7734,7 +7741,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-17 · №77 «Сохранить как» переименовывает документ'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-17 · №78 меню «Файл» по-новому; клик сбрасывает выбор слоёв'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
