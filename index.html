@@ -549,6 +549,41 @@ body:not(.showhints) #stage .fbar .gh:not(.keep){display:none}
 #notesCard .ni i{display:block;font-style:normal;font-weight:600;margin-bottom:2px} #notesCard .ni em{font-style:normal;color:var(--muted)}
 #notesChip{pointer-events:auto;cursor:pointer;color:#f0b46a}
 .hideui #notesCard,.hideui #notesDot,.hideui #notesGhost{display:none}
+/* №86: home screen — no document open */
+#home{grid-row:2;grid-column:1/3;z-index:10;min-height:0;overflow-y:auto;padding:18px 10px 28px;-webkit-overflow-scrolling:touch}
+#home[hidden]{display:none}
+body.home #stage,body.home #rail{visibility:hidden}
+body.home #aiedit,body.home #notesDot{display:none!important}
+body.home #top > :not(.brand):not(#bMenu){visibility:hidden}
+body.home #menu [data-m=place],body.home #menu [data-m=save],body.home #menu [data-m=saveas],body.home #menu [data-m=psd],body.home #menu [data-m=crop],body.home #menu [data-m=isize],body.home #menu [data-m=csize],body.home #menu [data-m=close],body.home #menu .mrow,body.home #menu hr.padonly{display:none}
+#home .hw{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:264px minmax(0,1fr);gap:26px;align-items:start}
+#home .hside{position:sticky;top:0;display:flex;flex-direction:column;gap:8px;padding:20px 16px 16px;border-radius:24px;background:var(--glass-bg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow)}
+#home h1{margin:0 4px;font:600 21px/1.2 var(--sans);letter-spacing:-.01em}
+#home .hdev{margin:0 4px 12px;color:var(--muted);font-size:12.5px}
+#home .hbtn{display:flex;align-items:center;gap:11px;height:46px;padding:0 14px;border-radius:14px;background:var(--soft);font-size:14px;text-align:left}
+#home .hbtn:hover{background:var(--soft-2)}
+#home .hbtn svg{width:19px;height:19px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#home .hbtn small{margin-left:auto;color:var(--muted);font:11px var(--mono)}
+#home .hbtn.pri{background:var(--accent-grad);color:var(--accent-ink);font-weight:600;box-shadow:var(--accent-lift)}
+#home .hbtn.pri small{color:rgba(29,20,6,.55)}
+#home .hdrop{margin-top:8px;padding:16px 12px;border:1.5px dashed var(--line);border-radius:14px;color:var(--muted);font-size:12px;line-height:1.45;text-align:center;transition:border-color .15s,color .15s,background .15s}
+#home.drop .hdrop{border-color:var(--accent);color:var(--fg);background:rgba(226,166,90,.08)}
+#home .hmain h2{display:flex;align-items:baseline;gap:10px;margin:8px 4px 14px;font:600 15px/1.2 var(--sans)}
+#home .hmain h2 span{color:var(--muted);font:11.5px var(--mono)}
+#home .hmain h2 button{margin-left:auto;color:var(--accent);font-size:13px;font-weight:500}
+#home .hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:14px;align-items:start}
+#home .hcard{display:flex;flex-direction:column;min-width:0;padding:8px;border-radius:18px;background:var(--soft);border:1px solid transparent;text-align:left;transition:transform .15s,border-color .15s,background .15s}
+#home .hcard:hover{background:var(--soft-2);border-color:rgba(226,166,90,.45);transform:translateY(-2px)}
+#home .hcard:active{transform:none}
+#home .hcard.last{grid-column:span 2;grid-row:span 2;align-self:stretch} #home .hcard.last .hth{flex:1;aspect-ratio:auto;min-height:160px;position:relative} #home .hcard.last .hth img{position:absolute;inset:0;width:100%;height:100%;max-width:none;max-height:none;object-fit:contain}
+#home .hth{aspect-ratio:4/3;border-radius:12px;background:#0d0e10;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#home .hth img{max-width:100%;max-height:100%;opacity:0;transition:opacity .25s}
+#home .hth img.ld{opacity:1}
+#home .hcard .nm{margin:9px 4px 0;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#home .hcard .mt{margin:2px 4px 3px;color:var(--muted);font:10.5px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#home .hcard.last .mt b{color:var(--accent);font-weight:500}
+#home .hempty{grid-column:1/-1;padding:48px 24px;border:1.5px dashed var(--line);border-radius:20px;color:var(--muted);text-align:center;line-height:1.5}
+@media (max-width:860px){ #home .hw{grid-template-columns:1fr;gap:18px} #home .hside{position:static} #home .hcard.last{grid-column:auto} }
 #notesCard.drag{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(32,34,40,.97);box-shadow:0 22px 50px rgba(0,0,0,.55),0 0 0 1.5px #eab066;cursor:grabbing;will-change:transform;transition:box-shadow .12s}
 #notesCard.drag .nh{cursor:grabbing}
 #notesGhost{position:absolute;z-index:5;box-sizing:border-box;border:1.5px dashed rgba(234,176,102,.55);border-radius:18px;pointer-events:none;transition:opacity .2s}
@@ -571,7 +606,7 @@ body:not(.showhints) #stage .fbar .gh:not(.keep){display:none}
 #imgmenu{top:72px;left:200px;width:330px;display:flex;flex-direction:column;border-radius:20px;padding:8px}
 /* the stage's cursor (none for the brush, crosshair…) must not leak into the panels that live inside it */
 #stage > :not(canvas){cursor:default} #stage input,#stage textarea{cursor:auto} #stage select{cursor:default}
-.deskonly{display:none!important}body.desk .deskonly{display:inline-flex!important}body.desk .padonly{display:none!important}
+.deskonly{display:none!important}body.desk .deskonly{display:inline-flex!important}body.desk .padonly{display:none!important}body.home #menu [data-m=save],body.home #menu [data-m=saveas],body.home #menu [data-m=psd],body.home #menu [data-m=crop],body.home #menu [data-m=isize],body.home #menu [data-m=csize],body.home #menu hr.padonly{display:none!important}
 .pop{max-height:calc(100vh - 84px);overflow-y:auto}
 #status #docInfo{cursor:pointer;pointer-events:auto}
 #imgmenu .aih{font-size:11px;color:var(--muted);padding:6px 12px 4px;font-family:var(--mono)}
@@ -760,6 +795,7 @@ body:not(.showhints) #stage .fbar .gh:not(.keep){display:none}
   </div>
   <div class="pop" id="flyout" hidden></div>
 
+  <div id="home" hidden></div>
   <div id="stage">
     <canvas id="view"></canvas>
     <canvas id="ovl"></canvas>
@@ -870,6 +906,7 @@ body:not(.showhints) #stage .fbar .gh:not(.keep){display:none}
     <button data-m="new">Новый документ <small class="deskonly">Ctrl+N</small></button>
     <button data-m="open">Открыть… <small class="deskonly">Ctrl+O</small><small class="padonly">PSD, картинка</small></button>
     <button data-m="lib">Мои документы</button>
+    <button data-m="close">Закрыть документ <small class="deskonly">Ctrl+W</small></button>
     <button data-m="place">Поместить картинку слоем</button>
     <hr>
     <button data-m="save" class="deskonly">Сохранить <small>Ctrl+S</small></button>
@@ -6508,7 +6545,7 @@ function tabsLeave(){ // the current document goes to the background
   t.st=tabState(); t.stashed=true; t.used=Date.now(); doc._metaDirty=dirtyDoc; tabsSaveBg(doc);
 }
 function tabsAdopt(){ // called from layersChanged: whatever document is current gets its tab
-  if (!doc) return; if (TABS.cur && TABS.cur.doc===doc){ TABS.cur.stashed=false; return; }
+  if (!doc) return; homeHide(); if (TABS.cur && TABS.cur.doc===doc){ TABS.cur.stashed=false; return; }
   let t=TABS.list.find(x=>x.doc===doc) || TABS.list.find(x=>x.id===doc.id);
   if (!t){ t={id:doc.id}; const i=TABS.cur ? TABS.list.indexOf(TABS.cur)+1 : TABS.list.length; TABS.list.splice(i,0,t);
     // an untouched empty canvas is replaced by the opened file, like in Photoshop
@@ -6550,7 +6587,7 @@ async function tabSwitch(t){
 function tabNext(d){ const n=TABS.list.length; if (n<2) return; const i=TABS.list.indexOf(TABS.cur); tabSwitch(TABS.list[(i+d+n)%n]); }
 async function tabClose(t){
   t=t||TABS.cur; if (!t) return;
-  if (TABS.list.length<2){ toast('Это единственный открытый документ',1400); return; }
+  if (TABS.list.length<2 || !TABS.cur){ if (t===TABS.cur || !TABS.cur) closeToHome(); return; } // №86: the last one closes to the home screen
   if (t===TABS.cur){ if (tabBusy()) return; const i=TABS.list.indexOf(t); await tabSwitch(TABS.list[i+1]||TABS.list[i-1]); if (TABS.cur===t) return; }
   if (t.doc) await tabsSaveBg(t.doc);
   TABS.list.splice(TABS.list.indexOf(t),1); t.doc=null; t.st=null; tabsRender(); tabsPersist();
@@ -6765,6 +6802,7 @@ document.addEventListener('paste', e=>{
   const own = clip && !clip.stale && !(inField && items.some(i=>i.type==='text/plain')); // our Ctrl+C is the freshest copy
   if (aip && aip.detail && !aip.busy){ if (own){ e.preventDefault(); detailRefAdd(clipCopy(clip.ref||clip.c)); if (sel) deselect(); toast('Реф @img'+(detailRefs.length+1)+' из скопированного'+(clip.ref&&clip.ref._under?' · фон — слои под ним':''),1600); return; } if (f){ e.preventDefault(); detailRefFile([f]); return; } }
   if (inField) return;
+  if (homeOn){ if (f){ e.preventDefault(); openFilesAsDocs([new File([f], 'Из буфера.'+((f.type.split('/')[1]||'png').replace('jpeg','jpg')), {type:f.type})]); } return; } // №86: a picture pasted on the home screen opens as a document
   if (own){ e.preventDefault(); pasteClip(); return; }
   if (f){ e.preventDefault(); placeFile(f); } });
 function flatten(scale=1, white){
@@ -6925,6 +6963,7 @@ const safeName=()=> (doc.name||'proyavka').replace(/[\\/:*?"<>|]+/g,'_');
 document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops(); const m=b.dataset.m;
   if (m==='noop') return;
   if (xf && m!=='help' && m!=='store'){ toast('Сначала примени или отмени трансформ'); return; }
+  if (m==='close'){ tabClose(); return; }
   if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click(); else if(m==='save') saveAsDesk(true); else if(m==='saveas') saveAsDesk(false); else if(m==='crop') cropOpen(); else if(m==='isize') imageSizeDialog(); else if(m==='csize') canvasSizeDialog();
   else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='penpick'){ S.penHoldPick=!S.penHoldPick; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; savePrefs(); toast(S.penHoldPick?'Задержи карандаш на месте ~0.5 с — появится пипетка':'Пипетка карандашом выключена; палец по-прежнему берёт цвет удержанием'); } else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
   else exportImg(m);
@@ -7582,6 +7621,7 @@ let psLast={w:'wand', j:'spot', o:'dodge'}; try{ Object.assign(psLast, JSON.pars
 let digitT=0, digitV='';
 document.addEventListener('keydown', e=>{
   if (e.target.matches('input,select,textarea')) return;
+  if (homeOn){ const C=e.code||''; if ((e.metaKey||e.ctrlKey) && !document.querySelector('.scrim') && (C==='KeyN'||C==='KeyO')){ e.preventDefault(); if (C==='KeyN') newDocDialog(); else $('#fOpen').click(); } return; }
   if (e.getModifierState){ const c=e.getModifierState('CapsLock'); if (c!==capsOn){ capsOn=c; updateCursor(); } }
   if (e.key===' '){ e.preventDefault(); if(!spaceDown){ spaceDown=true; updateCursor(); } return; }
   if (e.key==='Alt'){ e.preventDefault(); altDown=true; updateCursor(); rectMods(); return; }
@@ -7858,11 +7898,12 @@ async function deleteDoc(id){
   const t=TABS.list.find(x=>x.id===id);
   if (doc && doc.id===id){ const o=TABS.list.find(x=>x!==t); if (o){ await tabSwitch(o); } else if (!(lib.length && await restore(lib[0].id))) createDoc(3000,4000,'Без названия'); }
   if (t && TABS.cur!==t){ TABS.list.splice(TABS.list.indexOf(t),1); t.doc=null; t.st=null; tabsRender(); tabsPersist(); }
+  if (homeOn) homeFill();
 }
 async function renameDoc(id, name){
   const lib=await libGet(), e=lib.find(x=>x.id===id); if(e) e.name=name;
   const P=PFX(id), m=await idbGet(P+'meta'); const puts={library:lib}; if (m){ m.name=name; puts[P+'meta']=m; }
-  await idbTx(puts); if (doc && doc.id===id) doc.name=name;
+  await idbTx(puts); if (doc && doc.id===id) doc.name=name; if (homeOn) homeFill();
 }
 const fmtWhen = t => { const d=new Date(t), n=new Date(), hm=d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
   if (d.toDateString()===n.toDateString()) return 'сегодня '+hm; const y=new Date(n); y.setDate(n.getDate()-1); if (d.toDateString()===y.toDateString()) return 'вчера '+hm;
@@ -7897,7 +7938,7 @@ $('#fBackup').addEventListener('change', async e=>{ const f=e.target.files[0]; e
     }
     const cur=await libGet(), merged=[...(lib||[])]; for (const e of cur) if (!merged.some(x=>x.id===e.id)) merged.push(e);
     puts.library=merged.sort((a,b)=>b.t-a.t);
-    await idbTx(puts); busy(false); toast(`Восстановлено документов: ${(lib||[]).length}`,3000); openLibrary();
+    await idbTx(puts); busy(false); toast(`Восстановлено документов: ${(lib||[]).length}`,3000); if (homeOn) homeFill(); openLibrary();
   }catch(err){ console.error(err); busy(false); toast('Не получилось: '+(err.message||'ошибка'),4000); }
 });
 async function openLibrary(){
@@ -7944,7 +7985,63 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-19 · №85 заметки АД: плавное перетаскивание, свёрнутое окно — кружок'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-19 · №86 начальный экран: можно закрыть последний документ, недавние файлы'; $('#appVer').textContent=APP_VERSION;
+/* ============ №86 home screen ============
+   Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
+   (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
+   The state survives a restart (localStorage proyavka.home). */
+let homeOn=false, homeUrls=[];
+const HOME_ICONS={ new:'<path d="M12 5v14M5 12h14"/>', open:'<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5 12 11l2.5 2.5"/>', lib:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>' };
+function homeEl(){ const h=$('#home'); if (h.dataset.ready) return h; h.dataset.ready='1';
+  const ic=k=>'<svg viewBox="0 0 24 24">'+HOME_ICONS[k]+'</svg>';
+  h.innerHTML='<div class="hw"><aside class="hside"><h1>Проявка</h1><p class="hdev"></p>'
+    +'<button class="hbtn pri" data-h="new">'+ic('new')+'Новый документ<small class="deskonly">Ctrl+N</small></button>'
+    +'<button class="hbtn" data-h="open">'+ic('open')+'Открыть файл…<small class="deskonly">Ctrl+O</small></button>'
+    +'<button class="hbtn" data-h="lib">'+ic('lib')+'Все документы</button>'
+    +'<div class="hdrop">'+(IS_DESK?'Перетащи сюда PSD или картинки — каждая откроется своим документом. Ctrl+V — картинка из буфера.':'Открывает PSD, PNG и JPG. Картинка, вставленная из буфера, тоже откроется документом.')+'</div></aside>'
+    +'<section class="hmain"><h2>Недавние <span></span><button data-h="lib" hidden>Все документы →</button></h2><div class="hgrid"></div></section></div>';
+  h.addEventListener('click', e=>{ const b=e.target.closest('[data-h]'); if (!b) return; const a=b.dataset.h;
+    if (a==='new') newDocDialog(); else if (a==='open') $('#fOpen').click(); else if (a==='lib') openLibrary(); });
+  h.addEventListener('dragover', e=>{ e.preventDefault(); h.classList.add('drop'); });
+  h.addEventListener('dragleave', e=>{ if (!h.contains(e.relatedTarget)) h.classList.remove('drop'); });
+  h.addEventListener('drop', e=>{ e.preventDefault(); h.classList.remove('drop'); const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])]; if (fs.length) openFilesAsDocs(fs); });
+  return h; }
+async function homeShow(){ homeOn=true; document.body.classList.add('home'); closePops(); const h=homeEl(); h.hidden=false;
+  try{ localStorage.setItem('proyavka.home','1'); }catch(_){} await homeFill(); }
+function homeHide(){ if (!homeOn) return; homeOn=false; document.body.classList.remove('home'); $('#home').hidden=true;
+  homeUrls.forEach(u=>URL.revokeObjectURL(u)); homeUrls=[]; try{ localStorage.removeItem('proyavka.home'); }catch(_){} }
+const homeDocs = n => n+' '+(n%10===1&&n%100!==11?'документ':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20))?'документа':'документов');
+async function homeFill(){ const h=homeEl(), g=h.querySelector('.hgrid'); homeUrls.forEach(u=>URL.revokeObjectURL(u)); homeUrls=[];
+  let lib=[]; try{ lib=(await libGet()).slice().sort((a,b)=>b.t-a.t); }catch(_){}
+  let usage=''; try{ const e=await navigator.storage.estimate(); const mb=e.usage/1048576; usage=' · '+(mb>=1024?(mb/1024).toFixed(1).replace('.',',')+' ГБ':Math.round(mb)+' МБ'); }catch(_){}
+  h.querySelector('.hdev').textContent=(IS_DESK?'На этом компьютере':IS_IPAD?'На этом iPad':'На этом устройстве')+' · '+homeDocs(lib.length)+(lib.length?usage:'');
+  const N=IS_DESK?17:11, shown=lib.slice(0,N);
+  h.querySelector('.hmain h2 span').textContent= lib.length>N ? N+' из '+lib.length : (lib.length?String(lib.length):'');
+  h.querySelector('.hmain h2 button').hidden= lib.length<=N;
+  g.textContent='';
+  if (!lib.length){ g.innerHTML='<div class="hempty">Здесь появятся документы, с которыми ты работаешь на этом устройстве.<br>Создай новый или открой файл — PSD, PNG, JPG.</div>'; return; }
+  shown.forEach((e,i)=>{ const c=document.createElement('button'); c.className='hcard'+(i===0?' last':''); c.title=e.name;
+    c.innerHTML='<div class="hth"></div><div class="nm"></div><div class="mt"></div>';
+    c.querySelector('.nm').textContent=e.name||'Без названия';
+    c.querySelector('.mt').innerHTML=(i===0?'<b>продолжить</b> · ':'')+escapeHtml(fmtWhen(e.t)+' · '+e.w+'×'+e.h+' · '+(e.n||'?')+' сл.');
+    c.onclick=()=>homeOpen(e.id); g.append(c); homeThumb(e.id, c.querySelector('.hth')); }); }
+async function homeThumb(id, box){ try{ let b=await idbGet(PFX(id)+'thumb');
+    if (!b){ const m=await idbGet(PFX(id)+'meta'); const k=m&&(m.keys||[]).filter(k=>k[0]==='c').pop(); if (k) b=await idbGet(PFX(id)+k); }
+    if (!b || !homeOn || !box.isConnected) return; const u=URL.createObjectURL(b); homeUrls.push(u);
+    const im=new Image(); im.alt=''; im.onload=()=>im.classList.add('ld'); im.src=u; box.append(im); }catch(_){} }
+async function homeOpen(id){ try{ localStorage.setItem('proyavka.booting','1'); }catch(_){}
+  const ok=await restore(id); try{ localStorage.removeItem('proyavka.booting'); }catch(_){}
+  if (!ok){ toast('Документ не открылся',3000); homeFill(); } }
+async function closeToHome(){ // the last document: save it, release it, show the home screen
+  if (tabBusy()) return; closePops();
+  if (typeof AE!=='undefined' && !$('#aiedit').hidden) $('#aiedit').hidden=true;
+  busy(true,'Сохраняю…'); try{ await flushSave(); }catch(_){}
+  resetDocState(); try{ await TABS.saveQ; }catch(_){} busy(false);
+  for (const t of TABS.list){ t.doc=null; t.st=null; } TABS.list=[]; TABS.cur=null;
+  doc=null; sel=null; dirtyDoc=false; try{ localStorage.removeItem('proyavka.cur'); }catch(_){}
+  tabsRender(); tabsPersist(); try{ notesRender(); }catch(_){} try{ updateSelBar(); }catch(_){} renderOverlay();
+  await homeShow(); }
+
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
@@ -7986,9 +8083,10 @@ if (crashedBefore){ const c=crashedBefore; memNote(`перезапуск · ин
   let crashed=false; try{ crashed=!!localStorage.getItem('proyavka.booting'); localStorage.setItem('proyavka.booting','1'); }catch(_){}
   let ok=false, found=0;
   try{ found = await migrateStorage() || 0; }catch(e){ console.warn('migrate', e); }
-  pvLog(crashed?'безопасный запуск':'открываю документ'); if (!crashed) ok = await restore(); pvLog(ok?'документ открыт':'новый холст');
+  let homeBoot=false; try{ homeBoot=localStorage.getItem('proyavka.home')==='1'; }catch(_){}
+  pvLog(crashed?'безопасный запуск':homeBoot?'начальный экран':'открываю документ'); if (!crashed && !homeBoot) ok = await restore(); pvLog(ok?'документ открыт':homeBoot?'без документа':'новый холст');
   if (found) setTimeout(()=>toast('В памяти нашлись прежние картинки: «Файл → Мои документы», карточки «Найдено»',6000), 1500);
-  if (!ok) createDoc(3000,4000,'Без названия');
+  if (!ok){ if (homeBoot) homeShow(); else createDoc(3000,4000,'Без названия'); }
   tabsBoot();
   // the guard stays on until the restored document has been drawn and lived a few seconds: a crash on the first frames also counts
   setTimeout(()=>{ try{ localStorage.removeItem('proyavka.booting'); }catch(_){} pvLog('запуск прошёл'); }, 6000);
