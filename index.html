@@ -211,6 +211,7 @@ body.tooling #tabs .tab,body.tooling #tabs .tplus,body.tooling #zoomBadge{pointe
 .btns button:active{background:var(--line)}
 .btns .dg{color:var(--danger)}
 .btns button:disabled{opacity:.4}
+.lybtns{grid-template-columns:repeat(12,1fr)} .lybtns>button{grid-column:span 3} .lybtns>.w5{grid-column:span 5} .lybtns>.w2{grid-column:span 2;font-size:16px} .lybtns>.w6{grid-column:span 6}
 
 /* popovers / dialogs */
 .pop{position:absolute;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.55);padding:8px}
@@ -510,6 +511,8 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #aibar .drefs > button,#aibar .dtpl button{height:32px;padding:0 10px;border-radius:10px;font-size:12.5px}
 #aibar .dtpl{display:flex;gap:6px;align-items:center}
 #aibar .dtpl select{flex:1;min-width:0;height:32px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.22);color:var(--fg);padding:0 8px}
+body:not(.showhints) #stage .fbar .gh:not(.keep){display:none}
+#stage .fbar .eh .qh{float:right;width:24px;height:24px;border-radius:50%;padding:0;margin-left:8px;font-size:12px;font-weight:600;background:var(--soft);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line-soft)} #stage .fbar .eh .qh.on{color:var(--fg);background:var(--soft-3)}
 #genbar .gh,#objbar .gh,#aibar .gh,#critbar .gh,#pupbar .gh,#cropbar .gh{font-size:11.5px;color:var(--muted);margin-top:-4px;line-height:1.35}
 #genbar .gvars,#objbar .gvars,#aibar .gvars{display:flex;gap:8px;flex-wrap:wrap}
 #genbar .gvar,#objbar .gvar,#aibar .gvar{padding:3px;border-radius:12px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);height:auto}
@@ -750,8 +753,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
     <div id="status"><span id="zoomBadge">100%</span><span id="docInfo"></span><span id="memInfo"></span></div>
     <div id="tabs" hidden></div>
     <div class="fbar" id="selbar" hidden>
-      <div class="seg" id="selModes"><button data-mode="new">Новое</button><button data-mode="add">＋ Добавить</button><button data-mode="sub">− Вычесть</button></div>
-      <span class="fgrp"><span class="fsep"></span><button data-sel="invert">Инверсия</button><button data-sel="edge">Край…</button></span>
+      <span class="fgrp"><button data-sel="invert">Инверсия</button><button data-sel="edge">Край…</button></span>
       <span class="fgrp"><span class="fsep"></span><button data-sel="copy">На слой</button><button data-sel="mask">В маску</button><button data-sel="fill">Залить</button><button data-sel="delete">Удалить</button></span>
       <span class="fgrp"><span class="fsep"></span><button data-sel="fill2" title="Заливка с учётом содержимого">Умная заливка</button><button data-sel="ai" class="ai" title="Убрать нейросетью">✦ Убрать</button><button data-sel="lift" class="ai" title="Поднять объект на свой слой, дорисовать фон за ним и двигать">✦ Сдвинуть</button></span>
       <span class="fgrp"><button data-sel="gen" class="ai" title="Генеративная заливка">✦ Генерация</button><button data-sel="sketch" class="ai" title="Отрисовать набросок в выделении">✦ Отрисовать</button><button data-sel="sd" class="ai" title="SD Inpaint на своём компьютере (Automatic1111)">✦ SD</button><button data-sel="transform" class="pri">Трансформ</button></span>
@@ -800,21 +802,16 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
         <div class="row" style="display:none"><label for="lyName">Имя</label><input type="text" id="lyName" autocomplete="off" readonly></div>
         <div class="row"><label>Непрозр.</label><div id="lyOpac" aria-label="Непрозрачность слоя"></div><span class="kbd" id="lyOpacV">100</span></div>
         <div class="row"><label for="lyBlend">Наложение</label><select id="lyBlend"></select><button class="bstep" id="lyBlendPrev" aria-label="Предыдущий режим наложения">‹</button><button class="bstep" id="lyBlendNext" aria-label="Следующий режим наложения">›</button></div>
-        <div class="btns">
+        <div class="btns lybtns">
           <button id="lyAdd">+ Слой</button>
           <button id="lyGroup">В группу</button>
           <button id="lyDup">Копия</button>
           <button id="lyDel" class="dg">Удалить</button>
-          <button id="lyUp">Выше</button>
-          <button id="lyDown">Ниже</button>
-          <button id="lyMerge">Слить вниз</button>
-          <button id="lyClear">Очистить</button>
-          <button id="lyMask" style="grid-column:1/-1">+ Маска</button>
-          <button id="lyAdj" style="grid-column:1/-1">+ Корректирующий слой</button>
-          <button id="lyHarm" style="grid-column:span 2">Гармонизация</button>
-          <button id="lyFit" class="ai" style="grid-column:span 2">✦ Вписать в сцену</button>
-          <button id="lyFilt" style="grid-column:span 2">Размытие / резкость</button>
-          <button id="lyMaskInv" style="grid-column:span 2" hidden>Инвертировать маску</button>
+          <button id="lyMerge" class="w5">Слить вниз</button>
+          <button id="lyMask" class="w5">+ Маска</button>
+          <button id="lyMore" class="w2" title="Ещё: выше / ниже, очистить, фильтры" aria-label="Ещё действия со слоем">⋯</button>
+          <button id="lyAdj" class="w6" title="Корректирующий слой: кривые, уровни, цвет">+ Коррекция</button>
+          <button id="lyHarm" class="w6">Гармонизация</button>
         </div>
       </div>
     </aside>
@@ -2351,7 +2348,7 @@ for (const [key,id,min] of [['smooth','edSmooth',0],['feather','edFeather',0],['
   edgeSl[key]=hslider($('#'+id), {min, max:1, get:()=>edge?edge.t[key]:0,
     set:v=>{ if(!edge) return; if (key==='shift' && Math.abs(v)<0.04) v=0; edge.t[key]=v; $('#'+id+'V').textContent=edgeVal(v,EDGE_MAX[key])+' px'; if(!edgeRaf) edgeRaf=requestAnimationFrame(edgePreview); }});
 }
-$('#lyHarm').onclick=()=>harmOpen(); $('#lyFit').onclick=()=>fitIntoScene(); $('#lyAdj').onclick=()=>adjMenu(); $('#lyFilt').onclick=()=>filtMenu(); $('#edApply').onclick=edgeApply; $('#edCancel').onclick=edgeCancel;
+$('#lyHarm').onclick=()=>harmOpen(); $('#lyAdj').onclick=()=>adjMenu(); $('#edApply').onclick=edgeApply; $('#edCancel').onclick=edgeCancel;
 $('#edReset').onclick=()=>{ if(!edge) return; edge.t={smooth:0,feather:0,shift:0}; edgeDraw(); edgePreview(); };
 /* ============ depth map (Depth Anything V2 Small, on the iPad): select by depth, haze, depth blur ============
    The map is computed once per picture state from the visible composite (long side 518 px), then reused:
@@ -3396,7 +3393,8 @@ function aiBuild(){
     const inp=pr.querySelector('input'); inp.placeholder=a.placeholder||'можно оставить пустым'; inp.value=a.words; inp.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg)';
     inp.oninput=()=>{ a.words=inp.value; }; inp.onkeydown=e=>{ if(e.key==='Enter'){ inp.blur(); aiGo(); } }; box.append(pr); }
   if (a.rows && !a.busy) a.rows(box);
-  if (a.hint){ const h=document.createElement('div'); h.className='gh'; h.textContent=a.hint+(a.cost?' · потрачено $'+a.cost.toFixed(2):''); box.append(h); }
+  if (a.hint){ const h=document.createElement('div'); h.className='gh'; h.textContent=a.hint; box.append(h); }
+  if (a.cost){ const h=document.createElement('div'); h.className='gh keep'; h.textContent='потрачено $'+a.cost.toFixed(2); box.append(h); }
   if (a.variants.length>1){ const vr=document.createElement('div'); vr.className='gvars';
     a.variants.forEach((c,i)=>{ const b=document.createElement('button'); b.className='gvar'+(i===a.idx?' on':''); const t=mk(96,Math.max(1,Math.round(96*c.height/c.width))); ctx2(t).drawImage(c,0,0,t.width,t.height); b.append(t); b.onclick=()=>aiPick(i); vr.append(b); }); box.append(vr); }
   const foot=document.createElement('div'); foot.className='eb'; const B=(t,fn,cls)=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=fn; if(cls) b.className=cls; return b; };
@@ -5201,6 +5199,19 @@ function layerMenu(L, x, y){
   B(many ? 'Удалить слои' : 'Удалить','Delete',deleteLayer,'dg');
   closePops('lyCtx'); m.hidden=false; const r=m.getBoundingClientRect(); m.style.left=Math.min(x, innerWidth-r.width-8)+'px'; m.style.top=Math.min(y, innerHeight-r.height-8)+'px';
 }
+/* «⋯» under the layer list (№83): the rarely used layer actions, so the list itself gets more height */
+function layerMore(x, y){
+  if (!doc) return; const m=$('#lyCtx'), L=AL(), g=isGroup(L); m.textContent='';
+  const head=document.createElement('div'); head.className='aih'; head.textContent=L.name||'Слой'; m.append(head);
+  const B=(t,k,fn,cls)=>{ const b=document.createElement('button'); b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=t; b.lastChild.textContent=k; if (cls) b.className=cls;
+    b.onclick=()=>{ m.hidden=true; $('#lyMore').blur(); if (!panelBusy()) fn(); }; m.append(b); };
+  B('Выше','Ctrl+]',()=>moveLayer(1)); B('Ниже','Ctrl+[',()=>moveLayer(-1));
+  B('Слить видимые','Ctrl+Shift+E',mergeVisible);
+  if (L.mask) B('Инвертировать маску','',invertMask);
+  if (!g) B('Размытие / резкость…','',filtMenu);
+  B(g ? 'Расформировать группу' : 'Очистить слой','',clearLayer, g?'':'dg');
+  closePops('lyCtx'); m.hidden=false; const r=m.getBoundingClientRect(); m.style.left=Math.max(8,Math.min(x, innerWidth-r.width-8))+'px'; m.style.top=(y+r.height>innerHeight-8 ? Math.max(8,y-r.height-44) : y)+'px';
+}
 function plurN(n,a,b,c){ const m10=n%10, m100=n%100; return m10===1&&m100!==11 ? a : m10>=2&&m10<=4&&(m100<10||m100>=20) ? b : c; }
 function deleteLayer(){
   if (pickedMany()) return deletePicked();
@@ -5478,10 +5489,7 @@ function layersChanged(){ structVer++; try{ maskColorSync(); }catch(e){} try{ if
     if ($('#lyBlend').dataset.g!==String(g)){ $('#lyBlend').dataset.g=String(g); $('#lyBlend').innerHTML=blendOptions(g); }
     $('#lyBlend').value=L.blend;
     $('#lyMask').textContent = L.mask ? 'Маска…' : (g ? '+ Маска группы' : '+ Маска');
-    $('#lyMask').style.gridColumn = L.mask ? 'span 2' : '1/-1';
-    $('#lyMaskInv').hidden = !L.mask;
     $('#lyMerge').textContent = g ? 'Слить' : 'Слить вниз';
-    $('#lyClear').textContent = g ? 'Без папки' : 'Очистить';
     $('#lyCount').textContent = doc.layers.filter(x=>!isGroup(x)).length;
     $('#lyGroup').textContent = g ? '+ Группа' : 'В группу';
   }
@@ -5516,8 +5524,8 @@ function blendStep(d){ const L=AL(); if(!L || L.kind==='adj') return; const keys
 $('#lyBlendPrev').onclick=()=>blendStep(-1); $('#lyBlendNext').onclick=()=>blendStep(1);
 $('#lyAdd').onclick=()=>insertLayer(newLayer('Слой '+(doc.layers.filter(x=>!isGroup(x)).length)), doc.active+1);
 $('#lyGroup').onclick=makeGroup;
-$('#lyDup').onclick=dupLayer; $('#lyDel').onclick=deleteLayer; $('#lyUp').onclick=()=>moveLayer(1); $('#lyDown').onclick=()=>moveLayer(-1);
-$('#lyMerge').onclick=mergeDown; $('#lyMaskInv').onclick=invertMask; $('#lyClear').onclick=clearLayer;
+$('#lyDup').onclick=dupLayer; $('#lyDel').onclick=deleteLayer; $('#lyMore').onclick=e=>{ if (!$('#lyCtx').hidden){ $('#lyCtx').hidden=true; return; } const r=e.currentTarget.getBoundingClientRect(); layerMore(r.left, r.bottom+4); };
+$('#lyMerge').onclick=mergeDown; 
 $('#lyMask').onclick=()=>{ if(!AL().mask){ toggleMask(); return; } openMaskMenu(); };
 function openMaskMenu(){
   const L=AL(), onMask=doc.editMask, g=isGroup(L);
@@ -5793,7 +5801,7 @@ $('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aim
 document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePops(); const a=b.dataset.a; if (!doc) return;
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, detail:()=>cropOpen({detail:true}), critic:artDirector, aiedit:()=>aeOpen(), rmbg:rmbgOpen, set:genSettings})[a](); });
-document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,#bImg,.tgm,.pickHere')) closePops(); },true);
+document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,#bImg,.tgm,.pickHere,#lyMore')) closePops(); },true);
 document.addEventListener('pointerdown',e=>{ const a=document.activeElement; if (a && a.matches && a.matches('input,textarea') && !e.target.closest('input,textarea,select,label,.dlg') && (e.target.closest('#stage canvas,.ly,#layers') || e.target.tagName==='CANVAS')) a.blur(); },true);
 document.addEventListener('keydown',e=>{ if (e.key==='Escape' && !$('#lyCtx').hidden) $('#lyCtx').hidden=true; });
 $('#bImg').onclick=e=>{ e.stopPropagation(); closePops('imgmenu'); const m=$('#imgmenu'); if (!m.hidden){ m.hidden=true; return; }
@@ -7227,7 +7235,7 @@ const DETAIL_RES=[['','Авто'],['1K','1K'],['2K','2K'],['4K','4K']];
 const detailModelNow=()=> edProv()==='google' ? '' : (genCfg.detailModel||genCfg.orModel||'');
 function detailRes(c){ const p=genCfg.detailRes||'', L=Math.max(c.w,c.h); let r = p || (L<=1200 ? '2K' : '4K'); if (r==='4K' && /seedream/i.test(detailModelNow())) r='2K'; return r; } // Seedream 5 Pro: only 1K / 2K
 const detailSub=r=>{ const res=detailRes(r), L=Math.max(r.w,r.h), M={'1K':1024,'2K':2048,'4K':4096}[res]; return r.w+'×'+r.h+' → модель '+res+(M>L*1.15 ? ' · запас ×'+(M/L).toFixed(1) : ''); };
-const detailHint=r=>'Кусок уходит в нейросеть в разрешении '+detailRes(r)+' и возвращается слоем точно в рамку'+(({'1K':1024,'2K':2048,'4K':4096}[detailRes(r)]>Math.max(r.w,r.h)*1.15)?' — ответ крупнее рамки и ужимается в неё, поэтому деталей больше':'')+'. Маска слоя открыта только там, где модель что-то поменяла.';
+const detailHint=r=>'Кусок уходит в нейросеть в разрешении '+detailRes(r)+' и возвращается слоем точно в рамку'+(({'1K':1024,'2K':2048,'4K':4096}[detailRes(r)]>Math.max(r.w,r.h)*1.15)?' — ответ крупнее рамки и ужимается в неё, поэтому деталей больше':'')+'. Маска слоя — «Вся рамка» с мягкими краями или «Авто-маска» только по изменённому, переключается кнопкой.';
 function detailBuild(c, box){
   const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Деталь <span></span>'; head.lastChild.textContent=Math.round(c.w)+'×'+Math.round(c.h)+' px'; box.append(head);
   const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>Форма рамки</label><div class="seg" style="flex-wrap:wrap"></div>';
@@ -7858,7 +7866,16 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-19 · №82 панели читаемее и справа, левая панель на маленьких экранах'; $('#appVer').textContent=APP_VERSION;
+/* №83: long hints in the work panels hide under «?» in the panel head (one switch for all panels, remembered) */
+(function(){ const B=document.body; let on=false; try{ on=localStorage.getItem('proyavka.hints')==='1'; }catch(e){} B.classList.toggle('showhints',on);
+  const sync=()=>{ document.querySelectorAll('#stage .fbar').forEach(b=>{ if (b.hidden) return; const h=b.querySelector('.eh'); if (!h) return;
+    const has=!!b.querySelector('.gh:not(.keep)'); let q=h.querySelector('.qh'); if (!has){ if (q) q.remove(); return; }
+    if (!q){ q=document.createElement('button'); q.className='qh'; q.textContent='?'; q.title='Показать / спрятать подсказки'; q.setAttribute('aria-label',q.title);
+      q.onclick=()=>{ const v=!B.classList.contains('showhints'); B.classList.toggle('showhints',v); try{ localStorage.setItem('proyavka.hints',v?'1':'0'); }catch(e){} sync(); }; h.append(q); }
+    q.classList.toggle('on', B.classList.contains('showhints')); }); };
+  let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
+})();
+const APP_VERSION='2026-10-19 · №83 без дублей, подсказки под «?», панель слоёв компактнее'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
