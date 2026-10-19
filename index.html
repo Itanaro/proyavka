@@ -548,7 +548,15 @@ body:not(.showhints) #stage .fbar .gh:not(.keep){display:none}
 #notesCard .ni > b{flex:none;width:20px;height:20px;border-radius:10px;background:#ffb35c;color:#1b1208;font-size:11px;display:flex;align-items:center;justify-content:center}
 #notesCard .ni i{display:block;font-style:normal;font-weight:600;margin-bottom:2px} #notesCard .ni em{font-style:normal;color:var(--muted)}
 #notesChip{pointer-events:auto;cursor:pointer;color:#f0b46a}
-.hideui #notesCard{display:none}
+.hideui #notesCard,.hideui #notesDot,.hideui #notesGhost{display:none}
+#notesCard.drag{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(32,34,40,.97);box-shadow:0 22px 50px rgba(0,0,0,.55),0 0 0 1.5px #eab066;cursor:grabbing;will-change:transform;transition:box-shadow .12s}
+#notesCard.drag .nh{cursor:grabbing}
+#notesGhost{position:absolute;z-index:5;box-sizing:border-box;border:1.5px dashed rgba(234,176,102,.55);border-radius:18px;pointer-events:none;transition:opacity .2s}
+#notesDot{position:absolute;z-index:6;width:38px;height:38px;padding:0;border-radius:19px;display:flex;align-items:center;justify-content:center;color:#f0b46a;background:var(--glass-bg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;animation:ndot .18s ease-out}
+#notesDot:hover{box-shadow:var(--glass-hi),var(--glass-shadow),0 0 0 1.5px #eab066}
+#notesDot svg{width:20px;height:20px} #notesDot i{position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;padding:0 4px;box-sizing:border-box;border-radius:9px;background:#ffb35c;color:#1b1208;font:600 10.5px/17px system-ui,sans-serif;font-style:normal;text-align:center}
+#notesDot i.ok{background:#7fcf8f} #notesDot.drag{cursor:grabbing;-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(32,34,40,.97)}
+@keyframes ndot{from{transform:scale(.5);opacity:0}to{transform:none;opacity:1}}
 #critbar .crl,#pupbar .crl{display:flex;flex-direction:column;gap:6px;overflow:auto;min-height:0;margin:0 -4px;padding:0 4px}
 #critbar .crn,#pupbar .crn{display:flex;gap:10px;align-items:flex-start;text-align:left;height:auto;padding:8px 10px;border-radius:12px;background:var(--soft);white-space:normal;line-height:1.35}
 #critbar .crn.on,#pupbar .crn.on{box-shadow:inset 0 0 0 2px #eab066}
@@ -3660,26 +3668,30 @@ function notesRedraw(){ const box=$('#notesCard'); if (box) box.dataset.t=''; ma
 function notesRender(){ let box=$('#notesCard'), chip=$('#notesChip');
   if (!box){ box=document.createElement('div'); box.id='notesCard'; $('#stage').append(box); chip=document.createElement('span'); chip.id='notesChip'; chip.title='Заметки арт-директора — показать / спрятать'; $('#status').append(chip);
     chip.onclick=()=>{ if (!doc||!doc.notes) return; doc.notesHide=!doc.notesHide; notesRender(); requestRender(); };
-    // №84: drag the card by its head; once dragged it stays where it was put (📌 in the head returns it beside the picture)
+    // №84/85: drag the card by its head; №85 — smooth (transform per frame, no blur while moving), card lifts, dashed outline marks where it came from
     let d=null;
-    box.addEventListener('pointerdown', e=>{ if (!e.target.closest('.nh') || e.target.closest('button')) return; const r=box.getBoundingClientRect(), st=$('#stage').getBoundingClientRect();
-      d={id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, st, w:r.width}; try{ box.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
-    box.addEventListener('pointermove', e=>{ if (!d || e.pointerId!==d.id) return; const x=Math.max(0,Math.min(d.st.width-60, e.clientX-d.st.left-d.dx)), y=Math.max(0,Math.min(d.st.height-40, e.clientY-d.st.top-d.dy));
-      box.style.left=x+'px'; box.style.top=y+'px'; d.p={x:Math.round(x), y:Math.round(y), w:Math.round(d.w)}; });
-    const up=e=>{ if (!d || e.pointerId!==d.id) return; const p=d.p; d=null; if (p){ notesPosSet(p); box.dataset.t=''; notesRender(); } };
+    box.addEventListener('pointerdown', e=>{ if (!e.target.closest('.nh') || e.target.closest('button') || e.button>0) return; const r=box.getBoundingClientRect(), st=$('#stage').getBoundingClientRect();
+      d={id:e.pointerId, x0:r.left-st.left, y0:r.top-st.top, px:e.clientX, py:e.clientY, st, w:r.width, h:r.height, moved:false}; try{ box.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
+    box.addEventListener('pointermove', e=>{ if (!d || e.pointerId!==d.id) return; d.cx=e.clientX; d.cy=e.clientY;
+      if (!d.moved){ if (Math.hypot(d.cx-d.px,d.cy-d.py)<3) return; d.moved=true; box.classList.add('drag'); notesGhost({x:d.x0,y:d.y0,w:d.w,h:d.h}); }
+      if (d.raf) return; d.raf=requestAnimationFrame(()=>{ if (!d) return; d.raf=0;
+        const x=Math.max(0,Math.min(d.st.width-60, d.x0+d.cx-d.px)), y=Math.max(0,Math.min(d.st.height-40, d.y0+d.cy-d.py));
+        box.style.transform='translate3d('+(x-d.x0)+'px,'+(y-d.y0)+'px,0)'; d.p={x:Math.round(x), y:Math.round(y), w:Math.round(d.w)}; }); });
+    const up=e=>{ if (!d || e.pointerId!==d.id) return; const p=d.p; if (d.raf) cancelAnimationFrame(d.raf); d=null; box.classList.remove('drag'); box.style.transform=''; notesGhost(null);
+      if (p){ box.style.left=p.x+'px'; box.style.top=p.y+'px'; notesPosSet(p); box.dataset.t=''; notesRender(); } };
     box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up); }
-  const n=doc && doc.notes; chip.hidden=!n; box.hidden=!n || doc.notesHide; if (!n) return;
+  const n=doc && doc.notes; chip.hidden=!n; box.hidden=!n || doc.notesHide; notesDot(); if (!n) return;
   const done=n.items.filter(it=>it.done).length, left=n.items.length-done;
   chip.textContent='📌 Заметки '+(done ? left+' из '+n.items.length : n.items.length)+(doc.notesHide?' · скрыты':'');
   if (box.dataset.t!==String(n.t)){ box.dataset.t=String(n.t); box.textContent='';
     const pinned=!!notesPos();
     const h=document.createElement('div'); h.className='nh'; h.title='Тяни за заголовок, чтобы переставить';
-    h.innerHTML='<b>Арт-директор</b><span></span><button class="np">📌</button><button title="Спрятать (кнопка «Заметки» вернёт)">—</button><button title="Убрать заметки">×</button>';
+    h.innerHTML='<b>Арт-директор</b><span></span><button class="np">📌</button><button title="Свернуть в кружок (нажми его, чтобы развернуть)">—</button><button title="Убрать заметки">×</button>';
     h.querySelector('span').textContent=(n.mode==='deep'?'Argon':'Flash')+(done?' · ✓ '+done+'/'+n.items.length:'');
     const [pb,hb,xb]=h.querySelectorAll('button'); pb.classList.toggle('on',pinned);
     pb.title= pinned ? 'Закреплено здесь — нажми, чтобы снова ставить рядом с картинкой' : 'Сейчас стоит рядом с картинкой. Перетащи за заголовок — и окно останется там';
     pb.onclick=()=>{ if (notesPos()){ notesPosSet(null); } else { const r=box.getBoundingClientRect(), st=$('#stage').getBoundingClientRect(); notesPosSet({x:Math.round(r.left-st.left), y:Math.round(r.top-st.top), w:Math.round(r.width)}); } box.dataset.t=''; notesRender(); };
-    hb.onclick=()=>{ doc.notesHide=true; notesRender(); requestRender(); }; xb.onclick=()=>{ notesSet(null); };
+    hb.onclick=()=>{ doc.notesHide=true; markDirty(); notesRender(); requestRender(); }; xb.onclick=()=>{ notesSet(null); };
     box.append(h);
     if (n.summary){ const sh=document.createElement('button'); sh.className='nsh'; sh.textContent=(n.sumHide?'▸':'▾')+' Резюме по кадру'; sh.onclick=()=>{ n.sumHide=!n.sumHide; notesRedraw(); }; box.append(sh);
       if (!n.sumHide){ const sm=document.createElement('p'); sm.className='ns'; sm.textContent=n.summary; box.append(sm); } }
@@ -3693,15 +3705,37 @@ function notesRender(){ let box=$('#notesCard'), chip=$('#notesChip');
     if (done){ const t=document.createElement('button'); t.className='nsh'; t.textContent= n.hideDone ? '▸ Показать сделанные ('+done+')' : '▾ Скрыть сделанные ('+done+')'; t.onclick=()=>{ n.hideDone=!n.hideDone; notesRedraw(); }; box.append(t); }
     if (n.items.length && !left){ const ok=document.createElement('p'); ok.className='ns'; ok.textContent='Все замечания отмечены как сделанные.'; box.append(ok); } }
   notesLayout(); }
-function notesLayout(){ const box=$('#notesCard'); if (!box || box.hidden || !doc) return; const st=$('#stage').getBoundingClientRect(), m=viewM();
+function notesLayout(){ const box=$('#notesCard'); if (!box || !doc || !doc.notes) return; if (box.classList.contains('drag')) return;
+  const r=notesRect(); if (!r) return; notesDotPlace(r); if (box.hidden) return;
+  Object.assign(box.style,{left:r.x+'px', top:r.y+'px', width:r.w+'px', maxHeight:r.mh+'px'}); }
+// where the card stands (stage coords) — also used to put the round button when it is folded (№85)
+function notesRect(){ if (!doc) return null; const st=$('#stage').getBoundingClientRect(), m=viewM();
   const p=notesPos(); if (p){ const w=Math.max(220,Math.min(420,p.w||300)), x=Math.max(0,Math.min(st.width-60,p.x)), y=Math.max(0,Math.min(st.height-40,p.y));
-    Object.assign(box.style,{left:x+'px', top:y+'px', width:w+'px', maxHeight:Math.max(120,st.height-y-12)+'px'}); return; }
+    return {x, y, w, mh:Math.max(120,st.height-y-12)}; }
   const xs=[[0,0],[doc.w,0],[0,doc.h],[doc.w,doc.h]].map(([x,y])=>m[0]*x+m[2]*y+m[4]), right=Math.max(...xs), left=Math.min(...xs);
   const rr=$('#airail'), ly=$('#layers'), edgeR=(rr && rr.offsetParent ? rr.getBoundingClientRect().left : !ly.hidden ? ly.getBoundingClientRect().left : st.right)-st.left-10;
   const edgeL=$('#rail').getBoundingClientRect().right-st.left+10, top=Math.max(8, $('#status').getBoundingClientRect().bottom-st.top+10);
   const roomR=edgeR-(right+14), roomL=(left-14)-edgeL; let w, x;
   if (roomR>=220){ w=Math.min(320,roomR); x=right+14; } else if (roomL>=220){ w=Math.min(320,roomL); x=left-14-w; } else { w=300; x=edgeR-w; } // no grey left: float at the side
-  Object.assign(box.style,{left:x+'px', top:top+'px', width:w+'px', maxHeight:(st.height-top-12)+'px'}); }
+  return {x, y:top, w, mh:st.height-top-12}; }
+function notesGhost(r){ let g=$('#notesGhost'); if (!r){ if (g) g.remove(); return; }
+  if (!g){ g=document.createElement('div'); g.id='notesGhost'; $('#stage').append(g); } Object.assign(g.style,{left:r.x+'px', top:r.y+'px', width:r.w+'px', height:r.h+'px'}); }
+// №85: folded card leaves a round button at its top-right corner; click — unfold, drag — move (the card opens there)
+function notesDot(){ let b=$('#notesDot'); const n=doc && doc.notes, show=!!n && !!doc.notesHide;
+  if (!show){ if (b) b.hidden=true; return; }
+  if (!b){ b=document.createElement('button'); b.id='notesDot'; b.title='Арт-директор — развернуть заметки (можно перетащить)'; b.setAttribute('aria-label','Развернуть заметки арт-директора');
+    b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v10H10l-4.5 3.5v-3.5H4z"/><path d="M8 9.5h8M8 12h5"/></svg><i></i>';
+    $('#stage').append(b); let d=null;
+    b.addEventListener('pointerdown', e=>{ if (e.button>0) return; const r=b.getBoundingClientRect(), st=$('#stage').getBoundingClientRect(); d={id:e.pointerId, x0:r.left-st.left, y0:r.top-st.top, px:e.clientX, py:e.clientY, st, moved:false}; try{ b.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
+    b.addEventListener('pointermove', e=>{ if (!d || e.pointerId!==d.id) return; if (!d.moved && Math.hypot(e.clientX-d.px,e.clientY-d.py)<4) return; d.moved=true; b.classList.add('drag');
+      const x=Math.max(0,Math.min(d.st.width-38, d.x0+e.clientX-d.px)), y=Math.max(0,Math.min(d.st.height-38, d.y0+e.clientY-d.py)); b.style.transform='translate3d('+(x-d.x0)+'px,'+(y-d.y0)+'px,0)'; d.x=x; d.y=y; });
+    const up=e=>{ if (!d || e.pointerId!==d.id) return; const dd=d; d=null; b.classList.remove('drag'); b.style.transform='';
+      if (dd.moved){ const r=notesRect(), w=r?r.w:300; notesPosSet({x:Math.round(dd.x+38-w), y:Math.round(dd.y), w:Math.round(w)}); notesLayout(); return; }
+      if (e.type==='pointerup' && doc && doc.notes){ doc.notesHide=false; markDirty(); notesRender(); requestRender(); } };
+    b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); }
+  const left=n.items.filter(it=>!it.done).length, i=b.querySelector('i'); i.textContent= left ? left : '✓'; i.classList.toggle('ok',!left);
+  b.hidden=false; const r=notesRect(); if (r) notesDotPlace(r); }
+function notesDotPlace(r){ const b=$('#notesDot'); if (!b || b.hidden || b.classList.contains('drag')) return; b.style.left=Math.max(0,r.x+r.w-38)+'px'; b.style.top=r.y+'px'; }
 function notesOverlay(ox){ if (!doc || !doc.notes || doc.notesHide) return; const m=viewM(), sc=Math.hypot(m[0],m[1]);
   doc.notes.items.forEach((n,i)=>{ if (n.done && doc.notes.hideDone) return; const [x,y]=toScr(n.x,n.y), on=i===doc.notesSel, R=Math.max(12,n.r*sc);
     ox.save(); if (n.done && !on) ox.globalAlpha=0.35; ox.shadowColor='rgba(0,0,0,.6)'; ox.shadowBlur=4;
@@ -7910,7 +7944,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-19 · №84 заметки АД: двигать и закреплять, отмечать сделанное'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-19 · №85 заметки АД: плавное перетаскивание, свёрнутое окно — кружок'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
