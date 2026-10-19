@@ -538,6 +538,11 @@ body:not(.showhints) #stage .fbar .gh:not(.keep){display:none}
 #notesCard .nh{display:flex;align-items:center;gap:6px} #notesCard .nh b{font-weight:600;color:#f0b46a} #notesCard .nh span{flex:1;color:var(--muted);font-size:11px}
 #notesCard .nh button{width:24px;height:24px;border-radius:7px;color:var(--muted)} #notesCard .nh button:hover{background:var(--soft-3);color:var(--fg)}
 #notesCard .ns{margin:0;color:var(--muted)}
+#notesCard .nh span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} #notesCard .nh{cursor:move;touch-action:none;user-select:none;-webkit-user-select:none} #notesCard .nh button.np{font-size:12px;opacity:.45} #notesCard .nh button.np.on{opacity:1;background:var(--soft-3)}
+#notesCard .nsh{align-self:flex-start;height:24px;padding:0 6px;border-radius:7px;color:var(--muted);font-size:11.5px} #notesCard .nsh:hover{background:var(--soft-3);color:var(--fg)}
+#notesCard .ni .nk{flex:none;align-self:flex-start;width:24px;height:24px;border-radius:12px;font-size:12px;color:transparent;box-shadow:inset 0 0 0 1.5px var(--line)} #notesCard .ni .nk:hover{color:var(--muted)}
+#notesCard .ni .nk.on{color:#1b1208;background:#7fcf8f;box-shadow:none} #notesCard .ni > div{flex:1;min-width:0}
+#notesCard .ni.done{opacity:.55} #notesCard .ni.done i{text-decoration:line-through} #notesCard .ni.done > b{background:#7fcf8f}
 #notesCard .ni{display:flex;gap:8px;padding:7px 8px;border-radius:11px;background:var(--soft);cursor:pointer}
 #notesCard .ni.on{box-shadow:inset 0 0 0 1.5px #eab066}
 #notesCard .ni > b{flex:none;width:20px;height:20px;border-radius:10px;background:#ffb35c;color:#1b1208;font-size:11px;display:flex;align-items:center;justify-content:center}
@@ -3643,24 +3648,54 @@ function critBuild(){ const c=crit, box=$('#critbar'); if (!c) return; box.textC
     if (doc && doc.notes && doc.notes.items.length){ const un=document.createElement('button'); un.textContent='Убрать заметки с полей'; un.onclick=()=>{ notesSet(null); critBuild(); }; foot.append(un); }
     foot.append(sp, close, go); box.append(foot); return; }
   if (!c.busy && c.notes.length){ const pin=document.createElement('button'); pin.className='alt'; pin.textContent='📌 На поля'; pin.title='Оставить замечания рядом с картинкой, на серой области — свериться во время работы';
-    pin.onclick=()=>{ notesSet({summary:c.summary, mode:c.mode, t:Date.now(), items:c.notes.map(n=>({x:n.x,y:n.y,r:n.r,title:n.title,kind:n.kind,text:n.text}))}); crit=null; $('#critbar').hidden=true; requestRender(); toast('Замечания на полях — переключить: кнопка «Заметки» у счётчиков',2600); };
+    pin.onclick=()=>{ if (doc.notes && doc.notes.items.some(x=>x.done) && !confirm('Заменить старые заметки (с отметками «сделано») новыми?')) return; notesSet({summary:c.summary, mode:c.mode, t:Date.now(), items:c.notes.map(n=>({x:n.x,y:n.y,r:n.r,title:n.title,kind:n.kind,text:n.text}))}); crit=null; $('#critbar').hidden=true; requestRender(); toast('Замечания на полях — переключить: кнопка «Заметки» у счётчиков',2600); };
     foot.append(pin); }
   foot.append(sp, again, close); box.append(foot); }
 /* ---- art director's notes kept beside the picture (on the grey), saved with the document ---- */
 var notesDocRef;
 function notesSet(n){ if (!doc) return; doc.notes=n; doc.notesHide=false; markDirty(); notesRender(); requestRender(); }
+function notesPos(){ try{ return JSON.parse(localStorage.getItem('proyavka.notesPos')||'null'); }catch(e){ return null; } }
+function notesPosSet(p){ try{ if (p) localStorage.setItem('proyavka.notesPos', JSON.stringify(p)); else localStorage.removeItem('proyavka.notesPos'); }catch(e){} }
+function notesRedraw(){ const box=$('#notesCard'); if (box) box.dataset.t=''; markDirty(); notesRender(); requestRender(); }
 function notesRender(){ let box=$('#notesCard'), chip=$('#notesChip');
   if (!box){ box=document.createElement('div'); box.id='notesCard'; $('#stage').append(box); chip=document.createElement('span'); chip.id='notesChip'; chip.title='Заметки арт-директора — показать / спрятать'; $('#status').append(chip);
-    chip.onclick=()=>{ if (!doc||!doc.notes) return; doc.notesHide=!doc.notesHide; notesRender(); requestRender(); }; }
-  const n=doc && doc.notes; chip.hidden=!n; box.hidden=!n || doc.notesHide; if (!n) return; chip.textContent='📌 Заметки '+n.items.length+(doc.notesHide?' · скрыты':'');
+    chip.onclick=()=>{ if (!doc||!doc.notes) return; doc.notesHide=!doc.notesHide; notesRender(); requestRender(); };
+    // №84: drag the card by its head; once dragged it stays where it was put (📌 in the head returns it beside the picture)
+    let d=null;
+    box.addEventListener('pointerdown', e=>{ if (!e.target.closest('.nh') || e.target.closest('button')) return; const r=box.getBoundingClientRect(), st=$('#stage').getBoundingClientRect();
+      d={id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, st, w:r.width}; try{ box.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
+    box.addEventListener('pointermove', e=>{ if (!d || e.pointerId!==d.id) return; const x=Math.max(0,Math.min(d.st.width-60, e.clientX-d.st.left-d.dx)), y=Math.max(0,Math.min(d.st.height-40, e.clientY-d.st.top-d.dy));
+      box.style.left=x+'px'; box.style.top=y+'px'; d.p={x:Math.round(x), y:Math.round(y), w:Math.round(d.w)}; });
+    const up=e=>{ if (!d || e.pointerId!==d.id) return; const p=d.p; d=null; if (p){ notesPosSet(p); box.dataset.t=''; notesRender(); } };
+    box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up); }
+  const n=doc && doc.notes; chip.hidden=!n; box.hidden=!n || doc.notesHide; if (!n) return;
+  const done=n.items.filter(it=>it.done).length, left=n.items.length-done;
+  chip.textContent='📌 Заметки '+(done ? left+' из '+n.items.length : n.items.length)+(doc.notesHide?' · скрыты':'');
   if (box.dataset.t!==String(n.t)){ box.dataset.t=String(n.t); box.textContent='';
-    const h=document.createElement('div'); h.className='nh'; h.innerHTML='<b>Арт-директор</b><span></span><button title="Спрятать (кнопка «Заметки» вернёт)">—</button><button title="Убрать заметки">×</button>';
-    h.querySelector('span').textContent=n.mode==='deep'?'Argon':'Flash'; const [hb,xb]=h.querySelectorAll('button'); hb.onclick=()=>{ doc.notesHide=true; notesRender(); requestRender(); }; xb.onclick=()=>{ notesSet(null); };
-    box.append(h); if (n.summary){ const sm=document.createElement('p'); sm.className='ns'; sm.textContent=n.summary; box.append(sm); }
-    n.items.forEach((it,i)=>{ const d=document.createElement('div'); d.className='ni'; d.innerHTML='<b></b><div><i></i><em></em></div>'; d.firstChild.textContent=i+1; d.querySelector('i').textContent=it.title+(it.kind?' · '+it.kind:''); d.querySelector('em').textContent=it.text;
-      d.onclick=()=>{ doc.notesSel = doc.notesSel===i ? -1 : i; box.querySelectorAll('.ni').forEach((e,k)=>e.classList.toggle('on',k===doc.notesSel)); requestRender(); }; box.append(d); }); }
+    const pinned=!!notesPos();
+    const h=document.createElement('div'); h.className='nh'; h.title='Тяни за заголовок, чтобы переставить';
+    h.innerHTML='<b>Арт-директор</b><span></span><button class="np">📌</button><button title="Спрятать (кнопка «Заметки» вернёт)">—</button><button title="Убрать заметки">×</button>';
+    h.querySelector('span').textContent=(n.mode==='deep'?'Argon':'Flash')+(done?' · ✓ '+done+'/'+n.items.length:'');
+    const [pb,hb,xb]=h.querySelectorAll('button'); pb.classList.toggle('on',pinned);
+    pb.title= pinned ? 'Закреплено здесь — нажми, чтобы снова ставить рядом с картинкой' : 'Сейчас стоит рядом с картинкой. Перетащи за заголовок — и окно останется там';
+    pb.onclick=()=>{ if (notesPos()){ notesPosSet(null); } else { const r=box.getBoundingClientRect(), st=$('#stage').getBoundingClientRect(); notesPosSet({x:Math.round(r.left-st.left), y:Math.round(r.top-st.top), w:Math.round(r.width)}); } box.dataset.t=''; notesRender(); };
+    hb.onclick=()=>{ doc.notesHide=true; notesRender(); requestRender(); }; xb.onclick=()=>{ notesSet(null); };
+    box.append(h);
+    if (n.summary){ const sh=document.createElement('button'); sh.className='nsh'; sh.textContent=(n.sumHide?'▸':'▾')+' Резюме по кадру'; sh.onclick=()=>{ n.sumHide=!n.sumHide; notesRedraw(); }; box.append(sh);
+      if (!n.sumHide){ const sm=document.createElement('p'); sm.className='ns'; sm.textContent=n.summary; box.append(sm); } }
+    n.items.forEach((it,i)=>{ if (it.done && n.hideDone) return;
+      const d=document.createElement('div'); d.className='ni'+(it.done?' done':''); d.innerHTML='<b></b><div><i></i><em></em></div><button class="nk"></button>'; d.firstChild.textContent=i+1;
+      d.querySelector('i').textContent=it.title+(it.kind?' · '+it.kind:''); d.querySelector('em').textContent=it.text;
+      const k=d.querySelector('.nk'); k.textContent='✓'; k.title= it.done ? 'Сделано — нажми, чтобы вернуть в работу' : 'Отметить как сделанное'; k.classList.toggle('on',!!it.done);
+      k.onclick=e=>{ e.stopPropagation(); it.done=!it.done; if (it.done && doc.notesSel===i) doc.notesSel=-1; notesRedraw(); };
+      d.onclick=()=>{ doc.notesSel = doc.notesSel===i ? -1 : i; box.querySelectorAll('.ni').forEach(e=>e.classList.toggle('on',+e.dataset.i===doc.notesSel)); requestRender(); };
+      d.dataset.i=i; d.classList.toggle('on', i===doc.notesSel); box.append(d); });
+    if (done){ const t=document.createElement('button'); t.className='nsh'; t.textContent= n.hideDone ? '▸ Показать сделанные ('+done+')' : '▾ Скрыть сделанные ('+done+')'; t.onclick=()=>{ n.hideDone=!n.hideDone; notesRedraw(); }; box.append(t); }
+    if (n.items.length && !left){ const ok=document.createElement('p'); ok.className='ns'; ok.textContent='Все замечания отмечены как сделанные.'; box.append(ok); } }
   notesLayout(); }
 function notesLayout(){ const box=$('#notesCard'); if (!box || box.hidden || !doc) return; const st=$('#stage').getBoundingClientRect(), m=viewM();
+  const p=notesPos(); if (p){ const w=Math.max(220,Math.min(420,p.w||300)), x=Math.max(0,Math.min(st.width-60,p.x)), y=Math.max(0,Math.min(st.height-40,p.y));
+    Object.assign(box.style,{left:x+'px', top:y+'px', width:w+'px', maxHeight:Math.max(120,st.height-y-12)+'px'}); return; }
   const xs=[[0,0],[doc.w,0],[0,doc.h],[doc.w,doc.h]].map(([x,y])=>m[0]*x+m[2]*y+m[4]), right=Math.max(...xs), left=Math.min(...xs);
   const rr=$('#airail'), ly=$('#layers'), edgeR=(rr && rr.offsetParent ? rr.getBoundingClientRect().left : !ly.hidden ? ly.getBoundingClientRect().left : st.right)-st.left-10;
   const edgeL=$('#rail').getBoundingClientRect().right-st.left+10, top=Math.max(8, $('#status').getBoundingClientRect().bottom-st.top+10);
@@ -3668,8 +3703,8 @@ function notesLayout(){ const box=$('#notesCard'); if (!box || box.hidden || !do
   if (roomR>=220){ w=Math.min(320,roomR); x=right+14; } else if (roomL>=220){ w=Math.min(320,roomL); x=left-14-w; } else { w=300; x=edgeR-w; } // no grey left: float at the side
   Object.assign(box.style,{left:x+'px', top:top+'px', width:w+'px', maxHeight:(st.height-top-12)+'px'}); }
 function notesOverlay(ox){ if (!doc || !doc.notes || doc.notesHide) return; const m=viewM(), sc=Math.hypot(m[0],m[1]);
-  doc.notes.items.forEach((n,i)=>{ const [x,y]=toScr(n.x,n.y), on=i===doc.notesSel, R=Math.max(12,n.r*sc);
-    ox.save(); ox.shadowColor='rgba(0,0,0,.6)'; ox.shadowBlur=4;
+  doc.notes.items.forEach((n,i)=>{ if (n.done && doc.notes.hideDone) return; const [x,y]=toScr(n.x,n.y), on=i===doc.notesSel, R=Math.max(12,n.r*sc);
+    ox.save(); if (n.done && !on) ox.globalAlpha=0.35; ox.shadowColor='rgba(0,0,0,.6)'; ox.shadowBlur=4;
     if (on){ ox.lineWidth=2; ox.setLineDash([6,5]); ox.strokeStyle='rgba(255,179,92,.9)'; ox.beginPath(); ox.arc(x,y,R,0,Math.PI*2); ox.stroke(); ox.setLineDash([]); }
     const bx=on?x+R*0.71:x, by=on?y-R*0.71:y; ox.fillStyle=on?'#ffb35c':'rgba(255,179,92,.78)'; ox.beginPath(); ox.arc(bx,by,9,0,Math.PI*2); ox.fill(); ox.shadowBlur=0; ox.fillStyle='#1b1208'; ox.font='600 11px system-ui'; ox.textAlign='center'; ox.textBaseline='middle'; ox.fillText(String(i+1),bx,by+0.5); ox.restore(); }); }
 function critOverlay(ox){ if (!crit || !crit.notes.length) return; const m=viewM(), sc=Math.hypot(m[0],m[1]);
@@ -7875,7 +7910,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-19 · №83 без дублей, подсказки под «?», панель слоёв компактнее'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-19 · №84 заметки АД: двигать и закреплять, отмечать сделанное'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
