@@ -551,7 +551,7 @@ body:not(.showhints) #stage .fbar .gh:not(.keep){display:none}
 .hideui #notesCard,.hideui #notesDot,.hideui #notesGhost{display:none}
 /* №86: home screen — no document open */
 #home{grid-row:2;grid-column:1/3;z-index:10;min-height:0;overflow-y:auto;padding:18px 10px 28px;-webkit-overflow-scrolling:touch}
-#home[hidden]{display:none}
+#home[hidden],#home [hidden]{display:none!important}
 body.home #stage,body.home #rail{visibility:hidden}
 body.home #aiedit,body.home #notesDot{display:none!important}
 body.home #top > :not(.brand):not(#bMenu){visibility:hidden}
@@ -583,6 +583,12 @@ body.home #menu [data-m=place],body.home #menu [data-m=save],body.home #menu [da
 #home .hcard .mt{margin:2px 4px 3px;color:var(--muted);font:10.5px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #home .hcard.last .mt b{color:var(--accent);font-weight:500}
 #home .hempty{grid-column:1/-1;padding:48px 24px;border:1.5px dashed var(--line);border-radius:20px;color:var(--muted);text-align:center;line-height:1.5}
+#home .hlogin{display:flex;flex-direction:column;gap:8px} #home .hlogin[hidden]{display:none} #home .hlogin p{margin:0 4px 4px;color:var(--muted);font-size:12.5px;line-height:1.4}
+#home .hlogin input{height:42px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);font-size:14px;-webkit-user-select:text;user-select:text}
+#home .hlogin input:focus{outline:none;border-color:rgba(226,166,90,.6)} #home .herr{min-height:16px;margin:0 4px;color:var(--danger);font-size:12px}
+#home .hacct{display:flex;align-items:center;gap:8px;margin:2px 4px 6px;font-size:12.5px;color:var(--muted)} #home .hacct[hidden]{display:none} #home .hacct span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+#home .hacct button{color:var(--muted);font-size:12px;padding:3px 8px;border-radius:8px;background:var(--soft)} #home .hacct button:hover{color:var(--fg)}
+#home.locked .hmain{opacity:.55}
 @media (max-width:860px){ #home .hw{grid-template-columns:1fr;gap:18px} #home .hside{position:static} #home .hcard.last{grid-column:auto} }
 #notesCard.drag{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(32,34,40,.97);box-shadow:0 22px 50px rgba(0,0,0,.55),0 0 0 1.5px #eab066;cursor:grabbing;will-change:transform;transition:box-shadow .12s}
 #notesCard.drag .nh{cursor:grabbing}
@@ -1095,7 +1101,7 @@ function createDoc(w,h,name='Без названия'){
   tabsLeave();
   clearHistory(); sel=null; xf=null; stroke=null; strokeBuf=null;
   resetDocState();
-  doc = { id:newDocId(), keys:[], w, h, name, layers:[], active:0, editMask:false };
+  doc = { id:newDocId(), owner:acctId(), keys:[], w, h, name, layers:[], active:0, editMask:false };
   doc.layers.push(Object.assign(newLayer('Фон', true)));
   doc.layers.push(newLayer('Слой 1'));
   doc.active = 1;
@@ -6604,7 +6610,7 @@ async function tabsPark(){
 function tabsPersist(){ try{ localStorage.setItem('proyavka.tabs', JSON.stringify({list:TABS.list.map(t=>({id:t.id, name:t.name})), cur:TABS.cur&&TABS.cur.id})); }catch(_){} }
 async function tabsBoot(){ // documents that were open last time come back as tabs (they load on click)
   let j=null; try{ j=JSON.parse(TABS_SAVED||'null'); }catch(_){} if (!j || !Array.isArray(j.list)) return;
-  const lib=await libGet(), ids=new Set(lib.map(e=>e.id));
+  const lib=libMine(await libGet()), ids=new Set(lib.map(e=>e.id)); // №87: only this account's documents come back as tabs
   for (const e of j.list){ if (!ids.has(e.id) || TABS.list.some(t=>t.id===e.id)) continue; TABS.list.push({id:e.id, name:(lib.find(x=>x.id===e.id)||e).name, parked:true}); }
   const cur=TABS.cur; if (cur){ const order=j.list.map(e=>e.id); TABS.list.sort((a,b)=>{ const ia=order.indexOf(a.id), ib=order.indexOf(b.id); return (ia<0?1e9:ia)-(ib<0?1e9:ib); }); }
   tabsRender(); tabsPersist();
@@ -6802,7 +6808,7 @@ document.addEventListener('paste', e=>{
   const own = clip && !clip.stale && !(inField && items.some(i=>i.type==='text/plain')); // our Ctrl+C is the freshest copy
   if (aip && aip.detail && !aip.busy){ if (own){ e.preventDefault(); detailRefAdd(clipCopy(clip.ref||clip.c)); if (sel) deselect(); toast('Реф @img'+(detailRefs.length+1)+' из скопированного'+(clip.ref&&clip.ref._under?' · фон — слои под ним':''),1600); return; } if (f){ e.preventDefault(); detailRefFile([f]); return; } }
   if (inField) return;
-  if (homeOn){ if (f){ e.preventDefault(); openFilesAsDocs([new File([f], 'Из буфера.'+((f.type.split('/')[1]||'png').replace('jpeg','jpg')), {type:f.type})]); } return; } // №86: a picture pasted on the home screen opens as a document
+  if (homeOn){ if (f && !acctNeedsLogin()){ e.preventDefault(); openFilesAsDocs([new File([f], 'Из буфера.'+((f.type.split('/')[1]||'png').replace('jpeg','jpg')), {type:f.type})]); } return; } // №86: a picture pasted on the home screen opens as a document
   if (own){ e.preventDefault(); pasteClip(); return; }
   if (f){ e.preventDefault(); placeFile(f); } });
 function flatten(scale=1, white){
@@ -6962,6 +6968,7 @@ async function exportImg(kind){
 const safeName=()=> (doc.name||'proyavka').replace(/[\\/:*?"<>|]+/g,'_');
 document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops(); const m=b.dataset.m;
   if (m==='noop') return;
+  if (acctNeedsLogin() && !['help','store','penpick','finger'].includes(m)){ toast('Сначала войди'); return; }
   if (xf && m!=='help' && m!=='store'){ toast('Сначала примени или отмени трансформ'); return; }
   if (m==='close'){ tabClose(); return; }
   if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click(); else if(m==='save') saveAsDesk(true); else if(m==='saveas') saveAsDesk(false); else if(m==='crop') cropOpen(); else if(m==='isize') imageSizeDialog(); else if(m==='csize') canvasSizeDialog();
@@ -7621,7 +7628,7 @@ let psLast={w:'wand', j:'spot', o:'dodge'}; try{ Object.assign(psLast, JSON.pars
 let digitT=0, digitV='';
 document.addEventListener('keydown', e=>{
   if (e.target.matches('input,select,textarea')) return;
-  if (homeOn){ const C=e.code||''; if ((e.metaKey||e.ctrlKey) && !document.querySelector('.scrim') && (C==='KeyN'||C==='KeyO')){ e.preventDefault(); if (C==='KeyN') newDocDialog(); else $('#fOpen').click(); } return; }
+  if (homeOn){ const C=e.code||''; if ((e.metaKey||e.ctrlKey) && !acctNeedsLogin() && !document.querySelector('.scrim') && (C==='KeyN'||C==='KeyO')){ e.preventDefault(); if (C==='KeyN') newDocDialog(); else $('#fOpen').click(); } return; }
   if (e.getModifierState){ const c=e.getModifierState('CapsLock'); if (c!==capsOn){ capsOn=c; updateCursor(); } }
   if (e.key===' '){ e.preventDefault(); if(!spaceDown){ spaceDown=true; updateCursor(); } return; }
   if (e.key==='Alt'){ e.preventDefault(); altDown=true; updateCursor(); rectMods(); return; }
@@ -7780,6 +7787,30 @@ const PFX = id => 'd:'+id+':';
 function setCurDoc(id){ try{ localStorage.setItem('proyavka.cur', id); }catch(_){} }
 function getCurDoc(){ try{ return localStorage.getItem('proyavka.cur'); }catch(_){ return null; } }
 async function libGet(){ return (await idbGet('library')) || []; }
+/* ============ №87 accounts — groundwork, switched OFF ============
+   Today Proyavka has no accounts: the code is on GitHub, documents live in this device's browser storage only.
+   Prepared for later (one person = one ecosystem on PC / Mac / iPad): a device id, the owner of every document
+   (library entry + meta), lists that show only the signed-in person's documents, and a sign-in card (e-mail + key)
+   on the home screen. Off, everything behaves as before: one local owner, every document visible.
+   ACCT.on — the master switch (code), localStorage proyavka.auth='1' — switch it on on one device for a test.
+   acctVerify — the only place that will talk to the account server once it is chosen; until then it refuses. */
+const ACCT={ on:false, server:'' };
+try{ if (localStorage.getItem('proyavka.auth')==='1') ACCT.on=true; }catch(_){}
+const DEVICE_ID=(()=>{ try{ let d=localStorage.getItem('proyavka.device'); if (!d){ d='dev-'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); localStorage.setItem('proyavka.device', d); } return d; }catch(_){ return 'dev-?'; } })();
+function acctSession(){ if (!ACCT.on) return null; try{ return JSON.parse(localStorage.getItem('proyavka.session')||'null'); }catch(_){ return null; } }
+function acctId(){ const s=acctSession(); return s && s.id ? s.id : 'local'; }
+function acctNeedsLogin(){ return ACCT.on && !acctSession(); }
+function libMine(lib){ if (!ACCT.on) return lib.slice(); if (!acctSession()) return []; const me=acctId(); return lib.filter(e=>(e.owner||'local')===me); }
+async function acctVerify(email, key){ // → {id, email, name} or throws; the server is not chosen yet
+  if (!ACCT.server) throw new Error('Сервер входа ещё не подключён');
+  const r=await fetch(ACCT.server.replace(/\/$/,'')+'/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email, key, device:DEVICE_ID})});
+  const j=await r.json().catch(()=>({})); if (!r.ok || !j.id) throw new Error(j.error||('вход не прошёл ('+r.status+')'));
+  return {id:String(j.id), email:j.email||email, name:j.name||''}; }
+async function acctLogin(email, key){ const u=await acctVerify(email.trim(), key.trim());
+  try{ localStorage.setItem('proyavka.session', JSON.stringify(Object.assign(u,{t:Date.now(), device:DEVICE_ID}))); localStorage.removeItem('proyavka.cur'); }catch(_){}
+  if (!doc){ for (const t of TABS.list){ t.doc=null; t.st=null; } TABS.list=[]; TABS.cur=null; tabsRender(); tabsPersist(); } // no leftovers of the previous person
+  return u; }
+async function acctLogout(){ if (doc) await closeToHome(); try{ localStorage.removeItem('proyavka.session'); localStorage.removeItem('proyavka.cur'); }catch(_){} if (homeOn) homeFill(); else homeShow(); }
 function resetDocState(){
   tabsLeave();
   clearHistory(); sel=null; xf=null; stroke=null; strokeBuf=null;
@@ -7814,9 +7845,9 @@ async function autosave(force, D0){
         if (L.mask){ keys.push('m'+L.id); if (need) put[P+'m'+L.id]=await toBlobBg(L.mask.canvas,'image/png'); }
       }catch(e){ throw e; }
     }
-    put[P+'meta']={ w:D.w, h:D.h, dpi:D.dpi||72, notes:D.notes||null, notesHide:!!D.notesHide, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
+    put[P+'meta']={ owner:D.owner||acctId(), w:D.w, h:D.h, dpi:D.dpi||72, notes:D.notes||null, notesHide:!!D.notesHide, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
     try{ const k=Math.min(1,360/Math.max(D.w,D.h)), cur=doc; let th; doc=D; try{ th=flatten(k,true); } finally{ doc=cur; } put[P+'thumb']=await toBlob(th,'image/jpeg',0.8); }catch(_){}
-    const lib=await libGet(), e={id:D.id, name:D.name, w:D.w, h:D.h, t:Date.now(), n:D.layers.filter(x=>!isGroup(x)).length}, i=lib.findIndex(x=>x.id===D.id);
+    const lib=await libGet(), e={id:D.id, name:D.name, w:D.w, h:D.h, t:Date.now(), n:D.layers.filter(x=>!isGroup(x)).length, owner:D.owner||acctId(), dev:DEVICE_ID}, i=lib.findIndex(x=>x.id===D.id);
     if (i>=0) lib[i]=e; else lib.unshift(e);
     put.library=lib;
     const dels=(D.keys||[]).filter(k=>!keys.includes(k)).map(k=>P+k);
@@ -7831,11 +7862,11 @@ async function flushSave(){
 }
 async function restore(id){
   try{
-    id = id || getCurDoc(); if (!id){ const lib=await libGet(); if(!lib.length) return false; id=lib[0].id; }
+    id = id || getCurDoc(); if (!id){ const lib=libMine(await libGet()); if(!lib.length) return false; id=lib[0].id; }
     const P=PFX(id), m=await idbGet(P+'meta'); if(!m||!m.layers||!m.layers.length) return false;
     busy(true,'Открываю «'+(m.name||'документ')+'»…'); await nextFrame();
     resetDocState(); doc=null;
-    const D={id, keys:m.keys||[], w:m.w,h:m.h,dpi:m.dpi||72,notes:m.notes||null,notesHide:!!m.notesHide,name:m.name,layers:[],active:0,editMask:false}; doc=D;
+    const D={id, owner:m.owner||'local', keys:m.keys||[], w:m.w,h:m.h,dpi:m.dpi||72,notes:m.notes||null,notesHide:!!m.notesHide,name:m.name,layers:[],active:0,editMask:false}; doc=D;
     const byId=new Map();
     for (const l of m.layers){
       if (l.kind==='group'){ const G=newGroup(l.name); G.id=l.id; Object.assign(G,{visible:l.visible,opacity:l.opacity,blend:l.blend,collapsed:l.collapsed}); G.__p=l.parent; byId.set(G.id,G);
@@ -7944,7 +7975,7 @@ $('#fBackup').addEventListener('change', async e=>{ const f=e.target.files[0]; e
 async function openLibrary(){
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   busy(true,'Сохраняю…'); await flushSave(); busy(false);
-  const lib=(await libGet()).sort((a,b)=>b.t-a.t), urls=[];
+  const lib=libMine(await libGet()).sort((a,b)=>b.t-a.t), urls=[];
   let usage=''; try{ const e=await navigator.storage.estimate(); usage=' · занято '+Math.round(e.usage/1048576)+' МБ'; }catch(_){}
   const d=dialog(`<h3>Мои документы</h3><p>${lib.length} шт.${usage}. Всё сохраняется само; тап по карточке — открыть.</p><div class="lib"></div>`, [['Новый документ', ()=>{ setTimeout(newDocDialog,0); }], ['Закрыть', null, true]]);
   d.classList.add('wide');
@@ -7985,7 +8016,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-19 · №86 начальный экран: можно закрыть последний документ, недавние файлы'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-19 · №87 заготовка учётных записей (выключена): владелец документа, вход почта+ключ'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
@@ -7995,16 +8026,19 @@ const HOME_ICONS={ new:'<path d="M12 5v14M5 12h14"/>', open:'<path d="M3.5 7.5a2
 function homeEl(){ const h=$('#home'); if (h.dataset.ready) return h; h.dataset.ready='1';
   const ic=k=>'<svg viewBox="0 0 24 24">'+HOME_ICONS[k]+'</svg>';
   h.innerHTML='<div class="hw"><aside class="hside"><h1>Проявка</h1><p class="hdev"></p>'
+    +'<form class="hlogin" hidden onsubmit="return false"><p>Войди, чтобы открыть свои документы на этом устройстве.</p><input type="email" id="hEmail" placeholder="Почта" autocomplete="username" spellcheck="false"><input type="password" id="hKey" placeholder="Ключ доступа" autocomplete="current-password"><button class="hbtn pri" data-h="login">Войти</button><small class="herr"></small></form>'
     +'<button class="hbtn pri" data-h="new">'+ic('new')+'Новый документ<small class="deskonly">Ctrl+N</small></button>'
     +'<button class="hbtn" data-h="open">'+ic('open')+'Открыть файл…<small class="deskonly">Ctrl+O</small></button>'
     +'<button class="hbtn" data-h="lib">'+ic('lib')+'Все документы</button>'
+    +'<div class="hacct" hidden><span></span><button data-h="logout">Выйти</button></div>'
     +'<div class="hdrop">'+(IS_DESK?'Перетащи сюда PSD или картинки — каждая откроется своим документом. Ctrl+V — картинка из буфера.':'Открывает PSD, PNG и JPG. Картинка, вставленная из буфера, тоже откроется документом.')+'</div></aside>'
     +'<section class="hmain"><h2>Недавние <span></span><button data-h="lib" hidden>Все документы →</button></h2><div class="hgrid"></div></section></div>';
   h.addEventListener('click', e=>{ const b=e.target.closest('[data-h]'); if (!b) return; const a=b.dataset.h;
-    if (a==='new') newDocDialog(); else if (a==='open') $('#fOpen').click(); else if (a==='lib') openLibrary(); });
+    if (acctNeedsLogin() && a!=='login') return;
+    if (a==='new') newDocDialog(); else if (a==='open') $('#fOpen').click(); else if (a==='lib') openLibrary(); else if (a==='logout') acctLogout(); else if (a==='login') homeLogin(); });
   h.addEventListener('dragover', e=>{ e.preventDefault(); h.classList.add('drop'); });
   h.addEventListener('dragleave', e=>{ if (!h.contains(e.relatedTarget)) h.classList.remove('drop'); });
-  h.addEventListener('drop', e=>{ e.preventDefault(); h.classList.remove('drop'); const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])]; if (fs.length) openFilesAsDocs(fs); });
+  h.addEventListener('drop', e=>{ e.preventDefault(); h.classList.remove('drop'); if (acctNeedsLogin()) return; const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])]; if (fs.length) openFilesAsDocs(fs); });
   return h; }
 async function homeShow(){ homeOn=true; document.body.classList.add('home'); closePops(); const h=homeEl(); h.hidden=false;
   try{ localStorage.setItem('proyavka.home','1'); }catch(_){} await homeFill(); }
@@ -8012,9 +8046,15 @@ function homeHide(){ if (!homeOn) return; homeOn=false; document.body.classList.
   homeUrls.forEach(u=>URL.revokeObjectURL(u)); homeUrls=[]; try{ localStorage.removeItem('proyavka.home'); }catch(_){} }
 const homeDocs = n => n+' '+(n%10===1&&n%100!==11?'документ':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20))?'документа':'документов');
 async function homeFill(){ const h=homeEl(), g=h.querySelector('.hgrid'); homeUrls.forEach(u=>URL.revokeObjectURL(u)); homeUrls=[];
-  let lib=[]; try{ lib=(await libGet()).slice().sort((a,b)=>b.t-a.t); }catch(_){}
+  let lib=[]; try{ lib=libMine(await libGet()).sort((a,b)=>b.t-a.t); }catch(_){}
   let usage=''; try{ const e=await navigator.storage.estimate(); const mb=e.usage/1048576; usage=' · '+(mb>=1024?(mb/1024).toFixed(1).replace('.',',')+' ГБ':Math.round(mb)+' МБ'); }catch(_){}
   h.querySelector('.hdev').textContent=(IS_DESK?'На этом компьютере':IS_IPAD?'На этом iPad':'На этом устройстве')+' · '+homeDocs(lib.length)+(lib.length?usage:'');
+  // №87: accounts (off by default) — no session: only the sign-in card
+  const lock=acctNeedsLogin(), ses=acctSession(); h.classList.toggle('locked', lock);
+  h.querySelector('.hlogin').hidden=!lock; h.querySelectorAll('.hside > .hbtn, .hdrop').forEach(x=>x.hidden=lock);
+  const ac=h.querySelector('.hacct'); ac.hidden=!ses; if (ses) ac.querySelector('span').textContent=ses.name||ses.email;
+  if (lock){ h.querySelector('.hdev').textContent=IS_DESK?'Этот компьютер':IS_IPAD?'Этот iPad':'Это устройство'; h.querySelector('.hmain h2 span').textContent=''; h.querySelector('.hmain h2 button').hidden=true;
+    g.innerHTML='<div class="hempty">Документы появятся после входа.</div>'; return; }
   const N=IS_DESK?17:11, shown=lib.slice(0,N);
   h.querySelector('.hmain h2 span').textContent= lib.length>N ? N+' из '+lib.length : (lib.length?String(lib.length):'');
   h.querySelector('.hmain h2 button').hidden= lib.length<=N;
@@ -8029,6 +8069,11 @@ async function homeThumb(id, box){ try{ let b=await idbGet(PFX(id)+'thumb');
     if (!b){ const m=await idbGet(PFX(id)+'meta'); const k=m&&(m.keys||[]).filter(k=>k[0]==='c').pop(); if (k) b=await idbGet(PFX(id)+k); }
     if (!b || !homeOn || !box.isConnected) return; const u=URL.createObjectURL(b); homeUrls.push(u);
     const im=new Image(); im.alt=''; im.onload=()=>im.classList.add('ld'); im.src=u; box.append(im); }catch(_){} }
+async function homeLogin(){ const h=$('#home'), em=h.querySelector('#hEmail'), k=h.querySelector('#hKey'), err=h.querySelector('.herr'), b=h.querySelector('[data-h=login]');
+  if (!em.value.trim() || !k.value.trim()){ err.textContent='Нужны почта и ключ'; return; }
+  b.disabled=true; err.textContent='Проверяю…';
+  try{ const u=await acctLogin(em.value, k.value); k.value=''; err.textContent=''; toast('Вход: '+(u.name||u.email)); await homeFill(); }
+  catch(e){ err.textContent=e.message||'Вход не прошёл'; } b.disabled=false; }
 async function homeOpen(id){ try{ localStorage.setItem('proyavka.booting','1'); }catch(_){}
   const ok=await restore(id); try{ localStorage.removeItem('proyavka.booting'); }catch(_){}
   if (!ok){ toast('Документ не открылся',3000); homeFill(); } }
@@ -8083,10 +8128,10 @@ if (crashedBefore){ const c=crashedBefore; memNote(`перезапуск · ин
   let crashed=false; try{ crashed=!!localStorage.getItem('proyavka.booting'); localStorage.setItem('proyavka.booting','1'); }catch(_){}
   let ok=false, found=0;
   try{ found = await migrateStorage() || 0; }catch(e){ console.warn('migrate', e); }
-  let homeBoot=false; try{ homeBoot=localStorage.getItem('proyavka.home')==='1'; }catch(_){}
+  let homeBoot=false; try{ homeBoot=localStorage.getItem('proyavka.home')==='1'; }catch(_){} if (acctNeedsLogin()) homeBoot=true;
   pvLog(crashed?'безопасный запуск':homeBoot?'начальный экран':'открываю документ'); if (!crashed && !homeBoot) ok = await restore(); pvLog(ok?'документ открыт':homeBoot?'без документа':'новый холст');
   if (found) setTimeout(()=>toast('В памяти нашлись прежние картинки: «Файл → Мои документы», карточки «Найдено»',6000), 1500);
-  if (!ok){ if (homeBoot) homeShow(); else createDoc(3000,4000,'Без названия'); }
+  if (!ok){ if (homeBoot || ACCT.on) homeShow(); else createDoc(3000,4000,'Без названия'); }
   tabsBoot();
   // the guard stays on until the restored document has been drawn and lived a few seconds: a crash on the first frames also counts
   setTimeout(()=>{ try{ localStorage.removeItem('proyavka.booting'); }catch(_){} pvLog('запуск прошёл'); }, 6000);
