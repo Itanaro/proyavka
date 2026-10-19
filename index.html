@@ -392,6 +392,7 @@ svg[data-logo]{clip-path:inset(0 round 22.5%)}
   --bg:#141518;
   --glass-bg:linear-gradient(180deg,rgba(46,49,57,.66) 0%,rgba(27,29,34,.74) 100%);
   --glass-solid:linear-gradient(180deg,rgba(44,47,55,.92) 0%,rgba(27,29,34,.95) 100%);
+  --glass-work:linear-gradient(180deg,rgba(44,47,55,.86) 0%,rgba(27,29,34,.9) 100%);
   --glass-edge:rgba(255,255,255,.085);
   --glass-hi:inset 0 1px 0 rgba(255,255,255,.09);
   --glass-shadow:0 22px 60px -10px rgba(0,0,0,.55),0 4px 14px rgba(0,0,0,.28);
@@ -436,6 +437,9 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 /* buttons */
 .tb{border-radius:13px}
 #rail .tb{width:46px;height:46px;border-radius:15px}
+#rail .tb,#rail .vs,#rail .vlabel{flex:none}
+@media (max-height:900px){ #rail .vs{height:110px} #rail{gap:4px} }
+@media (max-height:780px){ #rail .vs{height:78px} #rail .tb{width:42px;height:42px} }
 .tb.on,#flyout button.on,.seg button.on,.fbar .pri,.dlg .actions .pri,#brushPop .bfoot .pri{background:var(--accent-grad);color:var(--accent-ink);box-shadow:var(--accent-lift)}
 .tb.on svg{filter:drop-shadow(0 1px 0 rgba(255,255,255,.35))}
 .tb:active:not(.on),.fbar button:active:not(.pri),#flyout button:active:not(.on),#menu button:active{background:var(--soft-3)}
@@ -526,6 +530,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #cropbar .seg button{flex:none;padding:0 10px}
 .anc{display:grid;grid-template-columns:repeat(3,26px);gap:4px}.anc button{width:26px;height:26px;padding:0;border-radius:6px;background:var(--soft)}.anc button.on{background:var(--accent)}
 .dims{display:flex;gap:10px;flex-wrap:wrap}.dims label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}.dims input[type=number]{width:110px}
+#stage .fbar,#notesCard,#aiedit{background:var(--glass-work)}
 #notesCard{position:absolute;z-index:6;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:18px;overflow-y:auto;background:var(--glass-bg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);font-size:12.5px;line-height:1.38}
 #notesCard .nh{display:flex;align-items:center;gap:6px} #notesCard .nh b{font-weight:600;color:#f0b46a} #notesCard .nh span{flex:1;color:var(--muted);font-size:11px}
 #notesCard .nh button{width:24px;height:24px;border-radius:7px;color:var(--muted)} #notesCard .nh button:hover{background:var(--soft-3);color:var(--fg)}
@@ -6521,6 +6526,11 @@ for (const id of ['#aibar','#critbar','#cropbar']) (function(){ const b=$(id); i
   const up=e=>{ if (d && e.pointerId===d.id) d=null; }; b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
   b.addEventListener('dblclick', e=>{ if (!b.classList.contains('dock') || !e.target.closest('.eh') || e.target.closest('button')) return; try{ localStorage.removeItem('proyavka.aidock'); }catch(_){} dockPlace(b); }); })();
 addEventListener('resize', ()=>setTimeout(aiDockPlace,60));
+{ const ids=['#adjbar','#harmbar','#filtbar','#genbar','#objbar','#depthbar','#edgebar','#pupbar'], mo=new MutationObserver(ms=>{ for (const m of ms){ const b=m.target; if (!b.hidden) dockPlace(b); } });
+  for (const id of ids){ const b=$(id); if (!b) continue; mo.observe(b,{attributes:true, attributeFilter:['hidden']});
+    let d=null; b.addEventListener('pointerdown', e=>{ const h=e.target.closest('.eh'); if (!h || e.target.closest('button,input,select,textarea')) return; const r=b.getBoundingClientRect(), st=$('#stage').getBoundingClientRect(); d={id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, st}; try{ b.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
+    b.addEventListener('pointermove', e=>{ if (!d || e.pointerId!==d.id) return; try{ localStorage.setItem('proyavka.aidock', JSON.stringify({x:e.clientX-d.st.left-d.dx, y:e.clientY-d.st.top-d.dy})); }catch(_){} dockPlace(b); });
+    const up=e=>{ if (d && e.pointerId===d.id) d=null; }; b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); } }
 function tabsLayout(){ // tabs right under the top bar (like Photoshop), the counters (zoom, size, memory) under the tabs
   const box=$('#tabs'), stt=$('#status'); if (!box) return; stt.style.top='';
   if (box.hidden){ airailLayout(); return; } const st=$('#stage').getBoundingClientRect(), s=stt.getBoundingClientRect(), ly=$('#layers');
@@ -7848,7 +7858,7 @@ async function openLibrary(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDoc){ clearTimeout(saveT); autosave(true); } });
 
-const APP_VERSION='2026-10-17 · №81 AI Edit в Проявке понимает команды Детали'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-19 · №82 панели читаемее и справа, левая панель на маленьких экранах'; $('#appVer').textContent=APP_VERSION;
 /* ============ storage diagnostics ============ */
 let visit={ls:'—', idb:'—'};
 (async()=>{
