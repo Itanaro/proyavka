@@ -7167,7 +7167,7 @@ let POSE_REF=null;
 async function poseRefSample(){ if (POSE_REF) return POSE_REF; const r=await fetch('assets/pose-ref.jpg'); if (!r.ok) throw new Error('образец стиля не загрузился'); POSE_REF=await loadImage(await r.blob()); return POSE_REF; }
 function poseRefOpen(){
   if (!doc) return; const r = sel && !sel.inverted ? selBBox() : {x:0,y:0,w:doc.w,h:doc.h}; if (!r || r.w<16 || r.h<16){ toast('Выделение слишком маленькое'); return; }
-  aiOpen({ title:'Реф с позы', perVariant:true, layerName:'Реф с позы', frame: sel ? r : null,
+  aiOpen({ title:'Реф с позы', perVariant:true, layerName:'Реф с позы', // no dashed frame: it looked like a selection that would not go away
     sub: (sel ? 'выделение ' : 'весь кадр ')+r.w+'×'+r.h+' → Banana 2.1 · 1K',
     askWords:'Уточнить', placeholder:'необязательно: «только героиня», «стул оставить», «без оружия»…',
     hint:'Делает из картинки реф позы: скетчевые болванки персонажа (или главного предмета) на чистом белом фоне — ракурс и поза как в кадре, стиль линий — как у встроенного образца. Масштаб не меняется: кадр вписывается в пропорции модели белыми полями, ответ обрезается обратно и ложится новым слоем; каждый вариант — своим слоем.',
@@ -8290,7 +8290,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-20 · №91 линейки только по краям картинки'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-20 · №92 «Реф с позы» без пунктирной рамки'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
