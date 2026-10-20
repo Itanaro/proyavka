@@ -18,6 +18,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png?v=2">
 <link rel="icon" href="icons/icon-180.png?v=2">
+<script>/* №88: theme and pasteboard before the first paint */
+(function(){ var d=document.documentElement, t='night', p=''; try{ t=localStorage.getItem('proyavka.theme')||'night'; p=localStorage.getItem('proyavka.paste')||''; }catch(e){}
+  d.setAttribute('data-theme', t); if (p) d.style.setProperty('--paste', p); })();</script>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} html,body{margin:0;background:#17181b;color:#e6e7ea} [hidden]{display:none!important}
 .brushBtn{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px 0 6px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);flex:none;max-width:220px}
 .brushBtn .bpv{width:84px;height:26px;flex:none}
@@ -465,7 +468,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #brushPop .brow.on{background:linear-gradient(90deg,rgba(234,176,102,.20),rgba(234,176,102,.05));box-shadow:inset 0 0 0 1px rgba(234,176,102,.55)}
 #brushPop .bfoot button{border-radius:14px}
 /* inputs */
-.row input[type=text],.row select,.row .bstep,.dims input{background-color:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:12px}
+.row input[type=text],.row select,.row .bstep,.dims input{background-color:var(--field);border:1px solid var(--line);border-radius:12px}
 #swatch{box-shadow:0 0 0 2px rgba(20,21,24,.9),0 0 0 3.5px rgba(255,255,255,.18),0 4px 12px rgba(0,0,0,.4)}
 /* sliders */
 .hs::before{height:5px;top:12.5px;border-radius:3px;background:rgba(255,255,255,.1);box-shadow:inset 0 1px 1px rgba(0,0,0,.35)}
@@ -502,7 +505,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #aibar{max-height:calc(100% - 96px);overflow-y:auto}
 #aibar .aiml{display:flex;flex-direction:column;gap:6px;font-size:13px}
 #aibar .aiml label{color:var(--muted)}
-#aibar .aiml textarea{width:100%;box-sizing:border-box;min-height:62px;resize:none;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:8px 12px;color:var(--fg);font:inherit;font-size:13px;line-height:1.4}
+#aibar .aiml textarea{width:100%;box-sizing:border-box;min-height:62px;resize:none;border-radius:12px;border:1px solid var(--line);background:var(--field);padding:8px 12px;color:var(--fg);font:inherit;font-size:13px;line-height:1.4}
 #aibar .drefs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 #aibar .dref{position:relative;width:52px;height:52px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#0003;display:flex;align-items:center;justify-content:center}
 #aibar .dref canvas{max-width:100%;max-height:100%}
@@ -510,7 +513,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #aibar .dref button{position:absolute;right:1px;top:1px;width:18px;height:18px;min-height:0;padding:0;border-radius:9px;background:#000a;color:#fff;font-size:11px;line-height:18px}
 #aibar .drefs > button,#aibar .dtpl button{height:32px;padding:0 10px;border-radius:10px;font-size:12.5px}
 #aibar .dtpl{display:flex;gap:6px;align-items:center}
-#aibar .dtpl select{flex:1;min-width:0;height:32px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.22);color:var(--fg);padding:0 8px}
+#aibar .dtpl select{flex:1;min-width:0;height:32px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--fg);padding:0 8px}
 body:not(.showhints) #stage .fbar .gh:not(.keep){display:none}
 #stage .fbar .eh .qh{float:right;width:24px;height:24px;border-radius:50%;padding:0;margin-left:8px;font-size:12px;font-weight:600;background:var(--soft);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line-soft)} #stage .fbar .eh .qh.on{color:var(--fg);background:var(--soft-3)}
 #genbar .gh,#objbar .gh,#aibar .gh,#critbar .gh,#pupbar .gh,#cropbar .gh{font-size:11.5px;color:var(--muted);margin-top:-4px;line-height:1.35}
@@ -525,7 +528,7 @@ body:not(.showhints) #stage .fbar .gh:not(.keep){display:none}
 #stage.lyopen .fbar{left:calc(50% - 103px);max-width:calc(100% - 430px)}
 .fgrp{display:flex;align-items:center;gap:2px;flex-wrap:nowrap}
 
-#gsOr input,#gsFal input,#gsComfy input{flex:1;min-width:0;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg);font:inherit}
+#gsOr input,#gsFal input,#gsComfy input{flex:1;min-width:0;height:36px;border-radius:12px;border:1px solid var(--line);background:var(--field);padding:0 12px;color:var(--fg);font:inherit}
 
 #critbar,#pupbar{max-height:min(62vh,560px)}
 #cropbar{width:min(580px,calc(100% - 24px))}
@@ -633,6 +636,110 @@ body.home #menu [data-m=place],body.home #menu [data-m=save],body.home #menu [da
 /* the app name and logo are not shown in the top bar: the space goes to the tools (the icon stays on the home screen) */
 #top .brand{display:none!important}
 </style>
+<style id="themes">
+/* ---- №88: interface themes (series palettes «Ночь», «Облачко», «Луч»; «Графит» = the old look).
+   The pasteboard around the image does not follow the theme: it is its own setting (--paste / BG). ---- */
+:root{--field:rgba(0,0,0,.22);--ai:#f0b46a;--track:rgba(255,255,255,.1);--tab-bg:rgba(33,35,40,.78);--ok:#7fcf8f;--badge:#ffb35c;--badge-ink:#1b1208;
+  --paste:#141518;--home-bg:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316 100%);--aura:none;--drag-bg:rgba(32,34,40,.97)}
+[data-theme=night]{color-scheme:dark;
+  --bg:#121014;--panel:#1e1a22;--panel-2:#2a2530;--panel-3:#352f3c;--fg:#f3eff5;--muted:#ada5b4;
+  --accent:#ff6ab0;--accent-ink:#3b0b22;--danger:#ff7d8c;--ok:#62d6a0;--ai:#ff9acb;--badge:#ff9acb;--badge-ink:#3b0b22;
+  --glass:rgba(30,26,35,.9);--glass-bg:linear-gradient(180deg,rgba(42,37,48,.70) 0%,rgba(22,19,26,.78) 100%);
+  --glass-solid:linear-gradient(180deg,rgba(40,35,46,.95) 0%,rgba(24,21,28,.97) 100%);
+  --glass-work:linear-gradient(180deg,rgba(40,35,46,.88) 0%,rgba(24,21,28,.92) 100%);
+  --glass-edge:rgba(255,255,255,.085);--glass-hi:inset 0 1px 0 rgba(255,255,255,.07);
+  --glass-shadow:0 22px 60px -10px rgba(0,0,0,.6),0 4px 14px rgba(0,0,0,.3);
+  --accent-grad:linear-gradient(135deg,#ffa3cf 0%,#ff6ab0 55%,#e86fd0 100%);
+  --accent-grad-h:linear-gradient(90deg,#e86fd0 0%,#ff6ab0 60%,#ffa3cf 100%);
+  --accent-lift:0 6px 18px -6px rgba(255,106,176,.6),inset 0 1px 0 rgba(255,255,255,.45),inset 0 -1px 0 rgba(120,20,70,.28);
+  --soft:rgba(255,255,255,.05);--soft-2:rgba(255,255,255,.08);--soft-3:rgba(255,255,255,.12);--line:rgba(255,255,255,.08);--line-soft:rgba(255,255,255,.05);
+  --field:rgba(0,0,0,.26);--tab-bg:rgba(30,26,35,.82);--drag-bg:rgba(30,26,35,.97);
+  --home-bg:#121014;--aura:radial-gradient(60% 45% at 92% 2%,rgba(255,106,176,.24),transparent 70%),radial-gradient(50% 40% at 4% 38%,rgba(108,226,186,.13),transparent 70%),radial-gradient(55% 45% at 96% 78%,rgba(112,170,255,.15),transparent 70%),radial-gradient(45% 35% at 30% 105%,rgba(190,140,255,.12),transparent 70%)}
+[data-theme=cloud]{color-scheme:light;
+  --bg:#ebe9f1;--panel:#f7f5fa;--panel-2:#ffffff;--panel-3:#efe9f4;--fg:#2c2233;--muted:#6c6074;
+  --accent:#ee5a9e;--accent-ink:#4a102e;--danger:#df4459;--ok:#1d9a68;--ai:#e0509a;--badge:#ff86bf;--badge-ink:#4a102e;
+  --glass:rgba(250,248,252,.94);--glass-bg:linear-gradient(180deg,rgba(255,255,255,.86) 0%,rgba(242,238,247,.90) 100%);
+  --glass-solid:linear-gradient(180deg,rgba(255,255,255,.97) 0%,rgba(245,241,249,.98) 100%);
+  --glass-work:linear-gradient(180deg,rgba(255,255,255,.93) 0%,rgba(244,240,248,.95) 100%);
+  --glass-edge:rgba(92,60,104,.13);--glass-hi:inset 0 1px 0 rgba(255,255,255,.9);
+  --glass-shadow:0 22px 50px -14px rgba(40,20,60,.45),0 3px 10px rgba(40,20,60,.16);
+  --accent-grad:linear-gradient(135deg,#ffb287 0%,#ff86bf 50%,#8fdde6 100%);
+  --accent-grad-h:linear-gradient(90deg,#ffb287 0%,#ff86bf 55%,#8fdde6 100%);
+  --accent-lift:0 6px 16px -6px rgba(238,90,158,.5),inset 0 1px 0 rgba(255,255,255,.65);
+  --soft:rgba(92,60,104,.055);--soft-2:rgba(92,60,104,.09);--soft-3:rgba(92,60,104,.14);--line:rgba(92,60,104,.14);--line-soft:rgba(92,60,104,.08);
+  --field:rgba(255,255,255,.75);--track:rgba(92,60,104,.16);--tab-bg:rgba(255,255,255,.86);--drag-bg:rgba(252,250,254,.98);
+  --home-bg:#ebe9f1;--aura:radial-gradient(55% 42% at 6% 0%,rgba(255,168,112,.55),transparent 70%),radial-gradient(55% 45% at 100% 14%,rgba(255,140,198,.45),transparent 70%),radial-gradient(50% 40% at 50% 46%,rgba(255,255,255,.85),transparent 70%),radial-gradient(55% 40% at 98% 82%,rgba(136,228,236,.48),transparent 70%),radial-gradient(50% 38% at 8% 96%,rgba(255,170,220,.40),transparent 70%),radial-gradient(40% 30% at 60% 104%,rgba(255,214,150,.35),transparent 70%)}
+[data-theme=sun]{color-scheme:light;
+  --bg:#f6eee6;--panel:#fffaf5;--panel-2:#ffffff;--panel-3:#f3e8de;--fg:#33241f;--muted:#75625a;
+  --accent:#f0607f;--accent-ink:#4a1620;--danger:#da4452;--ok:#2a9a5c;--ai:#e2566f;--badge:#ffb46a;--badge-ink:#4a1620;
+  --glass:rgba(255,250,245,.94);--glass-bg:linear-gradient(180deg,rgba(255,253,249,.86) 0%,rgba(248,240,232,.90) 100%);
+  --glass-solid:linear-gradient(180deg,rgba(255,253,250,.97) 0%,rgba(249,242,235,.98) 100%);
+  --glass-work:linear-gradient(180deg,rgba(255,253,249,.93) 0%,rgba(248,241,234,.95) 100%);
+  --glass-edge:rgba(110,70,40,.14);--glass-hi:inset 0 1px 0 rgba(255,255,255,.9);
+  --glass-shadow:0 22px 50px -14px rgba(70,40,20,.45),0 3px 10px rgba(70,40,20,.16);
+  --accent-grad:linear-gradient(135deg,#ffd27a 0%,#ff9a8c 50%,#e58bd0 100%);
+  --accent-grad-h:linear-gradient(90deg,#ffd27a 0%,#ff9a8c 55%,#e58bd0 100%);
+  --accent-lift:0 6px 16px -6px rgba(240,96,127,.45),inset 0 1px 0 rgba(255,255,255,.65);
+  --soft:rgba(110,70,40,.055);--soft-2:rgba(110,70,40,.09);--soft-3:rgba(110,70,40,.14);--line:rgba(110,70,40,.15);--line-soft:rgba(110,70,40,.08);
+  --field:rgba(255,255,255,.75);--track:rgba(110,70,40,.16);--tab-bg:rgba(255,252,247,.88);--drag-bg:rgba(255,252,248,.98);
+  --home-bg:#f6eee6;--aura:conic-gradient(from 100deg at 0% 0%,transparent 0deg,rgba(255,226,150,.45) 5deg,transparent 10deg,transparent 14deg,rgba(255,170,190,.32) 19deg,transparent 25deg,transparent 30deg,rgba(180,220,255,.32) 34deg,transparent 39deg,transparent 44deg,rgba(255,240,190,.45) 49deg,transparent 55deg,transparent 60deg,rgba(200,170,255,.28) 64deg,transparent 70deg,transparent 360deg),radial-gradient(60% 48% at 0% 0%,rgba(255,214,128,.65),transparent 70%),radial-gradient(50% 40% at 100% 22%,rgba(255,150,140,.34),transparent 70%),radial-gradient(55% 42% at 90% 96%,rgba(190,160,255,.34),transparent 70%),radial-gradient(45% 36% at 6% 86%,rgba(130,222,226,.30),transparent 70%)}
+/* where the page itself shows (behind the bars, the home screen): theme; the pasteboard is drawn by the canvas */
+html,body,#app{background:var(--paste)}
+body.home #app{background:var(--aura),var(--home-bg)}
+#splash{background:var(--aura),var(--home-bg)}
+[data-theme=graphite] body.home #app,[data-theme=graphite] #splash{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316 100%)}
+/* hardcoded colours → theme */
+#airail .tb,#notesChip,#bAI,#notesDot,#aiedit .aeh b,#aiedit #aeHints.on,#notesCard .nh b{color:var(--ai)}
+.fbar .ai{color:var(--ai)}
+.chk.on{background:color-mix(in srgb,var(--accent) 20%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 75%,transparent),0 4px 14px -6px color-mix(in srgb,var(--accent) 60%,transparent)}
+#brushPop .brow.on{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 20%,transparent),color-mix(in srgb,var(--accent) 5%,transparent));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 55%,transparent)}
+.ly.act{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 20%,transparent) 0%,color-mix(in srgb,var(--accent) 6%,transparent) 100%);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent)}
+.ly.pick{background:color-mix(in srgb,var(--accent) 10%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent)}
+.ly .nm .lyRen{background:var(--field)}
+#tabs .tab{background:var(--tab-bg)} #tabs .tab.on{background:var(--panel-2);border-color:color-mix(in srgb,var(--accent) 55%,transparent)} #tabs .tx:hover{background:var(--soft-2)}
+kbd{background:var(--field)}
+#swatch{box-shadow:0 0 0 2px var(--panel),0 0 0 3.5px var(--line),0 4px 12px rgba(0,0,0,.3)}
+body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
+.hs::before{background:var(--track)}
+.hs .hf{box-shadow:0 0 10px -2px color-mix(in srgb,var(--accent) 60%,transparent)}
+.vs{background:var(--soft)} .vs .fill{background:linear-gradient(0deg,color-mix(in srgb,var(--fg) 30%,transparent),color-mix(in srgb,var(--fg) 14%,transparent))}
+.rsep{background:var(--line)}
+#genbar .gvar.on,#objbar .gvar.on,#aibar .gvar.on{box-shadow:inset 0 0 0 2px var(--accent),0 4px 14px -6px color-mix(in srgb,var(--accent) 70%,transparent)}
+#critbar .crn.on,#pupbar .crn.on,#notesCard .ni.on{box-shadow:inset 0 0 0 2px var(--accent)}
+#critbar .crn b,#pupbar .crn b,#notesCard .ni > b,#notesDot i{background:var(--badge);color:var(--badge-ink)}
+#notesCard .ni .nk.on,#notesCard .ni.done > b,#notesDot i.ok{background:var(--ok);color:var(--badge-ink)}
+#notesCard.drag,#notesDot.drag{background:var(--drag-bg);box-shadow:0 22px 50px rgba(0,0,0,.45),0 0 0 1.5px var(--accent)}
+#notesGhost{border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
+#notesDot:hover{box-shadow:var(--glass-hi),var(--glass-shadow),0 0 0 1.5px var(--accent)}
+#home.drop .hdrop{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+#home .hcard:hover{border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+#home .hbtn.pri small{color:color-mix(in srgb,var(--accent-ink) 60%,transparent)}
+#home .hlogin input{background:var(--field)} #home .hlogin input:focus{border-color:color-mix(in srgb,var(--accent) 60%,transparent)}
+#lyCtx button.dg{color:var(--danger)}
+#updBar{border-color:var(--glass-edge)}
+/* light themes: shadows a little softer, scrim lighter */
+[data-theme=cloud] .scrim,[data-theme=sun] .scrim{background:rgba(40,28,48,.32)}
+[data-theme=cloud] .tb.on svg,[data-theme=sun] .tb.on svg{filter:none}
+[data-theme=cloud] .th,[data-theme=sun] .th{background:repeating-conic-gradient(#ffffff 0 25%,#e3dfe8 0 50%) 0 0/10px 10px}
+[data-theme=cloud] .vs .fill,[data-theme=sun] .vs .fill{background:linear-gradient(0deg,color-mix(in srgb,var(--accent) 34%,transparent),color-mix(in srgb,var(--accent) 12%,transparent))}
+[data-theme=cloud] #home .hth,[data-theme=sun] #home .hth,[data-theme=cloud] .lib .card .lth,[data-theme=sun] .lib .card .lth{background:color-mix(in srgb,var(--fg) 12%,var(--bg))}
+/* appearance dialog */
+.dlg .thg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:6px 0 16px}
+.dlg .thc{display:flex;flex-direction:column;gap:7px;padding:7px;border-radius:16px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);text-align:left}
+.dlg .thc.on{box-shadow:inset 0 0 0 2px var(--accent)}
+.dlg .thc i{display:block;height:58px;border-radius:11px;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.dlg .thc i::after{content:"";position:absolute;left:9px;bottom:9px;width:44%;height:12px;border-radius:6px;background:var(--g)}
+.dlg .thc b{font-weight:600;font-size:13.5px;padding:0 3px} .dlg .thc small{color:var(--muted);font-size:11px;padding:0 3px 2px;line-height:1.25}
+.dlg .pbg{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0 4px}
+.dlg .pbg button{display:flex;align-items:center;gap:7px;height:34px;padding:0 11px 0 6px;border-radius:17px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);font-size:12.5px}
+.dlg .pbg button.on{box-shadow:inset 0 0 0 2px var(--accent)}
+.dlg .pbg button i{width:22px;height:22px;border-radius:11px;box-shadow:inset 0 0 0 1px rgba(128,128,128,.5);flex:none}
+.dlg .pbg label{position:relative}
+.dlg .pbg input[type=color]{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
+.dlg .apn{color:var(--muted);font-size:12px;margin:2px 0 0;line-height:1.4}
+@media (max-width:560px){ .dlg .thg{grid-template-columns:repeat(2,minmax(0,1fr))} }
+</style>
+
 
 <div id="app">
   <div id="splash"><svg viewBox="0 0 1024 1024" aria-hidden="true" data-logo="2">
@@ -929,6 +1036,7 @@ body.home #menu [data-m=place],body.home #menu [data-m=save],body.home #menu [da
     <hr>
     <button data-m="finger" class="padonly">Рисовать пальцем <small id="mFinger">выкл</small></button>
     <button data-m="penpick">Пипетка карандашом <small id="mPenPick">вкл</small></button>
+    <button data-m="look">Оформление <small id="mLook">Ночь</small></button>
     <button data-m="help">Жесты и клавиши</button>
     <button data-m="store">Проверка памяти <small>для отладки</small></button>
     <button data-m="noop" disabled style="opacity:.6">Версия <small id="appVer"></small></button>
@@ -1471,7 +1579,7 @@ function renderOverlay(){ if(!doc) return;
   }
 }
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const BG = cssVar('--bg') || '#17181b';
+const PASTE_DEF='#141518'; let BG = (()=>{ try{ return localStorage.getItem('proyavka.paste')||PASTE_DEF; }catch(e){ return PASTE_DEF; } })();
 setInterval(()=>{ if((sel||lassoPts||rectSel) && !stroke && !liqStroke && !navigating && !document.hidden){ antsPhase=(antsPhase+1)%10; renderOverlay(); } }, 100); // ants rest while painting / navigating
 const statusCache={};
 function setText(id,t){ if(statusCache[id]!==t){ statusCache[id]=t; $(id).textContent=t; } }
@@ -3306,7 +3414,7 @@ function genBuild(){
   const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Генеративная заливка <span></span>';
   head.lastChild.textContent = !genReady() ? (genCloud() ? 'нужен ключ '+PROV_NAME[genCfg.provider]+' — кнопка ⚙' : 'нужен адрес компьютера — кнопка ⚙') : g.busy ? g.busy : g.variants.length ? 'выбери вариант или попроси ещё' : 'пусто — заполнит по смыслу; или пара слов: «розы на переднем плане»'; box.append(head);
   const pr=document.createElement('div'); pr.className='er'; pr.innerHTML='<label>Что там</label><input type="text" id="genPrompt" autocomplete="off" spellcheck="false" placeholder="можно оставить пустым"><span></span>';
-  const inp=pr.querySelector('input'); inp.value=g.prompt; inp.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg)';
+  const inp=pr.querySelector('input'); inp.value=g.prompt; inp.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;border:1px solid var(--line);background:var(--field);padding:0 12px;color:var(--fg)';
   inp.oninput=()=>{ g.prompt=inp.value; }; inp.onkeydown=e=>{ if(e.key==='Enter'){ inp.blur(); genGo(); } }; box.append(pr);
   if (!genCloud()){ const sr=document.createElement('div'); sr.className='er'; sr.innerHTML='<label>Сила изменения</label><div></div><span class="v"></span>'; const v=sr.lastChild, show=()=>v.textContent=Math.round(g.str*100)+'%'; show();
     hslider(sr.children[1],{min:0.2,max:1,get:()=>g.str,set:x=>{ g.str=x; show(); }}); box.append(sr); }
@@ -3446,7 +3554,7 @@ function aiBuild(){
     const inp=pr.querySelector('textarea'); inp.placeholder=a.placeholder||'можно оставить пустым'; inp.value=a.words; const fit=()=>{ inp.style.height='auto'; inp.style.height=Math.min(220,Math.max(62,inp.scrollHeight+2))+'px'; };
     inp.oninput=()=>{ a.words=inp.value; if (a.detail && detailLast) detailLast.words=a.words; fit(); }; inp.onkeydown=e=>{ e.stopPropagation(); if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); inp.blur(); aiGo(); } }; box.append(pr); requestAnimationFrame(fit); }
   else if (a.askWords){ const pr=document.createElement('div'); pr.className='er'; pr.innerHTML='<label>'+a.askWords+'</label><input type="text" autocomplete="off" spellcheck="false"><span></span>';
-    const inp=pr.querySelector('input'); inp.placeholder=a.placeholder||'можно оставить пустым'; inp.value=a.words; inp.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg)';
+    const inp=pr.querySelector('input'); inp.placeholder=a.placeholder||'можно оставить пустым'; inp.value=a.words; inp.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;border:1px solid var(--line);background:var(--field);padding:0 12px;color:var(--fg)';
     inp.oninput=()=>{ a.words=inp.value; }; inp.onkeydown=e=>{ if(e.key==='Enter'){ inp.blur(); aiGo(); } }; box.append(pr); }
   if (a.rows && !a.busy) a.rows(box);
   if (a.hint){ const h=document.createElement('div'); h.className='gh'; h.textContent=a.hint; box.append(h); }
@@ -3553,7 +3661,7 @@ function expandDialog(){
     [['Расширить', d=>{ const v=id=>+d.querySelector(id).value||0; const e=canvasExpand(v('#exT'),v('#exR'),v('#exB'),v('#exL')); if (!e){ toast('Укажи, на сколько расширять'); return false; } setTimeout(()=>expandFill(e),50); }, true]]);
   const set=(t,b,l,r)=>{ d.querySelector('#exT').value=Math.round(t); d.querySelector('#exB').value=Math.round(b); d.querySelector('#exL').value=Math.round(l); d.querySelector('#exR').value=Math.round(r); info(); };
   const info=()=>{ const v=id=>+d.querySelector(id).value||0; d.querySelector('#exInfo').textContent='Будет '+(doc.w+v('#exL')+v('#exR'))+'×'+(doc.h+v('#exT')+v('#exB')); };
-  d.querySelectorAll('input').forEach(i=>{ i.oninput=info; i.style.cssText='flex:1;min-width:0;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg);font:inherit'; }); info();
+  d.querySelectorAll('input').forEach(i=>{ i.oninput=info; i.style.cssText='flex:1;min-width:0;height:36px;border-radius:12px;border:1px solid var(--line);background:var(--field);padding:0 12px;color:var(--fg);font:inherit'; }); info();
   d.querySelectorAll('#exPre button').forEach(b=>b.onclick=()=>{ const W=doc.w, H=doc.h, p=b.dataset.p;
     if (p==='w') set(0,0,W*0.125,W*0.125); else if (p==='h') set(H*0.125,H*0.125,0,0);
     else { const [a1,a2]= p==='169'?[16,9]:p==='916'?[9,16]:[4,3], t=a1/a2;
@@ -3818,11 +3926,11 @@ function sdBuild(){
   const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ SD Inpaint <span></span>';
   head.lastChild.textContent = !sdBase() ? 'нужен адрес моста — кнопка ⚙' : g.busy ? g.busy : g.variants.length ? 'выбери вариант или попроси ещё' : 'свой ПК · Automatic1111'; box.append(head);
   const field=(label,key,ph)=>{ const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>'+label+'</label><input type="text" autocomplete="off" spellcheck="false"><span></span>';
-    const i=r.querySelector('input'); i.placeholder=ph; i.value=g[key]||''; i.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);padding:0 12px;color:var(--fg)';
+    const i=r.querySelector('input'); i.placeholder=ph; i.value=g[key]||''; i.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;border:1px solid var(--line);background:var(--field);padding:0 12px;color:var(--fg)';
     i.oninput=()=>{ g[key]=i.value; }; i.onkeydown=e=>{ if(e.key==='Enter'){ i.blur(); genGo(); } }; box.append(r); };
   field('Промпт','prompt','что должно получиться'); field('Негатив','neg','чего не надо');
   const mr=document.createElement('div'); mr.className='er'; mr.innerHTML='<label>Модель</label><select></select><span></span>'; const ms=mr.querySelector('select');
-  ms.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;min-width:0;border:1px solid var(--line);background:rgba(0,0,0,.22);color:var(--fg);padding:0 10px';
+  ms.style.cssText='grid-column:2 / span 2;height:36px;border-radius:12px;min-width:0;border:1px solid var(--line);background:var(--field);color:var(--fg);padding:0 10px';
   const fill=list=>{ ms.textContent=''; const o0=document.createElement('option'); o0.value=''; o0.textContent='как сейчас в Automatic1111'; ms.append(o0);
     for (const t of list){ const o=document.createElement('option'); o.value=t; o.textContent=t.replace(/\s*\[[0-9a-f]+\]$/,''); ms.append(o); } ms.value=g.model||''; if (ms.value!==(g.model||'')) ms.value=''; };
   fill(sdModelsCache||(g.model?[g.model]:[])); ms.onchange=()=>{ g.model=ms.value; };
@@ -5992,27 +6100,28 @@ function aeShim(){ // runs INSIDE the panel frame
   window.addEventListener('unhandledrejection', e=>H.err(e.reason && e.reason.message || String(e.reason)));
 }
 const AE_STYLE=`<style>
-:root{--uxp-host-text-color:#e6e7ea;--uxp-host-background-color:#212328;color-scheme:dark}
+:root{--ae-fg:#e6e7ea;--ae-bg:#212328;--ae-acc:#e2a65a;--ae-acc2:#eab06a;--ae-ink:#1d1406;--ae-field:rgba(0,0,0,.18);--ae-opt:#2a2d33;--uxp-host-text-color:var(--ae-fg);--uxp-host-background-color:var(--ae-bg);color-scheme:dark}
+body{color:var(--ae-fg)}
 html,body{background:transparent!important}
 body{font-family:"IBM Plex Sans",-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
 sp-button{display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:0 10px;border-radius:12px;font-size:12px;cursor:pointer;
-  user-select:none;-webkit-user-select:none;border:1px solid rgba(128,128,128,.5);background:rgba(128,128,128,.12);color:#e6e7ea;white-space:nowrap;box-sizing:border-box}
+  user-select:none;-webkit-user-select:none;border:1px solid rgba(128,128,128,.5);background:rgba(128,128,128,.12);color:var(--ae-fg);white-space:nowrap;box-sizing:border-box}
 sp-button:hover{background:rgba(128,128,128,.25)} sp-button:active{transform:translateY(1px)}
 sp-button[quiet]{border-color:transparent;background:transparent} sp-button[quiet]:hover{background:rgba(128,128,128,.2)}
-sp-button[variant=cta]{background:#e2a65a;border-color:#e2a65a;color:#1d1406;font-weight:600;min-height:30px;border-radius:15px;font-size:13px}
-sp-button[variant=cta]:hover{background:#eab06a} sp-button[variant=primary]{background:rgba(226,166,90,.18);border-color:#e2a65a}
+sp-button[variant=cta]{background:var(--ae-acc);border-color:var(--ae-acc);color:var(--ae-ink);font-weight:600;min-height:30px;border-radius:15px;font-size:13px}
+sp-button[variant=cta]:hover{background:var(--ae-acc2)} sp-button[variant=primary]{background:color-mix(in srgb,var(--ae-acc) 18%,transparent);border-color:var(--ae-acc)}
 sp-button[disabled]{opacity:.45;pointer-events:none}
 sp-checkbox{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;-webkit-user-select:none;padding:2px 0;line-height:1.3}
 sp-checkbox::before{content:'';flex:none;width:12px;height:12px;border-radius:3px;border:1.5px solid rgba(200,200,200,.6);box-sizing:border-box}
-sp-checkbox[checked]::before{background:#e2a65a;border-color:#e2a65a;box-shadow:inset 0 0 0 2px #212328}
+sp-checkbox[checked]::before{background:var(--ae-acc);border-color:var(--ae-acc);box-shadow:inset 0 0 0 2px var(--ae-bg)}
 sp-textfield,sp-textarea{display:block;box-sizing:border-box}
-sp-textfield input,sp-textarea textarea{width:100%;box-sizing:border-box;border-radius:4px;border:1px solid rgba(128,128,128,.45);background:rgba(0,0,0,.18);color:#e6e7ea;font-family:inherit;font-size:12px;line-height:1.35;padding:4px 6px;outline:none}
+sp-textfield input,sp-textarea textarea{width:100%;box-sizing:border-box;border-radius:4px;border:1px solid rgba(128,128,128,.45);background:var(--ae-field);color:var(--ae-fg);font-family:inherit;font-size:12px;line-height:1.35;padding:4px 6px;outline:none}
 sp-textfield input{height:24px} sp-textarea textarea{height:100%;min-height:44px;resize:none}
-sp-textfield input:focus,sp-textarea textarea:focus{border-color:#e2a65a}
+sp-textfield input:focus,sp-textarea textarea:focus{border-color:var(--ae-acc)}
 sp-progressbar{display:block;height:4px;border-radius:2px;background:rgba(128,128,128,.25);overflow:hidden;position:relative}
-sp-progressbar::after{content:'';position:absolute;top:0;bottom:0;width:35%;background:#e2a65a;border-radius:2px;animation:aepb 1.1s ease-in-out infinite}
+sp-progressbar::after{content:'';position:absolute;top:0;bottom:0;width:35%;background:var(--ae-acc);border-radius:2px;animation:aepb 1.1s ease-in-out infinite}
 @keyframes aepb{0%{left:-35%}100%{left:100%}}
-select.pick option{background:#2a2d33}
+select.pick option{background:var(--ae-opt)}
 ::-webkit-scrollbar{width:8px} ::-webkit-scrollbar-thumb{background:rgba(128,128,128,.35);border-radius:4px}
 </style>`;
 const AE_PAD_STYLE=`<style>
@@ -6035,7 +6144,7 @@ async function aeOpen(reload){
   if (AE.loaded && !reload) return;
   const ver=$('#aeVer'); ver.textContent='загружаю плагин с компьютера…';
   try{ AE.src=await aeLoadSrc(); }
-  catch(e){ ver.textContent='не загрузился'; $('#aeFrame').srcdoc='<body style="background:#212328;color:#e6e7ea;font:13px system-ui;padding:16px">AI Edit не загрузился: '+String(e.message).replace(/</g,'&lt;')+'</body>'; return; }
+  catch(e){ ver.textContent='не загрузился'; $('#aeFrame').srcdoc='<body style="background:transparent;color:'+(cssVar('--fg')||'#e6e7ea')+';font:13px system-ui;padding:16px">AI Edit не загрузился: '+String(e.message).replace(/</g,'&lt;')+'</body>'; return; }
   const s=AE.src, d=s.mtime ? new Date(s.mtime*1000) : null, dt=d ? d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '';
   ver.textContent=(s.from==='pc' ? 'с компьютера' : 'сохранённая копия (компьютер не ответил)')+' · v'+(s.ver||'?')+(dt?' · правка '+dt:'');
   ver.title=s.from==='pc' ? 'Код взят из папки плагина Фотошопа: '+s.dir : 'Мост не ответил'+(s.why?' ('+s.why+')':'')+'. Запущена последняя копия, полученная с компьютера.';
@@ -6968,13 +7077,75 @@ async function exportImg(kind){
 const safeName=()=> (doc.name||'proyavka').replace(/[\\/:*?"<>|]+/g,'_');
 document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops(); const m=b.dataset.m;
   if (m==='noop') return;
-  if (acctNeedsLogin() && !['help','store','penpick','finger'].includes(m)){ toast('Сначала войди'); return; }
-  if (xf && m!=='help' && m!=='store'){ toast('Сначала примени или отмени трансформ'); return; }
+  if (acctNeedsLogin() && !['help','store','penpick','finger','look'].includes(m)){ toast('Сначала войди'); return; }
+  if (xf && m!=='help' && m!=='store' && m!=='look'){ toast('Сначала примени или отмени трансформ'); return; }
   if (m==='close'){ tabClose(); return; }
   if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click(); else if(m==='save') saveAsDesk(true); else if(m==='saveas') saveAsDesk(false); else if(m==='crop') cropOpen(); else if(m==='isize') imageSizeDialog(); else if(m==='csize') canvasSizeDialog();
+  else if(m==='look') appearanceDialog();
   else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='penpick'){ S.penHoldPick=!S.penHoldPick; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; savePrefs(); toast(S.penHoldPick?'Задержи карандаш на месте ~0.5 с — появится пипетка':'Пипетка карандашом выключена; палец по-прежнему берёт цвет удержанием'); } else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
   else exportImg(m);
 });
+
+/* ============ №88: interface themes and the pasteboard colour ============
+   Theme = the series palettes (claude/signature-palettes.md) + the old graphite look. It changes only the interface.
+   The pasteboard around the image is its own setting, like Photoshop's (right click outside the image on the PC). */
+const THEMES=[
+  {id:'night',   name:'Ночь',    note:'тёмная',               bg:'#121014', g:'linear-gradient(135deg,#ffa3cf,#ff6ab0 55%,#e86fd0)', aura:'radial-gradient(70% 60% at 90% 0%,rgba(255,106,176,.35),transparent 70%),radial-gradient(60% 50% at 0% 100%,rgba(112,170,255,.22),transparent 70%)'},
+  {id:'cloud',   name:'Облачко', note:'светлая',              bg:'#ebe9f1', g:'linear-gradient(135deg,#ffb287,#ff86bf 50%,#8fdde6)', aura:'radial-gradient(70% 60% at 0% 0%,rgba(255,168,112,.6),transparent 70%),radial-gradient(70% 60% at 100% 100%,rgba(136,228,236,.55),transparent 70%)'},
+  {id:'sun',     name:'Луч',     note:'светлая, тёплая',      bg:'#f6eee6', g:'linear-gradient(135deg,#ffd27a,#ff9a8c 50%,#e58bd0)', aura:'radial-gradient(80% 70% at 0% 0%,rgba(255,214,128,.75),transparent 70%),radial-gradient(60% 50% at 100% 100%,rgba(190,160,255,.4),transparent 70%)'},
+  {id:'graphite',name:'Графит',  note:'прежняя, нейтральная', bg:'#16171b', g:'linear-gradient(180deg,#f6cd8d,#eab066 48%,#d48c3e)', aura:'none'}];
+const PASTES=[['','По умолчанию',PASTE_DEF],['#000000','Чёрный'],['#282828','Тёмно-серый'],['#535353','Серый'],['#b8b8b8','Светло-серый']];
+const lsGet=k=>{ try{ return localStorage.getItem(k); }catch(e){ return null; } }, lsSet=(k,v)=>{ try{ v ? localStorage.setItem(k,v) : localStorage.removeItem(k); }catch(e){} };
+function themeNow(){ const t=document.documentElement.getAttribute('data-theme'); return THEMES.some(x=>x.id===t) ? t : 'night'; }
+function themeApply(){
+  const t=themeNow(), m=document.querySelector('meta[name=theme-color]'); if (m) m.content=THEMES.find(x=>x.id===t).bg;
+  const l=$('#mLook'); if (l) l.textContent=THEMES.find(x=>x.id===t).name; aeTheme();
+  if (doc) try{ renderOpts(); }catch(e){}
+}
+function themeSet(t){ document.documentElement.setAttribute('data-theme', t); lsSet('proyavka.theme', t); themeApply(); }
+function pasteSet(c){ c=c||''; lsSet('proyavka.paste', c); BG=c||PASTE_DEF; const r=document.documentElement.style; if (c) r.setProperty('--paste', c); else r.removeProperty('--paste'); requestRender(); }
+/* AI Edit lives in its own frame: hand it the theme colours (the frame's style is ours, the plugin is untouched) */
+function aeTheme(){ try{
+  const f=$('#aeFrame'), d=f && f.contentDocument; if (!d || !d.documentElement) return; const r=d.documentElement.style, v=n=>cssVar(n);
+  const light=themeNow()==='cloud'||themeNow()==='sun';
+  r.setProperty('--ae-fg', v('--fg')); r.setProperty('--ae-bg', v('--panel')); r.setProperty('--ae-acc', v('--accent')); r.setProperty('--ae-acc2', 'color-mix(in srgb,'+v('--accent')+' 85%,#fff)');
+  r.setProperty('--ae-ink', light ? '#ffffff' : v('--accent-ink')); r.setProperty('--ae-field', v('--field')); r.setProperty('--ae-opt', v('--panel-2')); r.colorScheme = light ? 'light' : 'dark';
+}catch(e){} }
+$('#aeFrame') && $('#aeFrame').addEventListener('load', aeTheme);
+function appearanceDialog(){
+  const cur=themeNow(), pc=(lsGet('proyavka.paste')||'').toLowerCase(), isPreset=PASTES.some(p=>p[0]===pc);
+  const d=dialog(`<h3>Оформление</h3>
+    <div class="thg">${THEMES.map(t=>`<button class="thc${t.id===cur?' on':''}" data-t="${t.id}"><i style="background:${t.aura!=='none'?t.aura+',':''}${t.bg};--g:${t.g}"></i><b>${t.name}</b><small>${t.note}</small></button>`).join('')}</div>
+    <h3 style="font-size:14px;margin:0 0 2px">Фон вокруг холста</h3>
+    <p class="apn">Не зависит от темы — для оценки цвета. На ПК его меняет и правый клик мимо картинки, как в Фотошопе.</p>
+    <div class="pbg">${PASTES.map(p=>`<button data-p="${p[0]}" class="${p[0]===pc?'on':''}"><i style="background:${p[2]||p[0]}"></i>${p[1]}</button>`).join('')}
+      <label><button data-p="*" class="${!isPreset?'on':''}"><i style="background:${!isPreset?pc:'conic-gradient(#f66,#fd6,#6f9,#6cf,#c6f,#f66)'}"></i>Свой цвет…</button><input type="color" value="${!isPreset?pc:'#3a3a3a'}"></label></div>`,
+    [['Готово',null,true]]);
+  d.querySelectorAll('.thc').forEach(b=>b.onclick=()=>{ themeSet(b.dataset.t); d.querySelectorAll('.thc').forEach(x=>x.classList.toggle('on', x===b)); });
+  const mark=v=>d.querySelectorAll('.pbg button').forEach(x=>x.classList.toggle('on', x.dataset.p===v));
+  d.querySelectorAll('.pbg button[data-p]').forEach(b=>{ if (b.dataset.p!=='*') b.onclick=()=>{ pasteSet(b.dataset.p); mark(b.dataset.p); }; });
+  const ci=d.querySelector('input[type=color]'), own=d.querySelector('button[data-p="*"] i');
+  ci.oninput=()=>{ pasteSet(ci.value); own.style.background=ci.value; mark('*'); };
+}
+/* PC: right click on the pasteboard → the same choices, like Photoshop */
+function pasteMenu(x, y){
+  const m=$('#lyCtx'), pc=(lsGet('proyavka.paste')||'').toLowerCase(); m.textContent='';
+  const head=document.createElement('div'); head.className='aih'; head.textContent='Фон вокруг холста'; m.append(head);
+  for (const [v,name] of PASTES){ const b=document.createElement('button'); b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=name; b.lastChild.textContent= v===pc ? '✓' : '';
+    b.onclick=()=>{ m.hidden=true; pasteSet(v); }; m.append(b); }
+  const isPreset=PASTES.some(p=>p[0]===pc), own=document.createElement('button'); own.innerHTML='<span>Свой цвет…</span><small></small>'; own.lastChild.textContent= isPreset ? '' : '✓';
+  own.onclick=()=>{ m.hidden=true; const i=document.createElement('input'); i.type='color'; i.value= isPreset ? '#3a3a3a' : pc; i.style.cssText='position:fixed;left:'+x+'px;top:'+y+'px;width:1px;height:1px;opacity:0';
+    document.body.append(i); i.oninput=()=>pasteSet(i.value); i.onchange=()=>{ pasteSet(i.value); i.remove(); }; i.onblur=()=>setTimeout(()=>i.remove(),300); i.click(); };
+  m.append(own);
+  const b=document.createElement('button'); b.innerHTML='<span>Оформление…</span><small></small>'; b.onclick=()=>{ m.hidden=true; appearanceDialog(); }; m.append(b);
+  closePops('lyCtx'); m.hidden=false; const r=m.getBoundingClientRect(); m.style.left=Math.min(x, innerWidth-r.width-8)+'px'; m.style.top=Math.min(y, innerHeight-r.height-8)+'px';
+}
+$('#stage').addEventListener('pointerdown', e=>{
+  if (!IS_DESK || e.pointerType!=='mouse' || e.button!==2 || !doc || (e.target!==oc && e.target!==vc)) return;
+  const [x,y]=toDoc(...stagePos(e)); if (x>=0 && y>=0 && x<=doc.w && y<=doc.h) return;
+  e.preventDefault(); e.stopImmediatePropagation(); pasteMenu(e.clientX, e.clientY);
+}, true);
+themeApply();
 
 /* ============ selection bar & transform bar ============ */
 document.querySelectorAll('#selbar [data-sel]').forEach(b=>b.onclick=()=>{ const a=b.dataset.sel;
@@ -8016,7 +8187,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-19 · №87 заготовка учётных записей (выключена): владелец документа, вход почта+ключ'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-20 · №88 темы интерфейса (Ночь, Облачко, Луч, Графит) и свой фон вокруг холста'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
