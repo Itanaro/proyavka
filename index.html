@@ -7038,7 +7038,7 @@ $('#safeChip').onclick=e=>{ e.stopPropagation(); safeZoneToggle(); };
 { const lc=layersChanged; layersChanged=function(){ const r=lc.apply(this, arguments); safeChip(); return r; }; }
 
 /* Rulers: very faint pixel marks along the top and left edges of the image (Ctrl+R, like Photoshop). They stick to the
-   edges only (never over the picture); an edge under the bars / off screen hides that ruler; off while the view is rotated. Colour follows the pasteboard. */
+   edges; an edge under the bars docks the ruler there on a pasteboard-coloured strip (marks never lie on pixels); off while the view is rotated. Colour follows the pasteboard. */
 let rulersOn = (()=>{ try{ return localStorage.getItem('proyavka.rulers')!=='0'; }catch(_){ return true; } })();
 function rulersToggle(){ rulersOn=!rulersOn; try{ localStorage.setItem('proyavka.rulers', rulersOn?'1':'0'); }catch(_){} renderOverlay(); toast(rulersOn?'Линейки включены':'Линейки выключены',1100); }
 function rulersDraw(){
@@ -7046,17 +7046,23 @@ function rulersDraw(){
   const m=viewM(), s=m[0]; if (!(s>0)) return; const sr=$('#stage').getBoundingClientRect(), W=oc.width/dpr, H=oc.height/dpr;
   const bot=id=>{ const e=$(id); if (!e || e.hidden || !e.offsetParent) return 0; return e.getBoundingClientRect().bottom-sr.top; };
   const topLim=Math.max(bot('#top'), bot('#tabs'), bot('#status'))+16, rail=$('#rail'), leftLim=(rail && rail.offsetParent ? rail.getBoundingClientRect().right-sr.left : 0)+20;
-  const x0=m[4], y0=m[5], x1=x0+doc.w*s, y1=y0+doc.h*s, yR=y0, xR=x0; // fixed to the image edges: never over the picture — if an edge is under the bars or off screen, that ruler is not drawn
+  const x0=m[4], y0=m[5], x1=x0+doc.w*s, y1=y0+doc.h*s, yR=Math.max(y0, topLim), xR=Math.max(x0, leftLim), dockT=y0<topLim, dockL=x0<leftLim;
+  // at the image edge while it is visible; once the edge slides under the bars the ruler docks there (like Photoshop's ruler bar):
+  // a strip in the pasteboard colour under it, so the marks never lie on the pixels
   const c=(BG||'#000').replace('#',''), lum=c.length>=6 ? (0.3*parseInt(c.slice(0,2),16)+0.59*parseInt(c.slice(2,4),16)+0.11*parseInt(c.slice(4,6),16)) : 20, ink=lum>140 ? '0,0,0' : '255,255,255';
   const steps=[1,2,5,10,25,50,100,250,500,1000,2500,5000,10000], major=steps.find(v=>v*s>=72)||10000, minor=major/5, drawMinor=minor>=1 && minor*s>=7;
   ox.save(); ox.lineWidth=1; ox.font='9px "IBM Plex Mono", ui-monospace, monospace'; ox.textBaseline='alphabetic';
+  const RB=17, strip=(x,y,w,h,vert)=>{ if (w<=0||h<=0) return; const g=vert ? ox.createLinearGradient(x,0,x+w,0) : ox.createLinearGradient(0,y,0,y+h), bg=BG||'#141518';
+    g.addColorStop(0, bg); g.addColorStop(.82, bg); g.addColorStop(1, 'rgba('+ink+',.10)'); ox.globalAlpha=.94; ox.fillStyle=g; ox.fillRect(x,y,w,h); ox.globalAlpha=1; };
+  if (dockT && yR<y1 && x1>leftLim) strip(Math.max(x0, dockL ? xR-RB : leftLim-RB), yR-RB, Math.min(x1,W)-Math.max(x0, dockL ? xR-RB : leftLim-RB), RB, false);
+  if (dockL && xR<x1 && y1>topLim) strip(xR-RB, Math.max(y0, yR), RB, Math.min(y1,H)-Math.max(y0, yR), true);
   // top
-  if (yR>=topLim && yR<H && x1>leftLim){ ox.beginPath(); const a=Math.max(0, Math.ceil(((Math.max(x0,leftLim))-x0)/s/(drawMinor?minor:major))*(drawMinor?minor:major)), b=Math.min(doc.w, (W-x0)/s);
+  if (yR<H && yR<y1 && x1>leftLim){ ox.beginPath(); const a=Math.max(0, Math.ceil(((Math.max(x0,leftLim))-x0)/s/(drawMinor?minor:major))*(drawMinor?minor:major)), b=Math.min(doc.w, (W-x0)/s);
     for (let v=a; v<=b+1e-6; v+=drawMinor?minor:major){ const big=Math.abs(v/major-Math.round(v/major))<1e-6, x=Math.round(x0+v*s)+0.5; ox.moveTo(x, yR-1); ox.lineTo(x, yR-(big?7:3)); }
     ox.strokeStyle='rgba('+ink+',.26)'; ox.stroke(); ox.fillStyle='rgba('+ink+',.34)'; ox.textAlign='left';
     for (let v=Math.ceil(a/major)*major; v<=b+1e-6; v+=major){ const x=x0+v*s; if (x+28>W) break; ox.fillText(String(Math.round(v)), x+3, yR-8); } }
   // left
-  if (xR>=leftLim && xR<W && y1>topLim){ ox.beginPath(); const st=drawMinor?minor:major, a=Math.max(0, Math.ceil(((Math.max(y0,topLim))-y0)/s/st)*st), b=Math.min(doc.h, (H-y0)/s);
+  if (xR<W && xR<x1 && y1>topLim){ ox.beginPath(); const st=drawMinor?minor:major, a=Math.max(0, Math.ceil(((Math.max(y0,topLim))-y0)/s/st)*st), b=Math.min(doc.h, (H-y0)/s);
     for (let v=a; v<=b+1e-6; v+=st){ const big=Math.abs(v/major-Math.round(v/major))<1e-6, y=Math.round(y0+v*s)+0.5; ox.moveTo(xR-1, y); ox.lineTo(xR-(big?7:3), y); }
     ox.strokeStyle='rgba('+ink+',.26)'; ox.stroke(); ox.fillStyle='rgba('+ink+',.34)'; ox.textAlign='right';
     for (let v=Math.ceil(a/major)*major; v<=b+1e-6; v+=major){ const y=y0+v*s; ox.save(); ox.translate(xR-8, y+3); ox.rotate(-Math.PI/2); ox.fillText(String(Math.round(v)), 0, 0); ox.restore(); } }
@@ -8194,7 +8200,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-20 · №95 новый логотип: плюшевая лапка со стилусом и звёздочкой'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-20 · №96 линейки прилипают к краю окна на подложке'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
