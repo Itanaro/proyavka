@@ -723,6 +723,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 [data-theme=cloud] .th,[data-theme=sun] .th{background:repeating-conic-gradient(#ffffff 0 25%,#e3dfe8 0 50%) 0 0/10px 10px}
 [data-theme=cloud] .vs .fill,[data-theme=sun] .vs .fill{background:linear-gradient(0deg,color-mix(in srgb,var(--accent) 34%,transparent),color-mix(in srgb,var(--accent) 12%,transparent))}
 [data-theme=cloud] #home .hth,[data-theme=sun] #home .hth,[data-theme=cloud] .lib .card .lth,[data-theme=sun] .lib .card .lth{background:color-mix(in srgb,var(--fg) 12%,var(--bg))}
+#status #safeChip{cursor:pointer;pointer-events:auto;opacity:.75} #status #safeChip.on{opacity:1;color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
 /* appearance dialog */
 .dlg .thg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:6px 0 16px}
 .dlg .thc{display:flex;flex-direction:column;gap:7px;padding:7px;border-radius:16px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);text-align:left}
@@ -912,7 +913,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
   <div id="stage">
     <canvas id="view"></canvas>
     <canvas id="ovl"></canvas>
-    <div id="status"><span id="zoomBadge">100%</span><span id="docInfo"></span><span id="memInfo"></span></div>
+    <div id="status"><span id="zoomBadge">100%</span><span id="docInfo"></span><span id="memInfo"></span><span id="safeChip" title="Безопасная зона 900 px по центру кадра — показать / спрятать (отдельный слой сверху)">▯ 900</span></div>
     <div id="tabs" hidden></div>
     <div class="fbar" id="selbar" hidden>
       <span class="fgrp"><button data-sel="invert">Инверсия</button><button data-sel="edge">Край…</button></span>
@@ -956,7 +957,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
       <button id="xfCancel">Отмена</button>
       <button id="xfApply" class="pri">Применить</button>
     </div>
-    <div id="airail" class="airail"><button class="tb" data-ai="fit" title="Вписать в сцену — свет и цвет активного слоя под окружение" aria-label="Вписать в сцену — свет и цвет активного слоя под окружение"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8 15l3-3 2 2 3-3"/><path d="M17 4.5v3M15.5 6h3"/></svg></button><button class="tb" data-ai="expand" title="Расширить кадр" aria-label="Расширить кадр"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg></button><button class="tb" data-ai="detail" title="Деталь — рамка в полном разрешении модели" aria-label="Деталь — рамка в полном разрешении модели"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M10.5 8v5M8 10.5h5"/></svg></button><button class="tb" data-ai="critic" title="Арт-директор — разбор кадра" aria-label="Арт-директор — разбор кадра"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v10H10l-4.5 3.5v-3.5H4z"/><path d="M8 9.5h8M8 12h5"/></svg></button><button class="tb" data-ai="aiedit" title="AI Edit — плагин из Фотошопа" aria-label="AI Edit — плагин из Фотошопа"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l11-11"/><path d="M13.5 7.5l3 3"/><path d="M18 3v3M16.5 4.5h3M20 9v2M19 10h2M10 3v2M9 4h2"/></svg></button><button class="tb" data-ai="rmbg" title="Удалить фон — мягкий край, маской" aria-label="Удалить фон — мягкий край, маской"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M5.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M3 3l2 2M21 3l-2 2" stroke-dasharray="1.5 2"/></svg></button></div>
+    <div id="airail" class="airail"><button class="tb" data-ai="fit" title="Вписать в сцену — свет и цвет активного слоя под окружение" aria-label="Вписать в сцену — свет и цвет активного слоя под окружение"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8 15l3-3 2 2 3-3"/><path d="M17 4.5v3M15.5 6h3"/></svg></button><button class="tb" data-ai="expand" title="Расширить кадр" aria-label="Расширить кадр"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg></button><button class="tb" data-ai="detail" title="Деталь — рамка в полном разрешении модели" aria-label="Деталь — рамка в полном разрешении модели"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M10.5 8v5M8 10.5h5"/></svg></button><button class="tb" data-ai="critic" title="Арт-директор — разбор кадра" aria-label="Арт-директор — разбор кадра"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v10H10l-4.5 3.5v-3.5H4z"/><path d="M8 9.5h8M8 12h5"/></svg></button><button class="tb" data-ai="aiedit" title="AI Edit — плагин из Фотошопа" aria-label="AI Edit — плагин из Фотошопа"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l11-11"/><path d="M13.5 7.5l3 3"/><path d="M18 3v3M16.5 4.5h3M20 9v2M19 10h2M10 3v2M9 4h2"/></svg></button><button class="tb" data-ai="rmbg" title="Удалить фон — мягкий край, маской" aria-label="Удалить фон — мягкий край, маской"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M5.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M3 3l2 2M21 3l-2 2" stroke-dasharray="1.5 2"/></svg></button><button class="tb" data-ai="pose" title="Реф с позы — болванка персонажа на белом фоне" aria-label="Реф с позы — болванка персонажа на белом фоне"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.6" r="2.2"/><path d="M12 7v6.5M12 9.2l-4.2 2.6M12 9.2l3.6 3.4M12 13.5l-3 6.6M12 13.5l3.4 2.8-.6 4"/></svg></button></div>
     <aside id="layers" hidden>
       <header><h2>Слои <small id="lyCount"></small></h2><button class="tb" id="lyClose" aria-label="Скрыть слои">✕</button></header>
       <div id="lyList"></div>
@@ -994,6 +995,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <button data-a="critic">✦ Арт-директор <small>разбор кадра</small></button>
     <button data-a="aiedit">✦ AI Edit <small>плагин из Фотошопа</small></button>
     <button data-a="rmbg">✦ Удалить фон <small>мягкий край, маской</small></button>
+    <button data-a="pose">✦ Реф с позы <small>болванка на белом</small></button>
     <hr>
     <button data-a="set">Настройки генерации <small id="aiProv"></small></button>
   </div>
@@ -1012,6 +1014,8 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <button data-i="rmbg">✦ Удалить фон <small>маской</small></button>
     <button data-i="stamp">Копия видимого на слой <small>Ctrl+Alt+Shift+E</small></button>
     <button data-i="mergevis">Слить видимые <small>Ctrl+Shift+E</small></button>
+    <button data-i="safe">Безопасная зона 900 px <small>слой-разметка</small></button>
+    <button data-i="rulers">Линейки в пикселях <small>Ctrl+R</small></button>
     <hr>
     <div class="aih" id="imgInfo"></div>
   </div>
@@ -1584,7 +1588,7 @@ setInterval(()=>{ if((sel||lassoPts||rectSel) && !stroke && !liqStroke && !navig
 const statusCache={};
 function setText(id,t){ if(statusCache[id]!==t){ statusCache[id]=t; $(id).textContent=t; } }
 function updateStatus(){
-  if (doc) setText('#docName span', doc.name||'Без названия');
+  if (doc) setText('#docName span', docLabel(doc));
   setText('#zoomBadge', Math.round(view.s*100)+'%' + (Math.abs(view.r)>0.01 ? ' · '+Math.round(view.r*180/Math.PI)+'°':''));
   if (navigating) return; // the rest cannot change mid-gesture
   setText('#docInfo', doc.w+'×'+doc.h);
@@ -3293,7 +3297,7 @@ const ggCost=(u,m)=> m===GG_NB21 && u ? ((u.promptTokenCount||0)*1.5 + (u.though
 async function ggImage(b){ // b: the OpenRouter-shaped body built in orRequest → {data:[{b64_json, media_type}], usage:{cost}}
   const parts=[{text:b.prompt}];
   for (const r of b.input_references||[]){ const u=r.image_url.url, i=u.indexOf(','); parts.push({inline_data:{mime_type:u.slice(5,u.indexOf(';')), data:u.slice(i+1)}}); }
-  const m=genCfg.ggModel||GG_NB21, cfg={responseModalities:['IMAGE'], imageConfig:{aspectRatio:b.aspect_ratio}}; if (b.resolution) cfg.imageConfig.imageSize=b.resolution;
+  const m=b.gg_model||genCfg.ggModel||GG_NB21, cfg={responseModalities:['IMAGE'], imageConfig:{aspectRatio:b.aspect_ratio}}; if (b.resolution) cfg.imageConfig.imageSize=b.resolution;
   let j; try{ j=await (await netFetch(ggUrl(m,'generateContent'),{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({contents:[{role:'user', parts}], generationConfig:cfg})},180000)).json(); }
   catch(e){ throw ggErr(e); }
   const c=(j.candidates||[])[0], ps=((c&&c.content&&c.content.parts)||[]).filter(p=>!p.thought && (p.inlineData||p.inline_data));
@@ -3507,7 +3511,7 @@ async function orRequest(img, ask, n, opt={}){
   if (opt.targetLast && refs.length>1) refs.push(refs.shift()); // some models edit the last picture more willingly
   for (const r of (opt.refs||[])){ const c=mk(SW,SH), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(r,0,0,SW,SH); refs.push({type:'image_url', image_url:{url:c.toDataURL('image/png')}}); }
   // one request per variant: Google (Nano Banana) refuses n>1, and a provider that does not know resolution / output_format gets the request again without them
-  const base={model:opt.model||genCfg.orModel, prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:opt.res||genCfg.orRes||'1K', output_format:'png', input_references:refs};
+  const base={model:opt.model||genCfg.orModel, ...(opt.ggModel && edProv()==='google'?{gg_model:opt.ggModel}:{}), prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:opt.res||genCfg.orRes||'1K', output_format:'png', input_references:refs};
   const one=async b=>{ if (edProv()==='google') return ggImage(b); try{ return await (await netFetch(orBaseUrl()+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(b)},180000)).json(); }
     catch(e){ if (/requested parameter|not support/i.test(e.message) && (b.resolution||b.output_format)){ const c=Object.assign({},b); delete c.resolution; delete c.output_format; return one(c); } throw e; } };
   const rs=await Promise.allSettled(Array.from({length:Math.max(1,n||1)}, ()=>one(base))), ok=rs.filter(x=>x.status==='fulfilled').map(x=>x.value);
@@ -6020,7 +6024,7 @@ $('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aim
   const r=$('#bAI').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
 document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePops(); const a=b.dataset.a; if (!doc) return;
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
-  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, detail:()=>cropOpen({detail:true}), critic:artDirector, aiedit:()=>aeOpen(), rmbg:rmbgOpen, set:genSettings})[a](); });
+  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, detail:()=>cropOpen({detail:true}), critic:artDirector, aiedit:()=>aeOpen(), rmbg:rmbgOpen, pose:poseRefOpen, set:genSettings})[a](); });
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,#bImg,.tgm,.pickHere,#lyMore')) closePops(); },true);
 document.addEventListener('pointerdown',e=>{ const a=document.activeElement; if (a && a.matches && a.matches('input,textarea') && !e.target.closest('input,textarea,select,label,.dlg') && (e.target.closest('#stage canvas,.ly,#layers') || e.target.tagName==='CANVAS')) a.blur(); },true);
 document.addEventListener('keydown',e=>{ if (e.key==='Escape' && !$('#lyCtx').hidden) $('#lyCtx').hidden=true; });
@@ -6028,7 +6032,7 @@ $('#bImg').onclick=e=>{ e.stopPropagation(); closePops('imgmenu'); const m=$('#i
   m.querySelector('#imgInfo').textContent = doc ? doc.w+'×'+doc.h+' px · '+(doc.dpi||72)+' ppi · '+((doc.w/(doc.dpi||72))*2.54).toFixed(1)+'×'+((doc.h/(doc.dpi||72))*2.54).toFixed(1)+' см' : '';
   const r=$('#bImg').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
 document.querySelectorAll('#imgmenu [data-i]').forEach(b=>b.onclick=()=>{ closePops(); if (!doc) return; const i=b.dataset.i;
-  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, detail:()=>cropOpen({detail:true}), xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>rmbgOpen(), stamp:()=>{ if (!panelBusy()) stampVisible(); }, mergevis:()=>{ if (!panelBusy()) mergeVisible(); }})[i](); });
+  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, detail:()=>cropOpen({detail:true}), xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>rmbgOpen(), safe:safeZoneToggle, rulers:rulersToggle, stamp:()=>{ if (!panelBusy()) stampVisible(); }, mergevis:()=>{ if (!panelBusy()) mergeVisible(); }})[i](); });
 $('#bCrop').onclick=()=>cropOpen();
 $('#docInfo').title='Размер изображения (Ctrl+Alt+I)'; $('#docInfo').onclick=()=>imageSizeDialog();
 
@@ -6720,7 +6724,7 @@ function tabsPersist(){ try{ localStorage.setItem('proyavka.tabs', JSON.stringif
 async function tabsBoot(){ // documents that were open last time come back as tabs (they load on click)
   let j=null; try{ j=JSON.parse(TABS_SAVED||'null'); }catch(_){} if (!j || !Array.isArray(j.list)) return;
   const lib=libMine(await libGet()), ids=new Set(lib.map(e=>e.id)); // №87: only this account's documents come back as tabs
-  for (const e of j.list){ if (!ids.has(e.id) || TABS.list.some(t=>t.id===e.id)) continue; TABS.list.push({id:e.id, name:(lib.find(x=>x.id===e.id)||e).name, parked:true}); }
+  for (const e of j.list){ if (!ids.has(e.id) || TABS.list.some(t=>t.id===e.id)) continue; { const le=lib.find(x=>x.id===e.id)||e; TABS.list.push({id:e.id, name:le.name, file:le.file||null, parked:true}); } }
   const cur=TABS.cur; if (cur){ const order=j.list.map(e=>e.id); TABS.list.sort((a,b)=>{ const ia=order.indexOf(a.id), ib=order.indexOf(b.id); return (ia<0?1e9:ia)-(ib<0?1e9:ib); }); }
   tabsRender(); tabsPersist();
 }
@@ -6728,10 +6732,10 @@ function tabsRender(){
   const box=$('#tabs'); if (!box) return; const show = TABS.list.length>1 || (IS_DESK && TABS.list.length>0);
   box.hidden=!show; if (!show){ tabsLayout(); return; } box.textContent='';
   for (const t of TABS.list){ const b=document.createElement('div'); b.className='tab'+(t===TABS.cur?' on':'')+(t.parked||!t.doc?' parked':''); b.title=(t.name||'Без названия')+(t.parked?' · не в памяти, откроется с диска':'');
-    const nm=document.createElement('span'); nm.className='tn'; nm.textContent=(t===TABS.cur&&doc?doc.name:t.name)||'Без названия';
+    const nm=document.createElement('span'); nm.className='tn'; nm.textContent=(t===TABS.cur&&doc?docLabel(doc):(t.file||t.name))||'Без названия';
     const x=document.createElement('button'); x.className='tx'; x.textContent='✕'; x.setAttribute('aria-label','Закрыть'); x.onclick=e=>{ e.stopPropagation(); tabClose(t); };
     b.append(nm,x); b.onclick=()=>tabSwitch(t); b.onauxclick=e=>{ if (e.button===1){ e.preventDefault(); tabClose(t); } }; box.append(b); }
-  const plus=document.createElement('button'); plus.className='tplus'; plus.textContent='＋'; plus.title='Открыть ещё (можно сразу несколько файлов)'; plus.onclick=()=>$('#fOpen').click(); box.append(plus);
+  const plus=document.createElement('button'); plus.className='tplus'; plus.textContent='＋'; plus.title='Открыть ещё (можно сразу несколько файлов)'; plus.onclick=()=>openDialog(); box.append(plus);
   tabsLayout(); const on=box.querySelector('.tab.on'); if (on) on.scrollIntoView({block:'nearest', inline:'nearest'});
 }
 function airailLayout(){ const r=$('#airail'); if (!r) return; const st=$('#stage').getBoundingClientRect(), ly=$('#layers');
@@ -6778,11 +6782,13 @@ async function openFilesAsDocs(files){
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   let n=0;
   for (const f of files){
+    if (f._h){ const t=await tabWithFile(f._h); if (t){ busy(false); if (t!==TABS.cur) await tabSwitch(t); toast(f.name+' уже открыт — переключила на него',2200); continue; } }
     busy(true,'Открываю '+f.name+(files.length>1?' ('+(n+1)+' из '+files.length+')':'')+'…'); await nextFrame();
     try{
       if (/\.psd$/i.test(f.name)) await openPsd(f);
       else if (/^image\//.test(f.type) || /\.(png|jpe?g|webp|gif|bmp|tiff?|avif|heic)$/i.test(f.name)){ const im=await loadImage(f); createDoc(im.naturalWidth, im.naturalHeight, f.name.replace(/\.[^.]+$/,'')); doc.layers[0].ctx.clearRect(0,0,doc.w,doc.h); doc.layers[0].ctx.drawImage(im,0,0); doc.layers[0].name=f.name; }
       else continue;
+      if (f._h) docBindFile(doc, f._h);
       layersChanged(); requestRender(); markDirty(); n++;
     }catch(err){ console.error(err); toast('Не открылся '+f.name+': '+(err.message==='mem'?'не хватает памяти':'формат не прочитался'),4000); }
   }
@@ -7017,21 +7023,24 @@ async function saveFileDesk(name, data, again){ // straight into a folder on dis
   const blob = data instanceof Blob ? data : new Blob([data]); const ext=(name.match(/\.[a-z0-9]+$/i)||['.png'])[0].toLowerCase();
   const types={'.psd':{'image/vnd.adobe.photoshop':['.psd']}, '.png':{'image/png':['.png']}, '.jpg':{'image/jpeg':['.jpg','.jpeg']}, '.zip':{'application/zip':['.zip']}};
   let h = saveFile.handle || (again && doc && doc.fileHandle && doc.fileHandle.name.toLowerCase().endsWith(ext) ? doc.fileHandle : null);
-  if (!h){ h=await window.showSaveFilePicker({suggestedName:name, types:[{description:name.split('.').pop().toUpperCase(), accept:types[ext]||{'application/octet-stream':[ext]}}]}); if (doc && ext==='.psd') doc.fileHandle=h; }
+  if (!h){ h=await window.showSaveFilePicker({suggestedName:name, types:[{description:name.split('.').pop().toUpperCase(), accept:types[ext]||{'application/octet-stream':[ext]}}]}); if (doc && ext==='.psd') docBindFile(doc, h); }
   const w=await h.createWritable(); await w.write(blob); await w.close(); toast('Сохранено: '+h.name,1500);
 }
 /* PC: Ctrl+Shift+S — «Сохранить как»: the system dialog with PSD / PNG / JPEG in its type list; the chosen type decides the format.
    Ctrl+S — writes the same file again in its format (the first time — the same dialog). */
 async function saveAsDesk(again){
   if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
-  let h = again && doc.fileHandle ? doc.fileHandle : null;
-  if (!h){ try{ h=await window.showSaveFilePicker({ suggestedName: safeName()+(doc.fileHandle ? (doc.fileHandle.name.match(/\.[a-z0-9]+$/i)||['.psd'])[0] : '.psd'), excludeAcceptAllOption:true,
+  let h = again && doc.fileHandle ? doc.fileHandle : null, toPsd=false;
+  // like Photoshop: Ctrl+S on a PNG / JPEG that now has layers does not flatten it silently — it asks where to save the PSD
+  if (h && !/\.psd$/i.test(h.name) && docLayered()){ h=null; toPsd=true; }
+  if (h && !(await filePerm(h))) h=null;
+  if (!h){ try{ h=await window.showSaveFilePicker({ suggestedName: safeName()+(doc.fileHandle && !toPsd ? (doc.fileHandle.name.match(/\.[a-z0-9]+$/i)||['.psd'])[0] : '.psd'), excludeAcceptAllOption:true, ...(doc.fileHandle ? {startIn:doc.fileHandle} : {}),
         types:[{description:'Photoshop PSD — со слоями', accept:{'image/vnd.adobe.photoshop':['.psd']}}, {description:'PNG — картинка с прозрачностью', accept:{'image/png':['.png']}}, {description:'JPEG — картинка', accept:{'image/jpeg':['.jpg','.jpeg']}}] }); }
     catch(e){ if (e && e.name==='AbortError') toast('Сохранение отменено'); else { console.warn(e); toast('Не открылось окно сохранения: '+e.message,3000); } return; } }
   const ext=(h.name.match(/\.[a-z0-9]+$/i)||['.psd'])[0].toLowerCase(), kind = ext==='.png' ? 'png' : (ext==='.jpg'||ext==='.jpeg') ? 'jpg' : 'psd';
-  doc.fileHandle=h; saveFile.handle=h;
+  docBindFile(doc, h); saveFile.handle=h;
   const nm=h.name.replace(/\.[a-z0-9]+$/i,'').trim(); // «Сохранить как…» under a new name: the document takes it (tab, top bar, «Мои документы»)
-  if (nm && nm!==doc.name){ doc.name=nm; if (TABS.cur) TABS.cur.name=nm; try{ setText('#docName span', nm); }catch(_){} tabsRender(); renameDoc(doc.id, nm).catch(()=>{}); markDirty(); }
+  if (nm && nm!==doc.name){ doc.name=nm; if (TABS.cur) TABS.cur.name=nm;  tabsRender(); renameDoc(doc.id, nm).catch(()=>{}); markDirty(); }
   try{ await exportImg(kind); } finally{ saveFile.handle=null; }
   if (kind!=='psd' && doc.layers.filter(L=>!isGroup(L)).length>1) setTimeout(()=>toast('Сохранено: '+h.name+' — '+kind.toUpperCase()+' без слоёв (слои — в PSD)',2600),1600);
 }
@@ -7080,12 +7089,98 @@ document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops
   if (acctNeedsLogin() && !['help','store','penpick','finger','look'].includes(m)){ toast('Сначала войди'); return; }
   if (xf && m!=='help' && m!=='store' && m!=='look'){ toast('Сначала примени или отмени трансформ'); return; }
   if (m==='close'){ tabClose(); return; }
-  if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') $('#fOpen').click(); else if(m==='place') $('#fPlace').click(); else if(m==='save') saveAsDesk(true); else if(m==='saveas') saveAsDesk(false); else if(m==='crop') cropOpen(); else if(m==='isize') imageSizeDialog(); else if(m==='csize') canvasSizeDialog();
+  if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') openDialog(); else if(m==='place') $('#fPlace').click(); else if(m==='save') saveAsDesk(true); else if(m==='saveas') saveAsDesk(false); else if(m==='crop') cropOpen(); else if(m==='isize') imageSizeDialog(); else if(m==='csize') canvasSizeDialog();
   else if(m==='look') appearanceDialog();
   else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='penpick'){ S.penHoldPick=!S.penHoldPick; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; savePrefs(); toast(S.penHoldPick?'Задержи карандаш на месте ~0.5 с — появится пипетка':'Пипетка карандашом выключена; палец по-прежнему берёт цвет удержанием'); } else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
   else exportImg(m);
 });
 
+
+/* ============ №89 ============ */
+/* The document remembers its file on disk, like Photoshop: opened from a file (PC) or saved as one — Ctrl+S writes there.
+   The handle lives in IndexedDB next to the document (d:<id>:fh), so it survives a restart; the name shows the extension. */
+const docLabel = D => (D && (D.fileName || D.name)) || 'Без названия';
+function docLayered(){ return doc.layers.filter(L=>!isGroup(L)).length>1 || doc.layers.some(L=>L.mask || L.kind==='adj' || isGroup(L)); }
+async function filePerm(h){ try{ if (!h.queryPermission) return true; const o={mode:'readwrite'}; if ((await h.queryPermission(o))==='granted') return true; return (await h.requestPermission(o))==='granted'; }catch(e){ return false; } }
+function docBindFile(D, h){ if (!D || !h) return; D.fileHandle=h; D.fileName=h.name;
+  idbPut({[PFX(D.id)+'fh']:h}).catch(e=>console.warn('handle not stored', e));
+  const t=TABS.list.find(x=>x.id===D.id); if (t) t.file=h.name;
+  if (D===doc){ try{ setText('#docName span', docLabel(D)); }catch(_){} tabsRender(); markDirty(); } else D._metaDirty=true; }
+async function tabWithFile(h){ if (!h || !h.isSameEntry) return null;
+  for (const t of TABS.list){ let x=t.doc ? t.doc.fileHandle : null; if (!x && !t.doc) try{ x=await idbGet(PFX(t.id)+'fh'); }catch(_){}
+    try{ if (x && await x.isSameEntry(h)) return t; }catch(_){} } return null; }
+async function openDialog(){
+  if (IS_DESK && window.showOpenFilePicker && !nativeApp){ let hs;
+    try{ hs=await window.showOpenFilePicker({multiple:true, types:[{description:'PSD и картинки', accept:{'image/vnd.adobe.photoshop':['.psd'], 'image/*':['.png','.jpg','.jpeg','.webp','.gif','.bmp','.tif','.tiff','.avif']}}]}); }
+    catch(e){ if (e && e.name==='AbortError') return; console.warn(e); $('#fOpen').click(); return; }
+    const fs=[]; for (const h of hs){ try{ const f=await h.getFile(); f._h=h; fs.push(f); }catch(e){ console.warn(e); } } if (fs.length) openFilesAsDocs(fs); return; }
+  $('#fOpen').click(); }
+
+/* Safe zone: 900 px down the middle of the frame — a mark-up layer on top of the stack. The chip «▯ 900» and the «Изображение» menu
+   create it, then show / hide it; delete the layer and the next click draws it again. It is an ordinary layer (lands in PSD while visible). */
+const SAFE_W=900, SAFE_NAME='Безопасная зона 900';
+const safeLayer = () => doc && doc.layers.find(L=>!isGroup(L) && L.kind!=='adj' && (L.name||'').startsWith('Безопасная зона'));
+function safeChip(){ const c=$('#safeChip'); if (!c) return; const L=safeLayer(); c.classList.toggle('on', !!(L && L.visible)); }
+function safeZoneToggle(){ if (!doc || panelBusy()) return;
+  let L=safeLayer(); if (L){ L.visible=!L.visible; layersChanged(); markDirty(); requestRender(); toast(L.visible?'Безопасная зона показана':'Безопасная зона спрятана',1200); return; }
+  if (doc.w<=SAFE_W){ toast('Картинка уже не шире '+SAFE_W+' px — зона занимает весь кадр',2600); return; }
+  L=newLayer(SAFE_NAME); const x0=Math.round((doc.w-SAFE_W)/2), x1=x0+SAFE_W, c=L.ctx, lw=Math.max(2, Math.round(doc.w/900));
+  c.fillStyle='rgba(10,10,14,.38)'; c.fillRect(0,0,x0,doc.h); c.fillRect(x1,0,doc.w-x1,doc.h);
+  c.fillStyle='#ff4fa3'; c.fillRect(x0-lw,0,lw,doc.h); c.fillRect(x1,0,lw,doc.h);
+  const fs=Math.max(14, Math.round(doc.w/90)); c.font='600 '+fs+'px "IBM Plex Mono", monospace'; c.textAlign='center'; c.textBaseline='top';
+  const tag=SAFE_W+' px', tw=c.measureText(tag).width+fs; c.fillStyle='rgba(10,10,14,.6)'; c.fillRect(doc.w/2-tw/2, fs*0.6, tw, fs*1.6); c.fillStyle='#ff9acb'; c.fillText(tag, doc.w/2, fs*0.9);
+  L.dirty=true; insertLayer(L, doc.layers.length, 'Безопасная зона'); L.parent=null; layersChanged(); markDirty(); requestRender(); toast('Безопасная зона '+SAFE_W+' px — слоем сверху. Та же кнопка прячет её',2400); }
+$('#safeChip').onclick=e=>{ e.stopPropagation(); safeZoneToggle(); };
+{ const lc=layersChanged; layersChanged=function(){ const r=lc.apply(this, arguments); safeChip(); return r; }; }
+
+/* Rulers: very faint pixel marks along the top and left edges of the image (Ctrl+R, like Photoshop). They stick to the
+   visible edge when the image is zoomed past it; off while the view is rotated. Colour follows the pasteboard. */
+let rulersOn = (()=>{ try{ return localStorage.getItem('proyavka.rulers')!=='0'; }catch(_){ return true; } })();
+function rulersToggle(){ rulersOn=!rulersOn; try{ localStorage.setItem('proyavka.rulers', rulersOn?'1':'0'); }catch(_){} renderOverlay(); toast(rulersOn?'Линейки включены':'Линейки выключены',1100); }
+function rulersDraw(){
+  if (!doc || !rulersOn || document.body.classList.contains('hideui') || Math.abs(view.r)>1e-4) return;
+  const m=viewM(), s=m[0]; if (!(s>0)) return; const sr=$('#stage').getBoundingClientRect(), W=oc.width/dpr, H=oc.height/dpr;
+  const bot=id=>{ const e=$(id); if (!e || e.hidden || !e.offsetParent) return 0; return e.getBoundingClientRect().bottom-sr.top; };
+  const topLim=Math.max(bot('#top'), bot('#tabs'), bot('#status'))+16, rail=$('#rail'), leftLim=(rail && rail.offsetParent ? rail.getBoundingClientRect().right-sr.left : 0)+20;
+  const x0=m[4], y0=m[5], x1=x0+doc.w*s, y1=y0+doc.h*s, yR=Math.max(y0, topLim), xR=Math.max(x0, leftLim);
+  const c=(BG||'#000').replace('#',''), lum=c.length>=6 ? (0.3*parseInt(c.slice(0,2),16)+0.59*parseInt(c.slice(2,4),16)+0.11*parseInt(c.slice(4,6),16)) : 20, ink=lum>140 ? '0,0,0' : '255,255,255';
+  const steps=[1,2,5,10,25,50,100,250,500,1000,2500,5000,10000], major=steps.find(v=>v*s>=72)||10000, minor=major/5, drawMinor=minor>=1 && minor*s>=7;
+  ox.save(); ox.lineWidth=1; ox.font='9px "IBM Plex Mono", ui-monospace, monospace'; ox.textBaseline='alphabetic';
+  // top
+  if (yR<H && x1>leftLim){ ox.beginPath(); const a=Math.max(0, Math.ceil(((Math.max(x0,leftLim))-x0)/s/(drawMinor?minor:major))*(drawMinor?minor:major)), b=Math.min(doc.w, (W-x0)/s);
+    for (let v=a; v<=b+1e-6; v+=drawMinor?minor:major){ const big=Math.abs(v/major-Math.round(v/major))<1e-6, x=Math.round(x0+v*s)+0.5; ox.moveTo(x, yR-1); ox.lineTo(x, yR-(big?7:3)); }
+    ox.strokeStyle='rgba('+ink+',.26)'; ox.stroke(); ox.fillStyle='rgba('+ink+',.34)'; ox.textAlign='left';
+    for (let v=Math.ceil(a/major)*major; v<=b+1e-6; v+=major){ const x=x0+v*s; if (x+28>W) break; ox.fillText(String(Math.round(v)), x+3, yR-8); } }
+  // left
+  if (xR<W && y1>topLim){ ox.beginPath(); const st=drawMinor?minor:major, a=Math.max(0, Math.ceil(((Math.max(y0,topLim))-y0)/s/st)*st), b=Math.min(doc.h, (H-y0)/s);
+    for (let v=a; v<=b+1e-6; v+=st){ const big=Math.abs(v/major-Math.round(v/major))<1e-6, y=Math.round(y0+v*s)+0.5; ox.moveTo(xR-1, y); ox.lineTo(xR-(big?7:3), y); }
+    ox.strokeStyle='rgba('+ink+',.26)'; ox.stroke(); ox.fillStyle='rgba('+ink+',.34)'; ox.textAlign='right';
+    for (let v=Math.ceil(a/major)*major; v<=b+1e-6; v+=major){ const y=y0+v*s; ox.save(); ox.translate(xR-8, y+3); ox.rotate(-Math.PI/2); ox.fillText(String(Math.round(v)), 0, 0); ox.restore(); } }
+  ox.restore(); }
+{ const ro=renderOverlay; renderOverlay=function(){ const r=ro.apply(this, arguments); try{ rulersDraw(); }catch(e){} return r; }; }
+
+/* «Реф с позы»: any picture → a clean pose reference: sketchy mannequin outlines of the character (or the main object)
+   on pure white, same camera angle and pose. Nano Banana 2.1, 1K; the answer is stretched back to the source size, onto
+   a new layer (each variant its own layer). The drawing style comes from a built-in sample (assets/pose-ref.jpg).
+   With a selection — only the selected part; without — the whole visible picture. */
+let POSE_REF=null;
+async function poseRefSample(){ if (POSE_REF) return POSE_REF; const r=await fetch('assets/pose-ref.jpg'); if (!r.ok) throw new Error('образец стиля не загрузился'); POSE_REF=await loadImage(await r.blob()); return POSE_REF; }
+function poseRefOpen(){
+  if (!doc) return; const r = sel && !sel.inverted ? selBBox() : {x:0,y:0,w:doc.w,h:doc.h}; if (!r || r.w<16 || r.h<16){ toast('Выделение слишком маленькое'); return; }
+  aiOpen({ title:'Реф с позы', perVariant:true, layerName:'Реф с позы', frame: sel ? r : null,
+    sub: (sel ? 'выделение ' : 'весь кадр ')+r.w+'×'+r.h+' → Banana 2.1 · 1K',
+    askWords:'Уточнить', placeholder:'необязательно: «только героиня», «стул оставить», «без оружия»…',
+    hint:'Делает из картинки реф позы: скетчевые болванки персонажа (или главного предмета) на чистом белом фоне — ракурс и поза как в кадре, стиль линий — как у встроенного образца. Ответ растягивается под размер исходника и ложится новым слоем; каждый вариант — своим слоем.',
+    goLabel:'Сделать реф', doneMsg:'Реф с позы — отдельным слоем',
+    run: async words=>{
+      const k=Math.min(1, 2048/Math.max(r.w,r.h)), src=regionImage(r, Math.max(16,Math.round(r.w*k)), Math.max(16,Math.round(r.h*k))), ref=await poseRefSample();
+      const ask='Keeping the exact camera angle, framing and poses of the characters in image 1, turn them into sketchy mannequin figures on a clean pure white background, drawn like image 2: '+
+        'light grey construction outlines, simple anatomical volumes and contour lines, no clothing detail, no faces detail, no colour, no shading, no background. '+
+        'If there are no people, do the same for the main central object. Keep the figures exactly where they are in image 1 — same size, same placement, same proportions; image 2 is only a style sample, not a pose or a layout. '+
+        'Сохраняя ракурс и позу персонажей с image 1, сделай из них скетчевые болванки на чистом белом фоне, как на image 2.'+(words ? ' Also: '+words : '');
+      return orRequest(src, ask, 1, {res:'1K', model: edProv()==='google' ? '' : NB21, ggModel:GG_NB21, refsKeep:[ref], refBg:'#fff'}); },
+    apply:(ctx,v)=>{ ctx.imageSmoothingQuality='high'; ctx.drawImage(v, r.x, r.y, r.w, r.h); } });
+}
 /* ============ №88: interface themes and the pasteboard colour ============
    Theme = the series palettes (claude/signature-palettes.md) + the old graphite look. It changes only the interface.
    The pasteboard around the image is its own setting, like Photoshop's (right click outside the image on the PC). */
@@ -7799,7 +7894,7 @@ let psLast={w:'wand', j:'spot', o:'dodge'}; try{ Object.assign(psLast, JSON.pars
 let digitT=0, digitV='';
 document.addEventListener('keydown', e=>{
   if (e.target.matches('input,select,textarea')) return;
-  if (homeOn){ const C=e.code||''; if ((e.metaKey||e.ctrlKey) && !acctNeedsLogin() && !document.querySelector('.scrim') && (C==='KeyN'||C==='KeyO')){ e.preventDefault(); if (C==='KeyN') newDocDialog(); else $('#fOpen').click(); } return; }
+  if (homeOn){ const C=e.code||''; if ((e.metaKey||e.ctrlKey) && !acctNeedsLogin() && !document.querySelector('.scrim') && (C==='KeyN'||C==='KeyO')){ e.preventDefault(); if (C==='KeyN') newDocDialog(); else openDialog(); } return; }
   if (e.getModifierState){ const c=e.getModifierState('CapsLock'); if (c!==capsOn){ capsOn=c; updateCursor(); } }
   if (e.key===' '){ e.preventDefault(); if(!spaceDown){ spaceDown=true; updateCursor(); } return; }
   if (e.key==='Alt'){ e.preventDefault(); altDown=true; updateCursor(); rectMods(); return; }
@@ -7819,7 +7914,7 @@ document.addEventListener('keydown', e=>{
     if (L==='z') return go(()=> e.shiftKey ? redo() : undo());
     if (k==='tab') return go(()=>tabNext(e.shiftKey?-1:1));
     if ((L==='w' && IS_ELECTRON) || C==='F4') return go(()=>tabClose());
-    if (L==='o') return go(()=>$('#fOpen').click());
+    if (L==='o') return go(()=>openDialog());
     if (L==='n' && !e.shiftKey) return go(()=>newDocDialog());
     if (!doc) return;
     if (L==='d') return go(()=> e.shiftKey ? reselect() : deselect());
@@ -7836,6 +7931,7 @@ document.addEventListener('keydown', e=>{
     if (L==='n' && e.shiftKey) return go(()=>{ if (need()) $('#lyAdd').click(); });
     if (L==='m' || L==='l' || L==='u' || L==='b') return go(()=>{ if (need()) addAdj({m:'curves', l:'levels', u:'hue', b:'balance'}[L]); });
     if (L==='r' && e.altKey) return go(()=>{ if (sel) edgeOpen(); else toast('Сначала выдели — «Выделение и маска» уточняет край выделения'); });
+    if (L==='r') return go(()=>rulersToggle());
     if (L==='x' && e.shiftKey) return go(()=>{ if (need()) setTool('liquify'); });
     if (C==='BracketRight'||C==='BracketLeft') return go(()=>{ if (!need()) return; const d=C==='BracketRight'?1:-1; if (e.shiftKey){ for (let i=0;i<doc.layers.length;i++){ const a=doc.active; moveLayer(d); if (doc.active===a) break; } } else moveLayer(d); });
     if (k==='backspace'||k==='delete') return go(()=>{ if (need()) fillWith(S.bgColor||'#ffffff'); });
@@ -8016,9 +8112,9 @@ async function autosave(force, D0){
         if (L.mask){ keys.push('m'+L.id); if (need) put[P+'m'+L.id]=await toBlobBg(L.mask.canvas,'image/png'); }
       }catch(e){ throw e; }
     }
-    put[P+'meta']={ owner:D.owner||acctId(), w:D.w, h:D.h, dpi:D.dpi||72, notes:D.notes||null, notesHide:!!D.notesHide, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
+    put[P+'meta']={ file:D.fileName||null, owner:D.owner||acctId(), w:D.w, h:D.h, dpi:D.dpi||72, notes:D.notes||null, notesHide:!!D.notesHide, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
     try{ const k=Math.min(1,360/Math.max(D.w,D.h)), cur=doc; let th; doc=D; try{ th=flatten(k,true); } finally{ doc=cur; } put[P+'thumb']=await toBlob(th,'image/jpeg',0.8); }catch(_){}
-    const lib=await libGet(), e={id:D.id, name:D.name, w:D.w, h:D.h, t:Date.now(), n:D.layers.filter(x=>!isGroup(x)).length, owner:D.owner||acctId(), dev:DEVICE_ID}, i=lib.findIndex(x=>x.id===D.id);
+    const lib=await libGet(), e={id:D.id, name:D.name, file:D.fileName||null, w:D.w, h:D.h, t:Date.now(), n:D.layers.filter(x=>!isGroup(x)).length, owner:D.owner||acctId(), dev:DEVICE_ID}, i=lib.findIndex(x=>x.id===D.id);
     if (i>=0) lib[i]=e; else lib.unshift(e);
     put.library=lib;
     const dels=(D.keys||[]).filter(k=>!keys.includes(k)).map(k=>P+k);
@@ -8037,7 +8133,7 @@ async function restore(id){
     const P=PFX(id), m=await idbGet(P+'meta'); if(!m||!m.layers||!m.layers.length) return false;
     busy(true,'Открываю «'+(m.name||'документ')+'»…'); await nextFrame();
     resetDocState(); doc=null;
-    const D={id, owner:m.owner||'local', keys:m.keys||[], w:m.w,h:m.h,dpi:m.dpi||72,notes:m.notes||null,notesHide:!!m.notesHide,name:m.name,layers:[],active:0,editMask:false}; doc=D;
+    const D={id, fileName:m.file||null, owner:m.owner||'local', keys:m.keys||[], w:m.w,h:m.h,dpi:m.dpi||72,notes:m.notes||null,notesHide:!!m.notesHide,name:m.name,layers:[],active:0,editMask:false}; doc=D;
     const byId=new Map();
     for (const l of m.layers){
       if (l.kind==='group'){ const G=newGroup(l.name); G.id=l.id; Object.assign(G,{visible:l.visible,opacity:l.opacity,blend:l.blend,collapsed:l.collapsed}); G.__p=l.parent; byId.set(G.id,G);
@@ -8056,6 +8152,7 @@ async function restore(id){
     uid=Math.max(uid, (m.uid||0)+1, ...D.layers.map(L=>L.id+1));
     D.active=clamp(m.active||0,0,D.layers.length-1);
     setCurDoc(id); dirtyDoc=false;
+    if (D.fileName) try{ D.fileHandle=(await idbGet(P+'fh'))||null; }catch(_){}
     busy(false); fitView(); layersChanged(); updateSelBar(); requestRender(); toast('Открыт «'+D.name+'»');
     return true;
   }catch(e){ console.warn('restore',e); busy(false); doc=null; return false; }
@@ -8187,7 +8284,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-20 · №88 темы интерфейса (Ночь, Облачко, Луч, Графит) и свой фон вокруг холста'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-20 · №89 файл как в ФШ (Ctrl+S в свой файл, PSD становится рабочим), безопасная зона 900, линейки, реф с позы'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
@@ -8206,7 +8303,7 @@ function homeEl(){ const h=$('#home'); if (h.dataset.ready) return h; h.dataset.
     +'<section class="hmain"><h2>Недавние <span></span><button data-h="lib" hidden>Все документы →</button></h2><div class="hgrid"></div></section></div>';
   h.addEventListener('click', e=>{ const b=e.target.closest('[data-h]'); if (!b) return; const a=b.dataset.h;
     if (acctNeedsLogin() && a!=='login') return;
-    if (a==='new') newDocDialog(); else if (a==='open') $('#fOpen').click(); else if (a==='lib') openLibrary(); else if (a==='logout') acctLogout(); else if (a==='login') homeLogin(); });
+    if (a==='new') newDocDialog(); else if (a==='open') openDialog(); else if (a==='lib') openLibrary(); else if (a==='logout') acctLogout(); else if (a==='login') homeLogin(); });
   h.addEventListener('dragover', e=>{ e.preventDefault(); h.classList.add('drop'); });
   h.addEventListener('dragleave', e=>{ if (!h.contains(e.relatedTarget)) h.classList.remove('drop'); });
   h.addEventListener('drop', e=>{ e.preventDefault(); h.classList.remove('drop'); if (acctNeedsLogin()) return; const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])]; if (fs.length) openFilesAsDocs(fs); });
@@ -8233,7 +8330,7 @@ async function homeFill(){ const h=homeEl(), g=h.querySelector('.hgrid'); homeUr
   if (!lib.length){ g.innerHTML='<div class="hempty">Здесь появятся документы, с которыми ты работаешь на этом устройстве.<br>Создай новый или открой файл — PSD, PNG, JPG.</div>'; return; }
   shown.forEach((e,i)=>{ const c=document.createElement('button'); c.className='hcard'+(i===0?' last':''); c.title=e.name;
     c.innerHTML='<div class="hth"></div><div class="nm"></div><div class="mt"></div>';
-    c.querySelector('.nm').textContent=e.name||'Без названия';
+    c.querySelector('.nm').textContent=e.file||e.name||'Без названия';
     c.querySelector('.mt').innerHTML=(i===0?'<b>продолжить</b> · ':'')+escapeHtml(fmtWhen(e.t)+' · '+e.w+'×'+e.h+' · '+(e.n||'?')+' сл.');
     c.onclick=()=>homeOpen(e.id); g.append(c); homeThumb(e.id, c.querySelector('.hth')); }); }
 async function homeThumb(id, box){ try{ let b=await idbGet(PFX(id)+'thumb');
