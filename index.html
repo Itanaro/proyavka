@@ -913,7 +913,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
   <div id="stage">
     <canvas id="view"></canvas>
     <canvas id="ovl"></canvas>
-    <div id="status"><span id="zoomBadge">100%</span><span id="docInfo"></span><span id="memInfo"></span><span id="safeChip" title="Безопасная зона 900 px по центру кадра — показать / спрятать (отдельный слой сверху)">▯ 900</span></div>
+    <div id="status"><span id="zoomBadge">100%</span><span id="docInfo"></span><span id="memInfo"></span><span id="safeChip" title="Безопасная зона: 900 px из 1500 рабочей ширины ката, по центру — показать / спрятать (отдельный слой сверху)">▯ 900</span></div>
     <div id="tabs" hidden></div>
     <div class="fbar" id="selbar" hidden>
       <span class="fgrp"><button data-sel="invert">Инверсия</button><button data-sel="edge">Край…</button></span>
@@ -1014,7 +1014,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <button data-i="rmbg">✦ Удалить фон <small>маской</small></button>
     <button data-i="stamp">Копия видимого на слой <small>Ctrl+Alt+Shift+E</small></button>
     <button data-i="mergevis">Слить видимые <small>Ctrl+Shift+E</small></button>
-    <button data-i="safe">Безопасная зона 900 px <small>слой-разметка</small></button>
+    <button data-i="safe">Безопасная зона 900 / 1500 <small>слой-разметка</small></button>
     <button data-i="rulers">Линейки в пикселях <small>Ctrl+R</small></button>
     <hr>
     <div class="aih" id="imgInfo"></div>
@@ -7116,20 +7116,20 @@ async function openDialog(){
     const fs=[]; for (const h of hs){ try{ const f=await h.getFile(); f._h=h; fs.push(f); }catch(e){ console.warn(e); } } if (fs.length) openFilesAsDocs(fs); return; }
   $('#fOpen').click(); }
 
-/* Safe zone: 900 px down the middle of the frame — a mark-up layer on top of the stack. The chip «▯ 900» and the «Изображение» menu
+/* Safe zone: 900 px of the 1500×2000 working cut-scene frame (60 % of the width) down the middle; on a 3000-px document it is 1800 px — a mark-up layer on top of the stack. The chip «▯ 900» and the «Изображение» menu
    create it, then show / hide it; delete the layer and the next click draws it again. It is an ordinary layer (lands in PSD while visible). */
-const SAFE_W=900, SAFE_NAME='Безопасная зона 900';
+const SAFE_W=900, SAFE_BASE=1500, SAFE_NAME='Безопасная зона 900';
 const safeLayer = () => doc && doc.layers.find(L=>!isGroup(L) && L.kind!=='adj' && (L.name||'').startsWith('Безопасная зона'));
 function safeChip(){ const c=$('#safeChip'); if (!c) return; const L=safeLayer(); c.classList.toggle('on', !!(L && L.visible)); }
 function safeZoneToggle(){ if (!doc || panelBusy()) return;
   let L=safeLayer(); if (L){ L.visible=!L.visible; layersChanged(); markDirty(); requestRender(); toast(L.visible?'Безопасная зона показана':'Безопасная зона спрятана',1200); return; }
-  if (doc.w<=SAFE_W){ toast('Картинка уже не шире '+SAFE_W+' px — зона занимает весь кадр',2600); return; }
-  L=newLayer(SAFE_NAME); const x0=Math.round((doc.w-SAFE_W)/2), x1=x0+SAFE_W, c=L.ctx, lw=Math.max(2, Math.round(doc.w/900));
+  const zw=Math.round(doc.w*SAFE_W/SAFE_BASE);
+  L=newLayer(SAFE_NAME); const x0=Math.round((doc.w-zw)/2), x1=x0+zw, c=L.ctx, lw=Math.max(2, Math.round(doc.w/900));
   c.fillStyle='rgba(10,10,14,.38)'; c.fillRect(0,0,x0,doc.h); c.fillRect(x1,0,doc.w-x1,doc.h);
   c.fillStyle='#ff4fa3'; c.fillRect(x0-lw,0,lw,doc.h); c.fillRect(x1,0,lw,doc.h);
   const fs=Math.max(14, Math.round(doc.w/90)); c.font='600 '+fs+'px "IBM Plex Mono", monospace'; c.textAlign='center'; c.textBaseline='top';
-  const tag=SAFE_W+' px', tw=c.measureText(tag).width+fs; c.fillStyle='rgba(10,10,14,.6)'; c.fillRect(doc.w/2-tw/2, fs*0.6, tw, fs*1.6); c.fillStyle='#ff9acb'; c.fillText(tag, doc.w/2, fs*0.9);
-  L.dirty=true; insertLayer(L, doc.layers.length, 'Безопасная зона'); L.parent=null; layersChanged(); markDirty(); requestRender(); toast('Безопасная зона '+SAFE_W+' px — слоем сверху. Та же кнопка прячет её',2400); }
+  const tag=SAFE_W+' из '+SAFE_BASE+(zw!==SAFE_W?' · '+zw+' px':''), tw=c.measureText(tag).width+fs; c.fillStyle='rgba(10,10,14,.6)'; c.fillRect(doc.w/2-tw/2, fs*0.6, tw, fs*1.6); c.fillStyle='#ff9acb'; c.fillText(tag, doc.w/2, fs*0.9);
+  L.dirty=true; insertLayer(L, doc.layers.length, 'Безопасная зона'); L.parent=null; layersChanged(); markDirty(); requestRender(); toast('Безопасная зона '+SAFE_W+' из '+SAFE_BASE+(zw!==SAFE_W?' (здесь '+zw+' px)':'')+' — слоем сверху. Та же кнопка прячет её',2600); }
 $('#safeChip').onclick=e=>{ e.stopPropagation(); safeZoneToggle(); };
 { const lc=layersChanged; layersChanged=function(){ const r=lc.apply(this, arguments); safeChip(); return r; }; }
 
@@ -7160,7 +7160,7 @@ function rulersDraw(){
 { const ro=renderOverlay; renderOverlay=function(){ const r=ro.apply(this, arguments); try{ rulersDraw(); }catch(e){} return r; }; }
 
 /* «Реф с позы»: any picture → a clean pose reference: sketchy mannequin outlines of the character (or the main object)
-   on pure white, same camera angle and pose. Nano Banana 2.1, 1K; the answer is stretched back to the source size, onto
+   on pure white, same camera angle and pose. Nano Banana 2.1, 1K; the source is letterboxed on white to the model's proportions (no stretching), the answer cropped back, onto
    a new layer (each variant its own layer). The drawing style comes from a built-in sample (assets/pose-ref.jpg).
    With a selection — only the selected part; without — the whole visible picture. */
 let POSE_REF=null;
@@ -7170,15 +7170,21 @@ function poseRefOpen(){
   aiOpen({ title:'Реф с позы', perVariant:true, layerName:'Реф с позы', frame: sel ? r : null,
     sub: (sel ? 'выделение ' : 'весь кадр ')+r.w+'×'+r.h+' → Banana 2.1 · 1K',
     askWords:'Уточнить', placeholder:'необязательно: «только героиня», «стул оставить», «без оружия»…',
-    hint:'Делает из картинки реф позы: скетчевые болванки персонажа (или главного предмета) на чистом белом фоне — ракурс и поза как в кадре, стиль линий — как у встроенного образца. Ответ растягивается под размер исходника и ложится новым слоем; каждый вариант — своим слоем.',
+    hint:'Делает из картинки реф позы: скетчевые болванки персонажа (или главного предмета) на чистом белом фоне — ракурс и поза как в кадре, стиль линий — как у встроенного образца. Масштаб не меняется: кадр вписывается в пропорции модели белыми полями, ответ обрезается обратно и ложится новым слоем; каждый вариант — своим слоем.',
     goLabel:'Сделать реф', doneMsg:'Реф с позы — отдельным слоем',
     run: async words=>{
-      const k=Math.min(1, 2048/Math.max(r.w,r.h)), src=regionImage(r, Math.max(16,Math.round(r.w*k)), Math.max(16,Math.round(r.h*k))), ref=await poseRefSample();
+      const k=Math.min(1, 2048/Math.max(r.w,r.h)), sw=Math.max(16,Math.round(r.w*k)), sh=Math.max(16,Math.round(r.h*k)), part=regionImage(r, sw, sh), ref=await poseRefSample();
+      // the model answers only in its own proportions (1:1, 3:4, 2:3…): the picture goes in letterboxed on white at the nearest one,
+      // so the answer comes back at the same scale and is cropped back — nothing is stretched
+      let best=OR_ASPECTS[0]; for (const a of OR_ASPECTS) if (Math.abs(Math.log(a[0]/a[1]/(sw/sh))) < Math.abs(Math.log(best[0]/best[1]/(sw/sh)))) best=a;
+      const ar=best[0]/best[1], pw=Math.max(sw, Math.round(sh*ar)), ph=Math.max(sh, Math.round(sw/ar)), ox0=Math.round((pw-sw)/2), oy0=Math.round((ph-sh)/2);
+      const src=mk(pw,ph), sx=ctx2(src); sx.fillStyle='#fff'; sx.fillRect(0,0,pw,ph); sx.drawImage(part, ox0, oy0);
       const ask='Keeping the exact camera angle, framing and poses of the characters in image 1, turn them into sketchy mannequin figures on a clean pure white background, drawn like image 2: '+
         'light grey construction outlines, simple anatomical volumes and contour lines, no clothing detail, no faces detail, no colour, no shading, no background. '+
         'If there are no people, do the same for the main central object. Keep the figures exactly where they are in image 1 — same size, same placement, same proportions; image 2 is only a style sample, not a pose or a layout. '+
         'Сохраняя ракурс и позу персонажей с image 1, сделай из них скетчевые болванки на чистом белом фоне, как на image 2.'+(words ? ' Also: '+words : '');
-      return orRequest(src, ask, 1, {res:'1K', model: edProv()==='google' ? '' : NB21, ggModel:GG_NB21, refsKeep:[ref], refBg:'#fff'}); },
+      const res=await orRequest(src, ask, 1, {res:'1K', model: edProv()==='google' ? '' : NB21, ggModel:GG_NB21, refsKeep:[ref], refBg:'#fff'});
+      res.bitmaps=res.bitmaps.map(v=>{ const c=mk(sw,sh), x=ctx2(c); x.drawImage(v, ox0, oy0, sw, sh, 0, 0, sw, sh); return c; }); return res; },
     apply:(ctx,v)=>{ ctx.imageSmoothingQuality='high'; ctx.drawImage(v, r.x, r.y, r.w, r.h); } });
 }
 /* ============ №88: interface themes and the pasteboard colour ============
@@ -8284,7 +8290,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-20 · №89 файл как в ФШ (Ctrl+S в свой файл, PSD становится рабочим), безопасная зона 900, линейки, реф с позы'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-20 · №90 безопасная зона от рабочих 1500 px, реф с позы без растягивания'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
