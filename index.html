@@ -565,6 +565,7 @@ body.home #menu [data-m=place],body.home #menu [data-m=save],body.home #menu [da
 #home .hdev{margin:0 4px 12px;color:var(--muted);font-size:12.5px}
 #home .hbtn{display:flex;align-items:center;gap:11px;height:46px;padding:0 14px;border-radius:14px;background:var(--soft);font-size:14px;text-align:left}
 #home .hbtn:hover{background:var(--soft-2)}
+#home .hfoot{display:flex;gap:6px;margin-top:6px} #home .hmini{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 10px;border-radius:12px;color:var(--muted);font-size:12.5px;background:transparent;box-shadow:inset 0 0 0 1px var(--line-soft)} #home .hmini:hover{color:var(--fg);background:var(--soft)} #home .hmini svg{width:17px;height:17px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 #home .hbtn svg{width:19px;height:19px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 #home .hbtn small{margin-left:auto;color:var(--muted);font:11px var(--mono)}
 #home .hbtn.pri{background:var(--accent-grad);color:var(--accent-ink);font-weight:600;box-shadow:var(--accent-lift)}
@@ -1090,6 +1091,7 @@ let sel = null;          // {mask canvas, polys:[[x,y]...], bbox:{x,y,w,h}, inve
 let stroke = null;       // active stroke
 let xf = null;           // active transform
 let lassoPts = null, rectSel = null;
+const docClamp = q => doc ? [Math.max(0,Math.min(doc.w,q[0])), Math.max(0,Math.min(doc.h,q[1]))] : q; // №99: the lasso runs along the canvas edge, never past it
 let hover = null;        // pen hover position in screen px
 let stageRect = null;    // cached; reading layout on every pointer event forces reflow
 let uid = 1;
@@ -1946,7 +1948,10 @@ function drawEye(){
 }
 
 /* ============ selection ============ */
-const normRect = r => { const x0=r.rx0??r.x0, y0=r.ry0??r.y0; return { x:Math.min(x0,r.x1), y:Math.min(y0,r.y1), w:Math.abs(r.x1-x0), h:Math.abs(r.y1-y0) }; }; // rx0/ry0 — the far corner when drawn from the centre
+const normRect = r => { const x0=r.rx0??r.x0, y0=r.ry0??r.y0; let ax=Math.min(x0,r.x1), bx=Math.max(x0,r.x1), ay=Math.min(y0,r.y1), by=Math.max(y0,r.y1);
+  if (doc){ const sn=8/Math.max(view.s,1e-6), W=doc.w, H=doc.h, s1=v=>Math.abs(v)<sn?0:v, s2=(v,m)=>Math.abs(v-m)<sn?m:v; // №99: sticks to the canvas edges and never leaves it, like Photoshop
+    ax=Math.max(0,Math.min(W,s1(ax))); bx=Math.max(0,Math.min(W,s2(bx,W))); ay=Math.max(0,Math.min(H,s1(ay))); by=Math.max(0,Math.min(H,s2(by,H))); }
+  return { x:ax, y:ay, w:bx-ax, h:by-ay }; }; // rx0/ry0 — the far corner when drawn from the centre
 function applySelPoly(pts){
   if (pts.length<3) { if(S.selMode==='new') deselect(); return; }
   if (!sel && S.selMode==='sub') return;
@@ -7326,7 +7331,7 @@ function toolDown(e,p){
   if (t==='patch'){ patchDown(p); return; }
   if (t==='liquify'){ if(!liqBegin(p,penPressure(e))) toolPtr=null; return; }
   if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e),e); }
-  else if (t==='lasso'){ lassoPts=[toDoc(...p)]; }
+  else if (t==='lasso'){ lassoPts=[docClamp(toDoc(...p))]; }
   else if (t==='rect'){ const [x,y]=toDoc(...p); rectSel={x0:x,y0:y,x1:x,y1:y, sq:false, ctr:false, shiftLock:e.shiftKey&&!!sel, altLock:altDown&&!!sel}; }
   if ((t==='lasso'||t==='rect'||t==='wand'||t==='tap') && (e.shiftKey||altDown) && sel){ tmpMode=S.selMode; S.selMode= altDown ? 'sub' : 'add'; }
   if (t==='wand'){ wandDown(p); return; }
@@ -7355,7 +7360,7 @@ function toolMove(e){
     else if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)) strokeMove(p[0],p[1],penPressure(ev),ev);
     else if (t==='patch') patchMove(p);
     else if (t==='liquify') liqMove(p,penPressure(ev));
-    else if (t==='lasso' && lassoPts){ const q=toDoc(...p), l=lassoPts[lassoPts.length-1]; if(Math.hypot(q[0]-l[0],q[1]-l[1])*view.s>2) lassoPts.push(q); }
+    else if (t==='lasso' && lassoPts){ const q=docClamp(toDoc(...p)), l=lassoPts[lassoPts.length-1]; if(Math.hypot(q[0]-l[0],q[1]-l[1])*view.s>2) lassoPts.push(q); }
     else if (t==='rect' && rectSel){ const [x,y]=toDoc(...p); rectSel.mx=x; rectSel.my=y;
       rectMods(ev.shiftKey); }
     else if (t==='transform' && xf) xfMove(p[0],p[1]);
@@ -7457,7 +7462,7 @@ function toolUp(e){
   else if (t==='patch') patchUp();
   else if (t==='liquify') liqEnd(false);
   else if (t==='lasso' && lassoPts){ const pts=lassoPts; lassoPts=null; if(pts.length<3){ if(S.selMode==='new') deselect(); } else applySelPoly(pts); }
-  else if (t==='rect' && rectSel){ const sq=rectSel.sq, r=normRect(rectSel); rectSel=null; r.x=Math.round(r.x); r.y=Math.round(r.y); r.w=Math.round(r.w); r.h=Math.round(r.h); if (sq) r.w=r.h=Math.max(r.w,r.h); /* whole pixels; a Shift square stays square */ if(r.w*view.s<4||r.h*view.s<4){ if(S.selMode==='new') deselect(); } else applySelPoly([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); }
+  else if (t==='rect' && rectSel){ const sq=rectSel.sq, r=normRect(rectSel); rectSel=null; r.x=Math.round(r.x); r.y=Math.round(r.y); r.w=Math.round(r.w); r.h=Math.round(r.h); if (sq){ const q=Math.max(r.w,r.h); r.w=Math.min(q, doc.w-r.x); r.h=Math.min(q, doc.h-r.y); } /* whole pixels; a Shift square stays square (inside the canvas) */ if(r.w*view.s<4||r.h*view.s<4){ if(S.selMode==='new') deselect(); } else applySelPoly([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); }
   else if (t==='transform' && xf) xf.drag=null;
   else if (t==='picker'){ eyeEnd(false); if (penHold && penHold.picking){ /* back to the brush */ } else if (S.tool==='picker' && pickerBack){ setTool(pickerBack); } }
   else if (t==='wand' && wandDrag) wandUp();
@@ -8228,25 +8233,27 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-21 · №98 без автоматического «Без названия», ИИ-окно больше не держит документ'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-21 · №99 выделение прилипает к краям холста, «Начало»: новый документ, справка, оформление'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
    The state survives a restart (localStorage proyavka.home). */
 let homeOn=false, homeUrls=[];
-const HOME_ICONS={ new:'<path d="M12 5v14M5 12h14"/>', open:'<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5 12 11l2.5 2.5"/>', lib:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>' };
+const HOME_ICONS={ help:'<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2-2.4 3.6"/><path d="M12 17h.01"/>', look:'<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor" stroke="none"/>', new:'<path d="M12 5v14M5 12h14"/>', open:'<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5 12 11l2.5 2.5"/>', lib:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>' };
 function homeEl(){ const h=$('#home'); if (h.dataset.ready) return h; h.dataset.ready='1';
   const ic=k=>'<svg viewBox="0 0 24 24">'+HOME_ICONS[k]+'</svg>';
   h.innerHTML='<div class="hw"><aside class="hside"><h1><img class="hlogo" src="icons/icon-192.png?v=3" alt="" draggable="false">Проявка</h1><p class="hdev"></p>'
     +'<form class="hlogin" hidden onsubmit="return false"><p>Войди, чтобы открыть свои документы на этом устройстве.</p><input type="email" id="hEmail" placeholder="Почта" autocomplete="username" spellcheck="false"><input type="password" id="hKey" placeholder="Ключ доступа" autocomplete="current-password"><button class="hbtn pri" data-h="login">Войти</button><small class="herr"></small></form>'
     +'<button class="hbtn pri" data-h="open">'+ic('open')+'Открыть файл…<small class="deskonly">Ctrl+O</small></button>'
+    +'<button class="hbtn" data-h="new">'+ic('new')+'Новый документ<small class="deskonly">Ctrl+N</small></button>'
     +'<button class="hbtn" data-h="lib">'+ic('lib')+'Все документы</button>'
     +'<div class="hacct" hidden><span></span><button data-h="logout">Выйти</button></div>'
-    +'<div class="hdrop">'+(IS_DESK?'Перетащи сюда PSD или картинки — каждая откроется своим документом. Ctrl+V — картинка из буфера.':'Открывает PSD, PNG и JPG. Картинка, вставленная из буфера, тоже откроется документом.')+'</div></aside>'
+    +'<div class="hdrop">'+(IS_DESK?'Перетащи сюда PSD или картинки — каждая откроется своим документом. Ctrl+V — картинка из буфера.':'Открывает PSD, PNG и JPG. Картинка, вставленная из буфера, тоже откроется документом.')+'</div>'
+    +'<div class="hfoot"><button class="hmini" data-h="help" title="'+(IS_DESK?'Клавиши, мышь и инструменты':'Жесты, клавиши и инструменты')+'">'+ic('help')+'<span>'+'Справка'+'</span></button><button class="hmini" data-h="look" title="Оформление">'+ic('look')+'<span>Оформление</span></button></div>'+'</aside>'
     +'<section class="hmain"><h2>Недавние <span></span><button data-h="lib" hidden>Все документы →</button></h2><div class="hgrid"></div></section></div>';
   h.addEventListener('click', e=>{ const b=e.target.closest('[data-h]'); if (!b) return; const a=b.dataset.h;
     if (acctNeedsLogin() && a!=='login') return;
-    if (a==='new') newDocDialog(); else if (a==='open') openDialog(); else if (a==='lib') openLibrary(); else if (a==='logout') acctLogout(); else if (a==='login') homeLogin(); });
+    if (a==='help') showHelp(); else if (a==='look') appearanceDialog(); else if (a==='new') newDocDialog(); else if (a==='open') openDialog(); else if (a==='lib') openLibrary(); else if (a==='logout') acctLogout(); else if (a==='login') homeLogin(); });
   h.addEventListener('dragover', e=>{ e.preventDefault(); h.classList.add('drop'); });
   h.addEventListener('dragleave', e=>{ if (!h.contains(e.relatedTarget)) h.classList.remove('drop'); });
   h.addEventListener('drop', e=>{ e.preventDefault(); h.classList.remove('drop'); if (acctNeedsLogin()) return; const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])]; if (fs.length) openFilesAsDocs(fs); });
