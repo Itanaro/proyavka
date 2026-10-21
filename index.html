@@ -3454,7 +3454,7 @@ function maskOf(src, r, W, H, grow){ // white where src has alpha, in model spac
 /* ---- the shared panel: words (optional), variants, cost ---- */
 let aip=null;
 function aiOpen(cfg){
-  if (!doc) return; if (xf||filt||harm||dep||gen||(lift&&lift.open)||aip){ toast('Сначала закрой открытую панель'); return; }
+  if (!doc) return; if (aip && !aiSettle()) return; if (xf||filt||harm||dep||gen||(lift&&lift.open)){ toast('Сначала закрой открытую панель'); return; }
   aip=Object.assign({ words:'', variants:[], idx:-1, layer:null, busy:null, cost:0 }, cfg);
   aiBuild(); $('#aibar').hidden=false; aiDockPlace(); updateSelBar();
   if (cfg.auto && edReady()) aiGo();
@@ -3479,7 +3479,7 @@ function aiBuild(){
   if (a.busy){ foot.append(st, sp, B('Остановить',()=>{ a.cancelled=true; try{ a.abort&&a.abort.abort(); }catch(e){} })); box.append(foot); return; }
   foot.append(st, sp, B('Отмена',aiCancel), B(a.variants.length?'↻ Ещё вариант':(a.goLabel||'Сделать'), aiGo, a.variants.length?'alt':'pri'));
   if (a.variants.length && a.extra){ const x=a.extra(); if (x){ const b=B(x[0],x[1]); if (x[2]) b.title=x[2]; foot.insertBefore(b, sp.nextSibling); } }
-  if (a.variants.length) foot.append(B(a.perVariant && a.variants.length>1 ? '✓ Оставить слои' : '✓ Оставить слой',aiDone,'pri')); box.append(foot);
+  if (a.variants.length){ const k=B(a.perVariant && a.variants.length>1 ? '✓ Оставить слои' : '✓ Оставить слой',aiDone,'pri'); k.title='Enter. Можно и не нажимать: переключишь документ, закроешь его или возьмёшься за другое — варианты останутся слоями'; foot.append(k); } box.append(foot);
 }
 async function aiGo(){
   const a=aip; if (!a || a.busy) return; if (!a.local && !orNeed()) return;
@@ -5931,7 +5931,7 @@ $('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aim
   m.querySelector('#aiFitL').textContent = doc && AL() ? AL().name : 'активный слой'; m.querySelector('#aiProv').textContent=PROV_NAME[genCfg.provider]||'';
   m.querySelector('.aih').textContent = sel ? 'С выделением' : 'С выделением — сначала выдели';
   const r=$('#bAI').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
-document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePops(); const a=b.dataset.a; if (!doc) return;
+document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePops(); const a=b.dataset.a; if (!doc) return; if (a!=='set' && aip && !aiSettle()) return;
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, detail:()=>cropOpen({detail:true}), critic:artDirector, aiedit:()=>aeOpen(), rmbg:rmbgOpen, pose:poseRefOpen, set:genSettings})[a](); });
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,#bImg,.tgm,.pickHere,#lyMore')) closePops(); },true);
@@ -5940,7 +5940,7 @@ document.addEventListener('keydown',e=>{ if (e.key==='Escape' && !$('#lyCtx').hi
 $('#bImg').onclick=e=>{ e.stopPropagation(); closePops('imgmenu'); const m=$('#imgmenu'); if (!m.hidden){ m.hidden=true; return; }
   m.querySelector('#imgInfo').textContent = doc ? doc.w+'×'+doc.h+' px · '+(doc.dpi||72)+' ppi · '+((doc.w/(doc.dpi||72))*2.54).toFixed(1)+'×'+((doc.h/(doc.dpi||72))*2.54).toFixed(1)+' см' : '';
   const r=$('#bImg').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
-document.querySelectorAll('#imgmenu [data-i]').forEach(b=>b.onclick=()=>{ closePops(); if (!doc) return; const i=b.dataset.i;
+document.querySelectorAll('#imgmenu [data-i]').forEach(b=>b.onclick=()=>{ closePops(); if (!doc) return; const i=b.dataset.i; if (!['safe','rulers'].includes(i) && aip && !aiSettle()) return;
   ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, detail:()=>cropOpen({detail:true}), xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>rmbgOpen(), safe:safeZoneToggle, rulers:rulersToggle, stamp:()=>{ if (!panelBusy()) stampVisible(); }, mergevis:()=>{ if (!panelBusy()) mergeVisible(); }})[i](); });
 $('#bCrop').onclick=()=>cropOpen();
 $('#docInfo').title='Размер изображения (Ctrl+Alt+I)'; $('#docInfo').onclick=()=>imageSizeDialog();
@@ -6582,13 +6582,25 @@ function tabsAdopt(){ // called from layersChanged: whatever document is current
   tabsRender(); tabsPersist(); setTimeout(tabsPark, 0);
 }
 function panelBusy(why){ // a panel with its own preview is open: it would break if the canvas changed under it
+  if (aip && !aiSettle()) return true;
   if (stroke || (typeof liqStroke!=='undefined' && liqStroke)) return true;
   if (xf){ toast('Сначала примени или отмени трансформ'); return true; }
   if (edge||harm||filt||gen||aip||(lift&&lift.open)||pup||crop||(typeof dep!=='undefined'&&dep)){ toast('Сначала закрой открытую панель'+(why?' — '+why:''),2400); return true; }
   if (typeof adjEdit!=='undefined' && adjEdit) adjClose();
   return false;
 }
+
+/* №98: an AI window with ready variants never blocks the work. Switching / closing the document, another panel, another AI tool
+   or a layer operation keeps what is there: the variants are already layers («✓ Оставить» happens by itself);
+   an empty window just closes. Only a running generation holds (Остановить — in the window). Enter = «Оставить». */
+function aiSettle(quiet){
+  const a=aip; if (!a) return true;
+  if (a.busy){ toast(a.title+': ещё генерирую — подожди или нажми «Остановить»',2400); return false; }
+  if (a.variants.length){ const n=a.vl ? [...a.vl.values()].filter(L=>doc && doc.layers.includes(L)).length : 1; aiDone(); if (!quiet) toast(a.title+': '+(n>1?'варианты остались слоями':'вариант остался слоем'),1800); }
+  else aiCancel();
+  return true; }
 function tabBusy(){
+  if (aip && !aiSettle()) return true;
   if (stroke || (typeof liqStroke!=='undefined' && liqStroke)) return true;
   if (xf){ toast('Сначала примени или отмени трансформ'); return true; }
   if (edge||harm||filt||gen||aip||(lift&&lift.open)||pup||crop){ toast('Сначала закрой открытую панель — потом переключай документ',2400); return true; }
@@ -7897,6 +7909,7 @@ document.addEventListener('keydown', e=>{
   if (edge && k==='enter'){ edgeApply(); return; }
   if (edge && k==='escape'){ edgeCancel(); return; }
   if (k==='enter' && xf){ xfApply(); return; }
+  if (k==='enter' && aip && !aip.busy && aip.variants.length){ e.preventDefault(); aiDone(); return; }
   if (k==='escape'){ if(xf) xfCancel(); else closePops(); return; }
   if ((k==='delete'||k==='backspace') && sel){ selDelete(); return; }
   // Photoshop: no selection — Delete removes the active layer (one undo step)
@@ -8126,7 +8139,7 @@ async function deleteDoc(id){
   const keys=await idbKeys(PFX(id)), lib=(await libGet()).filter(x=>x.id!==id);
   await idbTx({library:lib}, keys);
   const t=TABS.list.find(x=>x.id===id);
-  if (doc && doc.id===id){ const o=TABS.list.find(x=>x!==t); if (o){ await tabSwitch(o); } else if (!(lib.length && await restore(lib[0].id))) createDoc(3000,4000,'Без названия'); }
+  if (doc && doc.id===id){ const o=TABS.list.find(x=>x!==t); if (o){ await tabSwitch(o); } else if (!(lib.length && await restore(lib[0].id))){ resetDocState(); doc=null; homeShow(); } }
   if (t && TABS.cur!==t){ TABS.list.splice(TABS.list.indexOf(t),1); t.doc=null; t.st=null; tabsRender(); tabsPersist(); }
   if (homeOn) homeFill();
 }
@@ -8199,7 +8212,7 @@ async function openLibrary(){
       try{ localStorage.setItem('proyavka.booting','1'); }catch(_){}
       const ok=await restore(e.id);
       try{ localStorage.removeItem('proyavka.booting'); }catch(_){}
-      if (!ok){ toast('Документ не открылся',3000); if(!doc) createDoc(3000,4000,'Без названия'); }
+      if (!ok){ toast('Документ не открылся',3000); if(!doc) homeShow(); }
     };
     box.append(c);
   }
@@ -8215,7 +8228,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-20 · №97 вкладки и счётчики в верхней панели, линейки вдоль панелей'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-21 · №98 без автоматического «Без названия», ИИ-окно больше не держит документ'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
@@ -8226,8 +8239,7 @@ function homeEl(){ const h=$('#home'); if (h.dataset.ready) return h; h.dataset.
   const ic=k=>'<svg viewBox="0 0 24 24">'+HOME_ICONS[k]+'</svg>';
   h.innerHTML='<div class="hw"><aside class="hside"><h1><img class="hlogo" src="icons/icon-192.png?v=3" alt="" draggable="false">Проявка</h1><p class="hdev"></p>'
     +'<form class="hlogin" hidden onsubmit="return false"><p>Войди, чтобы открыть свои документы на этом устройстве.</p><input type="email" id="hEmail" placeholder="Почта" autocomplete="username" spellcheck="false"><input type="password" id="hKey" placeholder="Ключ доступа" autocomplete="current-password"><button class="hbtn pri" data-h="login">Войти</button><small class="herr"></small></form>'
-    +'<button class="hbtn pri" data-h="new">'+ic('new')+'Новый документ<small class="deskonly">Ctrl+N</small></button>'
-    +'<button class="hbtn" data-h="open">'+ic('open')+'Открыть файл…<small class="deskonly">Ctrl+O</small></button>'
+    +'<button class="hbtn pri" data-h="open">'+ic('open')+'Открыть файл…<small class="deskonly">Ctrl+O</small></button>'
     +'<button class="hbtn" data-h="lib">'+ic('lib')+'Все документы</button>'
     +'<div class="hacct" hidden><span></span><button data-h="logout">Выйти</button></div>'
     +'<div class="hdrop">'+(IS_DESK?'Перетащи сюда PSD или картинки — каждая откроется своим документом. Ctrl+V — картинка из буфера.':'Открывает PSD, PNG и JPG. Картинка, вставленная из буфера, тоже откроется документом.')+'</div></aside>'
@@ -8258,7 +8270,7 @@ async function homeFill(){ const h=homeEl(), g=h.querySelector('.hgrid'); homeUr
   h.querySelector('.hmain h2 span').textContent= lib.length>N ? N+' из '+lib.length : (lib.length?String(lib.length):'');
   h.querySelector('.hmain h2 button').hidden= lib.length<=N;
   g.textContent='';
-  if (!lib.length){ g.innerHTML='<div class="hempty">Здесь появятся документы, с которыми ты работаешь на этом устройстве.<br>Создай новый или открой файл — PSD, PNG, JPG.</div>'; return; }
+  if (!lib.length){ g.innerHTML='<div class="hempty">Здесь появятся документы, с которыми ты работаешь на этом устройстве.<br>Открой файл — PSD, PNG, JPG или перетащи его сюда. Пустой холст — «Файл → Новый документ».</div>'; return; }
   shown.forEach((e,i)=>{ const c=document.createElement('button'); c.className='hcard'+(i===0?' last':''); c.title=e.name;
     c.innerHTML='<div class="hth"></div><div class="nm"></div><div class="mt"></div>';
     c.querySelector('.nm').textContent=e.file||e.name||'Без названия';
@@ -8330,7 +8342,7 @@ if (crashedBefore){ const c=crashedBefore; memNote(`перезапуск · ин
   let homeBoot=false; try{ homeBoot=localStorage.getItem('proyavka.home')==='1'; }catch(_){} if (acctNeedsLogin()) homeBoot=true;
   pvLog(crashed?'безопасный запуск':homeBoot?'начальный экран':'открываю документ'); if (!crashed && !homeBoot) ok = await restore(); pvLog(ok?'документ открыт':homeBoot?'без документа':'новый холст');
   if (found) setTimeout(()=>toast('В памяти нашлись прежние картинки: «Файл → Мои документы», карточки «Найдено»',6000), 1500);
-  if (!ok){ if (homeBoot || ACCT.on) homeShow(); else createDoc(3000,4000,'Без названия'); }
+  if (!ok) homeShow(); // №98: no automatic empty canvas — the home screen (open a file / recent); a new one is «Файл → Новый» (Ctrl+N)
   tabsBoot();
   // the guard stays on until the restored document has been drawn and lived a few seconds: a crash on the first frames also counts
   setTimeout(()=>{ try{ localStorage.removeItem('proyavka.booting'); }catch(_){} pvLog('запуск прошёл'); }, 6000);
