@@ -2247,7 +2247,7 @@ async function samEmbed(){
 async function tapSelect(dx,dy){
   if (!doc || xf) return;
   if (dx<0||dy<0||dx>=doc.w||dy>=doc.h) return;
-  try{ await loadSam(); }catch(err){ console.error(err); busy(false); toast(err.message==='cancel'?'Загрузка отменена':'Модель не загрузилась: '+(err.message||'ошибка'),5000); return; }
+  try{ await loadSam(); }catch(err){ if (err.message!=='cancel') console.error(err); busy(false); toast(err.message==='cancel'?'Загрузка отменена':'Модель не загрузилась: '+(err.message||'ошибка'),5000); return; }
   try{
     const emb=await samEmbed();
     if (!tapSess || tapSess.ver!==contentVer){ tapSess={ver:contentVer, points:[], base:snapshotSel(), mode: sel ? S.selMode : 'new'}; if(tapSess.mode==='sub') tapSess.mode='new'; }
@@ -2531,7 +2531,7 @@ function depBg(v,t){ const r=t.ref??depthMap.focusGuess; return v < r-t.dof-0.04
 async function depthOpen(){
   if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   try{ await depthCompute(); }
-  catch(err){ console.error(err); busy(false);
+  catch(err){ if (err.message!=='cancel') console.error(err); busy(false);
     if (err.message==='cancel') toast('Загрузка модели отменена. Скачанные части сохранятся');
     else if (err.message==='stall' || /fetch|http|network|Load failed/i.test(err.message)) toast('Модель глубины не скачалась: соединение оборвалось. Попробуй ещё раз, скачанные части сохранятся',6000);
     else toast('Глубина не посчиталась: '+(err.message||'ошибка'),5000);
@@ -6927,6 +6927,7 @@ document.body.classList.toggle('desk', IS_DESK);
    One place for it: every text the page shows on the PC (toasts, panels, hints, menus, dialogs, tooltips) passes through deskText,
    applied live to the DOM. Phrases first (they need different words, not just «тап» → «клик»), then general rules. */
 const DESK_PHRASES=[
+  [/Коснись и веди по холсту/g,'Нажми и веди по холсту'], [/коснись и веди/g,'нажми и веди'],
   [/тап двумя пальцами/g,'Ctrl+Shift+D'], [/тап четырьмя пальцами вернёт/g,'Tab вернёт'], [/[Пп]альцы двигают холст/g,'Пробел — двигать холст'],
   [/тап пальцем по чистому месту \(на клавиатуре — Alt \+ клик\)/g,'Alt + клик по чистому месту'], [/тапнуть пальцем или Alt \+ клик/g,'Alt + клик'],
   [/[Тт]ап по объекту(?= \(|$|»|['"<])/g, m=>m[0]==='Т'?'Выбор объекта':'выбор объекта'],
@@ -7841,7 +7842,7 @@ const PS_GROUPS={ w:['wand','tap'], j:['spot','remove','heal','patch'], o:['dodg
 let psLast={w:'wand', j:'spot', o:'dodge'}; try{ Object.assign(psLast, JSON.parse(localStorage.getItem('proyavka.psLast')||'{}')); }catch(e){}
 let digitT=0, digitV='';
 document.addEventListener('keydown', e=>{
-  if (e.target.matches('input,select,textarea')) return;
+  if (e.target.matches && e.target.matches('input,select,textarea')) return;
   if (homeOn){ const C=e.code||''; if ((e.metaKey||e.ctrlKey) && !acctNeedsLogin() && !document.querySelector('.scrim') && (C==='KeyN'||C==='KeyO')){ e.preventDefault(); if (C==='KeyN') newDocDialog(); else openDialog(); } return; }
   if (e.getModifierState){ const c=e.getModifierState('CapsLock'); if (c!==capsOn){ capsOn=c; updateCursor(); } }
   if (e.key===' '){ e.preventDefault(); if(!spaceDown){ spaceDown=true; updateCursor(); } return; }
@@ -8233,7 +8234,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-21 · №99 выделение прилипает к краям холста, «Начало»: новый документ, справка, оформление'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-21 · №100 проход по коду: мелкие исправления'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
