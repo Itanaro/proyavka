@@ -739,6 +739,20 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 #layers{top:calc(var(--top-b,62px) + 8px)}
 #toast,#updBar{top:calc(var(--top-b,62px) + 12px)}
 #menu,#picker,#aimenu,#imgmenu{top:calc(var(--top-b,62px) + 6px)}
+
+/* №101: «Островок» — a small floating pill with three quick buttons, wherever the hand is (big pen displays) */
+#island{position:absolute;z-index:9;display:flex;align-items:center;gap:3px;padding:5px;border-radius:999px;background:var(--glass-bg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);touch-action:none;user-select:none;-webkit-user-select:none}
+#island.v{flex-direction:column}
+#island .ib{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--fg);transition:background-color .14s,transform .12s,box-shadow .18s}
+#island .ib svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#island .ib:hover{background:var(--soft-2)} #island .ib:active{transform:scale(.92)}
+#island .ib.on{background:var(--accent-grad);color:var(--accent-ink);box-shadow:var(--accent-lift)}
+#island .grip{width:14px;height:34px;border-radius:7px;cursor:grab;display:flex;align-items:center;justify-content:center;color:var(--muted);opacity:.7}
+#island.v .grip{width:34px;height:14px}
+#island .grip::before{content:"";width:4px;height:16px;border-radius:2px;background:radial-gradient(circle,currentColor 1.2px,transparent 1.6px) 0 0/4px 5px}
+#island.v .grip::before{width:16px;height:4px;background-size:5px 4px}
+#island.drag{cursor:grabbing;-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--drag-bg);box-shadow:0 18px 40px rgba(0,0,0,.45),0 0 0 1.5px var(--accent)}
+.hideui #island,body.home #island{display:none}
 /* appearance dialog */
 .dlg .thg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:6px 0 16px}
 .dlg .thc{display:flex;flex-direction:column;gap:7px;padding:7px;border-radius:16px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);text-align:left}
@@ -5697,7 +5711,7 @@ function setTool(t, internal){
       cloneSrc={x:clamp(x,0,doc.w-1), y:clamp(y,0,doc.h-1)}; cloneOff=null; requestRender();
       toast('Перетащи карандашом кружок-источник на чистое место, потом рисуй',3600); } }
   document.querySelectorAll('#rail [data-tool]').forEach(b=>b.classList.toggle('on', b.dataset.tool===t));
-  syncGroups();
+  syncGroups(); if (typeof islandSync==='function') islandSync();
   if (t==='transform' && !xf && !internal){ beginTransform({prevTool: prev==='transform'?'brush':prev}); if(!xf){ S.tool=prev; setTool(prev,true); return; } }
   renderOpts(); syncSliders(); requestRender(); if (typeof updateCursor==='function') updateCursor();
 }
@@ -6784,7 +6798,7 @@ function showHelpDesk(){
    card('Выделение',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','до начала — добавить / вычесть'],['Shift / Alt (по ходу)','прямоугольник: квадрат / от центра'],['Тянуть внутри выделения','сдвинуть контур (лассо, прямоугольник, палочка)'],['Стрелки / Shift+стрелки','сдвинуть выделение на 1 / 10 px'],['Ctrl+Alt+R / Shift+F6','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой']])+
    card('Слои',[['Delete (без выделения)','удалить слой'],['Shift+клик / Ctrl+клик по слою','несколько слоёв: Delete, Ctrl+G, Ctrl+E, Ctrl+T, глаз, непрозрачность, режим — для всех'],['Двойной клик по имени','переименовать'],['Правый клик по слою','меню: слить, в группу, переименовать, удалить'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Shift+E','слить видимые'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Ctrl+Shift+[ / ]','в самый низ / верх'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
    card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I / держать Alt','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп (источник — Alt+клик)'],['B / E','кисть / ластик'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['C','кадрирование'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
-   card('ИИ-окна',[['Ctrl+Enter','в поле промпта — запустить'],['Enter','в рамке Доводки — дальше'],['Тянуть за заголовок','переставить окно'],['Двойной клик по заголовку','окно — на место'],['?','в заголовке окна — показать подсказки']])+
+   card('ИИ-окна',[['Ctrl+Enter','в поле промпта — запустить'],['Enter','в рамке Доводки — дальше'],['Островок','тяни за точки — переставить; правый клик по кнопке — поменять'],['Тянуть за заголовок','переставить окно'],['Двойной клик по заголовку','окно — на место'],['?','в заголовке окна — показать подсказки']])+
    `</div><h4 class="hkt">Инструменты подробно</h4><dl class="gest gcols">`+HELP_PC_TOOLS.map(([t,d])=>'<div><dt>'+t+'</dt><dd>'+d+'</dd></div>').join('')+'</dl>';
   const d=dialog(html, [['Понятно', ()=>{ try{localStorage.setItem('kadr.help','1');}catch(e){} }, true]]); d.classList.add('helpw');
 }
@@ -7130,6 +7144,64 @@ function poseRefOpen(){
       res.bitmaps=res.bitmaps.map(v=>{ const c=mk(sw,sh), x=ctx2(c); x.drawImage(v, ox0, oy0, sw, sh, 0, 0, sw, sh); return c; }); return res; },
     apply:(ctx,v)=>{ ctx.imageSmoothingQuality='high'; ctx.drawImage(v, r.x, r.y, r.w, r.h); } });
 }
+
+/* ============ №101: «Островок» ============
+   Three quick buttons on a floating pill that lives where the hand is — on a big pen display the tool rail is far away.
+   Drag it by the dotted grip (position kept per device), double-click / double-tap the grip — horizontal ↔ vertical.
+   Right click or hold a button — choose what that button does. «Файл → Оформление» shows / hides the island. */
+const ISLAND_ACTS={
+  rect:{t:'Прямоугольное выделение', tool:'rect'}, lasso:{t:'Лассо', tool:'lasso'}, wand:{t:'Волшебная палочка', tool:'wand'},
+  subject:{t:'Выделить объект', icon:()=>$('#bSubject').innerHTML, run:()=>$('#bSubject').click()},
+  brush:{t:'Кисть', tool:'brush'}, eraser:{t:'Ластик', tool:'eraser'}, picker:{t:'Пипетка', tool:'picker'}, transform:{t:'Трансформ', tool:'transform'},
+  patch:{t:'Заплатка', tool:'patch'}, remove:{t:'Удаление · нейросеть', tool:'remove'}, clone:{t:'Штамп', tool:'clone'},
+  undo:{t:'Отменить', svg:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', run:()=>undo()},
+  redo:{t:'Вернуть', svg:'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>', run:()=>redo()},
+  deselect:{t:'Снять выделение', svg:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="m9.5 9.5 5 5M14.5 9.5l-5 5"/>', run:()=>{ if (sel) deselect(); else reselect(); }},
+  invert:{t:'Инвертировать выделение', svg:'<rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 2.5"/><path d="M12 4v16" /><path d="M12 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6z" fill="currentColor" stroke="none" opacity=".55"/>', run:()=>{ if (sel) invertSel(); else toast('Сначала выдели'); }},
+};
+const ISLAND_DEF={slots:['rect','lasso','undo'], on:true, v:false, x:null, y:null};
+let island=(()=>{ try{ return Object.assign({}, ISLAND_DEF, JSON.parse(localStorage.getItem('proyavka.island')||'{}')); }catch(_){ return Object.assign({}, ISLAND_DEF); } })();
+const islandSave=()=>{ try{ localStorage.setItem('proyavka.island', JSON.stringify(island)); }catch(_){} };
+function islandIcon(k){ const a=ISLAND_ACTS[k]; if (!a) return ''; if (a.svg) return '<svg viewBox="0 0 24 24">'+a.svg+'</svg>'; if (a.icon) return a.icon(); try{ return toolIcon(a.tool); }catch(_){ return ''; } }
+function islandRun(k){ const a=ISLAND_ACTS[k]; if (!a || !doc) return; if (a.tool) setTool(a.tool); else a.run(); }
+function islandBuild(){
+  let el=$('#island'); if (!el){ el=document.createElement('div'); el.id='island'; $('#stage').append(el); islandWire(el); }
+  el.hidden=!island.on; el.classList.toggle('v', !!island.v); el.textContent='';
+  const g=document.createElement('div'); g.className='grip'; g.title='Тяни — переставить. Двойной клик — повернуть'; el.append(g);
+  island.slots.forEach((k,i)=>{ const b=document.createElement('button'); b.className='ib'; b.dataset.i=i; b.dataset.k=k; b.innerHTML=islandIcon(k); b.title=(ISLAND_ACTS[k]||{}).t+' · правый клик или удержание — поменять'; el.append(b); });
+  islandSync(); islandPlace(); }
+function islandSync(){ const el=$('#island'); if (!el) return; el.querySelectorAll('.ib').forEach(b=>{ const a=ISLAND_ACTS[b.dataset.k]; b.classList.toggle('on', !!(a && a.tool && a.tool===S.tool)); }); }
+function islandPlace(){ const el=$('#island'); if (!el || el.hidden) return; const st=$('#stage').getBoundingClientRect(), w=el.offsetWidth, h=el.offsetHeight;
+  let x, y; if (island.x!=null){ x=island.x*st.width; y=island.y*st.height; }
+  else { const ly=$('#layers'), right=(ly && !ly.hidden ? ly.getBoundingClientRect().left-st.left : st.width)-24; x=right-w; y=st.height-h-28; } // by default: low on the right, next to the layers
+  x=Math.max(6, Math.min(st.width-w-6, x)); y=Math.max(6, Math.min(st.height-h-6, y)); el.style.left=x+'px'; el.style.top=y+'px'; }
+function islandMenu(i, cx, cy){
+  const m=$('#lyCtx'); m.textContent=''; const head=document.createElement('div'); head.className='aih'; head.textContent='Кнопка '+(+i+1)+' островка'; m.append(head);
+  for (const [k,a] of Object.entries(ISLAND_ACTS)){ const b=document.createElement('button'); b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=a.t; b.lastChild.textContent= island.slots[i]===k ? '✓' : '';
+    b.onclick=()=>{ m.hidden=true; island.slots[i]=k; islandSave(); islandBuild(); }; m.append(b); }
+  const hr=document.createElement('div'); hr.className='aih'; hr.textContent=' '; m.append(hr);
+  const v=document.createElement('button'); v.innerHTML='<span>'+(island.v?'Положить горизонтально':'Поставить вертикально')+'</span><small></small>'; v.onclick=()=>{ m.hidden=true; island.v=!island.v; islandSave(); islandBuild(); }; m.append(v);
+  const r=document.createElement('button'); r.innerHTML='<span>Вернуть на место</span><small></small>'; r.onclick=()=>{ m.hidden=true; island.x=island.y=null; islandSave(); islandPlace(); }; m.append(r);
+  const h=document.createElement('button'); h.innerHTML='<span>Спрятать островок</span><small>Оформление</small>'; h.onclick=()=>{ m.hidden=true; island.on=false; islandSave(); islandBuild(); toast('Островок спрятан — вернуть: «Файл → Оформление»',2600); }; m.append(h);
+  closePops('lyCtx'); m.hidden=false; const rr=m.getBoundingClientRect(); m.style.left=Math.min(cx, innerWidth-rr.width-8)+'px'; m.style.top=Math.max(8, Math.min(cy-rr.height/2, innerHeight-rr.height-8))+'px'; }
+function islandWire(el){
+  let d=null, hold=null, lastTap=0;
+  el.addEventListener('contextmenu', e=>{ e.preventDefault(); e.stopPropagation(); const b=e.target.closest('.ib'); if (b) islandMenu(b.dataset.i, e.clientX, e.clientY); });
+  el.addEventListener('pointerdown', e=>{ e.stopPropagation(); if (e.button>0) return; const b=e.target.closest('.ib'), g=e.target.closest('.grip');
+    if (b){ hold={id:e.pointerId, b, x:e.clientX, y:e.clientY, fired:false, T:setTimeout(()=>{ if (hold){ hold.fired=true; islandMenu(b.dataset.i, hold.x, hold.y); } }, 520)}; return; }
+    if (!g) return; const r=el.getBoundingClientRect(), st=$('#stage').getBoundingClientRect();
+    d={id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, st, moved:false, x0:e.clientX, y0:e.clientY}; try{ el.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
+  el.addEventListener('pointermove', e=>{
+    if (hold && e.pointerId===hold.id && Math.hypot(e.clientX-hold.x, e.clientY-hold.y)>8){ clearTimeout(hold.T); hold=null; }
+    if (!d || e.pointerId!==d.id) return; if (!d.moved && Math.hypot(e.clientX-d.x0, e.clientY-d.y0)<3) return; d.moved=true; el.classList.add('drag');
+    const x=e.clientX-d.st.left-d.dx, y=e.clientY-d.st.top-d.dy; island.x=x/d.st.width; island.y=y/d.st.height; islandPlace(); });
+  const up=e=>{
+    if (hold && e.pointerId===hold.id){ clearTimeout(hold.T); const h=hold; hold=null; if (!h.fired && e.type==='pointerup') islandRun(h.b.dataset.k); return; }
+    if (!d || e.pointerId!==d.id) return; const moved=d.moved; d=null; el.classList.remove('drag');
+    if (moved){ islandSave(); return; } const now=Date.now(); if (now-lastTap<380){ island.v=!island.v; islandSave(); islandBuild(); lastTap=0; } else lastTap=now; };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); }
+addEventListener('resize', ()=>setTimeout(islandPlace,60));
+islandBuild();
 /* ============ №88: interface themes and the pasteboard colour ============
    Theme = the series palettes (claude/signature-palettes.md) + the old graphite look. It changes only the interface.
    The pasteboard around the image is its own setting, like Photoshop's (right click outside the image on the PC). */
@@ -7168,6 +7240,8 @@ function appearanceDialog(){
   d.querySelectorAll('.thc').forEach(b=>b.onclick=()=>{ themeSet(b.dataset.t); d.querySelectorAll('.thc').forEach(x=>x.classList.toggle('on', x===b)); });
   const mark=v=>d.querySelectorAll('.pbg button').forEach(x=>x.classList.toggle('on', x.dataset.p===v));
   d.querySelectorAll('.pbg button[data-p]').forEach(b=>{ if (b.dataset.p!=='*') b.onclick=()=>{ pasteSet(b.dataset.p); mark(b.dataset.p); }; });
+  { const p=document.createElement('div'); p.className='pbg'; p.style.marginTop='14px'; const b=document.createElement('button'); const upd=()=>{ b.innerHTML='<i style="background:'+(island.on?'var(--accent-grad)':'transparent')+'"></i>Островок быстрых кнопок: '+(island.on?'показан':'спрятан'); b.classList.toggle('on', island.on); };
+    b.onclick=()=>{ island.on=!island.on; islandSave(); islandBuild(); upd(); }; upd(); p.append(b); const n=document.createElement('p'); n.className='apn'; n.textContent='Три кнопки, которые можно поставить куда удобно. Правый клик или удержание на кнопке — выбрать, что она делает.'; d.querySelector('.pbg').after(p, n); }
   const ci=d.querySelector('input[type=color]'), own=d.querySelector('button[data-p="*"] i');
   ci.oninput=()=>{ pasteSet(ci.value); own.style.background=ci.value; mark('*'); };
 }
@@ -8234,7 +8308,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-21 · №100 проход по коду: мелкие исправления'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-22 · №101 островок быстрых кнопок'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
