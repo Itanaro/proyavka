@@ -779,6 +779,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 #refwin .rvb button:hover{background:var(--accent);color:var(--accent-ink)}
 #refwin .rz{position:absolute;right:2px;bottom:2px;width:18px;height:18px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 55%,var(--muted) 55%,var(--muted) 62%,transparent 62%,transparent 72%,var(--muted) 72%,var(--muted) 79%,transparent 79%);opacity:.6;z-index:2}
 #aibar .drefs > button.fromrefs{border:1px solid color-mix(in srgb,var(--accent) 45%,transparent)}
+.gradsw{width:64px;height:18px;border-radius:5px;border:1px solid var(--line,rgba(127,127,127,.4));padding:0!important;flex:none}
 /* appearance dialog */
 .dlg .thg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:6px 0 16px}
 .dlg .thc{display:flex;flex-direction:column;gap:7px;padding:7px;border-radius:16px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);text-align:left}
@@ -857,6 +858,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <button class="tb" data-tool="depth" aria-label="Глубина"><svg viewBox="0 0 24 24"><path d="M2.5 18.5 8 10l3.5 5 3-4 7 7.5z"/><path d="M4 7h4M3 4h7M14 4.5h7"/></svg></button>
     <button class="tb" data-tool="tap" aria-label="Тап по объекту (Shift+W)"><svg viewBox="0 0 24 24"><path d="M9 11V5a1.5 1.5 0 0 1 3 0v5"/><path d="M12 10V8.5a1.5 1.5 0 0 1 3 0V11"/><path d="M15 10.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-4.6-2.2L4 15.5a1.5 1.5 0 0 1 2.3-1.9L9 16"/><path d="M19 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></svg></button>
     <button class="tb" id="bSubject" aria-label="Выделить объект"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/><path d="M3 3h3M18 3h3M3 3v3M21 3v3" /></svg></button>
+    <button class="tb" data-tool="gradient" aria-label="Градиент (G)"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M8 5v14M11.5 5v14M14 5v14M16 5v14M17.6 5v14M18.9 5v14"/></svg></button>
     <button class="tb" data-tool="picker" aria-label="Пипетка (I)"><svg viewBox="0 0 24 24"><path d="m14 6 4 4M4 20l1.5-4.5L15 6l3-3 3 3-3 3-9.5 9.5z"/></svg></button>
   </div>
   <div class="pop" id="flyout" hidden></div>
@@ -1124,7 +1126,8 @@ const S = {
   wandTol:0.13, wandContig:true, wandSoft:true, wandAll:false,
   retouchAll:false, cloneAligned:true, cloneFlow:1, penHoldPick:true,
   dbRange:'mid', dbExp:0.35, dbProtect:true, blurAmt:0.35, sharpAmt:0.4, fxFlow:0.6, spMode:'desat', spAmt:0.4, spVib:true, smudge:0.6, fxAll:false,
-  liqMode:'push', liqSize:260, liqAmt:0.6, brushId:'round', eraserBrush:'round'
+  liqMode:'push', liqSize:260, liqAmt:0.6, brushId:'round', eraserBrush:'round',
+  gradType:'linear', gradMode:'fgbg', gradRev:false, gradDither:true
 };
 let doc = null;          // {w,h,name,layers:[], active, editMask}
 let view = {x:0,y:0,s:1,r:0};
@@ -1524,6 +1527,11 @@ function renderOverlay(){ if(!doc) return;
       ants(); } }
   if (lassoPts && lassoPts.length>1){ ox.beginPath(); lassoPts.forEach((p,i)=>{const [sx,sy]=toScr(p[0],p[1]); i?ox.lineTo(sx,sy):ox.moveTo(sx,sy);}); ants(); }
   if (rectSel){ const r=normRect(rectSel); polyPath([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); ants(); }
+  if (gradDrag){ const g=gradDrag, [a,b]=toScr(g.x0,g.y0), [c,d]=toScr(g.x1,g.y1); ox.save(); ox.lineCap='round';
+    if (S.gradType==='radial'){ ox.beginPath(); ox.arc(a,b,Math.hypot(c-a,d-b),0,Math.PI*2); ox.setLineDash([4,4]); ox.strokeStyle='rgba(0,0,0,.6)'; ox.lineWidth=3; ox.stroke(); ox.strokeStyle='#fff'; ox.lineWidth=1; ox.stroke(); ox.setLineDash([]); }
+    ox.beginPath(); ox.moveTo(a,b); ox.lineTo(c,d); ox.strokeStyle='rgba(0,0,0,.6)'; ox.lineWidth=3.5; ox.stroke(); ox.strokeStyle='#fff'; ox.lineWidth=1.5; ox.stroke();
+    for (const [x,y,f] of [[a,b,S.gradRev?S.bgColor:S.color],[c,d,S.gradMode==='fgbg'?(S.gradRev?S.color:S.bgColor):null]]){ ox.beginPath(); ox.arc(x,y,5.5,0,Math.PI*2); ox.fillStyle=f||'rgba(255,255,255,.25)'; ox.fill(); ox.lineWidth=1.5; ox.strokeStyle='#fff'; ox.stroke(); ox.beginPath(); ox.arc(x,y,7,0,Math.PI*2); ox.strokeStyle='rgba(0,0,0,.55)'; ox.lineWidth=1; ox.stroke(); }
+    ox.restore(); }
   if (typeof notesOverlay!=='undefined' && notesDocRef!==doc){ notesDocRef=doc; notesRender(); } // another document — its own notes
   if (typeof crit!=='undefined' && crit) critOverlay(ox); else if (typeof notesOverlay!=='undefined'){ notesOverlay(ox); notesLayout(); }
   { // canvas frame, always crisp on top
@@ -5772,7 +5780,7 @@ function setTool(t, internal){
 document.querySelectorAll('#rail [data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
 /* grouped tools: tap a group to take its last tool, tap it again (or hold) to open the list */
 const TOOL_GROUPS = {
-  paint:{ title:'Рисование', items:[['brush','Кисть','B'],['eraser','Ластик','E'],['picker','Пипетка','I']] },
+  paint:{ title:'Рисование', items:[['brush','Кисть','B'],['eraser','Ластик','E'],['gradient','Градиент','G'],['picker','Пипетка','I']] },
   sel:  { title:'Выделение', items:[['lasso','Лассо','L'],['rect','Прямоугольник','M'],['wand','Волшебная палочка','W']] },
   ai:   { title:'Умное выделение и глубина', items:[['@subject','Выделить объект',''],['tap','Тап по объекту','⇧W'],['depth','Глубина','']] },
   tone: { title:'Тон, резкость, пластика', items:[['dodge','Осветление','O'],['burn','Затемнение','⇧O'],['sponge','Губка','⇧O'],['blur','Размытие',''],['sharpen','Резкость',''],['smudge','Палец',''],['liquify','Пластика','⇧Ctrl X']] },
@@ -5924,6 +5932,12 @@ function renderOpts0(){
     o.append(seg, src, rng('Допуск','wandTol',0,100,v=>String(Math.round(v*255))), chk('Смежные','wandContig'), chk('Мягкий край','wandSoft'));
   } else if (S.tool==='transform'){
     const h=document.createElement('span'); h.className='opt'; h.textContent='Тяни внутри — сдвиг, углы — масштаб, кружок сверху — поворот'; o.append(h);
+  } else if (S.tool==='gradient'){
+    const seg=(items,key)=>{ const d=document.createElement('div'); d.className='seg'; for (const [k,l,tt] of items){ const b=document.createElement('button'); b.textContent=l; if (tt) b.title=tt; b.className=S[key]===k?'on':''; b.onclick=()=>{ S[key]=k; savePrefs(); renderOpts(); }; d.append(b); } return d; };
+    const sw=document.createElement('span'); sw.className='opt gradsw'; sw.title='Каким будет градиент. Цвета — основной и фоновый (X — поменять)';
+    { const [A,B]=gradStops(doc&&doc.editMask&&AL()&&AL().mask), css=q=>'rgba('+q[0]+','+q[1]+','+q[2]+','+q[3]+')'; sw.style.background='linear-gradient(90deg,'+css(A)+','+css(B)+'), repeating-conic-gradient(#bbb 0 25%,#fff 0 50%) 0 0/10px 10px'; }
+    o.append(sw, seg([['linear','Линейный'],['radial','Радиальный']],'gradType'), seg([['fgbg','Основной → фоновый'],['fgtr','Основной → прозрачный','На маске: от серого основного цвета к «не трогать»']],'gradMode'), (()=>{ const b=chk('Наоборот','gradRev'), f=b.onclick; b.onclick=()=>{ f(); renderOpts(); }; return b; })(), chk('Дизеринг','gradDither'));
+    const h=document.createElement('span'); h.className='opt'; h.textContent=doc&&doc.editMask ? 'На маске: чёрный скрывает, белый показывает' : 'Тяни линию по холсту · Shift — по 45°'; o.append(h);
   } else if (S.tool==='picker'){
     const h=document.createElement('span'); h.className='opt'; h.textContent='Коснись и веди по холсту: верх кольца — новый цвет, низ — текущий. Отпусти — цвет взят, вернёшься к кисти'; o.append(h);
   }
@@ -6852,7 +6866,7 @@ function showHelpDesk(){
    card('Правка',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+C / Ctrl+Shift+C','копировать выделенное: слой / всё видимое'],['Ctrl+V','вставить новым слоем на то же место; в Доводке — в рефы'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
    card('Выделение',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','до начала — добавить / вычесть'],['Shift / Alt (по ходу)','прямоугольник: квадрат / от центра'],['Тянуть внутри выделения','сдвинуть контур (лассо, прямоугольник, палочка)'],['Стрелки / Shift+стрелки','сдвинуть выделение на 1 / 10 px'],['Ctrl+Alt+R / Shift+F6','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой']])+
    card('Слои',[['Delete (без выделения)','удалить слой'],['Shift+клик / Ctrl+клик по слою','несколько слоёв: Delete, Ctrl+G, Ctrl+E, Ctrl+T, глаз, непрозрачность, режим — для всех'],['Двойной клик по имени','переименовать'],['Правый клик по слою','меню: слить, в группу, переименовать, удалить'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Shift+E','слить видимые'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Ctrl+Shift+[ / ]','в самый низ / верх'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Alt+клик по слою / Ctrl+Alt+G','обтравочная маска — слой только по форме нижнего'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
-   card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I / держать Alt','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп (источник — Alt+клик)'],['B / E','кисть / ластик'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['C','кадрирование'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
+   card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I / держать Alt','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп (источник — Alt+клик)'],['B / E','кисть / ластик'],['G','градиент (Shift — по 45°)'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['C','кадрирование'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
    card('ИИ-окна',[['Ctrl+Enter','в поле промпта — запустить'],['Enter','в рамке Доводки — дальше'],['Островок','тяни за точки — переставить; правый клик по кнопке — поменять'],['Окно рефов','кнопка с картинками вверху; перетащи файлы, Ctrl+V над окном, ⧉ — выделенное'],['Тянуть за заголовок','переставить окно'],['Двойной клик по заголовку','окно — на место'],['?','в заголовке окна — показать подсказки']])+
    `</div><h4 class="hkt">Инструменты подробно</h4><dl class="gest gcols">`+HELP_PC_TOOLS.map(([t,d])=>'<div><dt>'+t+'</dt><dd>'+d+'</dd></div>').join('')+'</dl>';
   const d=dialog(html, [['Понятно', ()=>{ try{localStorage.setItem('kadr.help','1');}catch(e){} }, true]]); d.classList.add('helpw');
@@ -7295,7 +7309,7 @@ function refDocChanged(){ refView=null; const el=$('#refwin'); if (!el) { if (re
 const ISLAND_ACTS={
   rect:{t:'Прямоугольное выделение', tool:'rect'}, lasso:{t:'Лассо', tool:'lasso'}, wand:{t:'Волшебная палочка', tool:'wand'},
   subject:{t:'Выделить объект', icon:()=>$('#bSubject').innerHTML, run:()=>$('#bSubject').click()},
-  brush:{t:'Кисть', tool:'brush'}, eraser:{t:'Ластик', tool:'eraser'}, picker:{t:'Пипетка', tool:'picker'}, transform:{t:'Трансформ', tool:'transform'},
+  brush:{t:'Кисть', tool:'brush'}, eraser:{t:'Ластик', tool:'eraser'}, gradient:{t:'Градиент', tool:'gradient'}, picker:{t:'Пипетка', tool:'picker'}, transform:{t:'Трансформ', tool:'transform'},
   patch:{t:'Заплатка', tool:'patch'}, remove:{t:'Удаление · нейросеть', tool:'remove'}, clone:{t:'Штамп', tool:'clone'},
   undo:{t:'Отменить', svg:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', run:()=>undo()},
   redo:{t:'Вернуть', svg:'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>', run:()=>redo()},
@@ -7551,6 +7565,7 @@ function toolDown(e,p){
   if (t==='liquify'){ if(!liqBegin(p,penPressure(e))) toolPtr=null; return; }
   if (t==='brush'||t==='eraser'||t==='clone'||t==='heal'||t==='spot'||t==='remove'||FX_TOOLS.includes(t)){ if(!strokeBegin(p)){ toolPtr=null; return; } strokeMove(p[0],p[1],penPressure(e),e); }
   else if (t==='lasso'){ lassoPts=[docClamp(toDoc(...p))]; }
+  else if (t==='gradient'){ if (!pixelOnly(true)){ toolPtr=null; return; } const [x,y]=toDoc(...p); gradDrag={x0:x,y0:y,x1:x,y1:y}; }
   else if (t==='rect'){ const [x,y]=toDoc(...p); rectSel={x0:x,y0:y,x1:x,y1:y, sq:false, ctr:false, shiftLock:e.shiftKey&&!!sel, altLock:altDown&&!!sel}; }
   if ((t==='lasso'||t==='rect'||t==='wand'||t==='tap') && (e.shiftKey||altDown) && sel){ tmpMode=S.selMode; S.selMode= altDown ? 'sub' : 'add'; }
   if (t==='wand'){ wandDown(p); return; }
@@ -7583,6 +7598,7 @@ function toolMove(e){
     else if (t==='rect' && rectSel){ const [x,y]=toDoc(...p); rectSel.mx=x; rectSel.my=y;
       rectMods(ev.shiftKey); }
     else if (t==='transform' && xf) xfMove(p[0],p[1]);
+    else if (t==='gradient' && gradDrag) gradMove(p, ev.shiftKey);
     else if (t==='picker') eyeMove(p);
   }
   if (penHold && !penHold.picking){ const q=stagePos(e); if (Math.hypot(q[0]-penHold.p0[0],q[1]-penHold.p0[1])>5){ clearTimeout(penHold.T); penHold=null; } }
@@ -7683,6 +7699,7 @@ function toolUp(e){
   else if (t==='lasso' && lassoPts){ const pts=lassoPts; lassoPts=null; if(pts.length<3){ if(S.selMode==='new') deselect(); } else applySelPoly(pts); }
   else if (t==='rect' && rectSel){ const sq=rectSel.sq, r=normRect(rectSel); rectSel=null; r.x=Math.round(r.x); r.y=Math.round(r.y); r.w=Math.round(r.w); r.h=Math.round(r.h); if (sq){ const q=Math.max(r.w,r.h); r.w=Math.min(q, doc.w-r.x); r.h=Math.min(q, doc.h-r.y); } /* whole pixels; a Shift square stays square (inside the canvas) */ if(r.w*view.s<4||r.h*view.s<4){ if(S.selMode==='new') deselect(); } else applySelPoly([[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]); }
   else if (t==='transform' && xf) xf.drag=null;
+  else if (t==='gradient' && gradDrag){ const g=gradDrag; gradDrag=null; if (Math.hypot(g.x1-g.x0,g.y1-g.y0)*view.s<4) toast('Градиент: потяни линию — от основного цвета к фоновому. Shift — ровно по 45°',2600); else gradApply(g); }
   else if (t==='picker'){ eyeEnd(false); if (penHold && penHold.picking){ /* back to the brush */ } else if (S.tool==='picker' && pickerBack){ setTool(pickerBack); } }
   else if (t==='wand' && wandDrag) wandUp();
   else if (t==='depth' && tapDown){ const q=stagePos(e); if (Math.hypot(q[0]-tapDown[0],q[1]-tapDown[1])<12){ const [dx,dy]=toDoc(...tapDown); depthTap(dx,dy); } tapDown=null; }
@@ -7691,7 +7708,7 @@ function toolUp(e){
   if (e.pointerType!=='touch') hover=stagePos(e);
   renderOverlay();
 }
-function toolCancel(){ document.body.classList.remove('tooling'); toolPtr=null; if (pup) pup.drag=null; if(liqStroke) liqEnd(true); if(penHold){ clearTimeout(penHold.T); penHold=null; } if(eye) eyeEnd(true); srcDrag=null; if(patchDrag){ patchDrag=null; patchPrev=null; } if(t_patchLasso()) lassoPts=null; wandDrag=null; wandPrev=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
+function toolCancel(){ document.body.classList.remove('tooling'); toolPtr=null; if (pup) pup.drag=null; if(liqStroke) liqEnd(true); if(penHold){ clearTimeout(penHold.T); penHold=null; } if(eye) eyeEnd(true); srcDrag=null; gradDrag=null; if(patchDrag){ patchDrag=null; patchPrev=null; } if(t_patchLasso()) lassoPts=null; wandDrag=null; wandPrev=null; if(stroke) strokeEnd(true); lassoPts=null; rectSel=null; if(xf) xf.drag=null; requestRender(); }
 
 /* ============ Кадрирование (C), Размер холста (Ctrl+Alt+C), Размер изображения (Ctrl+Alt+I) — like Photoshop ============ */
 /* new canvas rw×rh whose top-left is (rx,ry) of the old one: crop, extend or both; one undo step */
@@ -8126,7 +8143,7 @@ document.addEventListener('keydown', e=>{
   if (k==='escape' && Math.abs(view.r)>1e-6 && !xf && !edge){ const r=st(); rotateAt(r.width/2, r.height/2, -view.r); }
   if (PS_GROUPS[L]){ const g=PS_GROUPS[L]; let t=psLast[L]; if (e.shiftKey){ const i=g.indexOf(S.tool); t=g[(i<0?g.indexOf(t):i+1)%g.length]; }
     psLast[L]=t; try{ localStorage.setItem('proyavka.psLast', JSON.stringify(psLast)); }catch(_){} setTool(t); return; }
-  const single={v:'transform', m:'rect', l:'lasso', i:'picker', s:'clone', b:'brush', e:'eraser'};
+  const single={v:'transform', m:'rect', l:'lasso', i:'picker', s:'clone', b:'brush', e:'eraser', g:'gradient'};
   if (single[L] && !e.shiftKey){ setTool(single[L]); return; }
   if (/^\d$/.test(L)){ // opacity like Photoshop: 5 → 50 %, 4 5 quickly → 45 %, 0 → 100 %; Shift — flow
     const now=Date.now(); digitV = now-digitT<400 && digitV.length===1 ? digitV+L : L; digitT=now;
@@ -8151,6 +8168,39 @@ function setStrength(v, flow){ const t=S.tool; let what;
   else if (flow){ S.flow=v; what='Поток'; } else { S.opacity=v; what='Непрозрачность'; }
   spriteKey=''; syncSliders(); renderOpts(); savePrefs(); toast(what+' '+Math.round(v*100)+'%',900); }
 function reselect(){ if (!lastDesel || !doc || lastDesel.w!==doc.w || lastDesel.h!==doc.h){ toast('Нечего вернуть'); return; } const before=snapshotSel(); sel=selFrom(lastDesel); pushSelHist(before); updateSelBar(); requestRender(); }
+
+/* №105: Градиент (G) — like Photoshop: drag a line; linear or radial; main → background colour or main → transparent;
+   respects the selection, the opacity slider and the layer mask (on a mask it paints grey = how much is shown) */
+let gradDrag=null;
+function gradMove(p, sh){ const g=gradDrag; let [x,y]=toDoc(...p);
+  if (sh){ const dx=x-g.x0, dy=y-g.y0, a=Math.round(Math.atan2(dy,dx)/(Math.PI/4))*(Math.PI/4), l=Math.hypot(dx,dy); x=g.x0+Math.cos(a)*l; y=g.y0+Math.sin(a)*l; }
+  g.x1=x; g.y1=y; }
+function gradStops(onMask){ // two colours as [r,g,b,a]
+  const toG=c=>{ const v=Math.round(0.299*c[0]+0.587*c[1]+0.114*c[2]); return [v,v,v]; };
+  let a=hexToRgb(S.color), b=S.gradMode==='fgbg' ? hexToRgb(S.bgColor) : a.slice();
+  if (onMask){ a=toG(a); b=toG(b); }
+  let A=[...a,1], B=[...b, S.gradMode==='fgbg'?1:0]; if (S.gradRev) [A,B]=[B,A]; return [A,B]; }
+function gradRender(g, r, onMask){ // the gradient over the rect r of the document, cut by the selection
+  const c=mk(r.w,r.h), cx=ctx2(c,{willReadFrequently:true}), [A,B]=gradStops(onMask), css=q=>'rgba('+q[0]+','+q[1]+','+q[2]+','+q[3]+')';
+  const x0=g.x0-r.x, y0=g.y0-r.y, x1=g.x1-r.x, y1=g.y1-r.y;
+  const gr = S.gradType==='radial' ? cx.createRadialGradient(x0,y0,0,x0,y0,Math.max(1,Math.hypot(x1-x0,y1-y0))) : cx.createLinearGradient(x0,y0,x1,y1);
+  gr.addColorStop(0,css(A)); gr.addColorStop(1,css(B)); cx.fillStyle=gr; cx.fillRect(0,0,r.w,r.h);
+  if (S.gradDither){ // a pinch of noise: no stripes on smooth skies and skin (Photoshop's «Дизеринг»)
+    const id=cx.getImageData(0,0,r.w,r.h), d=id.data; let z=(Math.random()*4294967296)>>>0;
+    for (let i=0;i<d.length;i+=4){ z^=z<<13; z^=z>>>17; z^=z<<5; const n=((z>>>0)/4294967296)-0.5; d[i]+=n; d[i+1]+=n; d[i+2]+=n; if (d[i+3]<255 && d[i+3]>0) d[i+3]+=n; }
+    cx.putImageData(id,0,0); }
+  if (sel){ cx.globalCompositeOperation='destination-in'; cx.drawImage(sel.mask,r.x,r.y,r.w,r.h,0,0,r.w,r.h); cx.globalCompositeOperation='source-over'; }
+  return c; }
+function gradApply(g){
+  if (!doc || !pixelOnly(true)) return; const r=sel ? selBBox() : {x:0,y:0,w:doc.w,h:doc.h}; if (!r.w||!r.h) return;
+  const L=AL(), onMask=!!(doc.editMask && L.mask), tgt=selTarget(), before=grab(tgt,r), op=S.opacity;
+  const G=gradRender(g, r, onMask), t=ctx2(tgt);
+  if (onMask){ // a mask keeps its value in the alpha: blend the grey of the gradient into it, as much as the gradient covers
+    const gd=ctx2(G,{willReadFrequently:true}).getImageData(0,0,r.w,r.h).data, id=ctx2(tgt,{willReadFrequently:true}).getImageData(r.x,r.y,r.w,r.h), m=id.data;
+    for (let i=0;i<m.length;i+=4){ const a=gd[i+3]/255*op; if (!a) continue; m[i]=m[i+1]=m[i+2]=255; m[i+3]=Math.round(m[i+3]*(1-a)+gd[i]*a); }
+    t.putImageData(id,r.x,r.y); }
+  else { t.save(); t.globalAlpha=op; t.globalCompositeOperation='source-over'; t.drawImage(G,r.x,r.y); t.restore(); }
+  pushHist(pxEntry(tgt,r.x,r.y,r.w,r.h,before)); L.dirty=true; thumbSoon(L); requestRender(); }
 function fillWith(hex){ // Alt+Backspace — main colour, Ctrl+Backspace — background colour; selection or the whole layer
   if (!pixelOnly(true)) return; const r=sel ? selBBox() : {x:0,y:0,w:doc.w,h:doc.h}; if (!r.w||!r.h) return;
   const tgt=selTarget(), before=grab(tgt,r), onMask=doc.editMask && AL().mask;
@@ -8212,7 +8262,7 @@ document.addEventListener('gesturestart', e=>e.preventDefault());
 document.addEventListener('contextmenu', e=>e.preventDefault());
 
 /* ============ prefs & autosave ============ */
-function savePrefs(){ try{ localStorage.setItem('kadr.prefs', JSON.stringify({color:S.color,bgColor:S.bgColor,size:S.size,eraserSize:S.eraserSize,opacity:S.opacity,hardness:S.hardness,flow:S.flow,smooth:S.smooth,pSize:S.pSize,pOpac:S.pOpac,fingerDraw:S.fingerDraw,wandTol:S.wandTol,wandContig:S.wandContig,wandSoft:S.wandSoft,wandAll:S.wandAll,retouchAll:S.retouchAll,cloneAligned:S.cloneAligned,cloneFlow:S.cloneFlow,penHoldPick:S.penHoldPick,dbRange:S.dbRange,dbExp:S.dbExp,dbProtect:S.dbProtect,blurAmt:S.blurAmt,sharpAmt:S.sharpAmt,fxFlow:S.fxFlow,spMode:S.spMode,spAmt:S.spAmt,spVib:S.spVib,smudge:S.smudge,fxAll:S.fxAll,liqMode:S.liqMode,liqSize:S.liqSize,liqAmt:S.liqAmt,brushId:S.brushId,eraserBrush:S.eraserBrush,recent})); }catch(e){} }
+function savePrefs(){ try{ localStorage.setItem('kadr.prefs', JSON.stringify({color:S.color,bgColor:S.bgColor,size:S.size,eraserSize:S.eraserSize,opacity:S.opacity,hardness:S.hardness,flow:S.flow,smooth:S.smooth,pSize:S.pSize,pOpac:S.pOpac,fingerDraw:S.fingerDraw,wandTol:S.wandTol,wandContig:S.wandContig,wandSoft:S.wandSoft,wandAll:S.wandAll,retouchAll:S.retouchAll,cloneAligned:S.cloneAligned,cloneFlow:S.cloneFlow,penHoldPick:S.penHoldPick,dbRange:S.dbRange,dbExp:S.dbExp,dbProtect:S.dbProtect,blurAmt:S.blurAmt,sharpAmt:S.sharpAmt,fxFlow:S.fxFlow,spMode:S.spMode,spAmt:S.spAmt,spVib:S.spVib,smudge:S.smudge,fxAll:S.fxAll,liqMode:S.liqMode,liqSize:S.liqSize,liqAmt:S.liqAmt,brushId:S.brushId,eraserBrush:S.eraserBrush,gradType:S.gradType,gradMode:S.gradMode,gradRev:S.gradRev,gradDither:S.gradDither,recent})); }catch(e){} }
 function loadPrefs(){ try{ const p=JSON.parse(localStorage.getItem('kadr.prefs')||'null'); if(p){ const {recent:r,...rest}=p; Object.assign(S,rest); if(r) recent.push(...r); } }catch(e){} }
 const DB='kadr', STORE='doc';
 function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB,1); r.onupgradeneeded=()=>r.result.createObjectStore(STORE); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
@@ -8457,7 +8507,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-24 · №104 окно рефов (как PureRef) с отправкой в Доводку'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-24 · №105 инструмент «Градиент»'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
