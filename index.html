@@ -993,6 +993,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <button data-i="smartrep" id="imgSmartRep">Заменить содержимое…</button>
     <button data-i="safe">Безопасная зона 900 / 1500 <small>слой-разметка</small></button>
     <button data-i="rulers">Линейки в пикселях <small>Ctrl+R</small></button>
+    <button data-i="screen2">Второй экран <small>очки, 2-й монитор</small></button>
     <hr>
     <div class="aih" id="imgInfo"></div>
   </div>
@@ -1018,6 +1019,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <hr>
     <button data-m="finger" class="padonly">Рисовать пальцем <small id="mFinger">выкл</small></button>
     <button data-m="penpick">Пипетка карандашом <small id="mPenPick">вкл</small></button>
+    <button data-m="hovercross" class="padonly">Курсор пера в воздухе <small id="mHoverX">выкл</small></button>
     <button data-m="look">Оформление <small id="mLook">Ночь</small></button>
     <button data-m="help">Жесты и клавиши</button>
     <button data-m="store">Проверка памяти <small>для отладки</small></button>
@@ -1582,7 +1584,7 @@ function renderOverlay(){ if(!doc) return;
   if (cur && (S.tool==='liquify'||S.tool==='brush'||S.tool==='eraser'||S.tool==='clone'||S.tool==='heal'||S.tool==='spot'||S.tool==='remove'||FX_TOOLS.includes(S.tool))){
     const r = Math.max(1.5, curSize()/2*view.s);
     ox.beginPath(); ox.arc(cur[0],cur[1],r,0,Math.PI*2); ox.strokeStyle='rgba(0,0,0,.7)'; ox.lineWidth=2.5; ox.stroke(); ox.strokeStyle='rgba(255,255,255,.9)'; ox.lineWidth=1; ox.stroke();
-  }
+  }  else if (cur && cur===hover && hoverCross && !IS_DESK) hoverCrossDraw(cur); // №110: where the Pencil will land, for any tool
 }
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const PASTE_DEF='#141518'; let BG = (()=>{ try{ return localStorage.getItem('proyavka.paste')||PASTE_DEF; }catch(e){ return PASTE_DEF; } })();
@@ -6161,8 +6163,8 @@ $('#bImg').onclick=e=>{ e.stopPropagation(); closePops('imgmenu'); const m=$('#i
   { const L=doc&&AL(), s=!!(L&&L.smart); $('#imgSmart').textContent = s ? 'Растрировать смарт-объект' : 'В смарт-объект'; $('#imgSmartRep').hidden=!s; }
   m.querySelector('#imgInfo').textContent = doc ? doc.w+'×'+doc.h+' px · '+(doc.dpi||72)+' ppi · '+((doc.w/(doc.dpi||72))*2.54).toFixed(1)+'×'+((doc.h/(doc.dpi||72))*2.54).toFixed(1)+' см' : '';
   const r=$('#bImg').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
-document.querySelectorAll('#imgmenu [data-i]').forEach(b=>b.onclick=()=>{ closePops(); if (!doc) return; const i=b.dataset.i; if (!['safe','rulers'].includes(i) && aip && !aiSettle()) return;
-  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, detail:()=>cropOpen({detail:true}), xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>rmbgOpen(), safe:safeZoneToggle, rulers:rulersToggle, stamp:()=>{ if (!panelBusy()) stampVisible(); }, mergevis:()=>{ if (!panelBusy()) mergeVisible(); }, smart:()=>{ if (AL().smart) smartRasterize(); else smartConvert(); }, smartrep:smartReplace})[i](); });
+document.querySelectorAll('#imgmenu [data-i]').forEach(b=>b.onclick=()=>{ closePops(); if (!doc) return; const i=b.dataset.i; if (!['safe','rulers','screen2'].includes(i) && aip && !aiSettle()) return;
+  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, detail:()=>cropOpen({detail:true}), xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>rmbgOpen(), safe:safeZoneToggle, rulers:rulersToggle, screen2:s2Open, stamp:()=>{ if (!panelBusy()) stampVisible(); }, mergevis:()=>{ if (!panelBusy()) mergeVisible(); }, smart:()=>{ if (AL().smart) smartRasterize(); else smartConvert(); }, smartrep:smartReplace})[i](); });
 $('#bCrop').onclick=()=>cropOpen();
 $('#docInfo').title='Размер изображения (Ctrl+Alt+I)'; $('#docInfo').onclick=()=>imageSizeDialog();
 
@@ -7334,13 +7336,13 @@ async function deliverGo(name){
 const safeName=()=> (doc.name||'proyavka').replace(/[\\/:*?"<>|]+/g,'_');
 document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops(); const m=b.dataset.m;
   if (m==='noop') return;
-  if (acctNeedsLogin() && !['help','store','penpick','finger','look'].includes(m)){ toast('Сначала войди'); return; }
+  if (acctNeedsLogin() && !['help','store','penpick','finger','look','hovercross'].includes(m)){ toast('Сначала войди'); return; }
   if (xf && m!=='help' && m!=='store' && m!=='look'){ toast('Сначала примени или отмени трансформ'); return; }
   if (m==='close'){ tabClose(); return; }
   if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') openDialog(); else if(m==='place') $('#fPlace').click(); else if(m==='save') saveAsDesk(true); else if(m==='saveas') saveAsDesk(false); else if(m==='crop') cropOpen(); else if(m==='isize') imageSizeDialog(); else if(m==='csize') canvasSizeDialog();
   else if(m==='look') appearanceDialog();
   else if(m==='deliver') deliverDialog();
-  else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='penpick'){ S.penHoldPick=!S.penHoldPick; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; savePrefs(); toast(S.penHoldPick?'Задержи карандаш на месте ~0.5 с — появится пипетка':'Пипетка карандашом выключена; палец по-прежнему берёт цвет удержанием'); } else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
+  else if(m==='hovercross') hoverCrossToggle(); else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='penpick'){ S.penHoldPick=!S.penHoldPick; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; savePrefs(); toast(S.penHoldPick?'Задержи карандаш на месте ~0.5 с — появится пипетка':'Пипетка карандашом выключена; палец по-прежнему берёт цвет удержанием'); } else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
   else exportImg(m);
 });
 
@@ -7743,6 +7745,138 @@ $('#stage').addEventListener('pointerdown', e=>{
   e.preventDefault(); e.stopImmediatePropagation(); pasteMenu(e.clientX, e.clientY);
 }, true);
 themeApply();
+
+/* ============ №110 Второй экран: очки XREAL или любой второй монитор ============
+   ПК: «Изображение → Второй экран» открывает отдельное окно — в приложении для ПК оно само встаёт на другой
+   монитор (очки) во весь экран. Там вся картина целиком (как «Новое окно» в Фотошопе) с рамкой того, что
+   сейчас видно на экраннике, или рефы документа. Проверки свежим глазом: Ч/Б (тон) и отражение по горизонтали.
+   Окно ничего не правит и ничего не хранит: картинку в него рисует главное окно (s2Tick), обновление — в паузах
+   между мазками (та же сведённая копия, что у навигации, getPreview). Без второго монитора окно просто
+   открывается рядом. iPad: окна на внешнем экране Safari не даёт — там зеркалирование и «Курсор пера в воздухе». */
+const S2NAME='proyavka-screen2', S2KEY='proyavka.screen2';
+let s2=null; // {w, cv, x, hud, msg, z, px, py, key, vk, rk, refSel, hideT}
+let s2Pref=(()=>{ const d={mode:'pic',gray:false,flip:false,frame:true}; try{ return Object.assign(d, JSON.parse(localStorage.getItem(S2KEY)||'{}')); }catch(_){ return d; } })();
+const s2Save=()=>{ try{ localStorage.setItem(S2KEY, JSON.stringify(s2Pref)); }catch(_){} };
+const s2Alive=()=>!!(s2 && s2.w && !s2.w.closed);
+const S2_SHELL = !IS_ELECTRON || /ProyavkaShell\/\d/.test(navigator.userAgent); // the old PC app sends any new window to the browser
+async function s2Open(){
+  if (s2Alive()){ s2.w.focus(); s2Draw(); toast('Второй экран уже открыт'); return; }
+  if (!S2_SHELL){ dialog('<h3>Нужно обновить приложение для ПК</h3><p>Второй экран работает в новой версии оболочки «Проявки». Попроси Claude обновить приложение на ПК — это одна команда, документы не пострадают.</p>', [['Понятно',null,true]]); return; }
+  let feat='popup=yes,width=1280,height=760';
+  try{ if (!IS_ELECTRON && window.getScreenDetails){ const d=await window.getScreenDetails(), o=d.screens.find(x=>x!==d.currentScreen);
+    if (o) feat='popup=yes,left='+o.availLeft+',top='+o.availTop+',width='+o.availWidth+',height='+o.availHeight; } }catch(_){}
+  let w=null; try{ w=window.open('', S2NAME, feat); }catch(_){}
+  if (!w){ toast('Окно не открылось — разреши всплывающие окна для Проявки', 2600); return; }
+  s2Build(w);
+  toast(IS_ELECTRON ? 'Второй экран открыт — на очках или на втором мониторе' : 'Второй экран открыт — перетащи окно на нужный монитор, F11 — во весь экран', 2200);
+}
+function s2Build(w){
+  const v=n=>cssVar(n)||'', d=w.document;
+  d.open(); d.write('<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Проявка — второй экран</title><style>'+
+    ':root{--accent:'+v('--accent')+';--accent-ink:'+(v('--accent-ink')||'#1b1206')+';--fg:#eceef3;--muted:#a3a7b3}'+
+    'html,body{margin:0;height:100%;overflow:hidden;background:'+BG+';font:14px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--fg);user-select:none}'+
+    'canvas{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab} canvas.drag{cursor:grabbing}'+
+    '#hud{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;gap:4px;align-items:center;padding:6px;border-radius:18px;background:rgba(22,23,28,.78);backdrop-filter:blur(14px);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 10px 30px rgba(0,0,0,.4);transition:opacity .35s}'+
+    '#hud.off{opacity:0;pointer-events:none} #hud i{width:1px;height:22px;background:rgba(255,255,255,.12);margin:0 4px}'+
+    '#hud button{font:inherit;font-size:14px;color:var(--muted);background:none;border:0;height:38px;padding:0 13px;border-radius:12px;cursor:pointer}'+
+    '#hud button:hover{color:var(--fg);background:rgba(255,255,255,.07)} #hud button.on{color:var(--accent-ink);background:var(--accent)}'+
+    '#msg{position:fixed;inset:0;display:grid;place-items:center;color:var(--muted);font-size:17px;pointer-events:none;text-align:center;line-height:1.5}'+
+    '</style></head><body><canvas id="c"></canvas><div id="msg"></div><div id="hud">'+
+    '<button data-k="pic" title="Вся картина (1)">Картина</button><button data-k="refs" title="Рефы документа (2)">Рефы</button><i></i>'+
+    '<button data-k="gray" title="Ч/Б — проверка тона (G)">Ч/Б</button><button data-k="flip" title="Отразить по горизонтали — свежий глаз (F)">⇋ Отразить</button>'+
+    '<button data-k="frame" title="Рамка того, что видно в главном окне (V)">▢ Рамка</button><i></i>'+
+    '<button data-k="fit" title="Вписать (0, двойной клик)">Вписать</button><button data-k="close" title="Закрыть второй экран">✕</button></div></body></html>');
+  d.close();
+  s2={w, cv:d.getElementById('c'), hud:d.getElementById('hud'), msg:d.getElementById('msg'), z:1, px:0, py:0, key:'', vk:'', rk:'', refSel:-1, hideT:0};
+  s2.x=s2.cv.getContext('2d');
+  s2.hud.querySelectorAll('button').forEach(b=>b.onclick=()=>s2Act(b.dataset.k));
+  const wake=()=>{ s2.hud.classList.remove('off'); clearTimeout(s2.hideT); s2.hideT=setTimeout(()=>{ if (s2Alive()) s2.hud.classList.add('off'); }, 2600); };
+  let drag=null;
+  s2.cv.addEventListener('pointerdown', e=>{ wake(); drag={x:e.clientX, y:e.clientY, px:s2.px, py:s2.py, moved:false}; s2.cv.setPointerCapture(e.pointerId); s2.cv.classList.add('drag'); });
+  s2.cv.addEventListener('pointermove', e=>{ wake(); if (!drag) return; const fx=s2Pref.flip?-1:1, dx=e.clientX-drag.x, dy=e.clientY-drag.y; if (Math.abs(dx)+Math.abs(dy)>4) drag.moved=true;
+    if (s2Pref.mode==='pic'){ s2.px=drag.px+dx*fx; s2.py=drag.py+dy; s2Draw(); } });
+  s2.cv.addEventListener('pointerup', e=>{ s2.cv.classList.remove('drag'); const d0=drag; drag=null; if (d0 && !d0.moved && s2Pref.mode==='refs') s2RefClick(e); });
+  s2.cv.addEventListener('dblclick', ()=>s2Act('fit'));
+  s2.cv.addEventListener('wheel', e=>{ e.preventDefault(); if (s2Pref.mode!=='pic') return; const r=w.innerWidth/2, q=w.innerHeight/2, fx=s2Pref.flip?-1:1;
+    const mx=(e.clientX-r)*fx, my=e.clientY-q, k=Math.exp(-e.deltaY*0.0015), z=clamp(s2.z*k,0.5,12), f=z/s2.z;
+    s2.px=mx-(mx-s2.px)*f; s2.py=my-(my-s2.py)*f; s2.z=z; s2Draw(); }, {passive:false});
+  w.addEventListener('mousemove', wake);
+  w.addEventListener('resize', ()=>s2Draw());
+  w.addEventListener('keydown', e=>{ const c=e.code, mod=e.ctrlKey||e.metaKey||e.altKey;
+    if (!mod && ({Digit1:'pic',Digit2:'refs',KeyG:'gray',KeyF:'flip',KeyV:'frame',Digit0:'fit'})[c]){ e.preventDefault(); s2Act(({Digit1:'pic',Digit2:'refs',KeyG:'gray',KeyF:'flip',KeyV:'frame',Digit0:'fit'})[c]); return; }
+    if (s2Pref.mode==='refs' && (c==='ArrowLeft'||c==='ArrowRight'||c==='Escape')){ e.preventDefault(); s2RefKey(c); return; }
+    if (c==='F11'){ e.preventDefault(); try{ if (d.fullscreenElement) d.exitFullscreen(); else d.documentElement.requestFullscreen(); }catch(_){} return; }
+    // everything else belongs to the editor: pass the key on, as if it was pressed in the main window
+    try{ window.focus(); document.dispatchEvent(new KeyboardEvent('keydown', {key:e.key, code:e.code, ctrlKey:e.ctrlKey, shiftKey:e.shiftKey, altKey:e.altKey, metaKey:e.metaKey, bubbles:true, cancelable:true})); e.preventDefault(); }catch(_){}
+  });
+  w.addEventListener('pagehide', ()=>{ if (s2 && s2.w===w) setTimeout(()=>{ if (s2 && s2.w===w && w.closed) s2Closed(); }, 0); });
+  s2Hud(); wake(); s2Draw();
+  if (!s2Tick.t) s2Tick.t=setInterval(s2Tick, 300);
+}
+function s2Closed(){ s2=null; if (s2Tick.t){ clearInterval(s2Tick.t); s2Tick.t=0; } }
+function s2Act(k){ if (!s2Alive()) return;
+  if (k==='pic'||k==='refs'){ s2Pref.mode=k; s2.refSel=-1; s2.key=''; s2.rk=''; }
+  else if (k==='gray'||k==='flip'||k==='frame') s2Pref[k]=!s2Pref[k];
+  else if (k==='fit'){ s2.z=1; s2.px=0; s2.py=0; }
+  else if (k==='close'){ s2.w.close(); s2Closed(); return; }
+  s2Save(); s2Hud(); s2Draw(); s2Tick(); }
+function s2Hud(){ if (!s2Alive()) return; s2.hud.querySelectorAll('button').forEach(b=>{ const k=b.dataset.k; b.classList.toggle('on', k===s2Pref.mode || (['gray','flip','frame'].includes(k) && !!s2Pref[k])); });
+  s2.cv.style.filter = s2Pref.gray ? 'grayscale(1)' : ''; s2.cv.style.transform = s2Pref.flip ? 'scaleX(-1)' : ''; }
+// called often: redraws only when the picture, the main view or the refs changed, and never in the middle of a stroke
+function s2Tick(){
+  if (!s2Alive()){ if (s2) s2Closed(); return; }
+  if (s2Pref.mode==='refs'){ const L=doc?refsOf():[], rk=(doc?doc.id:'')+'|'+L.map(r=>r.k).join(','); if (rk!==s2.rk){ s2.rk=rk; s2DrawRefs(); } return; }
+  const key = doc ? doc.id+'|'+contentVer+'|'+doc.w+'x'+doc.h : '-';
+  if (key!==s2.key){ if (doc && (navigating || stroke || xf || liqStroke || toolPtr!==null)) return; s2.key=key; s2.pic = doc ? getPreview() : null; s2Draw(); return; }
+  if (s2Pref.frame && doc){ const vk=view.x+'|'+view.y+'|'+view.s+'|'+view.r+'|'+vc.width+'|'+vc.height; if (vk!==s2.vk){ s2.vk=vk; s2Draw(); } }
+}
+function s2Size(){ const w=s2.w, d=w.devicePixelRatio||1, W=Math.max(1,Math.round(w.innerWidth*d)), H=Math.max(1,Math.round(w.innerHeight*d));
+  if (s2.cv.width!==W || s2.cv.height!==H){ s2.cv.width=W; s2.cv.height=H; } return [W,H,d]; }
+function s2Draw(){
+  if (!s2Alive()) return; if (s2Pref.mode==='refs'){ s2DrawRefs(); return; }
+  const [W,H,d]=s2Size(), x=s2.x; x.setTransform(1,0,0,1,0,0); x.fillStyle=BG; x.fillRect(0,0,W,H);
+  s2.msg.textContent = doc ? '' : 'Нет открытого документа';
+  const pc = doc && (s2.pic || getPreview()); if (!pc) return;
+  const pad=28*d, k=Math.min((W-2*pad)/doc.w, (H-2*pad)/doc.h)*s2.z, dw=doc.w*k, dh=doc.h*k, ox=(W-dw)/2+s2.px*d, oy=(H-dh)/2+s2.py*d;
+  x.fillStyle='#d9d9d9'; x.fillRect(ox,oy,dw,dh); // under transparent pixels — plain light grey, enough for a look
+  x.imageSmoothingEnabled=true; x.imageSmoothingQuality='high'; x.drawImage(pc, ox, oy, dw, dh);
+  if (!s2Pref.frame) return;
+  const sw=vc.width/dpr, sh=vc.height/dpr, q=[[0,0],[sw,0],[sw,sh],[0,sh]].map(([a,b])=>toDoc(a,b));
+  const xs=q.map(p=>p[0]), ys=q.map(p=>p[1]); if (Math.min(...xs)<=0 && Math.min(...ys)<=0 && Math.max(...xs)>=doc.w && Math.max(...ys)>=doc.h) return; // the whole picture is in view
+  x.save(); x.beginPath(); x.rect(ox,oy,dw,dh); x.clip(); x.beginPath(); q.forEach(([a,b],i)=>{ const X=ox+a*k, Y=oy+b*k; i?x.lineTo(X,Y):x.moveTo(X,Y); }); x.closePath();
+  x.lineWidth=4*d; x.strokeStyle='rgba(0,0,0,.55)'; x.stroke(); x.lineWidth=2*d; x.strokeStyle=cssVar('--accent')||'#f0b46a'; x.stroke(); x.restore();
+}
+async function s2DrawRefs(){
+  if (!s2Alive()) return; const [W,H,d]=s2Size(), x=s2.x, list=doc?refsOf():[], D=doc;
+  x.setTransform(1,0,0,1,0,0); x.fillStyle=BG; x.fillRect(0,0,W,H);
+  if (!doc){ s2.msg.textContent='Нет открытого документа'; return; }
+  if (!list.length){ s2.msg.textContent='В окне рефов этого документа пока пусто.\nДобавь их в главном окне — кнопка с картинками вверху.'; s2.msg.style.whiteSpace='pre-line'; return; }
+  s2.msg.textContent='';
+  const cs=await Promise.all(list.map(r=>refLoad(r, D))); if (!s2Alive() || doc!==D || s2Pref.mode!=='refs') return;
+  const [W2,H2]=s2Size(); x.setTransform(1,0,0,1,0,0); x.fillStyle=BG; x.fillRect(0,0,W2,H2);
+  const one=s2.refSel>=0 && s2.refSel<list.length, idx=one?[s2.refSel]:list.map((_,i)=>i), n=idx.length, gap=14*d, pad=28*d;
+  const cols = one ? 1 : Math.max(1, Math.round(Math.sqrt(n*(W2/H2)))), rows=Math.ceil(n/cols), cw=(W2-2*pad-gap*(cols-1))/cols, ch=(H2-2*pad-gap*(rows-1))/rows;
+  s2.cells=[]; x.imageSmoothingEnabled=true; x.imageSmoothingQuality='high';
+  idx.forEach((i,j)=>{ const c=cs[i]; const cx=pad+(j%cols)*(cw+gap), cy=pad+Math.floor(j/cols)*(ch+gap); s2.cells.push({i, x:cx/d, y:cy/d, w:cw/d, h:ch/d}); if (!c) return;
+    const k=Math.min(cw/c.width, ch/c.height), dw=c.width*k, dh=c.height*k; x.drawImage(c, cx+(cw-dw)/2, cy+(ch-dh)/2, dw, dh); });
+}
+function s2RefClick(e){ const n=refsOf().length; if (!n) return; if (s2.refSel>=0){ s2.refSel=-1; s2DrawRefs(); return; }
+  const fx = s2Pref.flip ? s2.w.innerWidth-e.clientX : e.clientX, c=(s2.cells||[]).find(c=>fx>=c.x && fx<=c.x+c.w && e.clientY>=c.y && e.clientY<=c.y+c.h);
+  if (c){ s2.refSel=c.i; s2DrawRefs(); } }
+function s2RefKey(c){ const n=refsOf().length; if (!n) return; if (c==='Escape'){ s2.refSel=-1; }
+  else { const st=c==='ArrowRight'?1:-1; s2.refSel = s2.refSel<0 ? (st>0?0:n-1) : (s2.refSel+st+n)%n; } s2DrawRefs(); }
+window.addEventListener('pagehide', ()=>{ try{ if (s2Alive()) s2.w.close(); }catch(_){} }); // reload / new version: the window does not hang on its own
+
+/* «Курсор пера в воздухе» (iPad): к очкам айпад подключается зеркалом, взгляд — в очках, а не на кончике пера.
+   Пока карандаш над экраном (M2 и новее), у любого инструмента виден крестик там, где он коснётся. У кистей и так есть круг. */
+var hoverCross=(()=>{ try{ return localStorage.getItem('proyavka.hoverCross')==='1'; }catch(_){ return false; } })();
+function hoverCrossToggle(){ hoverCross=!hoverCross; try{ localStorage.setItem('proyavka.hoverCross', hoverCross?'1':'0'); }catch(_){}
+  const m=$('#mHoverX'); if (m) m.textContent=hoverCross?'вкл':'выкл'; renderOverlay();
+  toast(hoverCross ? 'Над экраном карандаш показывает крестик — удобно, когда смотришь в очки' : 'Крестик над экраном выключен', 2000); }
+function hoverCrossDraw(cur){ const [a,b]=cur; ox.save(); ox.lineCap='round';
+  for (const [w,c] of [[3.5,'rgba(0,0,0,.6)'],[1.5,'rgba(255,255,255,.95)']]){ ox.lineWidth=w; ox.strokeStyle=c; ox.beginPath();
+    ox.moveTo(a-11,b); ox.lineTo(a-4,b); ox.moveTo(a+4,b); ox.lineTo(a+11,b); ox.moveTo(a,b-11); ox.lineTo(a,b-4); ox.moveTo(a,b+4); ox.lineTo(a,b+11); ox.stroke(); }
+  ox.restore(); }
 
 /* ============ selection bar & transform bar ============ */
 document.querySelectorAll('#selbar [data-sel]').forEach(b=>b.onclick=()=>{ const a=b.dataset.sel;
@@ -8963,7 +9097,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-24 · №109 смарт-объекты'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-24 · №110 второй экран'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
@@ -9070,7 +9204,7 @@ let crashedBefore=null; try{ crashedBefore=JSON.parse(sessionStorage.getItem('pr
 if (crashedBefore){ const c=crashedBefore; memNote(`перезапуск · инструмент ${c.tool} · документ ≈${c.mem} МБ · ${c.size} · слоёв ${c.layers}${c.ai?' · нейросети были открыты':''}`); }
 (async function boot(){
   pvLog('скрипт загружен');
-  loadPrefs(); $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл';
+  loadPrefs(); $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; $('#mHoverX').textContent=hoverCross?'вкл':'выкл';
   setColor(S.color); sizeStage();
   // crash guard: if the previous start died while restoring, start clean and offer the document instead of crashing again
   let crashed=false; try{ crashed=!!localStorage.getItem('proyavka.booting'); localStorage.setItem('proyavka.booting','1'); }catch(_){}

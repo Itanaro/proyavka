@@ -116,6 +116,7 @@ python3 tools/map.py градиент     # русское название са
 - `№107 «Сдать кат»` — `deliverChecks`, `deliverGo`.
 - `№89` — файл документа (`docBindFile`, `fileHandle`), безопасная зона, линейки, «Реф с позы».
 - `№104 «Рефы»`, `№108 История`, `№101 «Островок»`, `№88 interface themes`.
+- `№110 Второй экран` — окно для очков / второго монитора (`s2Open`, `s2Tick`, `s2Draw`, `s2DrawRefs`), оболочка ставит его на другой монитор (`placeScreen2` в `pc-app/main.js`); «Курсор пера в воздухе» (`hoverCross`).
 - `selection bar & transform bar`, `input` (все мышь/перо/клавиши: `toolDown/Move/Up`, курсоры,
   зум), `helpers for the Photoshop keys` (+ №105 Градиент, `mergeVisible`, `selFromLayer`).
 

@@ -186,6 +186,41 @@ const steps = [
       }
   }},
 
+  { name: 'Второй экран (очки): окно, картина, рамка, рефы, Ч/Б', desk: true, run: async page => {
+      await page.click('#bImg'); await page.waitForTimeout(150);
+      const [pop] = await Promise.all([page.context().waitForEvent('page', { timeout: 5000 }), page.click('#imgmenu [data-i="screen2"]')]);
+      await until(page, () => s2Alive() && s2.key, null, 5000, 'окно второго экрана');
+      // картина: центр окна не цвета фона
+      const px = () => page.evaluate(() => { const c = s2.cv, d = s2.x.getImageData(c.width / 2 | 0, c.height / 2 | 0, 1, 1).data; return [...d]; });
+      const bg = await page.evaluate(() => { const n = parseInt(BG.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; });
+      const p0 = await px(); check(p0.slice(0, 3).some((v, i) => Math.abs(v - bg[i]) > 8), 'во втором окне не видно картины');
+      // правка в главном окне доходит до второго экрана
+      const k0 = await page.evaluate(() => s2.key);
+      await page.evaluate(() => { setTool('brush'); setColor('#2050ff'); doc.active = doc.layers.length - 1; layersChanged(); });
+      await penDrag(page, [[300, 300], [900, 1300]]);
+      await until(page, k => s2.key !== k, k0, 4000, 'обновление второго экрана после мазка');
+      await page.evaluate(() => undo());
+      // переключатели
+      await page.evaluate(() => { s2Act('gray'); s2Act('flip'); });
+      check(await page.evaluate(() => s2.cv.style.filter.includes('grayscale') && s2.cv.style.transform.includes('-1')), 'Ч/Б или отражение не включились');
+      await page.evaluate(() => { s2Act('gray'); s2Act('flip'); s2Act('refs'); });
+      check(await page.evaluate(() => s2Pref.mode === 'refs'), 'не переключилось на рефы');
+      await page.evaluate(() => s2Act('pic'));
+      // клавиша во втором окне уходит в редактор (B — кисть)
+      await page.evaluate(() => setTool('rect'));
+      await pop.keyboard.press('KeyB'); await page.waitForTimeout(150);
+      check(await page.evaluate(() => S.tool === 'brush'), 'клавиша во втором окне не дошла до редактора');
+      await page.evaluate(() => s2Act('close'));
+      check(await page.evaluate(() => !s2Alive()), 'второй экран не закрылся');
+  }},
+
+  { name: 'Курсор пера в воздухе (iPad)', desk: false, run: async page => {
+      await page.evaluate(() => { setTool('rect'); if (!hoverCross) hoverCrossToggle(); hover = [300, 300]; renderOverlay(); });
+      const a = await page.evaluate(() => { const d = ox.getImageData(Math.round((300 + 8) * dpr), Math.round(300 * dpr), 1, 1).data; return d[3]; });
+      await page.evaluate(() => { hoverCrossToggle(); hover = null; renderOverlay(); });
+      check(a > 0, 'крестик над холстом не нарисовался');
+  }},
+
   { name: 'Автосохранение → перезагрузка → документ на месте', run: async page => {
       await page.evaluate(async () => { const t = TABS.list.find(t => t.doc && t.doc.name === 'Тест'); if (t && t.doc !== doc) await tabSwitch(t); });
       const n = await page.evaluate(async () => { await autosave(true); await flushSave(); return doc.layers.length; });

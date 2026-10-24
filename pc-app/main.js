@@ -1,5 +1,5 @@
 // «Проявка» для ПК: своё окно, свой мост к Automatic1111 и нейросетям, сохранение файлов прямо на диск
-const { app, BrowserWindow, nativeTheme, shell, session, dialog, Menu } = require('electron');
+const { app, BrowserWindow, nativeTheme, shell, session, dialog, Menu, screen } = require('electron');
 const path = require('path'), fs = require('fs'), net = require('net'), { spawn } = require('child_process');
 
 const URL_APP = process.env.PROYAVKA_URL || 'https://itanaro.github.io/proyavka/?pc=1';
@@ -37,7 +37,23 @@ app.on('certificate-error', (event, wc, url, error, cert, cb) => {
   else cb(false);
 });
 
-let win = null;
+let win = null, screen2 = null;
+// №110 «Второй экран»: окно с картиной встаёт на другой монитор (очки XREAL — экран 1920×1080) во весь экран;
+// второго монитора нет — обычное окно рядом. Подключили или сняли очки при открытом окне — переезжает само.
+function otherDisplay() {
+  if (!win || win.isDestroyed()) return null;
+  const main = screen.getDisplayMatching(win.getBounds()), others = screen.getAllDisplays().filter(d => d.id !== main.id);
+  return others.find(d => d.size.width === 1920 && d.size.height === 1080) || others[0] || null;
+}
+function placeScreen2(w) {
+  if (!w || w.isDestroyed()) return;
+  const d = otherDisplay();
+  if (d) { if (w.isFullScreen()) w.setFullScreen(false); w.setBounds(d.bounds); w.setFullScreen(true); log('второй экран: монитор', d.size.width + 'x' + d.size.height); return; }
+  if (w.isFullScreen()) w.setFullScreen(false);
+  const a = screen.getDisplayMatching(win.getBounds()).workArea;
+  w.setBounds({ x: a.x + 80, y: a.y + 80, width: Math.min(1280, a.width - 160), height: Math.min(760, a.height - 160) });
+  log('второй экран: второго монитора нет — окно рядом');
+}
 function createWindow() {
   nativeTheme.themeSource = 'dark';
   Menu.setApplicationMenu(null);
@@ -47,7 +63,20 @@ function createWindow() {
     webPreferences: { spellcheck: false, backgroundThrottling: false }
   });
   win.maximize();
-  win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
+  // the page tells by this mark that the shell can place the second screen
+  win.webContents.setUserAgent(win.webContents.getUserAgent() + ' ProyavkaShell/2');
+  win.webContents.setWindowOpenHandler(({ url, frameName }) => {
+    if (frameName === 'proyavka-screen2' && (!url || url === 'about:blank'))
+      return { action: 'allow', overrideBrowserWindowOptions: { backgroundColor: '#121317', title: 'Проявка — второй экран', icon: path.join(__dirname, 'icon.png'), autoHideMenuBar: true, webPreferences: { spellcheck: false, backgroundThrottling: false } } };
+    shell.openExternal(url); return { action: 'deny' };
+  });
+  win.webContents.on('did-create-window', (w, { frameName }) => {
+    if (frameName !== 'proyavka-screen2') return;
+    screen2 = w; w.setMenu(null); w.on('page-title-updated', e => e.preventDefault()); w.on('closed', () => { if (screen2 === w) screen2 = null; });
+    w.webContents.on('before-input-event', (e, input) => { if (input.type === 'keyDown' && input.key === 'F11') { w.setFullScreen(!w.isFullScreen()); e.preventDefault(); } });
+    placeScreen2(w);
+  });
+  win.on('closed', () => { if (screen2 && !screen2.isDestroyed()) screen2.close(); });
   win.webContents.on('before-input-event', (e, input) => {
     if (input.type !== 'keyDown') return;
     if (input.key === 'F5') { win.webContents.reloadIgnoringCache(); e.preventDefault(); }
@@ -87,5 +116,7 @@ app.whenReady().then(async () => {
   });
   ensureBridge().catch(() => {});
   createWindow();
+  const replace2 = () => { if (screen2 && !screen2.isDestroyed()) setTimeout(() => placeScreen2(screen2), 900); };
+  screen.on('display-added', replace2); screen.on('display-removed', replace2);
 });
 app.on('window-all-closed', () => app.quit());
