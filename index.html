@@ -780,6 +780,11 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 #refwin .rz{position:absolute;right:2px;bottom:2px;width:18px;height:18px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 55%,var(--muted) 55%,var(--muted) 62%,transparent 62%,transparent 72%,var(--muted) 72%,var(--muted) 79%,transparent 79%);opacity:.6;z-index:2}
 #aibar .drefs > button.fromrefs{border:1px solid color-mix(in srgb,var(--accent) 45%,transparent)}
 .gradsw{width:64px;height:18px;border-radius:5px;border:1px solid var(--line,rgba(127,127,127,.4));padding:0!important;flex:none}
+.dlgdv{width:min(560px,calc(100vw - 32px))} .dlgdv .dvp{margin:0 0 10px} .dlgdv .dvn{display:flex;gap:10px;align-items:center;font-size:13px;margin-bottom:10px} .dlgdv .dvn input{flex:1;min-width:0;padding:8px 10px;border-radius:8px;border:1px solid rgba(127,127,127,.35);background:var(--field);color:inherit;font:inherit}
+.dlgdv .dvl{display:flex;flex-direction:column;gap:6px;max-height:min(52vh,460px);overflow:auto}
+.dlgdv .dvr{display:flex;gap:10px;align-items:center;padding:7px 10px;border-radius:10px;background:var(--field)} .dlgdv .dvr>div{flex:1;min-width:0} .dlgdv .dvr b{display:block;font-size:13px;font-weight:600} .dlgdv .dvr small{display:block;font-size:12px;color:var(--muted);line-height:1.35}
+.dlgdv .dvr i{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-weight:700;font-size:12px;color:#fff;background:#4a9a6a} .dlgdv .dvr.warn i{background:#d79a2b} .dlgdv .dvr.bad i{background:var(--danger,#da4452)} .dlgdv .dvr.info i{background:#6a7180}
+.dlgdv .dvr button{flex:none;font-size:12px;padding:6px 10px;border-radius:8px} .dlgdv .dvf{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px;color:var(--muted)} .dlgdv .dvf b{color:var(--text,inherit)}
 /* appearance dialog */
 .dlg .thg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:6px 0 16px}
 .dlg .thc{display:flex;flex-direction:column;gap:7px;padding:7px;border-radius:16px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);text-align:left}
@@ -983,6 +988,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <button data-m="save" class="deskonly">Сохранить <small>Ctrl+S</small></button>
     <button data-m="saveas" class="deskonly">Сохранить как… <small>Ctrl+Shift+S</small></button>
     <button data-m="psd" class="padonly">Сохранить PSD <small>со слоями</small></button>
+    <button data-m="deliver">Сдать кат… <small>PSD + PNG 1500×2000, с проверкой</small></button>
     <div class="mrow"><span>Экспорт</span><button data-m="png">PNG</button><button data-m="png50" title="PNG, 50% — превью">PNG ½</button><button data-m="jpg">JPG</button></div>
     <hr class="padonly">
     <button data-m="crop" class="padonly">Кадрировать <small>C</small></button>
@@ -6957,7 +6963,7 @@ function showHelpDesk(){
   const html=`<h3>Клавиши и мышь</h3><p>Клавиши — как в фотошопе и работают в любой раскладке. Перо планшета рисует с нажимом, мышь — без.</p>
    <div class="hkgrid">`+
    card('Холст',[['Колёсико / Alt+колёсико','масштаб'],['Ctrl+колёсико','масштаб (на тачпаде — щипок)'],['Shift+колёсико','сдвиг вбок'],['Alt+Shift+колёсико','поворот'],['Пробел / H / средняя кнопка','держать и тянуть — рука'],['Ctrl+Пробел / Alt+Пробел','клик — ближе / дальше, тянуть — плавно'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум по шагам фотошопа (50 · 67 · 100 · 200 %)'],['Ctrl+R','линейки в px вдоль верхней и левой панели'],['Tab / F','спрятать панели'],['Правый клик мимо картинки','фон вокруг холста']])+
-   card('Файл и документы',[['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить в свой файл; PNG / JPG со слоями — предложит PSD'],['Ctrl+Shift+S','сохранить как: PSD / PNG / JPG — файл становится рабочим'],['Ctrl+W / Ctrl+F4','закрыть документ (в приложении); последний — экран «Начало»'],['Ctrl+Tab / Ctrl+Shift+Tab','следующая / предыдущая вкладка'],['Средняя кнопка по вкладке','закрыть вкладку'],['Файлы на вкладки','открыть каждый своим документом']])+
+   card('Файл и документы',[['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить в свой файл; PNG / JPG со слоями — предложит PSD'],['Ctrl+Shift+S','сохранить как: PSD / PNG / JPG — файл становится рабочим'],['Ctrl+Alt+Shift+S','сдать кат: проверка + PSD и PNG 1500×2000'],['Ctrl+W / Ctrl+F4','закрыть документ (в приложении); последний — экран «Начало»'],['Ctrl+Tab / Ctrl+Shift+Tab','следующая / предыдущая вкладка'],['Средняя кнопка по вкладке','закрыть вкладку'],['Файлы на вкладки','открыть каждый своим документом']])+
    card('Правка',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+C / Ctrl+Shift+C','копировать выделенное: слой / всё видимое'],['Ctrl+V','вставить новым слоем на то же место; в Доводке — в рефы'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
    card('Выделение',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','до начала — добавить / вычесть'],['Shift / Alt (по ходу)','прямоугольник: квадрат / от центра'],['Тянуть внутри выделения','сдвинуть контур (лассо, прямоугольник, палочка)'],['Стрелки / Shift+стрелки','сдвинуть выделение на 1 / 10 px'],['Ctrl+Alt+R / Shift+F6','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой']])+
    card('Слои',[['Delete (без выделения)','удалить слой'],['Shift+клик / Ctrl+клик по слою','несколько слоёв: Delete, Ctrl+G, Ctrl+E, Ctrl+T, глаз, непрозрачность, режим — для всех'],['Двойной клик по имени','переименовать'],['Правый клик по слою','меню: слить, в группу, переименовать, удалить'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Shift+E','слить видимые'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Ctrl+Shift+[ / ]','в самый низ / верх'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Alt+клик по слою / Ctrl+Alt+G','обтравочная маска — слой только по форме нижнего'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
@@ -7180,15 +7186,7 @@ async function exportImg(kind){
   busy(true,'Собираю файл…'); await nextFrame();
   try{
     if (kind==='psd'){
-      if(!window.agPsd||!window.fflate) throw new Error('Библиотеки PSD не загрузились');
-      const build=P=>kidsOf(P).map(L=>{
-        const o = isGroup(L) ? {name:L.name, opacity:L.opacity, hidden:!L.visible, blendMode:L.blend==='pass'?'pass through':blendToPsd(L.blend), opened:!L.collapsed, children:build(L)}
-                : L.kind==='adj' ? {name:L.name, opacity:L.opacity, hidden:!L.visible, blendMode:blendToPsd(L.blend), clipping:!!L.clip, adjustment:adjForPsd(L.adj)}
-                             : {name:L.name, canvas:L.canvas, left:0, top:0, opacity:L.opacity, hidden:!L.visible, blendMode:blendToPsd(L.blend), clipping:!!L.clip};
-        if (L.mask){ const m=mk(doc.w,doc.h), mx=ctx2(m); mx.fillStyle='#000'; mx.fillRect(0,0,doc.w,doc.h); mx.drawImage(L.mask.canvas,0,0); o.mask={canvas:m,left:0,top:0,defaultColor:0,disabled:!L.mask.enabled}; }
-        return o; });
-      const children=build(null);
-      const buf=agPsd.writePsd({width:doc.w,height:doc.h,children,canvas:flatten(1),imageResources:{resolutionInfo:{horizontalResolution:doc.dpi||72,horizontalResolutionUnit:'PPI',widthUnit:'Inches',verticalResolution:doc.dpi||72,verticalResolutionUnit:'PPI',heightUnit:'Inches'}}},{generateThumbnail:false});
+      const buf=psdBuffer();
       busy(false);
       if (!dl || saveFile.handle){ await saveFile(safeName()+'.psd', new Blob([buf],{type:'image/vnd.adobe.photoshop'})); return; }
       const zip=fflate.zipSync({[safeName()+'.psd']:new Uint8Array(buf)},{level:0});
@@ -7200,6 +7198,101 @@ async function exportImg(kind){
     busy(false); await saveFile(safeName()+(kind==='png50'?'_preview':'')+(kind==='jpg'?'.jpg':'.png'), blob);
   }catch(err){ console.error(err); busy(false); toast('Экспорт не удался: '+(err.message||'ошибка'),4000); }
 }
+function psdBuffer(){
+      if(!window.agPsd||!window.fflate) throw new Error('Библиотеки PSD не загрузились');
+      const build=P=>kidsOf(P).map(L=>{
+        const o = isGroup(L) ? {name:L.name, opacity:L.opacity, hidden:!L.visible, blendMode:L.blend==='pass'?'pass through':blendToPsd(L.blend), opened:!L.collapsed, children:build(L)}
+                : L.kind==='adj' ? {name:L.name, opacity:L.opacity, hidden:!L.visible, blendMode:blendToPsd(L.blend), clipping:!!L.clip, adjustment:adjForPsd(L.adj)}
+                             : {name:L.name, canvas:L.canvas, left:0, top:0, opacity:L.opacity, hidden:!L.visible, blendMode:blendToPsd(L.blend), clipping:!!L.clip};
+        if (L.mask){ const m=mk(doc.w,doc.h), mx=ctx2(m); mx.fillStyle='#000'; mx.fillRect(0,0,doc.w,doc.h); mx.drawImage(L.mask.canvas,0,0); o.mask={canvas:m,left:0,top:0,defaultColor:0,disabled:!L.mask.enabled}; }
+        return o; });
+      const children=build(null);
+      return agPsd.writePsd({width:doc.w,height:doc.h,children,canvas:flatten(1),imageResources:{resolutionInfo:{horizontalResolution:doc.dpi||72,horizontalResolutionUnit:'PPI',widthUnit:'Inches',verticalResolution:doc.dpi||72,verticalResolutionUnit:'PPI',heightUnit:'Inches'}}},{generateThumbnail:false});
+}
+
+/* ============ №107 «Сдать кат»: проверка по стандарту Senses → PSD в полном размере + PNG 1500×2000 одной кнопкой ============
+   PC: both files go into one remembered folder (the first time — choose it). iPad: one share sheet with both files. */
+const DELIVER_PNG_W=1500;
+const deliverDefaultName=L=>/^(слой|layer|группа|group)\s*\d*$/i.test(L.name.trim()) || /\s(копия|copy)(\s\d+)?$/i.test(L.name);
+function layerEmpty(L){ const c=mk(48,64), x=ctx2(c,{willReadFrequently:true}); x.drawImage(L.canvas,0,0,48,64); const d=x.getImageData(0,0,48,64).data; for (let i=3;i<d.length;i+=4) if (d[i]>2) return false; return true; }
+function deliverChecks(){
+  const out=[], add=(st,t,d,fix)=>out.push({st,t,d,fix}), W=doc.w, H=doc.h, ratio=W*4===H*3;
+  const SZ=safeLayer(), LS=doc.layers.filter(L=>L!==SZ), px=LS.filter(L=>!isGroup(L) && L.kind!=='adj'), adj=doc.layers.filter(isAdj), groups=doc.layers.filter(isGroup);
+  // 1. size
+  if (ratio && W===3000) add('ok','Размер '+W+'×'+H,'PSD — как есть, PNG — '+DELIVER_PNG_W+'×'+DELIVER_PNG_W*4/3);
+  else if (ratio && W>=DELIVER_PNG_W) add('warn','Размер '+W+'×'+H,'Пропорция 3:4 верная; рабочий размер обычно 3000×4000. PNG будет '+DELIVER_PNG_W+'×'+DELIVER_PNG_W*4/3);
+  else add('bad','Размер '+W+'×'+H, ratio ? 'Меньше 1500×2000 — PNG будет растянут. Нужен 3000×4000' : 'Не 3:4. Кат — 1500×2000 (рабочий 3000×4000). Поправь «Размером холста» или кадрированием',
+    {label:'Размер холста…', fn:()=>canvasSizeDialog()});
+  // 2. dpi
+  if ((doc.dpi||72)===300) add('ok','300 ppi',''); else add('warn',(doc.dpi||72)+' ppi','По стандарту 300 ppi (на пиксели не влияет)', {label:'Поставить 300', fn:()=>{ const o=doc.dpi; doc.dpi=300; pushHist({undo(){ doc.dpi=o; }, redo(){ doc.dpi=300; }}); markDirty(); return true; }});
+  // 3. characters / clean background
+  const live=px.filter(L=>!layerEmpty(L)), chr=live.find(L=>/перс|героин|герой|char|figure|people/i.test(L.name)), bg=live.find(L=>/фон|bg\b|back|задн|чист/i.test(L.name));
+  if (live.length<2) add('bad','Персонажи и фон — одним слоем','По стандарту: персонажи отдельным слоем, зачищенный фон слоем ниже');
+  else if (chr && bg) add('ok','Персонажи и фон раздельно','«'+chr.name+'» и «'+bg.name+'»');
+  else add('warn','Персонажи / фон не подписаны', 'Не нашла по именам слой персонажей и слой фона. Назови их, например «Персонажи» и «Фон» (двойной клик по слою)');
+  // 4. corrections folder
+  const inFolder=adj.filter(L=>L.parent), loose=adj.length-inFolder.length, fx=groups.find(g=>/корр|цвет|свет|эффект|color|grade|fx|light/i.test(g.name));
+  if (!adj.length && !fx) add('warn','Нет папки с цветокоррекцией','Стандарт: папка с коррекцией, светотенью и эффектами');
+  else if (loose) add('warn','Коррекции вне папки: '+loose,'Собери корректирующие слои в папку (выдели и Ctrl+G), назови «Коррекция»');
+  else add('ok','Папка с коррекцией', fx ? '«'+fx.name+'»' : inFolder.length+' корр. в папках');
+  // 5. names / empty / hidden
+  const dn=LS.filter(deliverDefaultName); if (dn.length) add('warn','Слои не подписаны', dn.slice(0,5).map(L=>'«'+L.name+'»').join(', ')+(dn.length>5?' и ещё '+(dn.length-5):'')); else add('ok','Слои подписаны','');
+  const emp=px.filter(L=>!live.includes(L)); if (emp.length) add('warn','Пустые слои', emp.slice(0,5).map(L=>'«'+L.name+'»').join(', '));
+  const hid=LS.filter(L=>!L.visible); if (hid.length) add('info','Скрытые слои: '+hid.length,'Уйдут в PSD скрытыми — проверь, что так и задумано');
+  // 6. pure black / blown highlights (on a small copy of the picture)
+  try{ const k=Math.min(1,600/Math.max(W,H)), c=compositeBelow({x:0,y:0,w:W,h:H},Math.round(W*k),Math.round(H*k),doc.layers.length), d=ctx2(c,{willReadFrequently:true}).getImageData(0,0,c.width,c.height).data;
+    let n=0,b=0,w=0; for (let i=0;i<d.length;i+=4){ if (d[i+3]<250) continue; n++; const mx=Math.max(d[i],d[i+1],d[i+2]), mn=Math.min(d[i],d[i+1],d[i+2]); if (mx<=3) b++; else if (mn>=252) w++; }
+    const pb=n?b/n*100:0, pw=n?w/n*100:0, f=v=>v<0.1?'<0,1':v.toFixed(1);
+    if (pb>0.3) add('warn','Чистый чёрный: '+f(pb)+'% кадра','Стандарт запрещает провалы в чистый чёрный — в тенях нужны рефлексы'); else add('ok','Нет провалов в чистый чёрный','');
+    if (pw>1) add('warn','Пересвет: '+f(pw)+'% кадра','Много чисто белого — проверь, не выбиты ли света'); }catch(e){ console.warn(e); }
+  // 7. safe zone (a look, not a check)
+  add('info','Безопасная зона 900 px','Всё сюжетно важное — в центральных 900 px по ширине. Слой разметки в файлы не попадёт', {label: SZ&&SZ.visible ? 'Скрыть' : 'Показать', fn:()=>{ safeZoneToggle(); return true; }});
+  return out; }
+async function deliverDir(pick){ // the remembered folder for deliveries (PC)
+  let h=null; try{ h=await idbGet('deliverDir'); }catch(_){}
+  if (h && !pick){ try{ let p=await h.queryPermission({mode:'readwrite'}); if (p!=='granted') p=await h.requestPermission({mode:'readwrite'}); if (p==='granted') return h; }catch(_){} }
+  if (!pick && !h) return null;
+  h=await window.showDirectoryPicker({id:'proyavka-deliver', mode:'readwrite'}); try{ await idbPut({deliverDir:h}); }catch(_){} return h; }
+const deliverDesk=()=>IS_DESK && !nativeApp && !!window.showDirectoryPicker;
+function deliverDialog(){
+  if (!doc){ toast('Сначала открой кат'); return; } if (panelBusy && panelBusy()) return;
+  const C=deliverChecks(), bad=C.some(c=>c.st==='bad'), ic={ok:'✓',warn:'!',bad:'✕',info:'i'};
+  const d=dialog('<h3>Сдать кат</h3><p class="dvp">PSD в полном размере + PNG '+DELIVER_PNG_W+'×'+DELIVER_PNG_W*4/3+' — одной кнопкой. Сначала проверка по стандарту.</p><label class="dvn">Имя файла<input type="text" spellcheck="false"></label><div class="dvl"></div><div class="dvf"></div>',
+    [[bad?'Сдать всё равно':'Сдать', dd=>{ deliverGo(dd.querySelector('.dvn input').value); }, true], ['Отмена', null]]);
+  d.classList.add('dlgdv');
+  const inp=d.querySelector('.dvn input'); inp.value=safeName(); inp.onkeydown=e=>{ e.stopPropagation(); if (e.key==='Enter') d.querySelector('.actions .pri').click(); };
+  const l=d.querySelector('.dvl');
+  for (const c of C){ const r=document.createElement('div'); r.className='dvr '+c.st; r.innerHTML='<i></i><div><b></b><small></small></div>'; r.querySelector('i').textContent=ic[c.st]; r.querySelector('b').textContent=c.t; r.querySelector('small').textContent=c.d||'';
+    if (c.fix){ const b=document.createElement('button'); b.textContent=c.fix.label; b.onclick=()=>{ const again=c.fix.fn(); if (again===true){ d.closest('.scrim').remove(); deliverDialog(); } else d.closest('.scrim').remove(); }; r.append(b); }
+    l.append(r); }
+  const f=d.querySelector('.dvf');
+  if (deliverDesk()){ f.innerHTML='<span>Папка: <b>…</b></span><button>Сменить…</button>'; idbGet('deliverDir').then(h=>{ f.querySelector('b').textContent=h?h.name:'выберу при сдаче'; }).catch(()=>{});
+    f.querySelector('button').onclick=async()=>{ try{ const h=await deliverDir(true); f.querySelector('b').textContent=h.name; }catch(e){ if (!(e&&e.name==='AbortError')) toast('Папка не выбралась: '+e.message,3000); } }; }
+  else f.innerHTML='<span>Откроется «Поделиться» с двумя файлами — сохрани в «Файлы» или отправь.</span>';
+  if (IS_DESK) setTimeout(()=>{ try{ inp.focus(); inp.select(); }catch(_){} },50);
+}
+async function deliverGo(name){
+  name=(name||safeName()).replace(/[\\/:*?"<>|]+/g,'_').trim()||safeName();
+  let dir=null;
+  if (deliverDesk()){ try{ dir=await deliverDir(false) || await deliverDir(true); }catch(e){ if (e&&e.name==='AbortError') toast('Сдача отменена'); else toast('Папка недоступна: '+e.message,3000); return; } }
+  busy(true,'Собираю PSD и PNG…'); await nextFrame();
+  let files;
+  try{ const SZ=safeLayer(), at=SZ?doc.layers.indexOf(SZ):-1; let buf, flat; // the safe-zone marking stays out of the delivered files
+    if (SZ) doc.layers.splice(at,1);
+    try{ buf=psdBuffer(); flat=flatten(doc.w*4===doc.h*3 ? DELIVER_PNG_W/doc.w : 0.5); } finally{ if (SZ) doc.layers.splice(at,0,SZ); }
+    const psd=new Blob([buf],{type:'image/vnd.adobe.photoshop'}), png=await toBlob(flat,'image/png');
+    files=[[name+'.psd',psd],[name+'.png',png]]; }
+  catch(e){ busy(false); console.error(e); toast('Не собралось: '+(e.message||'ошибка'),4000); return; }
+  busy(false);
+  try{
+    if (dir){ for (const [n,b] of files){ const fh=await dir.getFileHandle(n,{create:true}), w=await fh.createWritable(); await w.write(b); await w.close(); }
+      toast('Сдано в «'+dir.name+'»: '+files.map(f=>f[0]).join(' + '),3200); return; }
+    await dlReady;
+    if (!nativeApp && !dl){ const F=files.map(([n,b])=>new File([b],n,{type:b.type}));
+      if (navigator.canShare && navigator.canShare({files:F})){ try{ await navigator.share({files:F}); toast('Готово: '+files.map(f=>f[0]).join(' + '),2600); return; }catch(e){ if (e&&e.name==='AbortError'){ toast('Сдача отменена'); return; } } } }
+    for (const [n,b] of files) await saveFile(n,b);
+  }catch(e){ console.error(e); toast('Не записалось: '+(e.message||'ошибка'),4000); }
+}
 const safeName=()=> (doc.name||'proyavka').replace(/[\\/:*?"<>|]+/g,'_');
 document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops(); const m=b.dataset.m;
   if (m==='noop') return;
@@ -7208,6 +7301,7 @@ document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops
   if (m==='close'){ tabClose(); return; }
   if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') openDialog(); else if(m==='place') $('#fPlace').click(); else if(m==='save') saveAsDesk(true); else if(m==='saveas') saveAsDesk(false); else if(m==='crop') cropOpen(); else if(m==='isize') imageSizeDialog(); else if(m==='csize') canvasSizeDialog();
   else if(m==='look') appearanceDialog();
+  else if(m==='deliver') deliverDialog();
   else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='penpick'){ S.penHoldPick=!S.penHoldPick; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; savePrefs(); toast(S.penHoldPick?'Задержи карандаш на месте ~0.5 с — появится пипетка':'Пипетка карандашом выключена; палец по-прежнему берёт цвет удержанием'); } else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
   else exportImg(m);
 });
@@ -8207,6 +8301,7 @@ document.addEventListener('keydown', e=>{
     if (L==='i') return go(()=>{ if (!need()) return; if (e.shiftKey){ if (sel) invertSel(); } else if (AL().mask && doc.editMask) invertMask(); else invertPixels(); });
     if (L==='g') return go(()=>{ if (!need()) return; if (e.altKey) toggleClip(); else if (e.shiftKey) ungroup(); else makeGroup(); });
     if (L==='j') return go(()=>{ if (!need()) return; if (e.shiftKey){ if (sel) selCutToLayer(); else toast('Сначала выдели, что вырезать'); } else sel ? selCopyToLayer() : dupLayer(); });
+    if (L==='s' && e.altKey && e.shiftKey) return go(()=>deliverDialog());
     if (L==='s') return go(()=>{ if (IS_DESK && window.showSaveFilePicker && !nativeApp) return saveAsDesk(!e.shiftKey); saveFile.again=!e.shiftKey; exportImg('psd').finally(()=>{ saveFile.again=false; }); });
     if (L==='t') return go(()=>setTool('transform'));
     if (L==='c' && e.altKey) return go(()=>canvasSizeDialog());
@@ -8602,7 +8697,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-24 · №106 карта градиента, выборочная коррекция, наложение у корректирующих слоёв'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-24 · №107 «Сдать кат»: проверка + PSD и PNG одной кнопкой'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
