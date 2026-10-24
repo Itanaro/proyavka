@@ -754,6 +754,31 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 #island.drag{cursor:grabbing;-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--drag-bg);box-shadow:0 18px 40px rgba(0,0,0,.45),0 0 0 1.5px var(--accent)}
 .hideui #island,body.home #island{display:none}
 .ly.clipped .nm{padding-left:10px;border-left:2px solid color-mix(in srgb,var(--accent) 45%,transparent)}
+
+/* №104: reference window (PureRef-like): pictures of the brief, assets, locations; kept with the document */
+#refwin{position:absolute;z-index:9;display:flex;flex-direction:column;min-width:220px;min-height:180px;border-radius:18px;background:var(--glass-work);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);overflow:hidden}
+#refwin[hidden],.hideui #refwin,body.home #refwin{display:none!important}
+#refwin .rh{display:flex;align-items:center;gap:4px;padding:6px 6px 6px 12px;cursor:move;touch-action:none;user-select:none;-webkit-user-select:none;border-bottom:1px solid var(--line-soft)}
+#refwin .rh b{font-size:13px;font-weight:600} #refwin .rh span{flex:1;color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#refwin .rh button{height:28px;min-width:28px;padding:0 7px;border-radius:9px;color:var(--muted);font-size:12px} #refwin .rh button:hover{background:var(--soft-2);color:var(--fg)}
+#refwin .rb{flex:1;min-height:0;position:relative;overflow:auto;padding:8px}
+#refwin .rg{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--rt,110px),1fr));gap:8px;align-items:start}
+#refwin .rt{position:relative;border-radius:11px;overflow:hidden;background:var(--soft);cursor:zoom-in;aspect-ratio:var(--ar,1)}
+#refwin .rt canvas{display:block;width:100%;height:100%;object-fit:contain}
+#refwin .ra{position:absolute;left:4px;right:4px;bottom:4px;display:flex;gap:3px;opacity:0;transition:opacity .15s}
+#refwin .rt:hover .ra,#refwin.touch .ra{opacity:1}
+#refwin .ra button{flex:1;height:24px;border-radius:7px;font-size:11px;background:rgba(15,13,18,.78);color:#fff;white-space:nowrap;padding:0 4px}
+#refwin .ra button.x{flex:none;width:24px}
+#refwin .ra button:hover{background:var(--accent);color:var(--accent-ink)}
+#refwin .rempty{padding:22px 14px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.5;border:1.5px dashed var(--line);border-radius:14px}
+#refwin.drop .rb{outline:2px dashed var(--accent);outline-offset:-6px}
+#refwin .rv{position:absolute;inset:0;overflow:hidden;touch-action:none;cursor:grab;background:color-mix(in srgb,var(--bg) 70%,transparent)}
+#refwin .rv canvas{position:absolute;left:0;top:0;transform-origin:0 0}
+#refwin .rvb{position:absolute;left:8px;right:8px;bottom:8px;display:flex;gap:6px;justify-content:center}
+#refwin .rvb button{height:30px;padding:0 11px;border-radius:10px;font-size:12px;background:var(--glass-solid);border:1px solid var(--glass-edge);color:var(--fg)}
+#refwin .rvb button:hover{background:var(--accent);color:var(--accent-ink)}
+#refwin .rz{position:absolute;right:2px;bottom:2px;width:18px;height:18px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 55%,var(--muted) 55%,var(--muted) 62%,transparent 62%,transparent 72%,var(--muted) 72%,var(--muted) 79%,transparent 79%);opacity:.6;z-index:2}
+#aibar .drefs > button.fromrefs{border:1px solid color-mix(in srgb,var(--accent) 45%,transparent)}
 /* appearance dialog */
 .dlg .thg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:6px 0 16px}
 .dlg .thc{display:flex;flex-direction:column;gap:7px;padding:7px;border-radius:16px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);text-align:left}
@@ -786,6 +811,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <span class="sep"></span>
     <div id="opts"></div>
     <span class="sep"></span>
+    <button class="tb" id="bRefs" aria-label="Окно рефов" title="Окно рефов — ТЗ, ассеты, локации рядом с кадром"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="13" height="13" rx="2"/><path d="M8 4h11a2 2 0 0 1 2 2v11"/><path d="m3 16 3.5-3.5 3 3 2-2 4.5 4.5"/><circle cx="12.3" cy="11" r="1.2"/></svg></button>
     <button class="tb" id="bIsland" aria-label="Островок быстрых кнопок" title="Островок быстрых кнопок — показать / спрятать"><svg viewBox="0 0 24 24"><rect x="2.5" y="8" width="19" height="8" rx="4"/><circle cx="9" cy="12" r="1.3" fill="currentColor"/><circle cx="13" cy="12" r="1.3" fill="currentColor"/><circle cx="17" cy="12" r="1.3" fill="currentColor"/></svg></button>
     <button class="tb" id="bHelp" aria-label="Жесты">?</button>
     <button class="tb" id="bLayers" aria-label="Слои"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/></svg></button>
@@ -6619,8 +6645,9 @@ function tabsLeave(){ // the current document goes to the background
   const t=TABS.cur; if (!t || !doc || t.doc!==doc || t.stashed) return;
   t.st=tabState(); t.stashed=true; t.used=Date.now(); doc._metaDirty=dirtyDoc; tabsSaveBg(doc);
 }
+let refDocCur=null;
 function tabsAdopt(){ // called from layersChanged: whatever document is current gets its tab
-  if (!doc) return; homeHide(); if (TABS.cur && TABS.cur.doc===doc){ TABS.cur.stashed=false; return; }
+  if (!doc) return; homeHide(); if (refDocCur!==doc){ refDocCur=doc; setTimeout(refDocChanged,0); } if (TABS.cur && TABS.cur.doc===doc){ TABS.cur.stashed=false; return; }
   let t=TABS.list.find(x=>x.doc===doc) || TABS.list.find(x=>x.id===doc.id);
   if (!t){ t={id:doc.id}; const i=TABS.cur ? TABS.list.indexOf(TABS.cur)+1 : TABS.list.length; TABS.list.splice(i,0,t);
     // an untouched empty canvas is replaced by the opened file, like in Photoshop
@@ -6708,7 +6735,7 @@ function tabsRender(){
 }
 function airailLayout(){ const r=$('#airail'); if (!r) return; const st=$('#stage').getBoundingClientRect(), ly=$('#layers');
   const top = !ly.hidden ? ly.getBoundingClientRect().top-st.top : Math.max(8, $('#top').getBoundingClientRect().bottom-st.top+6);
-  const right = !ly.hidden ? st.right-ly.getBoundingClientRect().left+8 : 10; r.style.top=top+'px'; r.style.right=right+'px'; }
+  const right = !ly.hidden ? st.right-ly.getBoundingClientRect().left+8 : 10; r.style.top=top+'px'; r.style.right=right+'px'; try{ islandPlace(); }catch(_){} }
 document.querySelectorAll('#airail [data-ai]').forEach(b=>b.onclick=()=>{ const m=$('#aimenu [data-a="'+b.dataset.ai+'"]'); if (m) m.click(); });
 /* AI panel (Detail and the others) as a floating window next to the layers, like AI Edit: drag by the title, double click — back to its place */
 function dockPlace(b){ if (!b || b.hidden) return; b.classList.add('dock');
@@ -6826,7 +6853,7 @@ function showHelpDesk(){
    card('Выделение',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','до начала — добавить / вычесть'],['Shift / Alt (по ходу)','прямоугольник: квадрат / от центра'],['Тянуть внутри выделения','сдвинуть контур (лассо, прямоугольник, палочка)'],['Стрелки / Shift+стрелки','сдвинуть выделение на 1 / 10 px'],['Ctrl+Alt+R / Shift+F6','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой']])+
    card('Слои',[['Delete (без выделения)','удалить слой'],['Shift+клик / Ctrl+клик по слою','несколько слоёв: Delete, Ctrl+G, Ctrl+E, Ctrl+T, глаз, непрозрачность, режим — для всех'],['Двойной клик по имени','переименовать'],['Правый клик по слою','меню: слить, в группу, переименовать, удалить'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Shift+E','слить видимые'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Ctrl+Shift+[ / ]','в самый низ / верх'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Alt+клик по слою / Ctrl+Alt+G','обтравочная маска — слой только по форме нижнего'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
    card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I / держать Alt','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп (источник — Alt+клик)'],['B / E','кисть / ластик'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['C','кадрирование'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
-   card('ИИ-окна',[['Ctrl+Enter','в поле промпта — запустить'],['Enter','в рамке Доводки — дальше'],['Островок','тяни за точки — переставить; правый клик по кнопке — поменять'],['Тянуть за заголовок','переставить окно'],['Двойной клик по заголовку','окно — на место'],['?','в заголовке окна — показать подсказки']])+
+   card('ИИ-окна',[['Ctrl+Enter','в поле промпта — запустить'],['Enter','в рамке Доводки — дальше'],['Островок','тяни за точки — переставить; правый клик по кнопке — поменять'],['Окно рефов','кнопка с картинками вверху; перетащи файлы, Ctrl+V над окном, ⧉ — выделенное'],['Тянуть за заголовок','переставить окно'],['Двойной клик по заголовку','окно — на место'],['?','в заголовке окна — показать подсказки']])+
    `</div><h4 class="hkt">Инструменты подробно</h4><dl class="gest gcols">`+HELP_PC_TOOLS.map(([t,d])=>'<div><dt>'+t+'</dt><dd>'+d+'</dd></div>').join('')+'</dl>';
   const d=dialog(html, [['Понятно', ()=>{ try{localStorage.setItem('kadr.help','1');}catch(e){} }, true]]); d.classList.add('helpw');
 }
@@ -6902,6 +6929,7 @@ document.addEventListener('paste', e=>{
   const own = clip && !clip.stale && !(inField && items.some(i=>i.type==='text/plain')); // our Ctrl+C is the freshest copy
   if (aip && aip.detail && !aip.busy){ if (own){ e.preventDefault(); detailRefAdd(clipCopy(clip.ref||clip.c)); if (sel) deselect(); toast('Реф @img'+(detailRefs.length+1)+' из скопированного'+(clip.ref&&clip.ref._under?' · фон — слои под ним':''),1600); return; } if (f){ e.preventDefault(); detailRefFile([f]); return; } }
   if (inField) return;
+  if (refOver && doc && $('#refwin') && !$('#refwin').hidden && (f || own)){ e.preventDefault(); if (f) refAddFiles([new File([f],'Из буфера.png',{type:f.type})]); else refAdd(clipCopy(clip.ref||clip.c),'Из буфера'); return; } // №104
   if (homeOn){ if (f && !acctNeedsLogin()){ e.preventDefault(); openFilesAsDocs([new File([f], 'Из буфера.'+((f.type.split('/')[1]||'png').replace('jpeg','jpg')), {type:f.type})]); } return; } // №86: a picture pasted on the home screen opens as a document
   if (own){ e.preventDefault(); pasteClip(); return; }
   if (f){ e.preventDefault(); placeFile(f); } });
@@ -7173,6 +7201,93 @@ function poseRefOpen(){
     apply:(ctx,v)=>{ ctx.imageSmoothingQuality='high'; ctx.drawImage(v, r.x, r.y, r.w, r.h); } });
 }
 
+
+/* ============ №104: «Рефы» — a PureRef-like window ============
+   Pictures of the brief, character assets, locations — next to the frame, saved with the document (IndexedDB d:<id>:ref…,
+   list in meta.refs). Add: «+» (files), drop files on the window, Ctrl+V while the pointer is over it, «⧉» — the selection
+   (or the whole visible picture). Tile: click — look closer (wheel / pinch — zoom, drag — move, ← → — next), «→ Доводка» —
+   into the Доводка references (@img2…), «Слоем» — as a layer, × — remove. The window: drag by the title, resize by the corner. */
+let refUI=(()=>{ try{ return Object.assign({open:false,x:null,y:null,w:340,h:420,t:110}, JSON.parse(localStorage.getItem('proyavka.refwin')||'{}')); }catch(_){ return {open:false,x:null,y:null,w:340,h:420,t:110}; } })();
+const refUISave=()=>{ try{ localStorage.setItem('proyavka.refwin', JSON.stringify(refUI)); }catch(_){} };
+let refView=null, refOver=false;
+function refsOf(D){ D=D||doc; if (!D) return []; if (!D.refs) D.refs=[]; return D.refs; }
+async function refLoad(r, D){ if (r.c) return r.c; try{ const b=await idbGet(PFX((D||doc).id)+r.k); if (!b) return null; const bm=await createImageBitmap(b), c=mk(bm.width,bm.height); ctx2(c).drawImage(bm,0,0); bm.close&&bm.close(); r.c=c; return c; }catch(e){ console.warn('ref', e); return null; } }
+async function refAdd(c, name){
+  if (!doc || !c) return; const D=doc, k='ref'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  const blob=await toBlob(c, 'image/jpeg', 0.92); const r={k, name:name||'Реф', w:c.width, h:c.height, c};
+  refsOf(D).push(r); try{ await idbPut({[PFX(D.id)+k]:blob}); }catch(e){ toast('Реф не сохранился: '+e.message,3000); }
+  if (D===doc){ doc.pristine=false; markDirty(); } refRender(); }
+async function refAddFiles(files){ let n=0; for (const f of files){ if (!/^image\//.test(f.type) && !/\.(png|jpe?g|webp|gif|bmp|avif|heic)$/i.test(f.name)) continue; try{ const bm=await createImageBitmap(f), c=mk(bm.width,bm.height); ctx2(c).drawImage(bm,0,0); bm.close&&bm.close(); await refAdd(c, f.name.replace(/\.[^.]+$/,'')); n++; }catch(e){ toast('Не открылся файл: '+f.name); } } if (n) toast('Рефов добавлено: '+n,1400); }
+function refFromCanvas(){ if (!doc) return; const r = sel && !sel.inverted ? selBBox() : {x:0,y:0,w:doc.w,h:doc.h}; if (!r.w||!r.h) return;
+  const c=compositeRegion(r, r.w, r.h); refAdd(c, sel ? 'Кусок кадра' : 'Кадр целиком'); toast(sel?'Выделенное — в рефы':'Кадр целиком — в рефы',1400); }
+function refDel(i){ const D=doc, r=refsOf(D)[i]; if (!r) return; refsOf(D).splice(i,1); idbTx({}, [PFX(D.id)+r.k]).catch(()=>{}); D.pristine=false; markDirty(); if (refView && refView.i>=refsOf(D).length) refView=null; refRender(); }
+async function refToDetail(i){ const r=refsOf()[i]; const c=await refLoad(r); if (!c) return; const cc=mk(c.width,c.height); ctx2(cc).drawImage(c,0,0);
+  const n=detailRefs.length; detailRefAdd(cc); if (detailRefs.length>n) toast('Реф @img'+(detailRefs.length+1)+' — в Доводке'+(aip&&aip.detail?'':' (откроешь Доводку — он там)'),2000); }
+async function refToLayer(i){ if (!doc || panelBusy()) return; const r=refsOf()[i]; const c=await refLoad(r); if (!c) return;
+  const L=newLayer(r.name||'Реф'), k=Math.min(1, doc.w*0.8/c.width, doc.h*0.8/c.height), w=Math.round(c.width*k), h=Math.round(c.height*k);
+  L.ctx.imageSmoothingQuality='high'; L.ctx.drawImage(c, Math.round((doc.w-w)/2), Math.round((doc.h-h)/2), w, h); L.dirty=true; insertLayer(L, doc.active+1, 'Реф — новым слоем'); requestRender(); markDirty(); }
+function refEl(){ let el=$('#refwin'); if (el) return el;
+  el=document.createElement('div'); el.id='refwin'; el.hidden=true; if (!IS_DESK) el.classList.add('touch');
+  el.innerHTML='<div class="rh"><b>Рефы</b><span></span><button data-r="add" title="Добавить файлы">＋</button><button data-r="cut" title="Выделенное (или весь кадр) — в рефы">⧉</button><button data-r="size" title="Крупнее / мельче плитки">⊞</button><button data-r="close" title="Закрыть (рефы остаются в документе)">✕</button></div><div class="rb"></div><div class="rz"></div>';
+  $('#stage').append(el); refWire(el); return el; }
+function refPlace(){ const el=$('#refwin'); if (!el || el.hidden) return; const st=$('#stage').getBoundingClientRect();
+  let w=Math.max(220, Math.min(refUI.w, st.width-20)), h=Math.max(180, Math.min(refUI.h, st.height-20)), x=refUI.x, y=refUI.y;
+  if (x==null){ const rl=$('#rail'); x=(rl && rl.offsetParent ? rl.getBoundingClientRect().right-st.left : 0)+40; y=$('#top').getBoundingClientRect().bottom-st.top+40; }
+  x=Math.max(6, Math.min(st.width-w-6, x)); y=Math.max(6, Math.min(st.height-h-6, y));
+  Object.assign(el.style, {left:x+'px', top:y+'px', width:w+'px', height:h+'px'}); }
+function refToggle(on){ const el=refEl(); refUI.open = on==null ? el.hidden : !!on; refUISave(); el.hidden=!refUI.open || !doc; const b=$('#bRefs'); if (b) b.classList.toggle('on', refUI.open); if (!el.hidden){ refPlace(); refRender(); } }
+async function refRender(){ const el=$('#refwin'); if (!el || el.hidden || !doc) return; const list=refsOf(), body=el.querySelector('.rb');
+  el.querySelector('.rh span').textContent=list.length ? list.length+' '+plurN(list.length,'картинка','картинки','картинок') : '';
+  body.textContent=''; el.style.setProperty('--rt', (refUI.t||110)+'px');
+  if (refView){ return refViewer(body); }
+  if (!list.length){ const e=document.createElement('div'); e.className='rempty'; e.innerHTML=(IS_DESK?'Перетащи сюда картинки, нажми «＋» или Ctrl+V, наведя на окно.':'Нажми «＋» или перетащи картинки сюда.')+'<br>«⧉» — выделенное (или весь кадр).<br>Рефы сохраняются вместе с документом.'; body.append(e); return; }
+  const g=document.createElement('div'); g.className='rg'; body.append(g);
+  for (let i=0;i<list.length;i++){ const r=list[i], t=document.createElement('div'); t.className='rt'; t.style.setProperty('--ar', (r.w/r.h).toFixed(3)); t.title=r.name||'';
+    const cv=mk(1,1); t.append(cv); const a=document.createElement('div'); a.className='ra';
+    a.innerHTML='<button data-a="det" title="В рефы Доводки (@img2…)">→ Доводка</button><button data-a="lay" title="Новым слоем в документ">Слоем</button><button class="x" data-a="del" title="Убрать из рефов">×</button>';
+    t.append(a); g.append(t);
+    t.onclick=e=>{ const b=e.target.closest('button'); if (b){ e.stopPropagation(); if (b.dataset.a==='det') refToDetail(i); else if (b.dataset.a==='lay') refToLayer(i); else refDel(i); return; } refView={i, s:0, x:0, y:0}; refRender(); };
+    refLoad(r).then(c=>{ if (!c) return; const k=Math.min(1, 360/Math.max(c.width,c.height)); cv.width=Math.max(1,Math.round(c.width*k)); cv.height=Math.max(1,Math.round(c.height*k)); const x=ctx2(cv); x.imageSmoothingQuality='high'; x.drawImage(c,0,0,cv.width,cv.height); }); } }
+async function refViewer(body){ const list=refsOf(), r=list[refView.i]; if (!r){ refView=null; return refRender(); }
+  const v=document.createElement('div'); v.className='rv'; body.append(v); const c=await refLoad(r); if (!c || !refView) return; const cv=mk(c.width,c.height); ctx2(cv).drawImage(c,0,0); v.append(cv);
+  const fit=()=>{ const w=v.clientWidth, h=v.clientHeight-44; if (!refView.s){ refView.s=Math.min(w/c.width, h/c.height); refView.x=(w-c.width*refView.s)/2; refView.y=(h-c.height*refView.s)/2; } cv.style.transform='translate('+refView.x+'px,'+refView.y+'px) scale('+refView.s+')'; };
+  requestAnimationFrame(fit);
+  const bar=document.createElement('div'); bar.className='rvb';
+  bar.innerHTML='<button data-v="back">← Все</button>'+(list.length>1?'<button data-v="prev">‹</button><button data-v="next">›</button>':'')+'<button data-v="det">→ Доводка</button><button data-v="lay">Слоем</button>'; body.append(bar);
+  bar.onclick=e=>{ const b=e.target.closest('button'); if (!b) return; const a=b.dataset.v, n=list.length;
+    if (a==='back') refView=null; else if (a==='prev') refView={i:(refView.i-1+n)%n, s:0}; else if (a==='next') refView={i:(refView.i+1)%n, s:0}; else if (a==='det'){ refToDetail(refView.i); return; } else if (a==='lay'){ refToLayer(refView.i); return; }
+    refRender(); };
+  v.addEventListener('wheel', e=>{ e.preventDefault(); e.stopPropagation(); const rr=v.getBoundingClientRect(), mx=e.clientX-rr.left, my=e.clientY-rr.top, k=Math.exp(-e.deltaY*0.0015);
+    refView.x=mx-(mx-refView.x)*k; refView.y=my-(my-refView.y)*k; refView.s*=k; fit(); }, {passive:false});
+  const pts=new Map(); let last=null;
+  v.addEventListener('pointerdown', e=>{ e.stopPropagation(); pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); try{ v.setPointerCapture(e.pointerId); }catch(_){} last=null; });
+  v.addEventListener('pointermove', e=>{ if (!pts.has(e.pointerId)) return; const p0=pts.get(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if (pts.size===1){ refView.x+=e.clientX-p0.x; refView.y+=e.clientY-p0.y; fit(); return; }
+    const [a,b]=[...pts.values()], d=Math.hypot(a.x-b.x,a.y-b.y), rr=v.getBoundingClientRect(), mx=(a.x+b.x)/2-rr.left, my=(a.y+b.y)/2-rr.top;
+    if (last){ const k=d/last; refView.x=mx-(mx-refView.x)*k; refView.y=my-(my-refView.y)*k; refView.s*=k; fit(); } last=d; });
+  const up=e=>{ pts.delete(e.pointerId); last=null; }; v.addEventListener('pointerup', up); v.addEventListener('pointercancel', up); }
+function refWire(el){
+  el.addEventListener('pointerenter', ()=>refOver=true); el.addEventListener('pointerleave', ()=>refOver=false);
+  el.addEventListener('wheel', e=>e.stopPropagation(), {passive:true});
+  el.querySelector('.rh').addEventListener('click', e=>{ const b=e.target.closest('button'); if (!b) return; const a=b.dataset.r;
+    if (a==='close') refToggle(false); else if (a==='cut') refFromCanvas(); else if (a==='size'){ refUI.t = refUI.t>=200 ? 80 : refUI.t>=110 ? 200 : 110; refUISave(); refRender(); }
+    else if (a==='add'){ const i=document.createElement('input'); i.type='file'; i.accept='image/*'; i.multiple=true; i.onchange=()=>refAddFiles([...i.files]); i.click(); } });
+  let d=null; const h=el.querySelector('.rh'), z=el.querySelector('.rz');
+  h.addEventListener('pointerdown', e=>{ if (e.target.closest('button')) return; const r=el.getBoundingClientRect(), st=$('#stage').getBoundingClientRect(); d={m:'move', id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, st}; try{ h.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
+  z.addEventListener('pointerdown', e=>{ const r=el.getBoundingClientRect(); d={m:'size', id:e.pointerId, x0:e.clientX, y0:e.clientY, w0:r.width, h0:r.height}; try{ z.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); e.stopPropagation(); });
+  const mv=e=>{ if (!d || e.pointerId!==d.id) return; if (d.m==='move'){ refUI.x=e.clientX-d.st.left-d.dx; refUI.y=e.clientY-d.st.top-d.dy; } else { refUI.w=Math.max(220, d.w0+e.clientX-d.x0); refUI.h=Math.max(180, d.h0+e.clientY-d.y0); } refPlace(); if (refView && d.m==='size'){ refView.s=0; } };
+  const up=e=>{ if (!d || e.pointerId!==d.id) return; const m=d.m; d=null; refUISave(); if (m==='size') refRender(); };
+  for (const x of [h,z]){ x.addEventListener('pointermove', mv); x.addEventListener('pointerup', up); x.addEventListener('pointercancel', up); }
+  h.addEventListener('dblclick', e=>{ if (e.target.closest('button')) return; refUI.x=refUI.y=null; refUISave(); refPlace(); });
+  el.addEventListener('dragover', e=>{ e.preventDefault(); e.stopPropagation(); el.classList.add('drop'); });
+  el.addEventListener('dragleave', ()=>el.classList.remove('drop'));
+  el.addEventListener('drop', e=>{ e.preventDefault(); e.stopPropagation(); el.classList.remove('drop'); const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])]; if (fs.length) refAddFiles(fs); }); }
+$('#bRefs').onclick=()=>{ if (!doc){ toast('Сначала открой документ'); return; } refToggle(); };
+addEventListener('resize', ()=>setTimeout(refPlace,60));
+document.addEventListener('keydown', e=>{ if (!refView || !$('#refwin') || $('#refwin').hidden || !refOver) return; const n=refsOf().length;
+  if (e.key==='Escape'){ e.preventDefault(); e.stopImmediatePropagation(); refView=null; refRender(); } else if (e.key==='ArrowRight'&&n>1){ e.preventDefault(); e.stopImmediatePropagation(); refView={i:(refView.i+1)%n,s:0}; refRender(); } else if (e.key==='ArrowLeft'&&n>1){ e.preventDefault(); e.stopImmediatePropagation(); refView={i:(refView.i-1+n)%n,s:0}; refRender(); } }, true);
+/* a document switch shows its own refs */
+function refDocChanged(){ refView=null; const el=$('#refwin'); if (!el) { if (refUI.open && doc) refToggle(true); return; } el.hidden=!refUI.open || !doc; const b=$('#bRefs'); if (b) b.classList.toggle('on', refUI.open); if (!el.hidden){ refPlace(); refRender(); } }
 /* ============ №101: «Островок» ============
    Three quick buttons on a floating pill that lives where the hand is — on a big pen display the tool rail is far away.
    Drag it by the dotted grip (position kept per device), double-click / double-tap the grip — horizontal ↔ vertical.
@@ -7750,7 +7865,12 @@ function detailRows(box){ const a=aip;
     const lb=document.createElement('b'); lb.textContent='@img'+(i+2); const x=document.createElement('button'); x.textContent='×'; x.title='Убрать реф'; x.onclick=()=>{ detailRefs.splice(i,1); aiBuild(); }; d.append(t,lb,x); rf.append(d); });
   const bf=document.createElement('button'); bf.textContent='+ Файл'; bf.onclick=()=>{ const i=document.createElement('input'); i.type='file'; i.accept='image/*'; i.multiple=true; i.onchange=()=>detailRefFile([...i.files]); i.click(); };
   const bl=document.createElement('button'); bl.textContent='+ Слой'; bl.title='Активный слой (или выделенное на нём) — например, ассет героини, положенный скрытым слоем'; bl.onclick=detailRefLayer;
-  rf.append(bf,bl); row('Рефы',rf);
+  const br=document.createElement('button'); br.textContent='+ Из рефов'; br.className='fromrefs'; br.title='Из окна рефов документа';
+  br.onclick=e=>{ const list=refsOf(); if (!list.length){ toast('В окне рефов пусто — кнопка с картинками вверху справа'); refToggle(true); return; }
+    const m=$('#lyCtx'); m.textContent=''; const hd=document.createElement('div'); hd.className='aih'; hd.textContent='Рефы документа'; m.append(hd);
+    list.forEach((r,i)=>{ const b=document.createElement('button'); b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=r.name||('Реф '+(i+1)); b.lastChild.textContent=r.w+'×'+r.h; b.onclick=()=>{ m.hidden=true; refToDetail(i); }; m.append(b); });
+    closePops('lyCtx'); m.hidden=false; const rr=m.getBoundingClientRect(); m.style.left=Math.min(e.clientX, innerWidth-rr.width-8)+'px'; m.style.top=Math.min(e.clientY, innerHeight-rr.height-8)+'px'; };
+  rf.append(bf,bl,br); row('Рефы',rf);
   // templates
   const tp=document.createElement('div'); tp.className='dtpl'; const list=detailTpl.get(), selT=document.createElement('select');
   selT.innerHTML='<option value="">Шаблон промпта…</option>'+list.map((t,i)=>'<option value="'+i+'"></option>').join(''); list.forEach((t,i)=>{ selT.options[i+1].textContent=t.name; });
@@ -8165,7 +8285,7 @@ async function autosave(force, D0){
         if (L.mask){ keys.push('m'+L.id); if (need) put[P+'m'+L.id]=await toBlobBg(L.mask.canvas,'image/png'); }
       }catch(e){ throw e; }
     }
-    put[P+'meta']={ file:D.fileName||null, owner:D.owner||acctId(), w:D.w, h:D.h, dpi:D.dpi||72, notes:D.notes||null, notesHide:!!D.notesHide, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
+    put[P+'meta']={ refs:(D.refs||[]).map(r=>({k:r.k, name:r.name, w:r.w, h:r.h})), file:D.fileName||null, owner:D.owner||acctId(), w:D.w, h:D.h, dpi:D.dpi||72, notes:D.notes||null, notesHide:!!D.notesHide, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
     try{ const k=Math.min(1,360/Math.max(D.w,D.h)), cur=doc; let th; doc=D; try{ th=flatten(k,true); } finally{ doc=cur; } put[P+'thumb']=await toBlob(th,'image/jpeg',0.8); }catch(_){}
     const lib=await libGet(), e={id:D.id, name:D.name, file:D.fileName||null, w:D.w, h:D.h, t:Date.now(), n:D.layers.filter(x=>!isGroup(x)).length, owner:D.owner||acctId(), dev:DEVICE_ID}, i=lib.findIndex(x=>x.id===D.id);
     if (i>=0) lib[i]=e; else lib.unshift(e);
@@ -8186,7 +8306,7 @@ async function restore(id){
     const P=PFX(id), m=await idbGet(P+'meta'); if(!m||!m.layers||!m.layers.length) return false;
     busy(true,'Открываю «'+(m.name||'документ')+'»…'); await nextFrame();
     resetDocState(); doc=null;
-    const D={id, fileName:m.file||null, owner:m.owner||'local', keys:m.keys||[], w:m.w,h:m.h,dpi:m.dpi||72,notes:m.notes||null,notesHide:!!m.notesHide,name:m.name,layers:[],active:0,editMask:false}; doc=D;
+    const D={id, refs:(m.refs||[]).map(r=>Object.assign({}, r, {c:null})), fileName:m.file||null, owner:m.owner||'local', keys:m.keys||[], w:m.w,h:m.h,dpi:m.dpi||72,notes:m.notes||null,notesHide:!!m.notesHide,name:m.name,layers:[],active:0,editMask:false}; doc=D;
     const byId=new Map();
     for (const l of m.layers){
       if (l.kind==='group'){ const G=newGroup(l.name); G.id=l.id; Object.assign(G,{visible:l.visible,opacity:l.opacity,blend:l.blend,collapsed:l.collapsed}); G.__p=l.parent; byId.set(G.id,G);
@@ -8337,7 +8457,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-24 · №103 обтравочные маски для обычных слоёв'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-24 · №104 окно рефов (как PureRef) с отправкой в Доводку'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
@@ -8400,7 +8520,7 @@ async function homeOpen(id){ try{ localStorage.setItem('proyavka.booting','1'); 
   const ok=await restore(id); try{ localStorage.removeItem('proyavka.booting'); }catch(_){}
   if (!ok){ toast('Документ не открылся',3000); homeFill(); } }
 async function closeToHome(){ // the last document: save it, release it, show the home screen
-  if (tabBusy()) return; closePops();
+  if (tabBusy()) return; closePops(); if ($('#refwin')) $('#refwin').hidden=true; refDocCur=null;
   if (typeof AE!=='undefined' && !$('#aiedit').hidden) $('#aiedit').hidden=true;
   busy(true,'Сохраняю…'); try{ await flushSave(); }catch(_){}
   resetDocState(); try{ await TABS.saveQ; }catch(_){} busy(false);
