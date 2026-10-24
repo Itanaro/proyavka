@@ -753,6 +753,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 #island.v .grip::before{width:16px;height:4px;background-size:5px 4px}
 #island.drag{cursor:grabbing;-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--drag-bg);box-shadow:0 18px 40px rgba(0,0,0,.45),0 0 0 1.5px var(--accent)}
 .hideui #island,body.home #island{display:none}
+.ly.clipped .nm{padding-left:10px;border-left:2px solid color-mix(in srgb,var(--accent) 45%,transparent)}
 /* appearance dialog */
 .dlg .thg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:6px 0 16px}
 .dlg .thc{display:flex;flex-direction:column;gap:7px;padding:7px;border-radius:16px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);text-align:left}
@@ -1233,10 +1234,24 @@ function blendDraw(ctx, mode, ...args){
 let grpPool=[];
 // opt.map(ctx, docCanvas, item) draws a document-sized canvas with the same mapping the leaves use (needed for group masks)
 const mapIdentity=(c,cv)=>c.drawImage(cv,0,0);
+let clipPool=null;
+function clipComposite(ctx, leaf, opt, L, base){ // №103: draw L alone, keep it only where the base layer (and its mask) has pixels, then blend it in
+  const cw=ctx.canvas.width, ch=ctx.canvas.height; let t=clipPool;
+  if (!t || t.width!==cw || t.height!==ch){ t=mk(cw,ch); if (typeof comp!=='undefined' && comp && cw===comp.width && ch===comp.height) clipPool=t; }
+  const tx=ctx2(t); tx.setTransform(1,0,0,1,0,0); tx.globalAlpha=1; tx.globalCompositeOperation='source-over'; tx.clearRect(0,0,cw,ch);
+  tx.imageSmoothingEnabled=ctx.imageSmoothingEnabled; tx.imageSmoothingQuality=ctx.imageSmoothingQuality; tx.setTransform(ctx.getTransform());
+  const bl=L.blend; L.blend='source-over'; try{ leaf(tx, L); } finally{ L.blend=bl; }
+  tx.setTransform(1,0,0,1,0,0); tx.globalAlpha=1;
+  for (const cv of [base.canvas, base.mask && base.mask.enabled ? base.mask.canvas : null]){ if (!cv) continue;
+    tx.save(); tx.setTransform(1,0,0,1,0,0); tx.globalCompositeOperation='destination-in'; (opt.map||mapIdentity)(tx, cv, base); tx.restore(); }
+  tx.globalCompositeOperation='source-over';
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=1; blendDraw(ctx, L.blend, t, 0, 0); ctx.restore();
+}
 function composeTree(ctx, leaf, opt={}, P=opt.P||null, depth=0){
   for (const L of doc.layers){ if (L.parent!==P || !L.visible) continue;
     if (opt.skip && opt.skip(L)) continue;
     if (L.kind==='adj'){ adjComposite(ctx, L, opt); continue; }
+    if (!isGroup(L) && L.clip){ const base=clipBase(L); if (base){ if (!base.visible) continue; clipComposite(ctx, leaf, opt, L, base); continue; } }
     if (!isGroup(L)){ leaf(ctx,L); continue; }
     const gm = L.mask && L.mask.enabled;
     if (L.blend==='pass' && L.opacity>=1 && !gm){ composeTree(ctx, leaf, opt, L, depth+1); continue; }
@@ -1313,8 +1328,9 @@ function liveLayer(){
 function liveKey(L){ return L.id+'|'+view.x+'|'+view.y+'|'+view.s+'|'+view.r+'|'+comp.width+'|'+comp.height+'|'+contentVer+'|'+structVer; }
 function liveCache(L){ const k=liveKey(L); if (strokeCache && strokeCache.k===k) return strokeCache; strokeCache=strokeCacheBuild(L); if (strokeCache) strokeCache.k=k; return strokeCache; }
 function strokeCacheBuild(L){
-  if (!L || isGroup(L) || L.kind==='adj') return null;
+  if (!L || isGroup(L) || L.kind==='adj' || L.clip) return null;
   for (let g=L.parent; g; g=g.parent) if (g.blend!=='pass' || g.opacity<1 || (g.mask&&g.mask.enabled)) return null;
+  if (doc.layers.some(X=>X.clip && !isGroup(X) && X.kind!=='adj' && X.visible && clipBase(X)===L)) return null;
   const idx=doc.layers.indexOf(L), anc=new Set(); for (let g=L.parent; g; g=g.parent) anc.add(g);
   for (let i=idx+1;i<doc.layers.length;i++){ const X=doc.layers[i]; if (anc.has(X) || !shown(X)) continue;
     if (X.kind==='adj') return null; if (isGroup(X) ? !['pass','source-over'].includes(X.blend) : X.blend!=='source-over') return null; }
@@ -4128,7 +4144,7 @@ function adjBuf(i,w,h){ // screen-size buffers are kept, other sizes are throwaw
   return mk(w,h);
 }
 function clipBase(L){ const i=doc.layers.indexOf(L);
-  for (let j=i-1;j>=0;j--){ const b=doc.layers[j]; if (b.parent!==L.parent) continue; if (isAdj(b)) continue; return isGroup(b) ? null : b; }
+  for (let j=i-1;j>=0;j--){ const b=doc.layers[j]; if (b.parent!==L.parent) continue; if (isAdj(b) || b.clip) continue; return isGroup(b) ? null : b; }
   return null; }
 function adjComposite(ctx, L, opt){
   const cw=ctx.canvas.width, ch=ctx.canvas.height; if (!cw||!ch) return;
@@ -5290,6 +5306,7 @@ const pickedMany=()=>picked().length>1;
 function pickClear(){ if (doc && doc.pick){ doc.pick=null; } }
 function pickClick(L, e){ // true — the click was a multi-select one
   if (!doc) return false; const i=doc.layers.indexOf(L);
+  if (e.altKey && !e.shiftKey && !(e.ctrlKey||e.metaKey) && !(e.target && e.target.closest && e.target.closest('.eye,.th'))){ toggleClip(L); return true; } // №103: Alt+click — clip to the layer below
   if (e.shiftKey && !(e.ctrlKey||e.metaKey||e.altKey)){
     const a=doc.pickAnchor!=null && doc.layers.includes(doc.pickAnchor) ? doc.layers.indexOf(doc.pickAnchor) : doc.active;
     const lo=Math.min(a,i), hi=Math.max(a,i); doc.pick=new Set(); for (let k=lo;k<=hi;k++){ const x=doc.layers[k]; let hid=false; for (let q=x.parent;q;q=q.parent) if (q.collapsed) hid=true; if (!hid) doc.pick.add(x); }
@@ -5348,6 +5365,7 @@ function layerMenu(L, x, y){
   if (many) B('Объединить в один слой','Ctrl+E',mergeDown); else if (isGroup(AL())) B('Слить группу в слой','Ctrl+E',mergeDown); else B('Слить с нижним','Ctrl+E',mergeDown);
   B('Слить видимые','Ctrl+Shift+E',mergeVisible);
   B(many ? 'В группу' : (isGroup(AL()) ? 'Новая группа вокруг' : 'В группу'),'Ctrl+G',makeGroup);
+  if (!many && !isGroup(AL())) B(AL().clip ? 'Снять обтравочную маску' : 'Обтравочная маска','Ctrl+Alt+G',()=>toggleClip(AL()));
   if (!many) B('Переименовать','двойной клик',()=>layerRename(AL()));
   B(many ? 'Удалить слои' : 'Удалить','Delete',deleteLayer,'dg');
   closePops('lyCtx'); m.hidden=false; const r=m.getBoundingClientRect(); m.style.left=Math.min(x, innerWidth-r.width-8)+'px'; m.style.top=Math.min(y, innerHeight-r.height-8)+'px';
@@ -5360,11 +5378,19 @@ function layerMore(x, y){
     b.onclick=()=>{ m.hidden=true; $('#lyMore').blur(); if (!panelBusy()) fn(); }; m.append(b); };
   B('Выше','Ctrl+]',()=>moveLayer(1)); B('Ниже','Ctrl+[',()=>moveLayer(-1));
   B('Слить видимые','Ctrl+Shift+E',mergeVisible);
+  if (!g) B(L.clip ? 'Снять обтравочную маску' : 'Обтравочная маска', 'Ctrl+Alt+G', ()=>toggleClip(L));
   if (L.mask) B('Инвертировать маску','',invertMask);
   if (!g) B('Размытие / резкость…','',filtMenu);
   B(g ? 'Расформировать группу' : 'Очистить слой','',clearLayer, g?'':'dg');
   closePops('lyCtx'); m.hidden=false; const r=m.getBoundingClientRect(); m.style.left=Math.max(8,Math.min(x, innerWidth-r.width-8))+'px'; m.style.top=(y+r.height>innerHeight-8 ? Math.max(8,y-r.height-44) : y)+'px';
 }
+
+function toggleClip(L){ // №103: clipping mask for pixel and adjustment layers
+  L=L||AL(); if (!doc || !L) return; if (isGroup(L)){ toast('Группу обтравить нельзя — выбери слой'); return; }
+  const v=!L.clip; if (v && !clipBase(L)){ toast('Ниже нет обычного слоя, к которому можно обтравить',2400); return; }
+  L.clip=v; pushHist({undo(){ L.clip=!v; if (L.kind==='adj') adjChanged(L); }, redo(){ L.clip=v; if (L.kind==='adj') adjChanged(L); }});
+  if (L.kind==='adj') adjChanged(L); L._metaDirty=true; layersChanged(); requestRender(); markDirty();
+  const b=clipBase(L); toast(v ? 'Обтравочная маска: «'+L.name+'» — только по «'+(b?b.name:'слою ниже')+'»' : 'Обтравочная маска снята', 1800); }
 function plurN(n,a,b,c){ const m10=n%10, m100=n%100; return m10===1&&m100!==11 ? a : m10>=2&&m10<=4&&(m100<10||m100>=20) ? b : c; }
 function deleteLayer(){
   if (pickedMany()) return deletePicked();
@@ -5486,7 +5512,7 @@ function mergeGroup(){
 function dupLayer(){
   if (isGroup(AL())){ dupGroup(); return; }
   const s=AL(), L = s.kind==='adj' ? newAdj(adjType(s), s.name+' копия') : newLayer(s.name+' копия');
-  if (s.kind==='adj'){ L.adj=JSON.parse(JSON.stringify(s.adj)); L.clip=s.clip; } else L.ctx.drawImage(s.canvas,0,0);
+  if (s.kind==='adj'){ L.adj=JSON.parse(JSON.stringify(s.adj)); L.clip=s.clip; } else { L.ctx.drawImage(s.canvas,0,0); L.clip=!!s.clip; }
   L.opacity=s.opacity; L.blend=s.blend; L.visible=s.visible;
   if (s.mask){ L.mask=newMask(L); L.mask.ctx.clearRect(0,0,doc.w,doc.h); L.mask.ctx.drawImage(s.mask.canvas,0,0); L.mask.enabled=s.mask.enabled; }
   insertLayer(L, doc.active+1, 'Слой скопирован');
@@ -5526,6 +5552,7 @@ function mergeDown(){
     lo.dirty=true; thumbSoon(lo); layersChanged(); requestRender(); toast('Коррекция впечатана в слой',1400); return; }
   let src=up.canvas;
   if (up.mask&&up.mask.enabled){ src=mk(doc.w,doc.h); const s=ctx2(src); s.drawImage(up.canvas,0,0); s.globalCompositeOperation='destination-in'; s.drawImage(up.mask.canvas,0,0); }
+  if (up.clip){ const b=clipBase(up); if (b){ const c=mk(doc.w,doc.h), cx=ctx2(c); cx.drawImage(src,0,0); cx.globalCompositeOperation='destination-in'; cx.drawImage(b.canvas,0,0); if (b.mask&&b.mask.enabled) cx.drawImage(b.mask.canvas,0,0); src=c; } }
   if (up.visible){ lo.ctx.save(); lo.ctx.globalAlpha=up.opacity; blendDraw(lo.ctx, up.blend, src,0,0); lo.ctx.restore(); }
   const px=pxEntry(lo.canvas,0,0,doc.w,doc.h,before);
   doc.layers.splice(i,1); doc.active=i-1; doc.editMask=false;
@@ -5604,7 +5631,7 @@ function layersChanged(){ structVer++; try{ maskColorSync(); }catch(e){} try{ if
     const list=$('#lyList'); list.textContent='';
     for (let i=doc.layers.length-1;i>=0;i--){
       const L=doc.layers[i]; let hidden=false; for(let p=L.parent;p;p=p.parent) if(p.collapsed) hidden=true; if (hidden) continue;
-      const row=document.createElement('div'); row.className='ly'+(i===doc.active?' act':'')+(i!==doc.active && doc.pick && doc.pick.size>1 && doc.pick.has(L)?' pick':'')+(L.parent&&!shown(L.parent)?' hid':'');
+      const row=document.createElement('div'); row.className='ly'+(i===doc.active?' act':'')+(i!==doc.active && doc.pick && doc.pick.size>1 && doc.pick.has(L)?' pick':'')+(L.parent&&!shown(L.parent)?' hid':'')+(L.clip&&!isGroup(L)?' clipped':'');
       row.style.marginLeft=(depthOf(L)*16)+'px';
       const eye=document.createElement('button'); eye.className='eye'+(L.visible?'':' off'); eye.innerHTML=EYE; eye.setAttribute('aria-label','Видимость');
       eye.onclick=e=>{ e.stopPropagation(); if (e.altKey){ soloLayer(L); return; }
@@ -6797,7 +6824,7 @@ function showHelpDesk(){
    card('Файл и документы',[['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить в свой файл; PNG / JPG со слоями — предложит PSD'],['Ctrl+Shift+S','сохранить как: PSD / PNG / JPG — файл становится рабочим'],['Ctrl+W / Ctrl+F4','закрыть документ (в приложении); последний — экран «Начало»'],['Ctrl+Tab / Ctrl+Shift+Tab','следующая / предыдущая вкладка'],['Средняя кнопка по вкладке','закрыть вкладку'],['Файлы на вкладки','открыть каждый своим документом']])+
    card('Правка',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+C / Ctrl+Shift+C','копировать выделенное: слой / всё видимое'],['Ctrl+V','вставить новым слоем на то же место; в Доводке — в рефы'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
    card('Выделение',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','до начала — добавить / вычесть'],['Shift / Alt (по ходу)','прямоугольник: квадрат / от центра'],['Тянуть внутри выделения','сдвинуть контур (лассо, прямоугольник, палочка)'],['Стрелки / Shift+стрелки','сдвинуть выделение на 1 / 10 px'],['Ctrl+Alt+R / Shift+F6','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой']])+
-   card('Слои',[['Delete (без выделения)','удалить слой'],['Shift+клик / Ctrl+клик по слою','несколько слоёв: Delete, Ctrl+G, Ctrl+E, Ctrl+T, глаз, непрозрачность, режим — для всех'],['Двойной клик по имени','переименовать'],['Правый клик по слою','меню: слить, в группу, переименовать, удалить'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Shift+E','слить видимые'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Ctrl+Shift+[ / ]','в самый низ / верх'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
+   card('Слои',[['Delete (без выделения)','удалить слой'],['Shift+клик / Ctrl+клик по слою','несколько слоёв: Delete, Ctrl+G, Ctrl+E, Ctrl+T, глаз, непрозрачность, режим — для всех'],['Двойной клик по имени','переименовать'],['Правый клик по слою','меню: слить, в группу, переименовать, удалить'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Shift+E','слить видимые'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Ctrl+Shift+[ / ]','в самый низ / верх'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Alt+клик по слою / Ctrl+Alt+G','обтравочная маска — слой только по форме нижнего'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
    card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I / держать Alt','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп (источник — Alt+клик)'],['B / E','кисть / ластик'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['C','кадрирование'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
    card('ИИ-окна',[['Ctrl+Enter','в поле промпта — запустить'],['Enter','в рамке Доводки — дальше'],['Островок','тяни за точки — переставить; правый клик по кнопке — поменять'],['Тянуть за заголовок','переставить окно'],['Двойной клик по заголовку','окно — на место'],['?','в заголовке окна — показать подсказки']])+
    `</div><h4 class="hkt">Инструменты подробно</h4><dl class="gest gcols">`+HELP_PC_TOOLS.map(([t,d])=>'<div><dt>'+t+'</dt><dd>'+d+'</dd></div>').join('')+'</dl>';
@@ -6836,7 +6863,7 @@ async function openPsd(f){
       if (c.mask && c.mask.canvas) A.mask=psdMask(c.mask, A); doc.layers.push(A); continue; }
     const L=newLayer(c.name||'Слой'); L.parent=c.__parent;
     if (c.canvas) L.ctx.drawImage(c.canvas, c.left||0, c.top||0);
-    L.visible=!c.hidden; L.opacity=c.opacity??1; L.blend=psdToBlend(c.blendMode||'normal');
+    L.visible=!c.hidden; L.opacity=c.opacity??1; L.blend=psdToBlend(c.blendMode||'normal'); L.clip=!!c.clipping;
     if (c.mask && c.mask.canvas) L.mask=psdMask(c.mask, L);
     doc.layers.push(L);
     await nextFrame();
@@ -7020,7 +7047,7 @@ async function exportImg(kind){
       const build=P=>kidsOf(P).map(L=>{
         const o = isGroup(L) ? {name:L.name, opacity:L.opacity, hidden:!L.visible, blendMode:L.blend==='pass'?'pass through':blendToPsd(L.blend), opened:!L.collapsed, children:build(L)}
                 : L.kind==='adj' ? {name:L.name, opacity:L.opacity, hidden:!L.visible, blendMode:'normal', clipping:!!L.clip, adjustment:JSON.parse(JSON.stringify(L.adj))}
-                             : {name:L.name, canvas:L.canvas, left:0, top:0, opacity:L.opacity, hidden:!L.visible, blendMode:blendToPsd(L.blend)};
+                             : {name:L.name, canvas:L.canvas, left:0, top:0, opacity:L.opacity, hidden:!L.visible, blendMode:blendToPsd(L.blend), clipping:!!L.clip};
         if (L.mask){ const m=mk(doc.w,doc.h), mx=ctx2(m); mx.fillStyle='#000'; mx.fillRect(0,0,doc.w,doc.h); mx.drawImage(L.mask.canvas,0,0); o.mask={canvas:m,left:0,top:0,defaultColor:0,disabled:!L.mask.enabled}; }
         return o; });
       const children=build(null);
@@ -7946,7 +7973,7 @@ document.addEventListener('keydown', e=>{
     if (L==='a') return go(()=>{ if (need()) applySelPoly([[0,0],[doc.w,0],[doc.w,doc.h],[0,doc.h]]); });
     if (L==='i' && e.altKey) return go(()=>imageSizeDialog());
     if (L==='i') return go(()=>{ if (!need()) return; if (e.shiftKey){ if (sel) invertSel(); } else if (AL().mask && doc.editMask) invertMask(); else invertPixels(); });
-    if (L==='g') return go(()=>{ if (!need()) return; if (e.altKey) toast('Обтравочная маска: в Проявке она есть у корректирующих слоёв — «Только на слой ниже»',3000); else if (e.shiftKey) ungroup(); else makeGroup(); });
+    if (L==='g') return go(()=>{ if (!need()) return; if (e.altKey) toggleClip(); else if (e.shiftKey) ungroup(); else makeGroup(); });
     if (L==='j') return go(()=>{ if (!need()) return; if (e.shiftKey){ if (sel) selCutToLayer(); else toast('Сначала выдели, что вырезать'); } else sel ? selCopyToLayer() : dupLayer(); });
     if (L==='s') return go(()=>{ if (IS_DESK && window.showSaveFilePicker && !nativeApp) return saveAsDesk(!e.shiftKey); saveFile.again=!e.shiftKey; exportImg('psd').finally(()=>{ saveFile.again=false; }); });
     if (L==='t') return go(()=>setTool('transform'));
@@ -8168,7 +8195,7 @@ async function restore(id){
       const isA = l.kind==='adj' && l.adj && adjNormalize(l.adj);
       const L = isA ? newAdj(ADJ_FROM_PSD[l.adj.type], l.name) : newLayer(l.name); L.__p=l.parent; byId.set(l.id,L); L.id=l.id; Object.assign(L,{visible:l.visible,opacity:l.opacity,blend:l.blend});
       if (isA){ L.adj=adjNormalize(l.adj); L.clip=!!l.clip; }
-      else { const cb=await idbGet(P+'c'+l.id); if(cb){ const im=await createImageBitmap(cb); L.ctx.drawImage(im,0,0); im.close&&im.close(); } }
+      else { L.clip=!!l.clip; const cb=await idbGet(P+'c'+l.id); if(cb){ const im=await createImageBitmap(cb); L.ctx.drawImage(im,0,0); im.close&&im.close(); } }
       await nextFrame();
       if (l.mask){ L.mask=newMask(L); L.mask.enabled=l.mask.enabled; const mb=await idbGet(P+'m'+l.id); if(mb){ const im=await createImageBitmap(mb); L.mask.ctx.clearRect(0,0,D.w,D.h); L.mask.ctx.drawImage(im,0,0); im.close&&im.close(); } }
       L.dirty=false; L.saved=true; D.layers.push(L);
@@ -8310,7 +8337,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-22 · №102 кнопка островка в верхней панели'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-24 · №103 обтравочные маски для обычных слоёв'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
