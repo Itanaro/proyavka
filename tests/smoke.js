@@ -187,8 +187,8 @@ const steps = [
   }},
 
   { name: 'Второй экран (очки): окно, картина, рамка, рефы, Ч/Б', desk: true, run: async page => {
-      await page.click('#bImg'); await page.waitForTimeout(150);
-      const [pop] = await Promise.all([page.context().waitForEvent('page', { timeout: 5000 }), page.click('#imgmenu [data-i="screen2"]')]);
+      check(await page.evaluate(() => !!document.querySelector('#imgmenu [data-i="screen2"]')), 'в меню «Изображение» нет пункта «Второй экран»');
+      const [pop] = await Promise.all([page.context().waitForEvent('page', { timeout: 15000 }), page.evaluate(() => { closePops(); s2Open(); })]);
       await until(page, () => s2Alive() && s2.key, null, 5000, 'окно второго экрана');
       // картина: центр окна не цвета фона
       const px = () => page.evaluate(() => { const c = s2.cv, d = s2.x.getImageData(c.width / 2 | 0, c.height / 2 | 0, 1, 1).data; return [...d]; });
@@ -212,6 +212,16 @@ const steps = [
       check(await page.evaluate(() => S.tool === 'brush'), 'клавиша во втором окне не дошла до редактора');
       await page.evaluate(() => s2Act('close'));
       check(await page.evaluate(() => !s2Alive()), 'второй экран не закрылся');
+  }},
+
+  { name: 'Курсоры как в Фотошопе (ПК)', desk: true, run: async page => {
+      const r = await page.evaluate(() => { const c = () => stage.style.cursor, out = {};
+        setTool('clone'); altDown = true; updateCursor(); out.target = c().includes('svg'); altDown = false; updateCursor(); out.none = c() === 'none';
+        setTool('picker'); updateCursor(); out.pick = c().includes('svg');
+        rHeld = true; updateCursor(); out.rot = c().includes('svg'); rHeld = false;
+        setTool('transform'); updateCursor(); out.move = c().includes('svg');
+        setTool('brush'); updateCursor(); return out; });
+      for (const [k, v] of Object.entries(r)) check(v, 'курсор не тот: ' + k);
   }},
 
   { name: 'Курсор пера в воздухе (iPad)', desk: false, run: async page => {
