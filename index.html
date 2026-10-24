@@ -785,6 +785,20 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 .dlgdv .dvr{display:flex;gap:10px;align-items:center;padding:7px 10px;border-radius:10px;background:var(--field)} .dlgdv .dvr>div{flex:1;min-width:0} .dlgdv .dvr b{display:block;font-size:13px;font-weight:600} .dlgdv .dvr small{display:block;font-size:12px;color:var(--muted);line-height:1.35}
 .dlgdv .dvr i{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-weight:700;font-size:12px;color:#fff;background:#4a9a6a} .dlgdv .dvr.warn i{background:#d79a2b} .dlgdv .dvr.bad i{background:var(--danger,#da4452)} .dlgdv .dvr.info i{background:#6a7180}
 .dlgdv .dvr button{flex:none;font-size:12px;padding:6px 10px;border-radius:8px} .dlgdv .dvf{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px;color:var(--muted)} .dlgdv .dvf b{color:var(--text,inherit)}
+#histwin{position:absolute;z-index:9;display:flex;flex-direction:column;min-width:220px;min-height:200px;border-radius:18px;background:var(--glass-work);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);overflow:hidden}
+#histwin[hidden],.hideui #histwin,body.home #histwin{display:none!important}
+#histwin .hh{display:flex;align-items:center;gap:4px;padding:6px 6px 6px 12px;cursor:move;touch-action:none;user-select:none;-webkit-user-select:none;border-bottom:1px solid var(--line-soft)}
+#histwin .hh b{font-size:13px;font-weight:600} #histwin .hh span{flex:1;color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap}
+#histwin .hh button{height:28px;min-width:28px;padding:0 8px;border-radius:9px;color:var(--muted);font-size:12px;display:inline-flex;align-items:center;gap:5px} #histwin .hh button:hover{background:var(--soft-2);color:var(--fg)}
+#histwin .hsl{flex:none;max-height:45%;overflow:auto;display:flex;flex-direction:column;gap:6px;padding:8px;border-bottom:1px solid var(--line-soft)} #histwin .hsl[hidden]{display:none}
+#histwin .hsn{flex:none;display:flex;align-items:center;gap:8px;padding:4px;border-radius:10px;background:var(--soft)} #histwin .hsn.on{outline:2px solid var(--accent)}
+#histwin .hsn canvas{width:34px;height:auto;max-height:46px;border-radius:5px;flex:none;object-fit:contain;background:#0003}
+#histwin .hst{flex:1;min-width:0} #histwin .hst b{display:block;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} #histwin .hst small{font-size:11px;color:var(--muted);font-family:var(--mono)}
+#histwin .hsa{display:flex;gap:3px} #histwin .hsa button{height:26px;padding:0 7px;border-radius:7px;font-size:11px;background:var(--soft-2);touch-action:none;user-select:none;-webkit-user-select:none} #histwin .hsa button:hover{background:var(--accent);color:var(--accent-ink)} #histwin .hsa button.x{width:26px;padding:0}
+#histwin .hl{flex:1;min-height:0;overflow:auto;padding:6px;display:flex;flex-direction:column;gap:1px}
+#histwin .hr{display:flex;align-items:center;gap:8px;text-align:left;padding:6px 9px;border-radius:8px;font-size:12.5px;color:var(--fg)} #histwin .hr span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} #histwin .hr small{font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+#histwin .hr:hover{background:var(--soft-2)} #histwin .hr.cur{background:color-mix(in srgb,var(--accent) 22%,transparent);font-weight:600} #histwin .hr.redo{opacity:.45;font-style:italic}
+#histwin .hz{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 55%,var(--line) 55%,var(--line) 62%,transparent 62%,transparent 72%,var(--line) 72%,var(--line) 79%,transparent 79%)}
 /* appearance dialog */
 .dlg .thg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:6px 0 16px}
 .dlg .thc{display:flex;flex-direction:column;gap:7px;padding:7px;border-radius:16px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line-soft);text-align:left}
@@ -818,6 +832,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <div id="opts"></div>
     <span class="sep"></span>
     <button class="tb" id="bRefs" aria-label="Окно рефов" title="Окно рефов — ТЗ, ассеты, локации рядом с кадром"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="13" height="13" rx="2"/><path d="M8 4h11a2 2 0 0 1 2 2v11"/><path d="m3 16 3.5-3.5 3 3 2-2 4.5 4.5"/><circle cx="12.3" cy="11" r="1.2"/></svg></button>
+    <button class="tb" id="bHist" aria-label="История" title="История — шаги и снимки"><svg viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3 4v4.5h4.5"/><path d="M12 7.5V12l3 2"/></svg></button>
     <button class="tb" id="bIsland" aria-label="Островок быстрых кнопок" title="Островок быстрых кнопок — показать / спрятать"><svg viewBox="0 0 24 24"><rect x="2.5" y="8" width="19" height="8" rx="4"/><circle cx="9" cy="12" r="1.3" fill="currentColor"/><circle cx="13" cy="12" r="1.3" fill="currentColor"/><circle cx="17" cy="12" r="1.3" fill="currentColor"/></svg></button>
     <button class="tb" id="bHelp" aria-label="Жесты">?</button>
     <button class="tb" id="bLayers" aria-label="Слои"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/></svg></button>
@@ -1522,6 +1537,7 @@ function renderOverlay(){ if(!doc) return;
   ox.setTransform(dpr,0,0,dpr,0,0); ox.lineWidth=1;
   const polyPath = (pts,extra) => { ox.beginPath(); pts.forEach((p,i)=>{ const [sx,sy]=toScr(p[0],p[1],extra); i?ox.lineTo(sx,sy):ox.moveTo(sx,sy); }); ox.closePath(); };
   const ants = () => { ox.setLineDash([]); ox.strokeStyle='#000'; ox.stroke(); ox.setLineDash([5,5]); ox.lineDashOffset=-antsPhase; ox.strokeStyle='#fff'; ox.stroke(); ox.setLineDash([]); };
+  if (histCmp && doc && histCmp.doc===doc){ const m=viewM(); ox.save(); ox.setTransform(dpr*m[0],dpr*m[1],dpr*m[2],dpr*m[3],dpr*m[4],dpr*m[5]); ox.imageSmoothingEnabled=true; ox.imageSmoothingQuality='high'; ox.drawImage(histCmp.c,0,0,doc.w,doc.h); ox.restore(); }
   if (depPrev && dep){ const m=viewM(); ox.save(); ox.setTransform(dpr*m[0],dpr*m[1],dpr*m[2],dpr*m[3],dpr*m[4],dpr*m[5]); ox.imageSmoothingEnabled=true; ox.imageSmoothingQuality='high'; ox.drawImage(depPrev,0,0,doc.w,doc.h); ox.restore(); ox.setTransform(dpr,0,0,dpr,0,0); }
   if (edgePrev && edge){ const m=viewM(); ox.save(); ox.setTransform(dpr*m[0],dpr*m[1],dpr*m[2],dpr*m[3],dpr*m[4],dpr*m[5]); ox.imageSmoothingEnabled=true; ox.drawImage(edgePrev,0,0,doc.w,doc.h); ox.restore(); ox.setTransform(dpr,0,0,dpr,0,0); }
   else if (sel && !xf && sel.outline){ const m=viewM().slice(); if (sel.mv){ m[4]+=m[0]*sel.mv.dx+m[2]*sel.mv.dy; m[5]+=m[1]*sel.mv.dx+m[3]*sel.mv.dy; } ox.beginPath();
@@ -1588,8 +1604,8 @@ function trimHistory(maxMB){ while (histBytes>maxMB*1048576 && undoStack.length>
 function pushHist(e){
   e.bytes = e.bytes||0; undoStack.push(e); histBytes+=e.bytes;
   for (const r of redoStack) histBytes-=r.bytes||0; redoStack=[];
-  const lim=histLimit(); while (histBytes>lim && undoStack.length>1){ const o=undoStack.shift(); histBytes-=o.bytes||0; }
-  if (undoStack.length>80){ const o=undoStack.shift(); histBytes-=o.bytes||0; }
+  const lim=histLimit(); while (histBytes>lim && undoStack.length>1){ const o=undoStack.shift(); histBytes-=o.bytes||0; if (doc) doc.histFull=false; }
+  if (undoStack.length>80){ const o=undoStack.shift(); histBytes-=o.bytes||0; if (doc) doc.histFull=false; }
   if (!e.sel) markDirty(); // selection changes do not touch pixels
 }
 function pxEntry(canvas, x,y,w,h, before){
@@ -7485,6 +7501,98 @@ function refWire(el){
   el.addEventListener('dragover', e=>{ e.preventDefault(); e.stopPropagation(); el.classList.add('drop'); });
   el.addEventListener('dragleave', ()=>el.classList.remove('drop'));
   el.addEventListener('drop', e=>{ e.preventDefault(); e.stopPropagation(); el.classList.remove('drop'); const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])]; if (fs.length) refAddFiles(fs); }); }
+
+/* ============ №108 История: шаги (клик — вернуться к шагу, как в Фотошопе) и снимки (сравнить удержанием, вернуть слоем) ============
+   Step names come from whoever pushed the step (the call stack), so every old undo site gets a name without being touched. */
+var histHint=null, histCmp=null;
+const HIST_FN={strokeEnd:'@tool', strokeBegin:'@tool', gradApply:'Градиент', fillWith:'Заливка', selFill:'Заливка выделения', invertPixels:'Инверсия', invertMask:'Инверсия маски',
+  adjClose:'Коррекция', blendStep:'Режим наложения', clearLayer:'Очистка слоя', filtApply:'Фильтр', harmApply:'Гармонизация', imageResize:'Размер изображения', canvasReframe:'Размер холста',
+  cropApply:'Кадрирование', liqReset:'Пластика', liqEnd:'Пластика', patchUp:'Заплатка', pupApply:'Марионетка', removeBackground:'Удаление фона', removeMask:'Маска удалена',
+  selDelete:'Удаление выделенного', selToMask:'Маска из выделения', toggleClip:'Обтравочная маска', toggleMask:'Маска вкл/выкл', mergeDown:'Слить вниз', objLift:'Объект на слой',
+  occlApply:'Перекрытие', aeEndModal:'AI Edit', writeFill:'Нейросеть', xfApply:'Трансформ', deletePicked:'Удаление слоёв', groupPicked:'В группу', mergePicked:'Слить слои',
+  movePickedTo:'Порядок слоёв', deleteLayer:'Удаление слоя', attachLayerDrag:'Порядок слоёв', moveLayer:'Порядок слоёв', dupGroup:'Копия группы', makeGroup:'В группу',
+  ungroup:'Разгруппировать', mergeGroup:'Слить группу', mergeVisible:'Слить видимые', dupLayer:'Копия слоя', addAdj:'Корректирующий слой', selCopyToLayer:'Слой из выделения',
+  selCutToLayer:'Вырезать на слой', aiDone:'ИИ', aiPick:'ИИ', aiGo:'ИИ', refToLayer:'Реф слоем', histToLayer:'Снимок слоем', layerRename:'Переименование', pushSelHist:'Выделение',
+  addMask:'Маска', newMaskFor:'Маска', insertLayer:'Новый слой', placeFile:'Картинка слоем', pasteImage:'Вставка'};
+const PROP_NAMES={opacity:'Непрозрачность', blend:'Режим наложения', visible:'Видимость', name:'Переименование', locked:'Закрепление', collapsed:'Папка'};
+function histToolName(t){ for (const g of Object.values(TOOL_GROUPS)) for (const it of g.items) if (it[0]===t) return it[1].replace(/ · .*/,'');
+  return {transform:'Трансформ', liquify:'Пластика', gradient:'Градиент'}[t] || 'Кисть'; }
+function histLabelFor(e){
+  if (histHint) return histHint; if (e.sel) return 'Выделение';
+  let st=''; const old=Error.stackTraceLimit; try{ Error.stackTraceLimit=30; st=new Error().stack||''; }catch(_){} finally{ try{ Error.stackTraceLimit=old; }catch(_){} }
+  let gen=null; // a generic helper (new layer…) names the step only when no caller says more
+  for (const ln of st.split('\n')){ const m=ln.match(/at\s+(?:async\s+)?(?:[\w$]+\.)*([\w$]+)\s*[\(\[]/) || ln.match(/^\s*([\w$]+)@/); if (!m) continue; const v=HIST_FN[m[1]]; if (!v) continue;
+    if (HIST_GENERIC.has(m[1])){ gen=gen||v; continue; }
+    return v==='@tool' ? histToolName(typeof activeTool!=='undefined'&&activeTool ? activeTool : S.tool) : v; }
+  return gen||'Действие'; }
+const HIST_GENERIC=new Set(['insertLayer','pushSelHist','addMask','newMaskFor']);
+{ const p=pushHist; pushHist=function(e){ if (e && !e.label){ try{ e.label=histLabelFor(e); }catch(_){ e.label='Действие'; } e.t=Date.now(); } return p.apply(this, arguments); }; }
+for (const fn of ['setProp','setPropMany']){ const f=window[fn]; if (typeof f!=='function') continue;
+  window[fn]=function(_,key){ const h=histHint; histHint=PROP_NAMES[key]||h; try{ return f.apply(this, arguments); } finally{ histHint=h; } }; }
+
+const histUI=Object.assign({open:false, x:null, y:null, w:300, h:440}, (()=>{ try{ return JSON.parse(localStorage.getItem('proyavka.histwin')||'{}'); }catch(_){ return {}; } })());
+const histUISave=()=>{ try{ localStorage.setItem('proyavka.histwin', JSON.stringify(histUI)); }catch(_){} };
+var histSig="", histTimer=0;
+function histEl(){ let el=$('#histwin'); if (el) return el;
+  el=document.createElement('div'); el.id='histwin'; el.hidden=true; if (!IS_DESK) el.classList.add('touch');
+  el.innerHTML='<div class="hh"><b>История</b><span></span><button data-h="snap" title="Снимок — запомнить, как кадр выглядит сейчас"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 8h3l1.6-2.2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></svg> Снимок</button><button data-h="close" title="Закрыть">✕</button></div><div class="hsl"></div><div class="hl"></div><div class="hz"></div>';
+  $('#stage').append(el); histWire(el); return el; }
+function histPlace(){ const el=$('#histwin'); if (!el || el.hidden) return; const st=$('#stage').getBoundingClientRect();
+  const w=Math.max(220, Math.min(histUI.w, st.width-20)), h=Math.max(200, Math.min(histUI.h, st.height-20)); let x=histUI.x, y=histUI.y;
+  if (x==null){ const ly=$('#layers'), lr=ly && !ly.hidden && ly.offsetParent ? ly.getBoundingClientRect() : null; x=(lr ? lr.left-st.left : st.width)-w-16; y=$('#top').getBoundingClientRect().bottom-st.top+60; }
+  x=Math.max(6, Math.min(st.width-w-6, x)); y=Math.max(6, Math.min(st.height-h-6, y));
+  Object.assign(el.style, {left:x+'px', top:y+'px', width:w+'px', height:h+'px'}); }
+function histToggle(on){ if (!doc && on!==false){ toast('Сначала открой документ'); return; } const el=histEl(); histUI.open = on==null ? el.hidden : !!on; histUISave();
+  el.hidden=!histUI.open || !doc; const b=$('#bHist'); if (b) b.classList.toggle('on', histUI.open);
+  clearInterval(histTimer); if (!el.hidden){ histPlace(); histSig=''; histRender(); histTimer=setInterval(histRender, 350); } }
+function histGo(k){ // to the state after k steps of the undo list
+  if (!doc) return; let guard=200;
+  while (undoStack.length>k && guard--){ const n=undoStack.length; undo(); if (undoStack.length===n) break; }
+  while (undoStack.length<k && redoStack.length && guard--){ const n=undoStack.length; redo(); if (undoStack.length===n) break; }
+  histRender(true); }
+const hhmm=t=>{ const d=new Date(t); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+function histRender(force){ const el=$('#histwin'); if (!el || el.hidden) return; if (!doc){ el.hidden=true; return; }
+  const snaps=doc.snaps||[], top=undoStack[undoStack.length-1], sig=[doc.id, undoStack.length, redoStack.length, top&&top.label, top&&top.t, snaps.length, histCmp&&histCmp.id].join('|');
+  if (sig===histSig && force!==true) return; histSig=sig;
+  el.querySelector('.hh span').textContent=undoStack.length+(redoStack.length?' · ↷'+redoStack.length:'');
+  const hs=el.querySelector('.hsl'); hs.textContent=''; hs.hidden=!snaps.length;
+  snaps.forEach((sn,i)=>{ const r=document.createElement('div'); r.className='hsn'+(histCmp===sn?' on':''); r.append(sn.th);
+    const t=document.createElement('div'); t.className='hst'; t.innerHTML='<b></b><small></small>'; t.firstChild.textContent=sn.name; t.lastChild.textContent=hhmm(sn.t); r.append(t);
+    const cmp=document.createElement('button'); cmp.className='hcmp'; cmp.textContent='Сравнить'; cmp.title='Удерживай — на холсте снимок вместо текущего (на ПК — клик включает/выключает)';
+    const on=v=>{ histCmp = v ? sn : null; renderOverlay(); histRender(true); };
+    let held=0; cmp.onpointerdown=e=>{ e.preventDefault(); held=Date.now(); on(true); try{ cmp.setPointerCapture(e.pointerId); }catch(_){} };
+    cmp.onpointerup=()=>{ if (IS_DESK && Date.now()-held<250){ if (histCmp===sn && sn._stick){ sn._stick=false; on(false); } else { sn._stick=true; } return; } sn._stick=false; on(false); };
+    cmp.onpointercancel=()=>{ sn._stick=false; on(false); };
+    const lay=document.createElement('button'); lay.textContent='Слоем'; lay.title='Положить снимок новым слоем — так из него можно вернуть что угодно'; lay.onclick=()=>histToLayer(sn);
+    const x=document.createElement('button'); x.className='x'; x.textContent='×'; x.title='Удалить снимок'; x.onclick=()=>{ if (histCmp===sn){ histCmp=null; renderOverlay(); } doc.snaps.splice(doc.snaps.indexOf(sn),1); histRender(true); };
+    const a=document.createElement('div'); a.className='hsa'; a.append(cmp, lay, x); r.append(a); hs.append(r); });
+  const hl=el.querySelector('.hl'); hl.textContent='';
+  const row=(k,label,t,cls)=>{ const b=document.createElement('button'); b.className='hr '+cls; b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=label; b.lastChild.textContent=t?hhmm(t):''; b.onclick=()=>histGo(k); hl.append(b); return b; };
+  row(0, doc.histFull===false?'Начало истории':'Начало', null, undoStack.length===0?'cur':'');
+  undoStack.forEach((e,i)=>row(i+1, e.label||'Действие', e.t, i===undoStack.length-1?'cur':''));
+  for (let i=redoStack.length-1, k=undoStack.length+1; i>=0; i--, k++) row(k, redoStack[i].label||'Действие', redoStack[i].t, 'redo');
+  const cur=hl.querySelector('.cur'); if (cur) cur.scrollIntoView({block:'nearest'}); }
+function histSnap(){ if (!doc) return; const lim=IS_DESK?4:2; doc.snaps=doc.snaps||[];
+  if (doc.snaps.length>=lim){ toast('Снимков максимум '+lim+' — удали старый (×)',2400); return; }
+  busy(true,'Снимок…'); try{ const c=flatten(1), k=Math.min(1,96/Math.max(c.width,c.height)), th=mk(Math.round(c.width*k),Math.round(c.height*k)); const tx=ctx2(th); tx.imageSmoothingQuality='high'; tx.drawImage(c,0,0,th.width,th.height);
+    histN=(histN||0)+1; doc.snaps.push({id:histN, doc, c, th, t:Date.now(), name:'Снимок '+(doc.snaps.length+1)}); }
+  finally{ busy(false); } histRender(true); toast('Снимок сделан: «Сравнить» — удерживай, «Слоем» — вернуть',2200); }
+var histN=0;
+function histToLayer(sn){ if (!doc) return; const L=newLayer(sn.name); L.ctx.drawImage(sn.c,0,0); L.dirty=true; insertLayer(L, doc.active+1); layersChanged(); requestRender(); markDirty(); }
+function histWire(el){
+  el.addEventListener('wheel', e=>e.stopPropagation(), {passive:true});
+  const h=el.querySelector('.hh'), z=el.querySelector('.hz');
+  h.addEventListener('click', e=>{ const b=e.target.closest('button'); if (!b) return; if (b.dataset.h==='close') histToggle(false); else if (b.dataset.h==='snap') histSnap(); });
+  let d=null;
+  h.addEventListener('pointerdown', e=>{ if (e.target.closest('button')) return; const r=el.getBoundingClientRect(), st=$('#stage').getBoundingClientRect(); d={m:'move', id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, st}; try{ h.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
+  z.addEventListener('pointerdown', e=>{ const r=el.getBoundingClientRect(); d={m:'size', id:e.pointerId, x0:e.clientX, y0:e.clientY, w0:r.width, h0:r.height}; try{ z.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); e.stopPropagation(); });
+  const mv=e=>{ if (!d || e.pointerId!==d.id) return; if (d.m==='move'){ histUI.x=e.clientX-d.st.left-d.dx; histUI.y=e.clientY-d.st.top-d.dy; } else { histUI.w=Math.max(220, d.w0+e.clientX-d.x0); histUI.h=Math.max(200, d.h0+e.clientY-d.y0); } histPlace(); };
+  const up=e=>{ if (!d || e.pointerId!==d.id) return; d=null; histUISave(); };
+  for (const x of [h,z]){ x.addEventListener('pointermove', mv); x.addEventListener('pointerup', up); x.addEventListener('pointercancel', up); }
+  h.addEventListener('dblclick', e=>{ if (e.target.closest('button')) return; histUI.x=histUI.y=null; histUISave(); histPlace(); }); }
+$('#bHist').onclick=()=>histToggle();
+window.addEventListener('resize', ()=>histPlace());
+setTimeout(()=>{ if (histUI.open && doc) histToggle(true); }, 1200);
 $('#bRefs').onclick=()=>{ if (!doc){ toast('Сначала открой документ'); return; } refToggle(); };
 addEventListener('resize', ()=>setTimeout(refPlace,60));
 document.addEventListener('keydown', e=>{ if (!refView || !$('#refwin') || $('#refwin').hidden || !refOver) return; const n=refsOf().length;
@@ -7500,6 +7608,7 @@ const ISLAND_ACTS={
   subject:{t:'Выделить объект', icon:()=>$('#bSubject').innerHTML, run:()=>$('#bSubject').click()},
   brush:{t:'Кисть', tool:'brush'}, eraser:{t:'Ластик', tool:'eraser'}, gradient:{t:'Градиент', tool:'gradient'}, picker:{t:'Пипетка', tool:'picker'}, transform:{t:'Трансформ', tool:'transform'},
   patch:{t:'Заплатка', tool:'patch'}, remove:{t:'Удаление · нейросеть', tool:'remove'}, clone:{t:'Штамп', tool:'clone'},
+  hist:{t:'История', svg:'<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3 4v4.5h4.5"/><path d="M12 7.5V12l3 2"/>', run:()=>histToggle()},
   undo:{t:'Отменить', svg:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', run:()=>undo()},
   redo:{t:'Вернуть', svg:'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>', run:()=>redo()},
   deselect:{t:'Снять выделение', svg:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="m9.5 9.5 5 5M14.5 9.5l-5 5"/>', run:()=>{ if (sel) deselect(); else reselect(); }},
@@ -8697,7 +8806,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-24 · №107 «Сдать кат»: проверка + PSD и PNG одной кнопкой'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-24 · №108 панель «История»: шаги и снимки'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
