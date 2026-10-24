@@ -168,5 +168,6 @@ IndexedDB `kadr`, хранилище `doc`: `library` (список докуме
 
 ## Тесты
 
-Playwright + Chromium, сервер `python3 -m http.server 8766` в папке репозитория. Подробно —
-в `CLAUDE.md`, раздел «Тест».
+`python3 tests/run.py` — подробно в `tests/README.md`. Шаги в `tests/smoke.js` вызывают функции
+Проявки напрямую (`createDoc`, `placeFile`, `psdBuffer`, `openPsd`, `poseRefOpen`, `aiGo`, `critRun`…) —
+при переименовании таких функций поправить и тест.
