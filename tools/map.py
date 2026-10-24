@@ -5,6 +5,7 @@
     python3 tools/map.py            — разделы и номера строк
     python3 tools/map.py -f         — плюс имена функций в каждом разделе
     python3 tools/map.py слово      — только разделы, где в заголовке или функциях есть «слово»
+                                       (русское название инструмента переводится в имя из кода)
 
 Номера строк меняются с каждой правкой, поэтому в docs/MAP.md их нет — там заголовки,
 а точное место всегда даёт этот скрипт.
@@ -17,10 +18,30 @@ HEAD_LOOSE = re.compile(r'^\s*/\*\s*(={4,}|-{4})\s*(.+)$')
 FN = re.compile(r'(?:^|[\s;{(])(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)\s*\(|'
                 r'(?:^|[\s;{])(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>')
 
+# русское название инструмента → как он зовётся в коде (имена функций английские)
+ALIASES = {
+    'градиент': 'grad', 'доводк': 'detail', 'деталь': 'detail', 'реф': 'ref', 'истори': 'hist',
+    'островок': 'island', 'смарт': 'smart', 'марионет': 'pup', 'пластик': 'liq', 'кадрир': 'crop',
+    'глубин': 'depth', 'свет': 'light', 'дымк': 'haze', 'гармониз': 'harm', 'коррекц': 'adj',
+    'кривые': 'curve', 'уровни': 'level', 'карта градиента': 'gmap', 'выборочн': 'selc',
+    'обтрав': 'clip', 'маск': 'mask', 'выделен': 'sel', 'лассо': 'lasso', 'палочк': 'wand',
+    'кист': 'brush', 'мазок': 'stroke', 'пипетк': 'eye', 'заплатк': 'patch', 'штамп': 'clone',
+    'удален': 'removal', 'трансформ': 'xf', 'вкладк': 'tab', 'начало': 'home', 'тем': 'theme',
+    'сдать': 'deliver', 'зона': 'safe', 'линейк': 'ruler', 'поз': 'pose', 'арт-директор': 'crit',
+    'заметк': 'notes', 'вписать': 'fitInto', 'расширить': 'expand', 'генерац': 'gen',
+    'мост': 'bridge', 'облак': 'cloud', 'сохран': 'save', 'автосохран': 'autosave', 'psd': 'psd',
+    'размер изображ': 'imageSize', 'размер холста': 'canvasSize', 'отмен': 'hist', 'слой': 'layer',
+    'палитр': 'picker', 'справк': 'help', 'клавиш': 'keydown', 'ai edit': 'ae', 'плагин': 'ae',
+}
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('-')]
     show_fn = '-f' in sys.argv or bool(args)
-    word = args[0].lower() if args else None
+    word = ' '.join(args).lower() if args else None
+    if word:
+        for ru, code in ALIASES.items():
+            if word.startswith(ru) or ru.startswith(word):
+                print(f'«{word}» в коде ищется как «{code}»'); word = code.lower(); break
     lines = open(SRC, encoding='utf-8').read().split('\n')
     secs = []
     for i, ln in enumerate(lines, 1):

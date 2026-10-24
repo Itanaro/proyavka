@@ -71,16 +71,21 @@ if N and last_entry != N:
 
 # 6. личное в публичных файлах (репозиторий открыт)
 LEAKS = [
-    (r'\b100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}\b', 'адрес Tailscale'),
-    (r'\b192\.168\.\d{1,3}\.\d{1,3}\b', 'домашний адрес в сети'),
+    (r'\b100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}\b(?<!\.0\.0)(?!/)', 'адрес Tailscale'),  # не диапазон 100.64.0.0/10
+    (r'\b192\.168\.\d{1,3}\.(?!1\b)\d{1,3}\b', 'домашний адрес в сети'),
     (r'[\w.+-]+@(gmail|yandex|mail|icloud|outlook)\.\w+', 'почта'),
     (r'Users\\\\?[A-Z][\w ]+\\\\?AppData', 'путь с именем пользователя Windows'),
     (r'desktop-[0-9a-z]{6,}', 'имя компьютера'),
     (r'(sk|or|AIza)[-_][A-Za-z0-9_-]{20,}', 'похоже на ключ API'),
 ]
-pub = ['CLAUDE.md', 'README.md'] + glob.glob('docs/**/*.md', recursive=True)
+pub = ['CLAUDE.md', 'README.md'] + glob.glob('docs/**/*.md', recursive=True) + \
+      [f for d in ('pc-bridge', 'pc-app', 'tools', 'ios') for f in glob.glob(d + '/**/*', recursive=True)
+       if os.path.isfile(f) and f.endswith(('.py', '.js', '.bat', '.ps1', '.vbs', '.md', '.json', '.yml', '.swift'))]
 for p in pub:
-    t = read(p) if os.path.exists(p) else ''
+    try:
+        t = open(p, encoding='utf-8').read() if os.path.exists(p) else ''
+    except UnicodeDecodeError:
+        t = open(p, encoding='utf-16', errors='ignore').read()
     for rx, what in LEAKS:
         for mm in re.finditer(rx, t):
             line = t.count('\n', 0, mm.start()) + 1
