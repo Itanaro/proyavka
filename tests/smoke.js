@@ -168,6 +168,14 @@ const steps = [
       await page.evaluate(() => { crit = null; const b = document.getElementById('critbar'); if (b) b.hidden = true; requestRender(); });
   }},
 
+  { name: 'Рефы: клик по пустому окну открывает выбор файлов', run: async page => {
+      await page.evaluate(() => { while (refsOf().length) refDel(0); refToggle(true); });
+      await page.waitForSelector('#refwin .rempty');
+      const [fc] = await Promise.all([page.waitForEvent('filechooser', { timeout: 5000 }).catch(() => null), page.click('#refwin .rempty')]);
+      await page.evaluate(() => refToggle(false));
+      check(!!fc && fc.isMultiple(), 'выбор файлов не открылся (или без выбора нескольких)');
+  }},
+
   { name: 'Рефы: плитка в полном разрешении экрана, прозрачность сохраняется', run: async page => {
       const r = await page.evaluate(async () => {
         const n0 = refsOf().length;

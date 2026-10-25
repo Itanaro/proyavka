@@ -779,7 +779,9 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 #refwin .ra button{flex:1;height:24px;border-radius:7px;font-size:11px;background:rgba(15,13,18,.78);color:#fff;white-space:nowrap;padding:0 4px}
 #refwin .ra button.x{flex:none;width:24px}
 #refwin .ra button:hover{background:var(--accent);color:var(--accent-ink)}
-#refwin .rempty{padding:22px 14px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.5;border:1.5px dashed var(--line);border-radius:14px}
+#refwin .rempty{padding:22px 14px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.5;border:1.5px dashed var(--line);border-radius:14px;cursor:pointer;transition:border-color .15s,background .15s}
+#refwin .rempty:hover{border-color:var(--accent);background:var(--soft)} #refwin .rempty svg{display:block;width:34px;height:34px;margin:0 auto 6px;fill:none;stroke:var(--accent);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+#refwin .rempty b{display:block;color:var(--fg);font-size:14px;font-weight:600;margin-bottom:4px}
 #refwin.drop .rb{outline:2px dashed var(--accent);outline-offset:-6px}
 #refwin .rv{position:absolute;inset:0;overflow:hidden;touch-action:none;cursor:grab;background:color-mix(in srgb,var(--bg) 70%,transparent)}
 #refwin .rv canvas{position:absolute;left:0;top:0;transform-origin:0 0}
@@ -7661,9 +7663,10 @@ async function refToLayer(i){ if (!doc || panelBusy()) return; const r=refsOf()[
   const L=newLayer(r.name||'Реф'), k=Math.min(1, doc.w*0.8/c.width, doc.h*0.8/c.height), w=Math.round(c.width*k), h=Math.round(c.height*k);
   const cap=smartCap(c,true); L.smart={src:cap.src, M:[k*cap.k,0,0,k*cap.k,Math.round((doc.w-w)/2),Math.round((doc.h-h)/2)]}; smartRender(L); // №109: placed as a smart object
   insertLayer(L, doc.active+1, 'Реф — смарт-объектом'); requestRender(); markDirty(); }
+function refPick(){ const i=document.createElement('input'); i.type='file'; i.accept='image/*'; i.multiple=true; i.onchange=()=>refAddFiles([...i.files]); i.click(); }
 function refEl(){ let el=$('#refwin'); if (el) return el;
   el=document.createElement('div'); el.id='refwin'; el.hidden=true; if (!IS_DESK) el.classList.add('touch');
-  el.innerHTML='<div class="rh"><b>Рефы</b><span></span><button data-r="add" title="Добавить файлы">＋</button><button data-r="cut" title="Выделенное (или весь кадр) — в рефы">⧉</button><button data-r="size" title="Крупнее / мельче плитки">⊞</button><button data-r="close" title="Закрыть (рефы остаются в документе)">✕</button></div><div class="rb"></div><div class="rz"></div>';
+  el.innerHTML='<div class="rh"><b>Рефы</b><span></span><button data-r="add" title="Добавить картинки с диска">＋</button><button data-r="cut" title="Выделенное (или весь кадр) — в рефы">⧉</button><button data-r="size" title="Крупнее / мельче плитки">⊞</button><button data-r="close" title="Закрыть (рефы остаются в документе)">✕</button></div><div class="rb"></div><div class="rz"></div>';
   $('#stage').append(el); refWire(el); return el; }
 function refPlace(){ const el=$('#refwin'); if (!el || el.hidden) return; const st=$('#stage').getBoundingClientRect();
   let w=Math.max(220, Math.min(refUI.w, st.width-20)), h=Math.max(180, Math.min(refUI.h, st.height-20)), x=refUI.x, y=refUI.y;
@@ -7675,7 +7678,11 @@ async function refRender(){ const el=$('#refwin'); if (!el || el.hidden || !doc)
   el.querySelector('.rh span').textContent=list.length ? list.length+' '+plurN(list.length,'картинка','картинки','картинок') : '';
   body.textContent=''; el.style.setProperty('--rt', (refUI.t||110)+'px');
   if (refView){ return refViewer(body); }
-  if (!list.length){ const e=document.createElement('div'); e.className='rempty'; e.innerHTML=(IS_DESK?'Перетащи сюда картинки, нажми «＋» или Ctrl+V, наведя на окно.':'Нажми «＋» или перетащи картинки сюда.')+'<br>«⧉» — выделенное (или весь кадр).<br>Рефы сохраняются вместе с документом.'; body.append(e); return; }
+  if (!list.length){ const e=document.createElement('div'); e.className='rempty'; e.title=IS_DESK?'Клик — выбрать картинки на диске':'Тап — выбрать картинки';
+    e.innerHTML='<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M12 10.5v6M9 13.5h6"/></svg>'+
+      '<b>'+(IS_DESK?'Кликни, чтобы выбрать картинки':'Нажми, чтобы выбрать картинки')+'</b>'+
+      (IS_DESK?'или перетащи их сюда из папки, или Ctrl+V, наведя на окно.':'или перетащи их сюда.')+'<br>«⧉» вверху — выделенное (или весь кадр).<br>Рефы сохраняются вместе с документом.';
+    e.onclick=()=>refPick(); body.append(e); return; } // №120: the whole empty area opens the file picker
   const g=document.createElement('div'); g.className='rg'; body.append(g);
   for (let i=0;i<list.length;i++){ const r=list[i], t=document.createElement('div'); t.className='rt'; t.style.setProperty('--ar', (r.w/r.h).toFixed(3)); t.title=r.name||'';
     const cv=mk(1,1); t.append(cv); const a=document.createElement('div'); a.className='ra';
@@ -7718,7 +7725,7 @@ function refWire(el){
   el.addEventListener('wheel', e=>e.stopPropagation(), {passive:true});
   el.querySelector('.rh').addEventListener('click', e=>{ const b=e.target.closest('button'); if (!b) return; const a=b.dataset.r;
     if (a==='close') refToggle(false); else if (a==='cut') refFromCanvas(); else if (a==='size'){ refUI.t = refUI.t>=200 ? 80 : refUI.t>=110 ? 200 : 110; refUISave(); refRender(); }
-    else if (a==='add'){ const i=document.createElement('input'); i.type='file'; i.accept='image/*'; i.multiple=true; i.onchange=()=>refAddFiles([...i.files]); i.click(); } });
+    else if (a==='add') refPick(); });
   let d=null; const h=el.querySelector('.rh'), z=el.querySelector('.rz');
   h.addEventListener('pointerdown', e=>{ if (e.target.closest('button')) return; const r=el.getBoundingClientRect(), st=$('#stage').getBoundingClientRect(); d={m:'move', id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, st}; try{ h.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
   z.addEventListener('pointerdown', e=>{ const r=el.getBoundingClientRect(); d={m:'size', id:e.pointerId, x0:e.clientX, y0:e.clientY, w0:r.width, h0:r.height}; try{ z.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); e.stopPropagation(); });
@@ -9335,7 +9342,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №119 чёткие плитки рефов, прозрачность рефов'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №120 пустое окно рефов открывает выбор файлов'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
