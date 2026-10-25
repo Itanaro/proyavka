@@ -768,11 +768,17 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 #refwin{position:absolute;z-index:9;display:flex;flex-direction:column;min-width:220px;min-height:180px;border-radius:18px;background:var(--glass-work);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);overflow:hidden}
 #refwin[hidden],.hideui #refwin,body.home #refwin{display:none!important}
 #navwin{position:absolute;z-index:9;display:flex;flex-direction:column;min-width:160px;min-height:140px;border-radius:16px;background:var(--glass-work);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);overflow:hidden}
-#navwin[hidden],.hideui #navwin,body.home #navwin{display:none!important}
+#navwin[hidden],.hideui #navwin:not(.dock),body.home #navwin{display:none!important}
+#navwin.dropto{outline:2px dashed var(--accent);outline-offset:3px}
 #navwin .nh{display:flex;align-items:center;gap:4px;padding:5px 5px 5px 12px;cursor:move;touch-action:none;user-select:none;-webkit-user-select:none;border-bottom:1px solid var(--line-soft)}
 #navwin .nh b{font-size:12.5px;font-weight:600} #navwin .nh span{flex:1;color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap}
 #navwin .nh button{height:26px;min-width:26px;padding:0 6px;border-radius:8px;color:var(--muted);font-size:12px} #navwin .nh button:hover{background:var(--soft-2);color:var(--fg)}
 #navwin .nb{flex:1;min-height:0;position:relative;touch-action:none;cursor:pointer} #navwin .nb canvas{position:absolute;inset:0;width:100%;height:100%}
+#layers #navwin.dock{position:relative;left:auto!important;top:auto!important;width:auto!important;flex:none;min-height:0;border:0;border-bottom:1px solid var(--line-soft);border-radius:0;box-shadow:none;background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;z-index:auto;overflow:visible}
+#navwin.dock .nh{padding:10px 8px 6px 18px;border-bottom:0;cursor:grab} #navwin.dock .nh b{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#navwin.dock .nb{margin:0 10px 10px;border-radius:12px;overflow:hidden;background:var(--soft)}
+#navwin.dock .rz{left:0;right:0;bottom:-5px;width:auto;height:10px;cursor:ns-resize;background:none;opacity:1}
+#navwin.dock .rz::after{content:'';position:absolute;left:50%;top:3px;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line);transition:background .15s} #navwin.dock .rz:hover::after{background:var(--accent)}
 #navwin .rz{position:absolute;right:2px;bottom:2px;width:18px;height:18px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 55%,var(--muted) 55%,var(--muted) 62%,transparent 62%,transparent 72%,var(--muted) 72%,var(--muted) 79%,transparent 79%);opacity:.6;z-index:2}
 #refwin .rh{display:flex;align-items:center;gap:4px;padding:6px 6px 6px 12px;cursor:move;touch-action:none;user-select:none;-webkit-user-select:none;border-bottom:1px solid var(--line-soft)}
 #refwin .rh b{font-size:13px;font-weight:600} #refwin .rh span{flex:1;color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -7901,7 +7907,7 @@ document.addEventListener('keydown', e=>{ if (!refView || !$('#refwin') || $('#r
   if (e.key==='Escape' && refView.fm){ e.preventDefault(); e.stopImmediatePropagation(); refView.toggleFrame(false); return; }
   if (e.key==='Escape'){ e.preventDefault(); e.stopImmediatePropagation(); refView=null; refRender(); } else if (e.key==='ArrowRight'&&n>1){ e.preventDefault(); e.stopImmediatePropagation(); refView={i:(refView.i+1)%n,s:0,fm:refView.fm}; refRender(); } else if (e.key==='ArrowLeft'&&n>1){ e.preventDefault(); e.stopImmediatePropagation(); refView={i:(refView.i-1+n)%n,s:0,fm:refView.fm}; refRender(); } }, true);
 /* a document switch shows its own refs */
-function refDocChanged(){ { const ne=$('#navwin'); if (ne){ ne.hidden=!navUI.open || !doc; if (!ne.hidden){ navPlace(); navDraw(); } } else if (navUI.open && doc) navToggle(true); } refView=null; const el=$('#refwin'); if (!el) { if (refUI.open && doc) refToggle(true); return; } el.hidden=!refUI.open || !doc; const b=$('#bRefs'); if (b) b.classList.toggle('on', refUI.open); if (!el.hidden){ refPlace(); refRender(); } }
+function refDocChanged(){ { if ($('#navwin')) navSync(); else if (navUI.open && doc) navToggle(true); } refView=null; const el=$('#refwin'); if (!el) { if (refUI.open && doc) refToggle(true); return; } el.hidden=!refUI.open || !doc; const b=$('#bRefs'); if (b) b.classList.toggle('on', refUI.open); if (!el.hidden){ refPlace(); refRender(); } }
 /* ============ №123 Навигатор — как в Фотошопе ============
    The whole picture with a frame of what is on screen (the part between the bars). Drag the frame — the canvas follows,
    the zoom does not change; press outside the frame — it moves there. Wheel over it — zoom around the middle. The window:
@@ -7912,13 +7918,22 @@ let navDragP=null;
 function navEl(){ let el=$('#navwin'); if (el) return el;
   el=document.createElement('div'); el.id='navwin'; el.hidden=true;
   el.innerHTML='<div class="nh"><b>Навигатор</b><span></span><button data-n="fit" title="Вписать в окно (Ctrl+0)">⤢</button><button data-n="close" title="Закрыть">✕</button></div><div class="nb"><canvas></canvas></div><div class="rz"></div>';
-  $('#stage').append(el); navWire(el); return el; }
-function navPlace(){ const el=$('#navwin'); if (!el || el.hidden) return; const st=$('#stage').getBoundingClientRect();
+  $('#stage').append(el); navWire(el);
+  if (typeof MutationObserver!=='undefined') new MutationObserver(()=>navSync()).observe($('#layers'), {attributes:true, attributeFilter:['hidden']});
+  return el; }
+/* №124: docked at the top of the layers panel (as in Photoshop) while the panel is open; dragged out by the title — a
+   floating window, dropped back onto the panel — docked again. The panel closed — it floats. Docked height: the bottom edge. */
+function navDocked(){ const ly=$('#layers'); return !navUI.float && ly && !ly.hidden; }
+function navSync(){ const el=$('#navwin'); if (!el) return; el.hidden=!navUI.open || !doc; const ly=$('#layers'), dock=navDocked();
+  if (dock){ if (el.parentNode!==ly) ly.insertBefore(el, ly.firstChild); el.classList.add('dock'); el.style.left=el.style.top=el.style.width=''; el.style.height=Math.round(navUI.dh||230)+'px'; }
+  else { if (el.parentNode!==$('#stage')) $('#stage').append(el); el.classList.remove('dock'); navPlace(); }
+  if (!el.hidden) requestAnimationFrame(navDraw); }
+function navPlace(){ const el=$('#navwin'); if (!el || el.hidden || el.classList.contains('dock')) return; const st=$('#stage').getBoundingClientRect();
   let w=Math.max(160, Math.min(navUI.w, st.width-20)), h=Math.max(140, Math.min(navUI.h, st.height-20)), x=navUI.x, y=navUI.y;
   if (x==null){ const F=viewFree(); x=F.L+F.W-w-16; y=F.T+16; }
   x=Math.max(6, Math.min(st.width-w-6, x)); y=Math.max(6, Math.min(st.height-h-6, y));
   Object.assign(el.style, {left:x+'px', top:y+'px', width:w+'px', height:h+'px'}); }
-function navToggle(on){ const el=navEl(); navUI.open = on==null ? el.hidden : !!on; navUISave(); el.hidden=!navUI.open || !doc; if (typeof islandSync==='function') islandSync(); if (!el.hidden){ navPlace(); navDraw(); } }
+function navToggle(on){ const el=navEl(); navUI.open = on==null ? el.hidden : !!on; navUISave(); if (typeof islandSync==='function') islandSync(); navSync(); navDraw(); }
 function navGeom(){ const el=$('#navwin'), b=el.querySelector('.nb'), W=b.clientWidth, H=b.clientHeight, pad=8, k=Math.min((W-2*pad)/doc.w, (H-2*pad)/doc.h);
   return {W, H, k, ox:(W-doc.w*k)/2, oy:(H-doc.h*k)/2}; }
 function navFrame(){ const F=viewFree(), x1=F.L+F.W, y1=F.T+F.H; return [[F.L,F.T],[x1,F.T],[x1,y1],[F.L,y1]].map(q=>toDoc(q[0],q[1])); }
@@ -7946,12 +7961,21 @@ function navWire(el){
   b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
   b.addEventListener('wheel', e=>{ e.preventDefault(); e.stopPropagation(); if (!doc) return; const F=viewFree(); navStart(); navEnd(200); zoomAt(F.L+F.W/2, F.T+F.H/2, Math.exp(-e.deltaY*0.0015)); }, {passive:false});
   let d=null; const h=el.querySelector('.nh'), z=el.querySelector('.rz');
-  h.addEventListener('pointerdown', e=>{ if (e.target.closest('button')) return; const r=el.getBoundingClientRect(), st=$('#stage').getBoundingClientRect(); d={m:'move', id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, st}; try{ h.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); e.stopPropagation(); });
-  z.addEventListener('pointerdown', e=>{ const r=el.getBoundingClientRect(); d={m:'size', id:e.pointerId, x0:e.clientX, y0:e.clientY, w0:r.width, h0:r.height}; try{ z.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); e.stopPropagation(); });
-  const mv=e=>{ if (!d || e.pointerId!==d.id) return; if (d.m==='move'){ navUI.x=e.clientX-d.st.left-d.dx; navUI.y=e.clientY-d.st.top-d.dy; } else { navUI.w=Math.max(160, d.w0+e.clientX-d.x0); navUI.h=Math.max(140, d.h0+e.clientY-d.y0); } navPlace(); navDraw(); };
-  const upw=e=>{ if (!d || e.pointerId!==d.id) return; d=null; navUISave(); };
-  for (const x of [h,z]){ x.addEventListener('pointermove', mv); x.addEventListener('pointerup', upw); x.addEventListener('pointercancel', upw); }
-  h.addEventListener('dblclick', e=>{ if (e.target.closest('button')) return; navUI.x=navUI.y=null; navUISave(); navPlace(); });
+  const overPanel=e=>{ const ly=$('#layers'); if (!ly || ly.hidden) return false; const r=ly.getBoundingClientRect(); return e.clientX>=r.left && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom; };
+  h.addEventListener('pointerdown', e=>{ if (e.target.closest('button')) return; e.preventDefault(); e.stopPropagation(); const r=el.getBoundingClientRect(), st=$('#stage').getBoundingClientRect();
+    d={ m: el.classList.contains('dock') ? 'undock' : 'move', id:e.pointerId, x0:e.clientX, y0:e.clientY, dx:e.clientX-r.left, dy:e.clientY-r.top, st }; });
+  z.addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation(); const r=el.getBoundingClientRect(); d={m: el.classList.contains('dock') ? 'dh' : 'size', id:e.pointerId, x0:e.clientX, y0:e.clientY, w0:r.width, h0:r.height}; });
+  window.addEventListener('pointermove', e=>{ if (!d || e.pointerId!==d.id) return;
+    if (d.m==='undock'){ if (Math.hypot(e.clientX-d.x0, e.clientY-d.y0)<24) return; // pulled out of the panel → a floating window under the pen
+      navUI.float=true; d.dx=Math.min(d.dx, (navUI.w||230)-40); d.dy=14; d.m='move'; navSync(); }
+    if (d.m==='move'){ navUI.x=e.clientX-d.st.left-d.dx; navUI.y=e.clientY-d.st.top-d.dy; navPlace(); el.classList.toggle('dropto', overPanel(e)); }
+    else if (d.m==='size'){ navUI.w=Math.max(160, d.w0+e.clientX-d.x0); navUI.h=Math.max(140, d.h0+e.clientY-d.y0); navPlace(); navDraw(); }
+    else if (d.m==='dh'){ const ly=$('#layers'); navUI.dh=Math.max(140, Math.min(ly.clientHeight*0.6, d.h0+e.clientY-d.y0)); el.style.height=Math.round(navUI.dh)+'px'; navDraw(); } });
+  const upw=e=>{ if (!d || e.pointerId!==d.id) return; const m=d.m; d=null; el.classList.remove('dropto');
+    if (m==='move' && navUI.float && overPanel(e)){ navUI.float=false; navSync(); } // dropped onto the layers panel — docked again
+    navUISave(); };
+  window.addEventListener('pointerup', upw); window.addEventListener('pointercancel', upw);
+  h.addEventListener('dblclick', e=>{ if (e.target.closest('button')) return; if (navUI.float){ navUI.float=false; navUISave(); navSync(); } });
   el.addEventListener('pointerdown', e=>e.stopPropagation()); el.addEventListener('wheel', e=>e.stopPropagation(), {passive:true}); }
 window.addEventListener('resize', ()=>{ navPlace(); navDraw(); });
 
@@ -9504,7 +9528,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №123 Навигатор и Рука на Островке — холст пером без скачков'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №124 Навигатор встроен в панель слоёв'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

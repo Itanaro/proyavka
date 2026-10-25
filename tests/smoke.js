@@ -236,7 +236,10 @@ const steps = [
   { name: 'Навигатор: тянуть рамку — холст едет, масштаб тот же; «Рука» Островка — один раз', run: async page => {
       const r = await page.evaluate(async () => {
         const out = {}; setTool('brush'); fitView(); const F = viewFree(), cx = F.L + F.W / 2, cy = F.T + F.H / 2; zoomAt(cx, cy, 4);
-        navToggle(true); await new Promise(r => setTimeout(r, 150)); out.open = !$('#navwin').hidden;
+        showLayers(true); navUI.float = false; navToggle(true); await new Promise(r => setTimeout(r, 150)); out.open = !$('#navwin').hidden;
+        out.docked = $('#navwin').parentNode === $('#layers') && $('#navwin').classList.contains('dock');
+        showLayers(false); await new Promise(r => setTimeout(r, 100)); out.floatsWhenPanelClosed = $('#navwin').parentNode === $('#stage') && !$('#navwin').hidden;
+        showLayers(true); await new Promise(r => setTimeout(r, 100)); out.backInPanel = $('#navwin').parentNode === $('#layers');
         const s0 = view.s, cv0 = contentVer, b = $('#navwin .nb'), g = navGeom(), rr = b.getBoundingClientRect();
         const C = toDoc(cx, cy), at = (x, y) => ({ clientX: rr.left + g.ox + x * g.k, clientY: rr.top + g.oy + y * g.k, pointerId: 9, button: 0, bubbles: true, pointerType: 'pen' });
         b.dispatchEvent(new PointerEvent('pointerdown', at(C[0], C[1]))); b.dispatchEvent(new PointerEvent('pointermove', at(C[0] + 200, C[1] + 300)));
