@@ -388,9 +388,10 @@ body{-webkit-font-smoothing:antialiased}
 .dlg{border-radius:18px}
 .dlg .actions button{border-radius:11px}
 #busy{-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
-#sdq{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:10px;padding:7px 8px 7px 16px;border-radius:999px;background:var(--glass-solid);border:1px solid var(--line);color:var(--fg);font-size:13px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 6px 24px rgba(0,0,0,.25)}
+#sdq{position:absolute;left:50%;top:30px;transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:10px;padding:6px 6px 6px 16px;border-radius:999px;background:var(--glass-bg);border:1px solid var(--glass-edge);color:var(--fg);font-size:13px;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:var(--glass-hi),var(--glass-shadow);white-space:nowrap} /* №126: at the top of the canvas — the selection bar and the island live at the bottom */
+#stage.lyopen #sdq{left:calc((100% - 306px)/2)}
 #sdq[hidden]{display:none}#sdq span::before{content:'✦ ';color:var(--ai)}
-#sdq button{width:26px;height:26px;border-radius:50%;border:0;background:var(--soft);color:var(--muted);font-size:12px;cursor:pointer}
+#sdq button{width:28px;height:28px;border-radius:50%;border:0;background:var(--soft-2);color:var(--muted);font-size:12px;cursor:pointer} #sdq button:hover{color:var(--fg);background:var(--soft-3)}
 [data-logo]{clip-path:inset(0 round 22.5%);display:block}
 #splash [data-logo]{filter:drop-shadow(0 18px 40px rgba(0,0,0,.5))}
 
@@ -445,8 +446,9 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 .tb{border-radius:13px}
 #rail .tb{width:46px;height:46px;border-radius:15px}
 #rail .tb,#rail .vs,#rail .vlabel{flex:none}
-@media (max-height:900px){ #rail .vs{height:110px} #rail{gap:4px} }
-@media (max-height:780px){ #rail .vs{height:78px} #rail .tb{width:42px;height:42px} }
+#rail .vs{flex:1 1 150px;height:auto;min-height:52px;max-height:150px} /* №126 sliders give way so the column always fits */
+@media (max-height:900px){ #rail{gap:4px} }
+@media (max-height:780px){ #rail .tb{width:42px;height:42px} }
 .tb.on,#flyout button.on,.seg button.on,.fbar .pri,.dlg .actions .pri,#brushPop .bfoot .pri{background:var(--accent-grad);color:var(--accent-ink);box-shadow:var(--accent-lift)}
 .tb.on svg{filter:drop-shadow(0 1px 0 rgba(255,255,255,.35))}
 .tb:active:not(.on),.fbar button:active:not(.pri),#flyout button:active:not(.on),#menu button:active{background:var(--soft-3)}
@@ -613,7 +615,7 @@ body.home #menu [data-m=place],body.home #menu [data-m=save],body.home #menu [da
 #critbar .crn i,#pupbar .crn i{font-style:normal;font-weight:600;font-size:13px}
 #critbar .crn em,#pupbar .crn em{font-style:normal;color:var(--muted);font-size:12.5px}
 
-#lyCtx{min-width:220px;display:flex;flex-direction:column;border-radius:14px;padding:6px;position:fixed;z-index:60}
+#lyCtx{min-width:220px;display:flex;flex-direction:column;border-radius:14px;padding:6px;position:fixed;z-index:60;max-height:calc(100vh - 24px);overflow-y:auto;overscroll-behavior:contain} /* №126: the island's tile menu is taller than a small screen */
 #lyCtx button{text-align:left;height:34px;padding:0 12px;border-radius:9px;display:flex;justify-content:space-between;align-items:center;gap:16px;white-space:nowrap}
 #lyCtx button:hover{background:var(--soft-3)} #lyCtx button.dg{color:#ff8a7a} #lyCtx small{color:var(--muted);font-family:var(--mono);font-size:11px} #lyCtx .aih{font-size:11px;color:var(--muted);padding:4px 12px 4px}
 #imgmenu{top:72px;left:200px;width:330px;display:flex;flex-direction:column;border-radius:20px;padding:8px}
@@ -767,15 +769,15 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 /* №104: reference window (PureRef-like): pictures of the brief, assets, locations; kept with the document */
 #refwin{position:absolute;z-index:9;display:flex;flex-direction:column;min-width:220px;min-height:180px;border-radius:18px;background:var(--glass-work);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);overflow:hidden}
 #refwin[hidden],.hideui #refwin,body.home #refwin{display:none!important}
-#navwin{position:absolute;z-index:9;display:flex;flex-direction:column;min-width:160px;min-height:140px;border-radius:16px;background:var(--glass-work);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);overflow:hidden}
+#navwin{position:absolute;z-index:9;display:flex;flex-direction:column;min-width:160px;min-height:140px;border-radius:18px;background:var(--glass-work);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);overflow:hidden}
 #navwin[hidden],.hideui #navwin:not(.dock),body.home #navwin{display:none!important}
 #navwin.dropto{outline:2px dashed var(--accent);outline-offset:3px}
-#navwin .nh{display:flex;align-items:center;gap:4px;padding:5px 5px 5px 12px;cursor:move;touch-action:none;user-select:none;-webkit-user-select:none;border-bottom:1px solid var(--line-soft)}
-#navwin .nh b{font-size:12.5px;font-weight:600} #navwin .nh span{flex:1;color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap}
-#navwin .nh button{height:26px;min-width:26px;padding:0 6px;border-radius:8px;color:var(--muted);font-size:12px} #navwin .nh button:hover{background:var(--soft-2);color:var(--fg)}
+#navwin .nh{display:flex;align-items:center;gap:4px;padding:6px 6px 6px 12px;cursor:move;touch-action:none;user-select:none;-webkit-user-select:none;border-bottom:1px solid var(--line-soft)}
+#navwin .nh b{font-size:13px;font-weight:600} #navwin .nh span{flex:1;color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap}
+#navwin .nh button{height:28px;min-width:28px;padding:0 7px;border-radius:9px;color:var(--muted);font-size:12px} #navwin .nh button:hover{background:var(--soft-2);color:var(--fg)}
 #navwin .nb{flex:1;min-height:0;position:relative;touch-action:none;cursor:pointer} #navwin .nb canvas{position:absolute;inset:0;width:100%;height:100%}
 #layers #navwin.dock{position:relative;left:auto!important;top:auto!important;width:auto!important;flex:none;min-height:0;border:0;border-bottom:1px solid var(--line-soft);border-radius:0;box-shadow:none;background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;z-index:auto;overflow:visible}
-#navwin.dock .nh{padding:10px 8px 6px 18px;border-bottom:0;cursor:grab} #navwin.dock .nh b{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#navwin.dock .nh{padding:14px 14px 8px 18px;border-bottom:0;cursor:grab} #navwin.dock .nh button{height:32px;min-width:32px;padding:0} /* №126: in line with «Слои» */ #navwin.dock .nh b{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 #navwin.dock .nb{margin:0 10px 10px;border-radius:12px;overflow:hidden;background:var(--soft)}
 #navwin.dock .rz{left:0;right:0;bottom:-5px;width:auto;height:10px;cursor:ns-resize;background:none;opacity:1}
 #navwin.dock .rz::after{content:'';position:absolute;left:50%;top:3px;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line);transition:background .15s} #navwin.dock .rz:hover::after{background:var(--accent)}
@@ -806,7 +808,8 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 #refwin .rv.framing .rcrop i{display:block} #refwin .rcrop .nw{left:0;top:0} #refwin .rcrop .ne{left:100%;top:0} #refwin .rcrop .sw{left:0;top:100%} #refwin .rcrop .se{left:100%;top:100%}
 #refwin .rtc{position:absolute;box-sizing:border-box;border:1.5px solid var(--accent);border-radius:3px;box-shadow:0 0 0 999px color-mix(in srgb,var(--bg) 45%,transparent);pointer-events:none}
 #refwin .rvb button{height:30px;padding:0 11px;border-radius:10px;font-size:12px;background:var(--glass-solid);border:1px solid var(--glass-edge);color:var(--fg)}
-#refwin .rvb button:hover{background:var(--accent);color:var(--accent-ink)}
+#refwin .rvb button:hover{background:var(--soft-2)}
+#refwin .rvb button.on,#refwin .rvb button.on:hover{background:var(--accent);color:var(--accent-ink);border-color:transparent} /* №126: «on» differs from hover */
 #refwin .rz{position:absolute;right:2px;bottom:2px;width:18px;height:18px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 55%,var(--muted) 55%,var(--muted) 62%,transparent 62%,transparent 72%,var(--muted) 72%,var(--muted) 79%,transparent 79%);opacity:.6;z-index:2}
 #aibar .drefs > button.fromrefs{border:1px solid color-mix(in srgb,var(--accent) 45%,transparent)}
 .gradsw{width:64px;height:18px;border-radius:5px;border:1px solid var(--line,rgba(127,127,127,.4));padding:0!important;flex:none}
@@ -1040,7 +1043,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <button data-m="save" class="deskonly">Сохранить <small>Ctrl+S</small></button>
     <button data-m="saveas" class="deskonly">Сохранить как… <small>Ctrl+Shift+S</small></button>
     <button data-m="psd" class="padonly">Сохранить PSD <small>со слоями</small></button>
-    <button data-m="deliver">Сдать кат… <small>PSD + PNG 1500×2000, с проверкой</small></button>
+    <button data-m="deliver">Сдать кат… <small>PSD + PNG, с проверкой</small></button>
     <div class="mrow"><span>Экспорт</span><button data-m="png">PNG</button><button data-m="png50" title="PNG, 50% — превью">PNG ½</button><button data-m="jpg">JPG</button></div>
     <hr class="padonly">
     <button data-m="crop" class="padonly">Кадрировать <small>C</small></button>
@@ -1230,7 +1233,7 @@ function createDoc(w,h,name='Без названия'){
   tabsLeave();
   clearHistory(); sel=null; xf=null; stroke=null; strokeBuf=null;
   resetDocState();
-  doc = { id:newDocId(), owner:acctId(), keys:[], w, h, name, layers:[], active:0, editMask:false };
+  doc = { id:newDocId(), owner:acctId(), keys:[], w, h, name, dpi:300, layers:[], active:0, editMask:false }; // №126: 300 ppi by the standard
   doc.layers.push(Object.assign(newLayer('Фон', true)));
   doc.layers.push(newLayer('Слой 1'));
   doc.active = 1;
@@ -1455,10 +1458,10 @@ function getChecker(){
 let navigating=false, navT=null, contentVer=1, preview=null, previewVer=0;
 function navStart(){ navigating=true; clearTimeout(navT); }
 let pvT=null;
-function bumpContent(){ contentVer++; clearTimeout(pvT); pvT=setTimeout(function pv(){ if(!doc) return; if (navigating || stroke || xf || liqStroke || toolPtr!==null || hover){ pvT=setTimeout(pv,700); return; } getPreview(); navDraw(); }, 900); } // the navigation copy is rebuilt in a pause, not between strokes
+function bumpContent(){ contentVer++; clearTimeout(pvT); let waits=0; pvT=setTimeout(function pv(){ if(!doc) return; if (navigating || stroke || xf || liqStroke || toolPtr!==null || (hover && waits<5)){ waits++; pvT=setTimeout(pv,700); return; } getPreview(); navDraw(); }, 900); } // №126: a resting mouse delays the thumbnail by ~4 s at most // the navigation copy is rebuilt in a pause, not between strokes
 function navEnd(delay=90){ clearTimeout(navT); navT=setTimeout(()=>{ navigating=false; requestRender(); }, delay); }
 function getPreview(){
-  if (preview && previewVer===contentVer) return preview;
+  if (preview && previewVer===contentVer && preview._doc===doc) return preview; // №126: never another tab's picture
   const k=Math.min(1, 2560/Math.max(doc.w,doc.h)), w=Math.round(doc.w*k), h=Math.round(doc.h*k);
   if (!preview || preview.width!==w || preview.height!==h) preview=mk(w,h);
   const x=ctx2(preview); x.setTransform(1,0,0,1,0,0); x.globalAlpha=1; x.globalCompositeOperation='source-over';
@@ -1467,7 +1470,7 @@ function getPreview(){
   composeTree(x, (x,L)=>{ let src=L.canvas;
     if (L.mask&&L.mask.enabled){ tmp=tmp||mk(w,h); const t=ctx2(tmp); t.globalCompositeOperation='source-over'; t.clearRect(0,0,w,h); t.drawImage(L.canvas,0,0,w,h); t.globalCompositeOperation='destination-in'; t.drawImage(L.mask.canvas,0,0,w,h); src=tmp; }
     x.globalAlpha=L.opacity; blendDraw(x, L.blend, src,0,0,w,h); }, {map:(c,cv)=>c.drawImage(cv,0,0,w,h)});
-  x.globalAlpha=1; x.globalCompositeOperation='source-over'; previewVer=contentVer; return preview;
+  x.globalAlpha=1; x.globalCompositeOperation='source-over'; previewVer=contentVer; preview._doc=doc; return preview;
 }
 function renderStrokePart(){
   const W=vc.width, H=vc.height, L=liveLayer(); if (!L || comp.width!==W || comp.height!==H) return false;
@@ -3192,7 +3195,7 @@ function lqSession(L){
   return liq;
 }
 const LIQ_MODES=[['push','Сдвиг'],['bloat','Вздутие'],['pinch','Сжатие'],['twirl','Скручивание'],['rec','Восстановление']];
-function liqBegin(p, pressure){
+function liqBegin(p, pressure){ if (typeof pup!=='undefined' && pup) return;
   if (liqStroke) liqEnd(false);
   if (filt||harm){ toast('Сначала примени или отмени фильтр'); return false; }
   if (!pixelOnly()) return false; const L=AL();
@@ -3379,9 +3382,11 @@ async function cloudFetch(url, opt={}){
   return r; }
 let netSess=null; // the panel whose Stop button aborts the current request (gen-fill or object move)
 async function netFetch(url, opt={}, ms=30000){ // fetch with a timeout and Russian error words
-  const ss=netSess||gen, ctl=new AbortController(), T=setTimeout(()=>ctl.abort(), ms); if (ss) ss.abort=ctl;
-  try{ const r=await cloudFetch(url, Object.assign({mode:'cors', signal:ctl.signal}, opt)); if (!r.ok){ const t=(await r.text().catch(()=>'')).slice(0,240); throw new Error(r.status===401||r.status===403 ? 'ключ не подошёл ('+r.status+')' : r.status===402||/balance|credit|quota/i.test(t) ? 'закончился баланс' : 'HTTP '+r.status+' '+t); } return r; }
-  catch(e){ if (e.name==='AbortError') throw new Error(ss&&ss.cancelled?'cancel':'сервис не ответил'); if (/Load failed|Failed to fetch|NetworkError/i.test(e.message)) throw new Error('нет связи с сервисом (VPN?)'); throw e; }
+  const ext=opt.signal, ss=ext ? null : (netSess||gen), ctl=new AbortController(), T=setTimeout(()=>ctl.abort(), ms); if (ss) ss.abort=ctl;
+  // №126: the caller's own stop signal and the timeout both work (before, the caller's signal replaced the timeout)
+  if (ext){ if (ext.aborted) ctl.abort(); else ext.addEventListener('abort', ()=>ctl.abort(), {once:true}); }
+  try{ const r=await cloudFetch(url, Object.assign({mode:'cors'}, opt, {signal:ctl.signal})); if (!r.ok){ const t=(await r.text().catch(()=>'')).slice(0,240); throw new Error(r.status===401||r.status===403 ? 'ключ не подошёл ('+r.status+')' : r.status===402||/balance|credit|quota/i.test(t) ? 'закончился баланс' : 'HTTP '+r.status+' '+t); } return r; }
+  catch(e){ if (e.name==='AbortError') throw new Error((ss&&ss.cancelled)||(ext&&ext.aborted)?'cancel':'сервис не ответил'); if (/Load failed|Failed to fetch|NetworkError/i.test(e.message)) throw new Error('нет связи с сервисом (VPN?)'); throw e; }
   finally{ clearTimeout(T); } }
 /* cloud: FLUX.1 Fill [pro] on fal.ai — the key lives only on this iPad (for colleagues later: a small proxy keeps keys) */
 async function falFill(P, prompt, n){
@@ -3966,16 +3971,21 @@ async function bridgePick(force){
   return BR.busy; }
 setTimeout(()=>bridgePick(true), 1500); setInterval(()=>{ if (document.visibilityState==='visible') bridgePick(); }, 45000);
 document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible') bridgePick(true); }); window.addEventListener('online', ()=>bridgePick(true));
+// №126: «this computer has its own bridge» — the PC app, ?pc=1, or a local bridge already seen (not just any desktop browser)
+const onPC = () => (typeof IS_ELECTRON!=='undefined' && IS_ELECTRON) || /[?&]pc=1/.test(location.search) || !!BR.local;
 async function sdFetch(path, opt={}, ms=30000){ if (!sdBase() && IS_DESK) await pcAutoConnect(); if (!sdBase()) throw new Error('нужен адрес моста — кнопка ⚙');
   try{ return await netFetch(sdBase()+path, opt, ms); }
-  catch(e){ if (/нет связи/.test(e.message) && IS_DESK && await pcAutoConnect() && BR.local!==sdBase()){ BR.base=BR.local; BR.at=Date.now(); return await netFetch(BR.local+path, opt, ms); } // №115: the PC app — back to the local bridge
-    if (/нет связи/.test(e.message) && IS_DESK && !(await pcAutoConnect())){ // №117: the bridge on this PC is down — the PC app restarts it within ~30 s; wait for it once
-      const t0=Date.now(); let up=false; toast('Мост на этом компьютере не отвечает — жду, пока поднимется…',3500);
-      while (!up && Date.now()-t0<40000){ await new Promise(r=>setTimeout(r,3000)); up=await pcAutoConnect(); }
-      if (up) return await netFetch(BR.local+path, opt, ms);
-      throw new Error('мост на этом компьютере не запущен — закрой и открой Проявку заново или запусти «Перезапустить мост Проявки» на рабочем столе'); }
-    if (/нет связи/.test(e.message)){ const was=sdBase(), nb=await bridgePick(true); if (nb && nb!==was) return await netFetch(nb+path, opt, ms); } // left home / came back: the other address
-    if (/нет связи/.test(e.message)) throw new Error('компьютер не отвечает: мост запущен? iPad в той же Wi-Fi (или включён Tailscale)? сертификат установлен?'); throw e; } }
+  catch(e){ if (!/нет связи/.test(e.message)) throw e;
+    if (onPC()){ const was=sdBase(), up0=await pcAutoConnect();
+      if (up0 && BR.local!==was){ BR.base=BR.local; BR.at=Date.now(); return await netFetch(BR.local+path, opt, ms); } // №115: the PC app — back to the local bridge
+      if (!up0){ // №117: the bridge on this PC is down — the PC app restarts it within ~30 s; wait for it once (✕ stops the wait)
+        const t0=Date.now(); let up=false; toast('Мост на этом компьютере не отвечает — жду, пока поднимется…',3500);
+        while (!up && Date.now()-t0<40000 && !(opt.signal && opt.signal.aborted)){ await new Promise(r=>setTimeout(r,3000)); up=await pcAutoConnect(); }
+        if (up) return await netFetch(BR.local+path, opt, ms);
+        if (opt.signal && opt.signal.aborted) throw e;
+        throw new Error('мост на этом компьютере не запущен — закрой и открой Проявку заново или запусти «Перезапустить мост Проявки» на рабочем столе'); } }
+    const was=sdBase(), nb=await bridgePick(true); if (nb && nb!==was) return await netFetch(nb+path, opt, ms); // left home / came back: the other address
+    throw new Error('компьютер не отвечает: мост запущен? iPad в той же Wi-Fi (или включён Tailscale)? сертификат установлен?'); } }
 let sdModelsCache=null;
 async function sdModels(){ const r=await (await sdFetch('/sdapi/v1/sd-models',{},15000)).json(); sdModelsCache=(r||[]).map(m=>m.title); return sdModelsCache; }
 async function sdPing(){ const j=await (await sdFetch('/bridge/ping',{},8000)).json(); let n=0; try{ n=(await sdModels()).length; }catch(e){ return 'мост на связи ('+(j.host||'ПК')+'), но Automatic1111 не отвечает — запусти webui'; }
@@ -4060,27 +4070,35 @@ async function sdGo(){
    the model as it is in Automatic1111; the result lies as a layer «SD …» with the selection as its mask, one undo. Work goes on meanwhile. */
 let sdq=null;
 function sdqChip(t){ let c=$('#sdq'); if (!t){ if (c) c.hidden=true; if (typeof islandSync==='function') islandSync(); return; }
-  if (!c){ c=document.createElement('div'); c.id='sdq'; c.innerHTML='<span></span><button aria-label="Остановить">✕</button>'; $('#app').append(c);
-    c.lastChild.onclick=()=>{ if (!sdq) return; sdq.cancelled=true; fetch(sdBase()+'/sdapi/v1/interrupt',{method:'POST'}).catch(()=>{}); try{ sdq.abort.abort(); }catch(e){} }; }
-  c.firstChild.textContent=t; c.hidden=false; if (typeof islandSync==='function') islandSync(); }
+  if (!c){ c=document.createElement('div'); c.id='sdq'; c.innerHTML='<span></span><button aria-label="Остановить">✕</button>'; $('#stage').append(c);
+    c.lastChild.onclick=()=>{ if (sdStart.wait){ sdStart.wait.stop=true; return; } if (!sdq) return; sdq.cancelled=true; fetch(sdBase()+'/sdapi/v1/interrupt',{method:'POST'}).catch(()=>{}); try{ sdq.abort.abort(); }catch(e){} }; }
+  c.firstChild.textContent=t; c.hidden=false; // №126: just under the top bar and the rulers — the stage runs under the glass bars
+  try{ c.style.top=Math.round($('#top').getBoundingClientRect().bottom-$('#stage').getBoundingClientRect().top+34)+'px'; }catch(_){ }
+  if (typeof islandSync==='function') islandSync(); }
 async function sdPreset(){ // the Photoshop plugin's own prompt; an older bridge or no plugin — Проявка's saved SD prompt
-  try{ const r=await fetch(sdBase()+'/proyavka/sdpreset',{cache:'no-store'}); if (r.ok){ const j=await r.json(); if (j && typeof j.prompt==='string') return {prompt:j.prompt, neg:j.neg||'', from:'ps'}; } }catch(e){}
+  try{ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),8000); if (sdq) sdq.abort.signal.addEventListener('abort',()=>ctl.abort(),{once:true}); const r=await fetch(sdBase()+'/proyavka/sdpreset',{cache:'no-store', signal:ctl.signal}); clearTimeout(T); if (r.ok){ const j=await r.json(); if (j && typeof j.prompt==='string') return {prompt:j.prompt, neg:j.neg||'', from:'ps'}; } }catch(e){}
   return {prompt:genCfg.sdPrompt||'', neg:genCfg.sdNeg||'', from:'own'}; }
 async function sdStart(then){ // №115: the bridge starts Automatic1111 hidden; when it answers — go on
+  if (sdStart.wait){ toast('Stable уже запускается — подожди немного',1800); return; } // №126: one start at a time
   try{ const j=await (await sdFetch('/proyavka/sdstart',{method:'POST'},15000)).json(); if (j.state==='running'){ if (then) then(); return; } }
-  catch(e){ toast('Не запустился: '+(/HTTP 404/.test(e.message)?'мост старой версии':e.message),4000); return; }
-  sdqChip('Stable запускается… обычно минута-две'); const t0=Date.now();
-  while (Date.now()-t0<300000){ await new Promise(r=>setTimeout(r,4000));
-    try{ const r=await fetch(sdBase()+'/sdapi/v1/sd-models',{cache:'no-store'}); if (r.ok){ sdqChip(null); sdModelsCache=null; toast('Stable готов',1500); if (then) then(); return; } }catch(e){}
-    sdqChip('Stable запускается… '+Math.round((Date.now()-t0)/1000)+' с'); }
-  sdqChip(null); toast('Stable не ответил за 5 минут — загляни в sd-autostart.log рядом с мостом',5000); }
+  catch(e){ let m=e.message||''; try{ const k=m.indexOf('{'); if (k>=0){ const jj=JSON.parse(m.slice(k)); if (jj.error) m=jj.error; } }catch(_){ }
+    toast('Stable не запустился: '+(/HTTP 404/.test(e.message)?'мост старой версии — обнови мост':m),4000); return; }
+  const w=sdStart.wait={stop:false}; sdqChip('Stable запускается… обычно минута-две'); const t0=Date.now();
+  try{
+    while (Date.now()-t0<300000 && !w.stop){ await new Promise(r=>setTimeout(r,4000)); if (w.stop) break;
+      try{ const r=await fetch(sdBase()+'/sdapi/v1/sd-models',{cache:'no-store'}); if (r.ok){ sdqChip(null); sdModelsCache=null; toast('Stable готов',1500); if (then) then(); return; } }catch(e){}
+      sdqChip('Stable запускается… '+Math.round((Date.now()-t0)/1000)+' с'); }
+    sdqChip(null);
+    if (w.stop) toast('Не жду Stable — он догрузится сам, F2 сработает, когда будет готов',3200);
+    else toast('Stable не ответил за 5 минут — попробуй ещё раз; если повторится, скажи Claude',5000);
+  } finally{ sdStart.wait=null; } }
 const sdDown = e => /Automatic1111 не запущен/.test(e && e.message || '');
 async function sdQuick(){
   if (!doc) return; if (sdq){ toast('SD ещё считает прошлое выделение',1500); return; }
-  if (!sel){ toast('Сначала выдели участок — F2 прогонит его через SD, как в Фотошопе',2600); return; }
+  if (!sel){ toast(IS_DESK ? 'Сначала выдели участок — F2 прогонит его через SD, как в Фотошопе' : 'Сначала выдели участок — SD-ретушь прогонит его через Stable на компьютере',2600); return; }
   if (!sdBase()){ toast('Нужен адрес моста — открываю настройки',2200); genSettings('sd'); return; }
   if (panelBusy && panelBusy()) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
-  const D=doc, q=sdq={cancelled:false, abort:new AbortController()}; let polling=true;
+  const D=doc, W0=doc.w, H0=doc.h, q=sdq={cancelled:false, abort:new AbortController()}; let polling=true;
   try{
     const P=sdPrep(), selMask=mk(D.w,D.h); ctx2(selMask).drawImage(sel.mask,0,0);
     sdqChip('SD-ретушь · отправляю…');
@@ -4096,7 +4114,7 @@ async function sdQuick(){
     if (q.cancelled) throw new Error('cancel');
     const imgs=r.images||[]; if (!imgs.length) throw new Error(r.error||r.detail||'Automatic1111 не вернул картинку');
     const bm=await createImageBitmap(await (await fetch('data:image/png;base64,'+String(imgs[imgs.length-1]).split(',').pop())).blob());
-    if (doc!==D){ bm.close&&bm.close(); toast('Документ сменился — результат SD не положила',3000); return; }
+    if (doc!==D || doc.w!==W0 || doc.h!==H0){ bm.close&&bm.close(); toast(doc!==D ? 'Документ сменился — результат SD не положила' : 'Размер кадра изменился — результат SD не положила',3000); return; } // №126
     const tag=(pr.prompt||'retouch').trim().slice(0,40), L=newLayer('SD '+tag);
     L.ctx.imageSmoothingQuality='high'; L.ctx.drawImage(bm, P.r.x, P.r.y, P.r.w, P.r.h); bm.close&&bm.close();
     const m=newMask(L); m.ctx.clearRect(0,0,D.w,D.h); m.ctx.drawImage(selMask,0,0); L.mask=m;
@@ -4925,6 +4943,15 @@ async function loadMigan(){
    Measure the fine noise in a ring around the hole, add the missing part as matching grain inside the hole. */
 function distOut(m, W, H, on){ const g=new Float32Array(W*H); for (let i=0;i<g.length;i++) g[i]=on(m[i])?0:1e20; edt2d(g,W,H); for (let i=0;i<g.length;i++) g[i]=Math.sqrt(g[i]); return g; }
 function regrain(D, G, hole, W, H){ // D original RGBA, G generated RGBA (changed in place), hole: Uint8 0/1
+  // №126: only around the hole (its box + the 14 px ring + blur margin) — a long stroke over the whole picture won't eat the iPad's memory
+  let x0=W,y0=H,x1=-1,y1=-1; for (let y=0;y<H;y++){ const o=y*W; for (let x=0;x<W;x++) if (hole[o+x]){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  if (x1<0) return G; const M=20; x0=Math.max(0,x0-M); y0=Math.max(0,y0-M); x1=Math.min(W-1,x1+M); y1=Math.min(H-1,y1+M);
+  const w=x1-x0+1, h=y1-y0+1, N=w*h, sub=(A,k)=>{ const o=new (A.constructor)(N*k); for (let y=0;y<h;y++) o.set(A.subarray(((y+y0)*W+x0)*k, ((y+y0)*W+x0+w)*k), y*w*k); return o; };
+  const d4=sub(D,4), g4=sub(G,4), hs=sub(hole,1); regrain0(d4, g4, hs, w, h);
+  for (let y=0;y<h;y++) G.set(g4.subarray(y*w*4, (y+1)*w*4), ((y+y0)*W+x0)*4);
+  return G;
+}
+function regrain0(D, G, hole, W, H){
   const N=W*H, dd=distOut(hole,W,H,v=>v>0);
   const hp=(src)=>{ const o=[]; for (let c=0;c<3;c++){ const f=new Float32Array(N); for (let i=0;i<N;i++) f[i]=src[i*4+c]; const b=gauss(Float32Array.from(f),W,H,1.2); for (let i=0;i<N;i++) f[i]-=b[i]; o.push(f); } return o; };
   const ho=hp(D), hg=hp(G), add=[0,0,0];
@@ -4942,7 +4969,7 @@ function regrain(D, G, hole, W, H){ // D original RGBA, G generated RGBA (change
    (256 px, 128 px of context around each); before it shrank the whole area to one 512 crop — soft, smeared, lighter. */
 async function migaNative(r, D, hole){
   const W=r.w, H=r.h, T=256, OV=32, MG=128, step=T-OV;
-  const out=new Float32Array(W*H*4); for (let i=0;i<W*H;i++){ const a=D[i*4+3]/255; out[i*4]=D[i*4]*a; out[i*4+1]=D[i*4+1]*a; out[i*4+2]=D[i*4+2]*a; out[i*4+3]=255; }
+  /* №126: 8-bit work buffer (memory on the iPad) */ const out=new Uint8ClampedArray(W*H*4); for (let i=0;i<W*H;i++){ const a=D[i*4+3]/255; out[i*4]=D[i*4]*a; out[i*4+1]=D[i*4+1]*a; out[i*4+2]=D[i*4+2]*a; out[i*4+3]=255; }
   let x0=W,y0=H,x1=-1,y1=-1; for (let y=0;y<H;y++) for (let x=0;x<W;x++) if (hole[y*W+x]){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
   if (x1<0) return out;
   const done=new Uint8Array(W*H);
@@ -5010,29 +5037,37 @@ async function generateFill(r, D, hole, method, opt){
     for (let i=0;i<N4;i++) res4[i*4+c]= c===3 ? 255 : base[i*4+c] + (f[i]-bl[i]); }
   return res4;
 }
-function writeFill(r, D, G, soft, name){ setTimeout(()=>{ clearTimeout(saveT); saveT=setTimeout(autosave,1500); },0); // soft: 0..255 blend mask
+function writeFill(r, D, G, soft, name, LT, allT){ const ALL = allT===undefined ? S.retouchAll : allT; setTimeout(()=>{ clearTimeout(saveT); saveT=setTimeout(autosave,1500); },0); // soft: 0..255 blend mask
   const N=r.w*r.h, res=new ImageData(r.w,r.h), d=res.data;
-  if (S.retouchAll){
+  if (ALL){
     for (let i=0;i<N;i++){ const j=i*4; d[j]=G[j]; d[j+1]=G[j+1]; d[j+2]=G[j+2]; d[j+3]=soft[i]; }
     const L=newLayer(name); L.ctx.putImageData(res,r.x,r.y); insertLayer(L, doc.active+1, name+' — на новом слое');
   } else {
-    const L=AL(), before=grab(L.canvas,r);
+    const L=LT||AL(), before=grab(L.canvas,r);
     for (let i=0;i<N;i++){ const j=i*4, a=soft[i]/255; d[j]=D[j]+(G[j]-D[j])*a; d[j+1]=D[j+1]+(G[j+1]-D[j+1])*a; d[j+2]=D[j+2]+(G[j+2]-D[j+2])*a; d[j+3]=D[j+3]+(255-D[j+3])*a; }
     L.ctx.putImageData(res,r.x,r.y); pushHist(pxEntry(L.canvas,r.x,r.y,r.w,r.h,before)); L.dirty=true; thumbSoon(L);
   }
   markDirty(); requestRender();
 }
-async function runRemoval(holeDoc, bb, method, name, lite){
+/* №126 removals go one after another (a series of quick strokes queues up), and each result goes back to the document and layer
+   it was taken from — work goes on while it computes, so the active layer or tab may have changed meanwhile. */
+let removalQ=Promise.resolve(), removalN=0;
+function runRemoval(holeDoc, bb, method, name, lite){ removalN++;
+  const p=removalQ.then(()=>runRemoval0(holeDoc, bb, method, name, lite)).catch(e=>console.error(e)).finally(()=>{ removalN--; if (lite && !removalN) inpaintPendEnd(); });
+  removalQ=p; return p; }
+async function runRemoval0(holeDoc, bb, method, name, lite){
   if (method==='ai'){ trimHistory(100); retouchCache=null; wandCache=null; } // holeDoc(x,y region reader): Uint8 alpha over bb
+  if (!doc) return;
   if (!S.retouchAll && !pixelOnly()) return;
   if (!S.retouchAll && !shown(AL())){ toast('Слой скрыт'); return; }
+  const D0=doc, L0=S.retouchAll ? null : AL(), all=!!S.retouchAll;
   inpaintBusy=true; if (lite) busyLite=true;
   try{
     const side=Math.max(bb.w,bb.h);
     // №125 how thick is the hole? hairs and thin strokes go tile by tile at full scale, wide areas through one crop
     let thin=false;
     if (method==='ai'){ const r0=clipRect(bb.x-2, bb.y-2, bb.w+4, bb.h+4), a0=holeDoc(r0), din=distOut(a0, r0.w, r0.h, v=>v===0);
-      let mx=0; for (let i=0;i<din.length;i++) if (a0[i] && din[i]>mx) mx=din[i]; thin = mx>0 && mx<=100; }
+      let mx=0; for (let i=0;i<din.length;i++) if (a0[i] && din[i]>mx) mx=din[i]; thin = !!lite && mx>0 && mx<=100; } // brush strokes only: a selected object keeps the wider halo
     const mg = thin ? 160 : Math.round(Math.max(48, side*(method==='ai'?0.9:0.7)));
     const r=clipRect(bb.x-mg, bb.y-mg, bb.w+2*mg, bb.h+2*mg), N=r.w*r.h;
     const raw=holeDoc(r);
@@ -5047,11 +5082,13 @@ async function runRemoval(holeDoc, bb, method, name, lite){
     const D=destPixels(r);
     busy(true, method==='ai'?'Нейросеть дорисовывает…':'Заполняю…'); await nextFrame();
     const G=await generateFill(r, D, soft, method, opt);
-    writeFill(r, D, G, soft, name);
     busy(false);
+    if (doc!==D0 || (L0 && !D0.layers.includes(L0))){ toast(name+': документ или слой сменился — результат не вставлен',3000); return; }
+    // fresh pixels outside the hole: a stroke painted meanwhile next to it stays
+    writeFill(r, all ? destPixels(r) : regionPixels(L0.canvas, r.x, r.y, r.w, r.h), G, soft, name, L0, all);
   }catch(err){ console.error(err); busy(false);
     toast(err&&err.message==='cancel' ? 'Загрузка модели отменена' : 'Не получилось: '+(err&&err.message||'ошибка'),4500); }
-  finally{ inpaintBusy=false; if (lite){ busyLite=false; inpaintPendEnd(); } requestRender(); }
+  finally{ inpaintBusy=false; if (lite) busyLite=false; requestRender(); }
 }
 /* №112 while the brush removal is computing, its red mark stays on the picture and gently pulses — no dimmed screen */
 let inpaintPend=null;
@@ -5437,7 +5474,7 @@ function contentBBox(c){
   return x1<0 ? null : {x:x0,y:y0,w:x1-x0+1,h:y1-y0+1};
 }
 function beginTransform(opts={}){
-  if (xf) return;
+  if (xf) return; if (typeof pup!=='undefined' && pup){ toast('Сначала примени или отмени Марионетку'); return; } // №126: not both at once
   if (!opts.float && pickedMany()){ beginGroupTransform(opts, pickTops()); return; } // several picked layers / groups — one frame for all of them
   if (!opts.float && isGroup(AL())){ beginGroupTransform(opts); return; }
   const L=AL(); if(!shown(L)){ toast('Слой скрыт'); return; }
@@ -6060,7 +6097,9 @@ $('#lyClose').onclick=()=>showLayers(false);
 /* ============ tools & options UI ============ */
 const tipOnce = k => { try{ if (localStorage.getItem('proyavka.tip.'+k)) return true; localStorage.setItem('proyavka.tip.'+k,'1'); }catch(e){} return false; }; // №112 a tool hint is shown once, not on every switch
 function setTool(t, internal){
+  if (penHand && !internal){ penHand=false; try{ islandSync(); }catch(_){} } // №126: picking a tool cancels the one-time «Рука»
   if (xf && t!=='transform' && !internal){ toast('Сначала примени или отмени трансформ'); return; }
+  if (pup && !internal && (t==='transform' || t==='liquify')){ toast('Сначала примени или отмени Марионетку'); return; } // №126
   const prev=S.tool; if (prev==='depth' && t!=='depth' && dep) depthClose(); if (prev==='liquify' && t!=='liquify') liqLeave(); S.tool=t; if (t==='depth' && !dep) setTimeout(depthOpen,0); if (t!=='tap') tapSess=null; if (t==='picker' && prev!=='picker' && !internal) pickerBack=(prev==='brush'||prev==='eraser'||prev==='clone'||prev==='heal')?prev:'brush'; retouchCache=null; if (t!=='wand'){ wandCache=null; wandPrev=null; } else if (prev!=='wand' && !internal) toast('Тап — выделить по цвету. Тап и тянуть вбок — допуск на лету',3200);
   if (t!==prev && !internal){ if (t==='remove'){ if (!tipOnce('remove')) toast('Закрась то, что убрать, и отпусти — нейросеть дорисует фон. Пока считает, мазок слегка мерцает. Первый раз скачает модель ~28 МБ',4200); }
     else if (t==='liquify'){ if (!tipOnce('liquify')) toast('Пластика: веди карандашом — картинка тянется за ним. Режимы сверху, размер и сила — слева',3600); }
@@ -6710,7 +6749,7 @@ window.AEHOST={
 let pup=null;
 const PUP_DENS={less:24, normal:38, more:56}, PUP_MODES={rigid:'Жёстко', normal:'Обычно', distort:'Искажение'};
 function pupOpen(){
-  if (!doc) return; if (xf) xfCancel();
+  if (!doc) return; if (xf) xfApply(); // №126 (P, flyout, Островок too): a placed picture is kept and the puppet opens on it
   if (filt||harm||dep||gen||(lift&&lift.open)||aip||edge||crop){ toast('Сначала закрой открытую панель'); return; }
   const L=AL(); if (!pixelOnly(false, !!L.smart)) return; if (doc.editMask){ toast('Марионетка работает с пикселями слоя — выбери миниатюру слоя, не маски',2600); return; }
   const selMask = sel ? (()=>{ const c=mk(doc.w,doc.h); ctx2(c).drawImage(sel.mask,0,0); return c; })() : null;
@@ -6947,7 +6986,7 @@ function pupApply(){
   pupClose(); layersChanged(); toast('Деформация применена'+(ents.length>1?' (вместе с маской)':''),1200);
 }
 
-$('#xfPuppet').onclick=()=>{ if (xf) xfApply(); pupOpen(); }; // №118: the transform (a freshly placed picture too) is applied first — the puppet works on that layer, not the one under it
+$('#xfPuppet').onclick=()=>pupOpen(); // №118/126: pupOpen applies the transform first — the puppet works on that layer, not the one under it
 /* ============ several open documents (tabs, like Photoshop) ============
    Each open document keeps its layers, selection, undo history and view in memory, so switching is a swap of a few
    references — no loading, no re-encoding. Leaving a document saves it in the background (only changed layers).
@@ -7000,7 +7039,7 @@ function tabBusy(){
   return false;
 }
 async function tabSwitch(t){
-  if (!t || t===TABS.cur || tabBusy()) return;
+  if (!t || t===TABS.cur || tabBusy()) return; docLeaveTransient();
   if (t.parked || !t.doc){ // parked: open from storage (restore stashes the current one itself)
     try{ localStorage.setItem('proyavka.booting','1'); }catch(_){}
     const ok=await restore(t.id); try{ localStorage.removeItem('proyavka.booting'); }catch(_){}
@@ -7126,8 +7165,8 @@ function showHelpPad(){
    <dt>1 палец, удерживать</dt><dd>Пипетка как в Procreate: кольцо вокруг пальца, верх — новый цвет, низ — текущий. Веди, отпусти — цвет взят.</dd>
    <dt>Карандаш, задержать на месте</dt><dd>В кисти и ластике: подержи карандаш неподвижно ~0.5 с — включится та же пипетка (выключается в меню «Файл»).</dd>
    <dt>2 пальца</dt><dd>Щипок — масштаб, поворот, сдвиг. Поворот прилипает к нулю.</dd>
-   <dt>Навигатор</dt><dd>«Изображение → Навигатор» или кнопка Островка: окошко со всей картиной и рамкой. Тяни рамку карандашом — холст едет следом, масштаб не меняется; ткни мимо рамки — переедет туда. Кнопка Островка «Рука» — один раз потянуть холст карандашом, потом инструмент снова твой.</dd>
-   <dt>Обзор (кнопка Островка)</dt><dd>Руки заняты карандашом: поставь на Островок кнопку «Обзор» (удержание кнопки → плитка). Нажми её — видна вся картина и рамка того, что было на экране. Тяни рамку карандашом или ткни, куда надо, — отпустишь, и масштаб вернётся уже туда.</dd>
+   <dt>Навигатор</dt><dd>«Изображение → Навигатор» или кнопка Островка: окошко со всей картиной и рамкой. Тяни рамку карандашом — холст едет следом, масштаб не меняется; тапни мимо рамки — переедет туда. Кнопка Островка «Рука» — один раз потянуть холст карандашом, потом инструмент снова твой.</dd>
+   <dt>Обзор (по желанию)</dt><dd>Можно поставить на Островок кнопку «Обзор»: удержи кнопку Островка и выбери плитку «Обзор». Нажала — видна вся картина с рамкой; тяни рамку карандашом, отпустишь — масштаб вернётся уже туда. Обычно удобнее Навигатор.</dd>
    <dt>2 пальца, тап</dt><dd>Отменить.</dd>
    <dt>3 пальца, тап</dt><dd>Вернуть то, что отменила двумя пальцами.</dd>
    <dt>4 пальца, тап</dt><dd>Спрятать или вернуть интерфейс.</dd>
@@ -7170,7 +7209,7 @@ function showHelpDesk(){
   const card=(t,rows)=>'<section><h4>'+t+'</h4>'+rows.map(([k,v])=>'<div class="hk"><span>'+k.split(' / ').map(K).join('<i>/</i>')+'</span><b>'+v+'</b></div>').join('')+'</section>';
   const html=`<h3>Клавиши и мышь</h3><p>Клавиши — как в фотошопе и работают в любой раскладке. Перо планшета рисует с нажимом, мышь — без.</p>
    <div class="hkgrid">`+
-   card('Холст',[['Колёсико / Alt+колёсико','масштаб'],['Ctrl+колёсико','масштаб (на тачпаде — щипок)'],['Shift+колёсико','сдвиг вбок'],['Alt+Shift+колёсико','поворот'],['Пробел / средняя кнопка / боковая кнопка пера','держать и тянуть — рука'],['Изображение → Навигатор','вся картина с рамкой: тянуть рамку — холст едет, масштаб тот же'],['H + нажать (при увеличении)','обзор: вся картина, рамкой выбрать место, отпустить — туда'],['Ctrl+Пробел / Alt+Пробел','клик — ближе / дальше, тянуть — плавно'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум по шагам фотошопа (50 · 67 · 100 · 200 %)'],['Ctrl+R','линейки в px вдоль верхней и левой панели'],['Tab / F','спрятать панели'],['Правый клик мимо картинки','фон вокруг холста']])+
+   card('Холст',[['Колёсико / Alt+колёсико','масштаб'],['Ctrl+колёсико','масштаб (на тачпаде — щипок)'],['Shift+колёсико','сдвиг вбок'],['Alt+Shift+колёсико','поворот'],['Пробел / средняя кнопка / боковая кнопка пера','держать и тянуть — рука'],['Изображение → Навигатор','вся картина с рамкой: тянуть рамку — холст едет, масштаб тот же'],['H + клик (при увеличении)','обзор: вся картина с рамкой — отпустишь, и вид переедет туда'],['Ctrl+Пробел / Alt+Пробел','клик — ближе / дальше, тянуть — плавно'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум по шагам фотошопа (50 · 67 · 100 · 200 %)'],['Ctrl+R','линейки в px вдоль верхней и левой панели'],['Tab / F','спрятать панели'],['Правый клик мимо картинки','фон вокруг холста']])+
    card('Файл и документы',[['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить в свой файл; PNG / JPG со слоями — предложит PSD'],['Ctrl+Shift+S','сохранить как: PSD / PNG / JPG — файл становится рабочим'],['Ctrl+Alt+Shift+S','сдать кат: проверка + PSD и PNG 1500×2000'],['Ctrl+W / Ctrl+F4','закрыть документ (в приложении); последний — экран «Начало»'],['Ctrl+Tab / Ctrl+Shift+Tab','следующая / предыдущая вкладка'],['Средняя кнопка по вкладке','закрыть вкладку'],['Файлы на вкладки','открыть каждый своим документом']])+
    card('Правка',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+C / Ctrl+Shift+C','копировать выделенное: слой / всё видимое'],['Ctrl+V','вставить новым слоем на то же место; в Доводке — в рефы'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
    card('Выделение',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','до начала — добавить / вычесть'],['Shift / Alt (по ходу)','прямоугольник: квадрат / от центра'],['Тянуть внутри выделения','сдвинуть контур (лассо, прямоугольник, палочка)'],['Стрелки / Shift+стрелки','сдвинуть выделение на 1 / 10 px'],['Ctrl+Alt+R / Shift+F6','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой']])+
@@ -7436,7 +7475,8 @@ function m3inv(m){ const [a,b,c,d,e,f,g,h,i]=m, A=e*i-f*h, B=f*g-d*i, C=d*h-e*g,
 function m3mul(p,q){ const r=new Array(9); for (let y=0;y<3;y++) for (let x=0;x<3;x++) r[y*3+x]=p[y*3]*q[x]+p[y*3+1]*q[3+x]+p[y*3+2]*q[6+x]; return r; }
 let SRGB_ENC=null; // linear 0..1 (4096 steps) → sRGB 8-bit
 function srgbEnc(){ if (!SRGB_ENC){ SRGB_ENC=new Uint8Array(4096); for (let i=0;i<4096;i++) SRGB_ENC[i]=Math.round(lin2srgb(i/4095)); } return SRGB_ENC; }
-function iccParse(u){
+function iccParse(u){ try{ return iccParse0(u); }catch(e){ console.warn('ICC profile unreadable', e); return null; } } // №126: a damaged profile must not stop the PSD from opening
+function iccParse0(u){
   if (!u || u.length<132) return null;
   const v=new DataView(u.buffer,u.byteOffset,u.byteLength), str=(o,n)=>String.fromCharCode(...u.subarray(o,o+n));
   const P={space:str(16,4), cls:str(12,4), name:'', conv:null, srgb:false}, tags={}, n=v.getUint32(128);
@@ -7487,7 +7527,7 @@ function iccConvertCanvas(c, conv){
 }
 const iccAsk=(name)=>new Promise(res=>{ const nm=escapeHtml(name||'без названия');
   const d=dialog(`<h3>Цветовой профиль файла</h3><p>В файле профиль «${nm}». Проявка работает в sRGB.</p>
-    <p><small>«Преобразовать» — цвета останутся такими же на вид, как в Фотошопе (как «Редактирование → Преобразовать в профиль»). «Оставить» — числа цветов не трогаются, картинка будет выглядеть иначе (обычно тусклее).</small></p>`,
+    <p>«Преобразовать» — цвета на вид останутся теми же, что в Фотошопе (то же, что «Редактирование → Преобразовать в профиль»). «Оставить» — числа цветов не трогаются, но картинка будет выглядеть иначе, обычно тусклее.</p>`,
     [['Оставить как есть',()=>res(false)], ['Преобразовать в sRGB',()=>res(true),true]]);
   const s=d.closest('.scrim'); if (s) s.addEventListener('pointerdown',e=>{ if(e.target===s) res(false); }); });
 async function iccOnOpen(prof){ // after openPsd has built the layers of `doc`
@@ -7501,7 +7541,7 @@ async function iccOnOpen(prof){ // after openPsd has built the layers of `doc`
   for (const L of D.layers){ if (isGroup(L) || L.kind==='adj') continue;
     if (L.smart && L.smart.src){ iccConvertCanvas(L.smart.src, prof.conv); smartRender(L); } else iccConvertCanvas(L.canvas, prof.conv);
     await nextFrame(); }
-  toast('Переведено из «'+prof.name+'» в sRGB',2000);
+  toast(prof.name ? 'Переведено из «'+prof.name+'» в sRGB' : 'Переведено в sRGB',2000);
 }
 /* add the sRGB profile to a finished PNG / JPEG blob (iCCP chunk / APP2 segment); if the file already has one — as is */
 async function blobSrgb(blob){
@@ -7533,7 +7573,7 @@ const deliverDefaultName=L=>/^(слой|layer|группа|group)\s*\d*$/i.test(
 function layerEmpty(L){ const c=mk(48,64), x=ctx2(c,{willReadFrequently:true}); x.drawImage(L.canvas,0,0,48,64); const d=x.getImageData(0,0,48,64).data; for (let i=3;i<d.length;i+=4) if (d[i]>2) return false; return true; }
 function deliverChecks(){
   const out=[], add=(st,t,d,fix)=>out.push({st,t,d,fix}), W=doc.w, H=doc.h, ratio=W*4===H*3;
-  const SZ=safeLayer(), LS=doc.layers.filter(L=>L!==SZ), px=LS.filter(L=>!isGroup(L) && L.kind!=='adj'), adj=doc.layers.filter(isAdj), groups=doc.layers.filter(isGroup);
+  const SZ=safeLayer(), LS=doc.layers.filter(L=>L!==SZ), px=LS.filter(L=>!isGroup(L) && L.kind!=='adj'), adj=doc.layers.filter(isAdj);
   // 1. size
   if (ratio && W===DELIVER_PNG_W) add('ok','Размер '+W+'×'+H,''); // №112: the working size is 1500×2000 again
   else if (ratio && W>DELIVER_PNG_W) add('info','Размер '+W+'×'+H,'Больше стандарта: PSD уйдёт как есть, PNG — '+DELIVER_PNG_W+'×'+DELIVER_PNG_W*4/3);
@@ -7547,9 +7587,10 @@ function deliverChecks(){
   else if (chr && bg) add('ok','Персонажи и фон раздельно','«'+chr.name+'» и «'+bg.name+'»');
   else add('warn','Персонажи / фон не подписаны', 'Не нашла по именам слой персонажей и слой фона. Назови их, например «Персонажи» и «Фон» (двойной клик по слою)');
   // 4. corrections: since 25.10 the leads want no correction folder — it is merged into the background and the characters before delivery
-  const adjOn=adj.filter(L=>L.visible), adjOff=adj.length-adjOn.length;
+  const adjOn=adj.filter(L=>shown(L)), adjOff=adj.length-adjOn.length; // №126: a layer in a hidden folder is hidden too
   if (adjOn.length) add('warn','Коррекция не впечатана: '+adjOn.length, 'Папку с коррекцией не сдаём — примени её к фону и к персонажам («Слить вниз» на корр. слое). '+adjOn.slice(0,4).map(L=>'«'+L.name+'»').join(', ')+(adjOn.length>4?' и ещё '+(adjOn.length-4):''));
-  else add('ok', adjOff ? 'Активной коррекции нет' : 'Коррекция впечатана', adjOff ? 'Скрытых корр. слоёв: '+adjOff+' — в PNG не влияют' : '');
+  else if (adjOff) add('warn','Скрытая коррекция уйдёт в PSD: '+adjOff, 'На PNG не влияет, но папку коррекции не сдаём — удали скрытые корр. слои, если они не нужны');
+  else add('ok','Коррекция впечатана','');
   // 5. names / empty / hidden
   const dn=LS.filter(deliverDefaultName); if (dn.length) add('warn','Слои не подписаны', dn.slice(0,5).map(L=>'«'+L.name+'»').join(', ')+(dn.length>5?' и ещё '+(dn.length-5):'')); else add('ok','Слои подписаны','');
   const emp=px.filter(L=>!live.includes(L)); if (emp.length) add('warn','Пустые слои', emp.slice(0,5).map(L=>'«'+L.name+'»').join(', '));
@@ -7768,12 +7809,12 @@ async function refRender(){ const el=$('#refwin'); if (!el || el.hidden || !doc)
   if (!list.length){ const e=document.createElement('div'); e.className='rempty'; e.title=IS_DESK?'Клик — выбрать картинки на диске':'Тап — выбрать картинки';
     e.innerHTML='<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M12 10.5v6M9 13.5h6"/></svg>'+
       '<b>'+(IS_DESK?'Кликни, чтобы выбрать картинки':'Нажми, чтобы выбрать картинки')+'</b>'+
-      (IS_DESK?'или перетащи их сюда из папки, или Ctrl+V, наведя на окно.':'или перетащи их сюда.')+'<br>«⧉» вверху — выделенное (или весь кадр).<br>Рефы сохраняются вместе с документом.';
+      (IS_DESK?'или перетащи их сюда из папки, или наведи на окно и нажми Ctrl+V.':'или перетащи их сюда.')+'<br>«⧉» вверху — выделенное (или весь кадр).<br>Рефы сохраняются вместе с документом.';
     e.onclick=()=>refPick(); body.append(e); return; } // №120: the whole empty area opens the file picker
   const g=document.createElement('div'); g.className='rg'; body.append(g);
   for (let i=0;i<list.length;i++){ const r=list[i], t=document.createElement('div'); t.className='rt'; t.style.setProperty('--ar', (r.w/r.h).toFixed(3)); t.title=r.name||'';
     const cv=mk(1,1); t.append(cv);
-    if (r.crop && r.w && r.h){ const o=document.createElement('div'), f=r.crop; o.className='rtc'; t.title=(r.name||'')+' · рамка: в Доводку и слоем идёт обведённое';
+    if (r.crop && r.w && r.h){ const o=document.createElement('div'), f=r.crop; o.className='rtc'; t.title=(r.name||'')+' · в Доводку и слоем уйдёт только обведённое';
       Object.assign(o.style,{left:(f.x/r.w*100)+'%', top:(f.y/r.h*100)+'%', width:(f.w/r.w*100)+'%', height:(f.h/r.h*100)+'%'}); t.append(o); } // №121
     const a=document.createElement('div'); a.className='ra';
     a.innerHTML='<button data-a="det" title="В рефы Доводки (@img2…)">→ Доводка</button><button data-a="lay" title="Новым слоем в документ">Слоем</button><button class="x" data-a="del" title="Убрать из рефов">×</button>';
@@ -7783,7 +7824,10 @@ async function refRender(){ const el=$('#refwin'); if (!el || el.hidden || !doc)
 /* №119: a tile is drawn at the size it is shown on screen × the screen's pixel density (it was a 360 px preview stretched
    over a big tile — soft on a large window and on dense screens); redrawn when the window or the tile size grows.
    Big downscales go in halving steps — one jump from a 4000 px picture gives a mushy tile. */
-const refTileRO = typeof ResizeObserver!=='undefined' ? new ResizeObserver(es=>{ for (const e of es){ const t=e.target; if (t._ref) refTile(t, t._ref[0], t._ref[1]); } }) : null;
+// №126: old tiles are let go; resizing the window redraws once it settles, not on every frame
+const refTileQ=new Set(); let refTileT=0;
+const refTileRO = typeof ResizeObserver!=='undefined' ? new ResizeObserver(es=>{ for (const e of es) refTileQ.add(e.target);
+  clearTimeout(refTileT); refTileT=setTimeout(()=>{ for (const t of refTileQ){ if (!t.isConnected){ refTileRO.unobserve(t); t._ref=null; t._ro=0; continue; } if (t._ref) refTile(t, t._ref[0], t._ref[1]); } refTileQ.clear(); }, 140); }) : null;
 function refTile(t, cv, c){
   t._ref=[cv,c]; if (refTileRO && !t._ro){ t._ro=1; refTileRO.observe(t); }
   const dpr=window.devicePixelRatio||1, bw=t.clientWidth||refUI.t||110, bh=t.clientHeight||bw;
@@ -7801,7 +7845,7 @@ async function refViewer(body){ const list=refsOf(), r=list[refView.i]; if (!r){
   const cv=mk(c.width,c.height); ctx2(cv).drawImage(c,0,0); v.append(cv);
   const fr=document.createElement('div'); fr.className='rcrop'; fr.hidden=true; fr.innerHTML='<i class="nw"></i><i class="ne"></i><i class="sw"></i><i class="se"></i>'; v.append(fr);
   let ro=null;
-  const fit=()=>{ if (!v.isConnected || refView!==V){ if (ro) ro.disconnect(); return; } const w=v.clientWidth, h=v.clientHeight-44; if (w<=0 || h<=0) return;
+  const fit=()=>{ if (!v.isConnected || refView!==V){ if (ro) ro.disconnect(); return; } const rvb=body.querySelector('.rvb'), w=v.clientWidth, h=v.clientHeight-((rvb&&rvb.offsetHeight)||44); if (w<=0 || h<=0) return; // №126: the bar may wrap to two rows
     if (!V.s || V.fitted){ V.s=Math.min(w/c.width, h/c.height); V.x=(w-c.width*V.s)/2; V.y=(h-c.height*V.s)/2; V.fitted=true; }
     else if (V.vw!=null && (w!==V.vw || h!==V.vh)){ V.x+=(w-V.vw)/2; V.y+=(h-V.vh)/2; }
     V.vw=w; V.vh=h; cv.style.transform='translate('+V.x+'px,'+V.y+'px) scale('+V.s+')';
@@ -7827,7 +7871,9 @@ async function refViewer(body){ const list=refsOf(), r=list[refView.i]; if (!r){
   const pts=new Map(); let last=null, lastMid=null, drag=null;
   const imgPt=e=>{ const rr=v.getBoundingClientRect(); return {x:(e.clientX-rr.left-V.x)/V.s, y:(e.clientY-rr.top-V.y)/V.s}; };
   const cl=(a,lo,hi)=>Math.max(lo, Math.min(hi, a));
-  v.addEventListener('pointerdown', e=>{ e.stopPropagation(); pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); try{ v.setPointerCapture(e.pointerId); }catch(_){} last=null; lastMid=null; drag=null;
+  const crop0=()=>JSON.stringify(r.crop||null); let cropWas=null;
+  const dragEnd=()=>{ if (!drag) return; drag=null; if (!refCropOf(r,c)) r.crop=null; if (crop0()!==cropWas) dirty(); drawBar(); fit(); }; // №126: changed only if the frame really moved
+  v.addEventListener('pointerdown', e=>{ e.stopPropagation(); pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); try{ v.setPointerCapture(e.pointerId); }catch(_){} last=null; lastMid=null; dragEnd(); cropWas=crop0();
     if (pts.size!==1 || !V.fm || e.button!==0 || refSpace) return;
     const p=imgPt(e), f=refCropOf(r,c), tol=14/V.s;
     if (f){ const cs={nw:[f.x,f.y], ne:[f.x+f.w,f.y], sw:[f.x,f.y+f.h], se:[f.x+f.w,f.y+f.h]};
@@ -7843,7 +7889,7 @@ async function refViewer(body){ const list=refsOf(), r=list[refView.i]; if (!r){
     if (pts.size===1){ V.x+=e.clientX-p0.x; V.y+=e.clientY-p0.y; V.fitted=false; fit(); return; }
     const [a,b]=[...pts.values()], d=Math.hypot(a.x-b.x,a.y-b.y), rr=v.getBoundingClientRect(), mx=(a.x+b.x)/2-rr.left, my=(a.y+b.y)/2-rr.top;
     if (last){ if (lastMid){ V.x+=mx-lastMid.x; V.y+=my-lastMid.y; } zoomAt(mx, my, d/last); } last=d; lastMid={x:mx,y:my}; });
-  const up=e=>{ pts.delete(e.pointerId); last=null; lastMid=null; if (drag){ drag=null; if (!refCropOf(r,c)) r.crop=null; dirty(); drawBar(); fit(); } };
+  const up=e=>{ pts.delete(e.pointerId); last=null; lastMid=null; dragEnd(); };
   v.addEventListener('pointerup', up); v.addEventListener('pointercancel', up); }
 function refWire(el){
   el.addEventListener('pointerenter', ()=>refOver=true); el.addEventListener('pointerleave', ()=>refOver=false);
@@ -7899,7 +7945,7 @@ function histEl(){ let el=$('#histwin'); if (el) return el;
   $('#stage').append(el); histWire(el); return el; }
 function histPlace(){ const el=$('#histwin'); if (!el || el.hidden) return; const st=$('#stage').getBoundingClientRect();
   const w=Math.max(220, Math.min(histUI.w, st.width-20)), h=Math.max(200, Math.min(histUI.h, st.height-20)); let x=histUI.x, y=histUI.y;
-  if (x==null){ const ly=$('#layers'), lr=ly && !ly.hidden && ly.offsetParent ? ly.getBoundingClientRect() : null; x=(lr ? lr.left-st.left : st.width)-w-16; y=$('#top').getBoundingClientRect().bottom-st.top+60; }
+  if (x==null){ const ly=$('#layers'), lr=ly && !ly.hidden && ly.offsetParent ? ly.getBoundingClientRect() : null; const ar=$('#airail'), arr=ar && ar.offsetParent ? ar.getBoundingClientRect() : null; x=(arr ? arr.left-st.left : lr ? lr.left-st.left : st.width)-w-16; y=$('#top').getBoundingClientRect().bottom-st.top+60; } // №126: left of the AI column, not over it
   x=Math.max(6, Math.min(st.width-w-6, x)); y=Math.max(6, Math.min(st.height-h-6, y));
   Object.assign(el.style, {left:x+'px', top:y+'px', width:w+'px', height:h+'px'}); }
 function histToggle(on){ if (!doc && on!==false){ toast('Сначала открой документ'); return; } const el=histEl(); histUI.open = on==null ? el.hidden : !!on; histUISave();
@@ -7957,7 +8003,7 @@ $('#bRefs').onclick=()=>{ if (!doc){ toast('Сначала открой доку
 addEventListener('resize', ()=>setTimeout(refPlace,60));
 document.addEventListener('keyup', e=>{ if (e.code==='Space' && refSpace){ refSpace=false; if (refView && refView.redraw) refView.redraw(); } }, true);
 window.addEventListener('blur', ()=>{ refSpace=false; });
-document.addEventListener('keydown', e=>{ if (!refView || !$('#refwin') || $('#refwin').hidden || !refOver) return; const n=refsOf().length;
+document.addEventListener('keydown', e=>{ if (!refView || !$('#refwin') || $('#refwin').hidden || !refOver) return; if (e.target && e.target.closest && e.target.closest('input,textarea,select,[contenteditable]')) return; /* №126: typing in a field is typing */ const n=refsOf().length;
   if (e.code==='Space'){ e.preventDefault(); e.stopImmediatePropagation(); if (!refSpace){ refSpace=true; if (refView.redraw) refView.redraw(); } return; } // №121: hand inside the viewer
   if (e.code==='KeyC' && !e.ctrlKey && !e.metaKey && !e.altKey){ e.preventDefault(); e.stopImmediatePropagation(); if (refView.toggleFrame) refView.toggleFrame(); return; }
   if (e.key==='Escape' && refView.fm){ e.preventDefault(); e.stopImmediatePropagation(); refView.toggleFrame(false); return; }
@@ -7981,7 +8027,7 @@ function navEl(){ let el=$('#navwin'); if (el) return el;
    floating window, dropped back onto the panel — docked again. The panel closed — it floats. Docked height: the bottom edge. */
 function navDocked(){ const ly=$('#layers'); return !navUI.float && ly && !ly.hidden; }
 function navSync(){ const el=$('#navwin'); if (!el) return; el.hidden=!navUI.open || !doc; const ly=$('#layers'), dock=navDocked();
-  if (dock){ if (el.parentNode!==ly) ly.insertBefore(el, ly.firstChild); el.classList.add('dock'); el.style.left=el.style.top=el.style.width=''; el.style.height=Math.round(navUI.dh||230)+'px'; }
+  if (dock){ if (el.parentNode!==ly) ly.insertBefore(el, ly.firstChild); el.classList.add('dock'); el.style.left=el.style.top=el.style.width=''; el.style.height=Math.round(Math.max(140, Math.min(navUI.dh||230, (ly.clientHeight||900)*0.6)))+'px'; } // №126: never crushes the layer list on a small screen
   else { if (el.parentNode!==$('#stage')) $('#stage').append(el); el.classList.remove('dock'); navPlace(); }
   if (!el.hidden) requestAnimationFrame(navDraw); }
 function navPlace(){ const el=$('#navwin'); if (!el || el.hidden || el.classList.contains('dock')) return; const st=$('#stage').getBoundingClientRect();
@@ -7993,15 +8039,32 @@ function navToggle(on){ const el=navEl(); navUI.open = on==null ? el.hidden : !!
 function navGeom(){ const el=$('#navwin'), b=el.querySelector('.nb'), W=b.clientWidth, H=b.clientHeight, pad=8, k=Math.min((W-2*pad)/doc.w, (H-2*pad)/doc.h);
   return {W, H, k, ox:(W-doc.w*k)/2, oy:(H-doc.h*k)/2}; }
 function navFrame(){ const F=viewFree(), x1=F.L+F.W, y1=F.T+F.H; return [[F.L,F.T],[x1,F.T],[x1,y1],[F.L,y1]].map(q=>toDoc(q[0],q[1])); }
+/* №126: the picture part (checker + thumbnail) is kept and rebuilt only when the thumbnail or the window changes;
+   each frame only lays it down and draws the view frame — and nothing at all when nothing moved. */
+let navBase=null, navKey='', navAcc={v:'', t:0};
+function navChecker(){ if (navChecker.p) return navChecker.p; const c=mk(12,12), x=ctx2(c); x.fillStyle='#fff'; x.fillRect(0,0,12,12); x.fillStyle='#cfcfcf'; x.fillRect(0,0,6,6); x.fillRect(6,6,6,6);
+  return navChecker.p=ctx2(mk(1,1)).createPattern(c,'repeat'); }
 function navDraw(){ const el=$('#navwin'); if (!el || el.hidden || !doc) return; const g=navGeom(); if (g.W<10 || g.H<10) return;
+  const pv = (preview && preview._doc===doc) ? preview : getPreview(), now=performance.now();
+  if (now-navAcc.t>1000){ navAcc={v:cssVar('--accent'), t:now}; }
+  const key=[doc.id, previewVer, g.W, g.H, g.ox, g.oy, g.k, view.x, view.y, view.s, view.r, navAcc.v, dpr].join('|'); if (key===navKey) return; navKey=key;
   const cv=el.querySelector('canvas'), w=Math.round(g.W*dpr), h=Math.round(g.H*dpr); if (cv.width!==w || cv.height!==h){ cv.width=w; cv.height=h; }
-  const x=ctx2(cv); x.setTransform(1,0,0,1,0,0); x.clearRect(0,0,w,h); x.setTransform(dpr,0,0,dpr,0,0);
-  const pv = preview || getPreview(); x.imageSmoothingEnabled=true; x.imageSmoothingQuality='high';
-  x.fillStyle=getChecker(); x.save(); x.translate(g.ox,g.oy); x.fillRect(0,0,doc.w*g.k,doc.h*g.k); x.restore();
-  if (pv) x.drawImage(pv, g.ox, g.oy, doc.w*g.k, doc.h*g.k);
+  const bk=[doc.id, previewVer, w, h, g.ox, g.oy, g.k].join('|');
+  if (!navBase || navBase._k!==bk){ navBase=navBase && navBase.width===w && navBase.height===h ? navBase : mk(w,h); navBase._k=bk;
+    const b=ctx2(navBase); b.setTransform(1,0,0,1,0,0); b.clearRect(0,0,w,h); b.setTransform(dpr,0,0,dpr,0,0);
+    b.fillStyle=navChecker(); b.fillRect(g.ox,g.oy,doc.w*g.k,doc.h*g.k); b.imageSmoothingEnabled=true; b.imageSmoothingQuality='high';
+    if (pv) b.drawImage(pv, g.ox, g.oy, doc.w*g.k, doc.h*g.k); }
+  const x=ctx2(cv); x.setTransform(1,0,0,1,0,0); x.clearRect(0,0,w,h); x.drawImage(navBase,0,0); x.setTransform(dpr,0,0,dpr,0,0);
   const q=navFrame().map(t=>[g.ox+t[0]*g.k, g.oy+t[1]*g.k]);
-  x.beginPath(); x.rect(0,0,g.W,g.H); q.forEach((t,i)=>i?x.lineTo(t[0],t[1]):x.moveTo(t[0],t[1])); x.closePath(); x.fillStyle='rgba(0,0,0,.38)'; x.fill('evenodd');
-  x.beginPath(); q.forEach((t,i)=>i?x.lineTo(t[0],t[1]):x.moveTo(t[0],t[1])); x.closePath(); x.lineWidth=2; x.strokeStyle=cssVar('--accent'); x.stroke();
+  // like Photoshop: the frame is clipped to the picture (the whole picture in view = the frame on its edge)
+  const iw=doc.w*g.k, ih=doc.h*g.k; x.save(); x.beginPath(); x.rect(g.ox, g.oy, iw, ih); x.clip();
+  x.beginPath(); x.rect(g.ox, g.oy, iw, ih); q.forEach((t,i)=>i?x.lineTo(t[0],t[1]):x.moveTo(t[0],t[1])); x.closePath(); x.fillStyle='rgba(0,0,0,.38)'; x.fill('evenodd');
+  x.strokeStyle=navAcc.v;
+  if (Math.abs(Math.sin(view.r))<1e-3){ // not rotated: the frame is the visible part of the picture, drawn on its edge when everything is in view
+    const xs=q.map(t=>t[0]), ys=q.map(t=>t[1]), L=Math.max(g.ox, Math.min(...xs)), T=Math.max(g.oy, Math.min(...ys)), R=Math.min(g.ox+iw, Math.max(...xs)), B=Math.min(g.oy+ih, Math.max(...ys));
+    if (R>L && B>T){ x.lineWidth=2; x.strokeRect(L+1, T+1, R-L-2, B-T-2); } }
+  else { x.beginPath(); q.forEach((t,i)=>i?x.lineTo(t[0],t[1]):x.moveTo(t[0],t[1])); x.closePath(); x.lineWidth=4; x.stroke(); }
+  x.restore();
   const sp=el.querySelector('.nh span'), z=Math.round(view.s*100)+'%'; if (sp.textContent!==z) sp.textContent=z; }
 function navCenterOn(P){ const F=viewFree(), cx=F.L+F.W/2, cy=F.T+F.H/2, c=Math.cos(view.r)*view.s, sn=Math.sin(view.r)*view.s; view.x=cx-(c*P[0]-sn*P[1]); view.y=cy-(sn*P[0]+c*P[1]); requestRender(); }
 function navWire(el){
@@ -8047,10 +8110,10 @@ const ISLAND_ACTS={
   spot:{t:'Точечная восст. кисть', tool:'spot'}, liquify:{t:'Пластика', tool:'liquify'}, dodge:{t:'Осветление', tool:'dodge'}, burn:{t:'Затемнение', tool:'burn'}, // №114
   puppet:{t:'Марионетка', icon:()=>toolIcon('@puppet'), run:()=>pupOpen()},
   crop:{t:'Кадрирование', icon:()=>$('#bCrop').innerHTML, run:()=>{ if (!document.querySelector('.scrim')) cropOpen(); }},
-  sdq:{t:'SD-ретушь (как F2)', svg:'<rect x="2" y="4.5" width="20" height="15" rx="4.5"/><text x="12" y="15.8" text-anchor="middle" font-size="10" font-weight="700" font-family="system-ui,sans-serif" fill="currentColor" stroke="none">SD</text>', run:()=>sdQuick()},
+  sdq:{t:IS_DESK ? 'SD-ретушь (F2)' : 'SD-ретушь', svg:'<rect x="2" y="4.5" width="20" height="15" rx="4.5"/><text x="12" y="15.8" text-anchor="middle" font-size="10" font-weight="700" font-family="system-ui,sans-serif" fill="currentColor" stroke="none">SD</text>', run:()=>sdQuick()},
   airm:{t:'Убрать нейросетью (выделение)', svg:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M12 8.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="currentColor"/>', run:()=>{ if (sel) inpaintFromSel(); else toast('Сначала выдели, что убрать'); }},
   nav:{t:'Навигатор — вся картина, тянуть рамку', svg:'<rect x="3" y="4" width="18" height="16" rx="3"/><rect x="9" y="8.5" width="8" height="6.5" rx="1"/>', run:()=>navToggle()}, // №123
-  hand:{t:'Рука — один раз потянуть холст пером', svg:'<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11V5a1.5 1.5 0 0 1 3 0v6M14 11V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.5a5.5 5.5 0 0 1-4.6-2.5L3.6 14a1.5 1.5 0 0 1 2.5-1.6L8 15"/>', run:()=>{ penHand=!penHand; islandSync(); updateCursor(); if (penHand) toast('Тяни холст пером — потом инструмент вернётся',1600); }},
+  hand:{t:IS_DESK ? 'Рука — один раз потянуть холст пером или мышью' : 'Рука — один раз потянуть холст карандашом', svg:'<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11V5a1.5 1.5 0 0 1 3 0v6M14 11V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.5a5.5 5.5 0 0 1-4.6-2.5L3.6 14a1.5 1.5 0 0 1 2.5-1.6L8 15"/>', run:()=>{ penHand=!penHand; islandSync(); updateCursor(); if (penHand) toast(IS_DESK ? 'Тяни холст пером или мышью — потом инструмент вернётся' : 'Тяни холст карандашом — потом инструмент вернётся',1600); }},
   obzor:{t:'Обзор — вся картина, рамкой выбрать, куда вернуться', svg:'<rect x="3" y="3" width="18" height="18" rx="3"/><rect x="11" y="10" width="7" height="6" rx="1" fill="currentColor" stroke="none" opacity=".55"/><path d="M6 7h3M6 7v3"/>', run:()=>{ if (bird) birdClose(false); else birdOpen(false); }}, // №122
   hist:{t:'История', svg:'<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3 4v4.5h4.5"/><path d="M12 7.5V12l3 2"/>', run:()=>histToggle()},
   undo:{t:'Отменить', svg:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', run:()=>undo()},
@@ -8084,7 +8147,7 @@ function islandMenu(i, cx, cy){ // №114: a grid of tiles with icons; add / rem
   m.append(grid);
   const hr=document.createElement('div'); hr.className='aih'; hr.textContent=' '; m.append(hr);
   const row=(t,fn)=>{ const b=document.createElement('button'); b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=t; b.onclick=()=>{ m.hidden=true; fn(); }; m.append(b); };
-  if (island.slots.length<ISLAND_MAX) row('＋ Добавить кнопку', ()=>{ island.slots.splice(i+1,0,'undo'); islandSave(); islandBuild(); toast('Новая кнопка — «Отменить». Удержи её, чтобы выбрать другое',2600); });
+  if (island.slots.length<ISLAND_MAX) row('＋ Добавить кнопку', ()=>{ island.slots.splice(i+1,0,'undo'); islandSave(); islandBuild(); toast(IS_DESK ? 'Новая кнопка — «Отменить». Правый клик по ней — выбрать другое' : 'Новая кнопка — «Отменить». Удержи её, чтобы выбрать другое',2600); });
   if (island.slots.length>1) row('Убрать эту кнопку', ()=>{ island.slots.splice(i,1); islandSave(); islandBuild(); });
   row(island.v?'Положить горизонтально':'Поставить вертикально', ()=>{ island.v=!island.v; islandSave(); islandBuild(); });
   row('Вернуть на место', ()=>{ island.x=island.y=null; islandSave(); islandPlace(); });
@@ -8148,7 +8211,7 @@ function appearanceDialog(){
   const mark=v=>d.querySelectorAll('.pbg button').forEach(x=>x.classList.toggle('on', x.dataset.p===v));
   d.querySelectorAll('.pbg button[data-p]').forEach(b=>{ if (b.dataset.p!=='*') b.onclick=()=>{ pasteSet(b.dataset.p); mark(b.dataset.p); }; });
   { const p=document.createElement('div'); p.className='pbg'; p.style.marginTop='14px'; const b=document.createElement('button'); const upd=()=>{ b.innerHTML='<i style="background:'+(island.on?'var(--accent-grad)':'transparent')+'"></i>Островок быстрых кнопок: '+(island.on?'показан':'спрятан'); b.classList.toggle('on', island.on); };
-    b.onclick=()=>{ island.on=!island.on; islandSave(); islandBuild(); upd(); }; upd(); p.append(b); const n=document.createElement('p'); n.className='apn'; n.textContent='Три кнопки, которые можно поставить куда удобно. Правый клик или удержание на кнопке — выбрать, что она делает.'; d.querySelector('.pbg').after(p, n); }
+    b.onclick=()=>{ island.on=!island.on; islandSave(); islandBuild(); upd(); }; upd(); p.append(b); const n=document.createElement('p'); n.className='apn'; n.textContent=IS_DESK ? 'Плавающие кнопки (от одной до шести) — переставь куда удобно. Правый клик по кнопке — выбрать, что она делает.' : 'Плавающие кнопки (от одной до шести) — переставь куда удобно. Удержание на кнопке — выбрать, что она делает.'; d.querySelector('.pbg').after(p, n); }
   const ci=d.querySelector('input[type=color]'), own=d.querySelector('button[data-p="*"] i');
   ci.oninput=()=>{ pasteSet(ci.value); own.style.background=ci.value; mark('*'); };
 }
@@ -8241,6 +8304,8 @@ function s2Build(w){
     // everything else belongs to the editor: pass the key on, as if it was pressed in the main window
     try{ window.focus(); document.dispatchEvent(new KeyboardEvent('keydown', {key:e.key, code:e.code, ctrlKey:e.ctrlKey, shiftKey:e.shiftKey, altKey:e.altKey, metaKey:e.metaKey, bubbles:true, cancelable:true})); e.preventDefault(); }catch(_){}
   });
+  // №126: the release too — otherwise Alt / Space / Shift held over the second screen stay «pressed» in the editor
+  w.addEventListener('keyup', e=>{ try{ document.dispatchEvent(new KeyboardEvent('keyup', {key:e.key, code:e.code, ctrlKey:e.ctrlKey, shiftKey:e.shiftKey, altKey:e.altKey, metaKey:e.metaKey, bubbles:true, cancelable:true})); }catch(_){} });
   w.addEventListener('pagehide', ()=>{ if (s2 && s2.w===w) setTimeout(()=>{ if (s2 && s2.w===w && w.closed) s2Closed(); }, 0); });
   s2Hud(); wake(); s2Draw();
   if (!s2Tick.t) s2Tick.t=setInterval(s2Tick, 300);
@@ -8479,7 +8544,7 @@ stage.addEventListener('pointerdown', e=>{
   if (e.target!==oc && e.target!==vc) return;
   e.preventDefault();
   closePops();
-  if (bird){ if (!bird.drag && !(e.pointerType==='touch' && touches.size)) birdDown(e, true); return; } // №122 «Обзор»: the frame follows the pen / finger
+  if (bird){ if (!bird.drag && !(e.pointerType==='touch' && (IS_IPAD || touches.size))) birdDown(e, true); return; } // №126: on the iPad only the pencil steers it — a resting palm doesn't // №122 «Обзор»: the frame follows the pen / finger
   if (e.pointerType==='touch'){
     if (toolPtr!==null && !fingerTool) return; // palm while the pen works
     const p=stagePos(e); touches.set(e.pointerId,{x:p[0],y:p[1],x0:p[0],y0:p[1]}); capture(e);
@@ -8500,7 +8565,7 @@ stage.addEventListener('pointerdown', e=>{
   if ((zHeld || spaceZoom()) && toolPtr===null){ zoomDrag={id:e.pointerId, x:e.clientX, p:stagePos(e), out:altDown||e.altKey, moved:false}; capture(e); return; }
   if (rHeld && toolPtr===null){ const st=stage.getBoundingClientRect(), p=stagePos(e); rotDrag={id:e.pointerId, cx:st.width/2, cy:st.height/2, a:Math.atan2(p[1]-st.height/2, p[0]-st.width/2)}; capture(e); updateCursor(); return; }
   if (hHeld && !spaceDown && toolPtr===null && !birdFits()){ birdOpen(true); birdDown(e, false); return; } // №122: H + press — bird's-eye, as in Photoshop
-  if (penHand && toolPtr===null){ penHand=false; islandSync(); panDrag={id:e.pointerId,x:e.clientX,y:e.clientY,vx:view.x,vy:view.y}; capture(e); updateCursor(); return; } // №123
+  if (penHand && toolPtr===null && e.button===0){ penHand=false; islandSync(); panDrag={id:e.pointerId,x:e.clientX,y:e.clientY,vx:view.x,vy:view.y}; capture(e); updateCursor(); return; } // №123
   if ((spaceDown || hHeld || e.button===1 || (e.pointerType==='pen' && e.button===2)) && toolPtr===null){ panDrag={id:e.pointerId,x:e.clientX,y:e.clientY,vx:view.x,vy:view.y}; capture(e); updateCursor(); return; }
   lastPenT=Date.now();
   if (toolPtr!==null){ if (fingerTool) return; toolUp(e); } // there is only one pen: an old stroke still open means Safari lost its pointerup — finish it, then start the new one
@@ -8655,7 +8720,7 @@ function stageWH(){ const st=$('#stage'); return [st.clientWidth, st.clientHeigh
 function birdFits(){ if (!doc) return true; const [W,H]=stageWH(); for (const [x,y] of [[0,0],[doc.w,0],[0,doc.h],[doc.w,doc.h]]){ const [a,b]=toScr(x,y); if (a<-2||b<-2||a>W+2||b>H+2) return false; } return true; }
 let viewTweens=0, vtTok=0; // views flying right now (the tests wait for 0); a new flight stops the old one
 function viewTween(to, ms, done){ const from=Object.assign({}, view), t0=performance.now(), tok=++vtTok; navStart(); viewTweens++;
-  const step=now=>{ if (tok!==vtTok){ viewTweens--; return; } const t=Math.min(1,(now-t0)/ms), k=t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+  const step=now=>{ if (tok!==vtTok){ viewTweens--; navEnd(); return; } const t=Math.min(1,(now-t0)/ms), k=t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
     view={ s:Math.exp(Math.log(from.s)+(Math.log(to.s)-Math.log(from.s))*k), r:from.r+(to.r-from.r)*k, x:from.x+(to.x-from.x)*k, y:from.y+(to.y-from.y)*k };
     requestRender(); if (t<1) requestAnimationFrame(step); else { view=Object.assign({}, to); viewTweens--; requestRender(); navEnd(); done&&done(); } };
   requestAnimationFrame(step); }
@@ -9375,8 +9440,10 @@ async function acctLogin(email, key){ const u=await acctVerify(email.trim(), key
   if (!doc){ for (const t of TABS.list){ t.doc=null; t.st=null; } TABS.list=[]; TABS.cur=null; tabsRender(); tabsPersist(); } // no leftovers of the previous person
   return u; }
 async function acctLogout(){ if (doc) await closeToHome(); try{ localStorage.removeItem('proyavka.session'); localStorage.removeItem('proyavka.cur'); }catch(_){} if (homeOn) homeFill(); else homeShow(); }
+// №126: per-document passing modes go away with the document (Обзор, a view flight, «Рука», the cached thumbnail)
+function docLeaveTransient(){ try{ bird=null; vtTok++; if (penHand){ penHand=false; islandSync(); } preview=null; navKey=''; }catch(_){} }
 function resetDocState(){
-  tabsLeave();
+  docLeaveTransient(); tabsLeave();
   clearHistory(); sel=null; xf=null; stroke=null; strokeBuf=null;
   if (typeof tapSess!=='undefined') tapSess=null; if (typeof wandCache!=='undefined'){ wandCache=null; wandPrev=null; }
   if (typeof edge!=='undefined' && edge) edgeClose();
@@ -9584,7 +9651,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №125 Удаление нейросетью без мазни'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №126 Ревизия последних версий'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
@@ -9739,7 +9806,7 @@ async function pcAutoConnect(){
     if (!j.base) return false; const was=BR.base; BR.local=j.base; if (BR.base!==j.base){ BR.base=j.base; BR.at=Date.now(); PC.alive=null; PC.sess={}; }
     if (genCfg.sdUrl!==j.base){ genCfg.sdUrl=j.base; genSave(); if (!was) toast('Проявка для ПК: SD и нейросети — на этом компьютере',2200); }
     return true; }
-  catch(e){ if (IS_DESK && !pcAutoConnect.t) pcAutoConnect.t=setTimeout(()=>{ pcAutoConnect.t=0; pcAutoConnect(); }, 15000); return false; } // the bridge may start a bit later (autostart) — try again
+  catch(e){ if (onPC() && !pcAutoConnect.t) pcAutoConnect.t=setTimeout(()=>{ pcAutoConnect.t=0; pcAutoConnect(); }, 15000); return false; } // the bridge may start a bit later (autostart) — try again (only where a local bridge is expected, №126)
 }
 window.addEventListener('load', ()=>setTimeout(pcAutoConnect, 600));
 document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible') checkUpdate(); });

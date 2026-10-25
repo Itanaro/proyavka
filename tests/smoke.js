@@ -357,6 +357,21 @@ const steps = [
       check(r.fn === 'function', 'нет нарезки по плиткам'); check(r.sd > 2, 'зерно в заплатку не добавилось: ' + r.sd.toFixed(2));
   }},
 
+  { name: 'Ревизия №126: Марионетка при трансформе, 300 ppi, «Рука» гаснет', run: async page => {
+      const r = await page.evaluate(() => { const out = {};
+        out.dpi = doc.dpi;
+        const L = AL(); L.ctx.fillStyle = '#3080ff'; L.ctx.fillRect(300, 300, 200, 200); L.dirty = true;
+        beginTransform(); out.xf0 = !!xf; pupOpen(); out.xfAfter = !!xf; out.pup = !!pup; out.kept = L.ctx.getImageData(400, 400, 1, 1).data[3];
+        setTool('transform'); out.noBoth = !(xf && pup); if (pup) pupClose();
+        penHand = true; setTool('brush'); out.hand = penHand;
+        return out; });
+      check(r.dpi === 300, 'новый документ не 300 ppi: ' + r.dpi);
+      check(r.xf0 && !r.xfAfter && r.pup, 'Марионетка не открылась поверх трансформа');
+      check(r.kept > 0, 'трансформ пропал вместо применения');
+      check(r.noBoth, 'Трансформ и Марионетка открыты одновременно');
+      check(r.hand === false, '«Рука» не погасла при выборе инструмента');
+  }},
+
   { name: 'Темы переключаются', run: async page => {
       const r = await page.evaluate(() => { const out = []; for (const t of ['night', 'cloud', 'sun', 'graphite']) { themeSet(t); out.push(document.documentElement.getAttribute('data-theme') === t); } return out; });
       check(r.every(Boolean), 'не все темы встали');
