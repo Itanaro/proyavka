@@ -359,7 +359,12 @@ def watch_self(srv):
         try:
             if _stamp() != st: why = 'Мост обновлён'
         except Exception: continue
-        if not why and n % 15 == 0 and remote_ip() != rip0: why = 'Адрес Tailscale изменился'  # Tailscale installed / turned on after the bridge started
+        if n % 15 == 0:  # once a minute: a mark that the bridge is alive (if it dies silently, the time shows when)
+            try: open(os.path.join(HERE, 'bridge.alive'), 'w').write(time.strftime('%Y-%m-%d %H:%M:%S') + ' pid ' + str(os.getpid()) + '\n')
+            except Exception: pass
+        try:
+            if not why and n % 15 == 0 and remote_ip() != rip0: why = 'Адрес Tailscale изменился'
+        except Exception: pass  # Tailscale installed / turned on after the bridge started
         if not why: continue
         time.sleep(2)  # let the copy finish
         p(time.strftime('%H:%M:%S'), why + ' — перезапускаюсь…'); RESTART['on'] = True
@@ -370,7 +375,32 @@ def watch_self(srv):
         subprocess.Popen([sys.executable, os.path.abspath(__file__)], cwd=HERE, stdout=log, stderr=log, stdin=subprocess.DEVNULL, creationflags=flags, close_fds=True)
         os._exit(0)
 
+def death_log():
+    """Why the bridge ended: normal exit, a signal, an error in a thread, or a hard crash (faulthandler) — all to bridge.log / bridge.err.log."""
+    import atexit, threading, faulthandler, signal
+    try: faulthandler.enable(open(os.path.join(HERE, 'bridge.err.log'), 'a'), all_threads=True)
+    except Exception: pass
+    def bye():
+        if not RESTART['on']:
+            try: p(time.strftime('%H:%M:%S'), 'мост завершается (pid', os.getpid(), ')')
+            except Exception: pass
+    atexit.register(bye)
+    def th(a):
+        try: p(time.strftime('%H:%M:%S'), 'ошибка в потоке', getattr(a.thread, 'name', ''), ':', repr(a.exc_value))
+        except Exception: pass
+    threading.excepthook = th
+    for nm in ('SIGTERM', 'SIGBREAK', 'SIGINT'):
+        sg = getattr(signal, nm, None)
+        if sg is None: continue
+        def h(num, frm, nm=nm):
+            try: p(time.strftime('%H:%M:%S'), 'мост остановлен сигналом', nm)
+            except Exception: pass
+            os._exit(0)
+        try: signal.signal(sg, h)
+        except Exception: pass
+
 def main():
+    death_log(); p(time.strftime('%H:%M:%S'), 'мост стартует (pid', os.getpid(), ')')
     ip = lan_ip(); rip = remote_ip(); ensure_certs(ip, rip)
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.load_cert_chain(os.path.join(HERE, 'server.crt'), os.path.join(HERE, 'server.key'))
     srv = Server(('0.0.0.0', PORT), H); srv.socket = ctx.wrap_socket(srv.socket, server_side=True, do_handshake_on_connect=False)  # handshake in the worker thread, a slow client can't stall the rest
@@ -393,6 +423,6 @@ if __name__ == '__main__':
     try: main()
     except Exception as e:
         if RESTART['on']: time.sleep(5); os._exit(0)
-        p('Ошибка:', e)
+        p(time.strftime('%H:%M:%S'), 'Ошибка:', e)
         try: input('Нажми Enter, чтобы закрыть…')
         except EOFError: pass

@@ -3941,6 +3941,11 @@ document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState
 async function sdFetch(path, opt={}, ms=30000){ if (!sdBase() && IS_DESK) await pcAutoConnect(); if (!sdBase()) throw new Error('нужен адрес моста — кнопка ⚙');
   try{ return await netFetch(sdBase()+path, opt, ms); }
   catch(e){ if (/нет связи/.test(e.message) && IS_DESK && await pcAutoConnect() && BR.local!==sdBase()){ BR.base=BR.local; BR.at=Date.now(); return await netFetch(BR.local+path, opt, ms); } // №115: the PC app — back to the local bridge
+    if (/нет связи/.test(e.message) && IS_DESK && !(await pcAutoConnect())){ // №117: the bridge on this PC is down — the PC app restarts it within ~30 s; wait for it once
+      const t0=Date.now(); let up=false; toast('Мост на этом компьютере не отвечает — жду, пока поднимется…',3500);
+      while (!up && Date.now()-t0<40000){ await new Promise(r=>setTimeout(r,3000)); up=await pcAutoConnect(); }
+      if (up) return await netFetch(BR.local+path, opt, ms);
+      throw new Error('мост на этом компьютере не запущен — закрой и открой Проявку заново или запусти «Перезапустить мост Проявки» на рабочем столе'); }
     if (/нет связи/.test(e.message)){ const was=sdBase(), nb=await bridgePick(true); if (nb && nb!==was) return await netFetch(nb+path, opt, ms); } // left home / came back: the other address
     if (/нет связи/.test(e.message)) throw new Error('компьютер не отвечает: мост запущен? iPad в той же Wi-Fi (или включён Tailscale)? сертификат установлен?'); throw e; } }
 let sdModelsCache=null;
@@ -9303,7 +9308,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №116 цветовой профиль: sRGB в сохранении, перевод PSD с чужим профилем'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №117 сторож моста на ПК, журнал причин завершения моста'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

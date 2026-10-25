@@ -115,6 +115,17 @@ app.whenReady().then(async () => {
     if (p) item.setSavePath(p); else item.cancel();
   });
   ensureBridge().catch(() => {});
+  // №117 watchdog: while the window is open, the bridge on this PC stays up. It once died silently after a self-restart,
+  // and F2 said «компьютер не отвечает». Port closed on two checks in a row (a self-restart takes a few seconds) → start it.
+  let missed = 0, starting = false;
+  setInterval(async () => {
+    if (starting) return;
+    if (await portOpen(BRIDGE_PORT)) { missed = 0; return; }
+    if (++missed < 2) return;
+    starting = true; log('мост не отвечает — запускаю заново');
+    try { await ensureBridge(); log(await portOpen(BRIDGE_PORT) ? 'мост поднят' : 'мост не поднялся'); } catch (e) { log('мост:', e.message); }
+    missed = 0; starting = false;
+  }, 15000);
   createWindow();
   const replace2 = () => { if (screen2 && !screen2.isDestroyed()) setTimeout(() => placeScreen2(screen2), 900); };
   screen.on('display-added', replace2); screen.on('display-removed', replace2);
