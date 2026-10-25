@@ -206,6 +206,17 @@ const steps = [
       await page.evaluate(() => { undo(); deselect(); genCfg.sdUrl = ''; });
   }},
 
+  { name: 'Stable не запущен: «Запустить и прогнать» (заглушка моста)', run: async page => {
+      await page.request.post(STUB + '/_sddown');
+      await page.evaluate(stub => { genCfg.sdUrl = stub + '/k/test'; BR.base = null; BR.local = ''; BR.at = Date.now(); doc.active = 0; layersChanged(); applySelPoly([[300, 400], [700, 400], [700, 900], [300, 900]]); window.__n0 = doc.layers.length; sdQuick(); }, STUB);
+      await until(page, () => !!document.querySelector('#toast .tact'), null, 10000, 'кнопка «Запустить и прогнать»');
+      check(await page.evaluate(() => document.querySelector('#toast .tact').textContent.includes('Запустить')), 'на кнопке не «Запустить»');
+      await page.evaluate(() => document.querySelector('#toast .tact').click());
+      await until(page, () => doc.layers.length > window.__n0 && !sdq, null, 30000, 'ретушь после запуска Stable');
+      check(await page.evaluate(() => AL().name.startsWith('SD ')), 'после запуска слой SD не лёг');
+      await page.evaluate(() => { undo(); deselect(); genCfg.sdUrl = ''; });
+  }},
+
   { name: 'Островок: SD-ретушь третьей кнопкой, выбор значков, добавить / убрать', run: async page => {
       const r = await page.evaluate(() => { const out = {};
         out.third = island.slots[2] === 'sdq' && !!document.querySelector('#island .ib[data-k="sdq"] svg');

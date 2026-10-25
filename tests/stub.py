@@ -19,6 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from PIL import Image
 
 LOG, LOCK = [], threading.Lock()
+SD = {'down': False}   # №115: «Automatic1111 не запущен», пока тест не попросит запуск
 
 def png_b64(img):
     b = io.BytesIO(); img.save(b, 'PNG'); return base64.b64encode(b.getvalue()).decode()
@@ -50,7 +51,7 @@ class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
     def _send(self, code, obj):
-        b = json.dumps(obj).encode()
+        b = json.dumps(obj, ensure_ascii=False).encode()
         self.send_response(code)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -70,6 +71,7 @@ class H(BaseHTTPRequestHandler):
             with LOCK: return self._send(200, LOG)
         if p == '/k/test/bridge/ping': return self._send(200, {'ok': True, 'host': 'stub', 'ml': False})
         if p == '/k/test/proyavka/sdpreset': return self._send(200, {'prompt': 'STUBPROMPT smooth skin', 'neg': 'stub neg'})
+        if p == '/k/test/sdapi/v1/sd-models': return self._send(502 if SD['down'] else 200, [{'title': 'stub.safetensors'}] if not SD['down'] else {'error': 'Automatic1111 не запущен на компьютере'})
         if p == '/k/test/sdapi/v1/progress': return self._send(200, {'progress': 0.5, 'state': {'sampling_step': 30, 'sampling_steps': 60, 'job_count': 1}})
         if not self._auth(): return self._send(401, {'error': {'message': 'bad key'}})
         if p in ('/api/v1/key', '/api/v1/auth/key'):
@@ -90,6 +92,10 @@ class H(BaseHTTPRequestHandler):
         if p == '/_reset':
             with LOCK: LOG.clear()
             return self._send(200, {'ok': True})
+        if p == '/_sddown': SD['down'] = True; return self._send(200, {'ok': True})
+        if p == '/k/test/proyavka/sdstart':
+            st = 'started' if SD['down'] else 'running'; SD['down'] = False; return self._send(200, {'state': st})
+        if p == '/k/test/sdapi/v1/img2img' and SD['down']: return self._send(502, {'error': 'Automatic1111 не запущен на компьютере'})
         if p == '/k/test/sdapi/v1/img2img':   # Automatic1111: the picture back, a bit greener
             with LOCK: LOG.append({'kind': 'sd', 'prompt': body.get('prompt'), 'neg': body.get('negative_prompt'), 'denoise': body.get('denoising_strength'),
                                    'steps': body.get('steps'), 'cfg': body.get('cfg_scale'), 'sampler': body.get('sampler_name'), 'blur': body.get('mask_blur'),

@@ -3925,12 +3925,12 @@ function critOverlay(ox){ if (!crit || !crit.notes.length) return; const m=viewM
 /* ============ SD Inpaint: Automatic1111 on the home PC, reached through the HTTPS bridge (proyavka-bridge on the PC) ============ */
 /* the bridge has two addresses: at home — the PC's LAN address (genCfg.sdUrl), anywhere else — its Tailscale address, which the
    bridge reports in its ping (genCfg.sdRemote, learned automatically at home). The one that answers is used. */
-const BR={base:'', at:0, busy:null};
+const BR={base:'', at:0, busy:null, local:''}; // №115 local: the bridge on this very PC (the PC app trusts only this address)
 const clean=u=>String(u||'').trim().replace(/\/+$/,'');
 const sdBase=()=>BR.base || clean(genCfg.sdUrl);
 async function bridgePick(force){
   if (BR.busy) return BR.busy; if (!force && Date.now()-BR.at<20000) return BR.base;
-  BR.busy=(async()=>{ const cand=[clean(genCfg.sdUrl), clean(genCfg.sdRemote)].filter((u,i,a)=>u && a.indexOf(u)===i); let got='';
+  BR.busy=(async()=>{ const cand=[BR.local, clean(genCfg.sdUrl), clean(genCfg.sdRemote)].filter((u,i,a)=>u && a.indexOf(u)===i); let got='';
     for (const u of cand){ try{ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),2500); const j=await (await fetch(u+'/bridge/ping',{signal:ctl.signal, cache:'no-store'})).json(); clearTimeout(T);
         if (j && j.ok){ got=u; if (j.remote && clean(j.remote)!==clean(genCfg.sdRemote)){ genCfg.sdRemote=clean(j.remote); genSave(); toast('Запомнила адрес компьютера для связи из любой сети (Tailscale)',3000); } break; } }catch(e){} }
     if (got!==BR.base){ const prev=BR.base; BR.base=got; if (got && prev!==undefined && BR.at) toast(got===clean(genCfg.sdRemote) && got!==clean(genCfg.sdUrl) ? 'Компьютер на связи через Tailscale' : 'Компьютер на связи по домашней сети',1800); if (typeof CLOUD!=='undefined') CLOUD.via=null; if (typeof PC!=='undefined'){ PC.alive=null; PC.failAt=0; } }
@@ -3938,9 +3938,10 @@ async function bridgePick(force){
   return BR.busy; }
 setTimeout(()=>bridgePick(true), 1500); setInterval(()=>{ if (document.visibilityState==='visible') bridgePick(); }, 45000);
 document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible') bridgePick(true); }); window.addEventListener('online', ()=>bridgePick(true));
-async function sdFetch(path, opt={}, ms=30000){ if (!sdBase()) throw new Error('нужен адрес моста — кнопка ⚙');
+async function sdFetch(path, opt={}, ms=30000){ if (!sdBase() && IS_DESK) await pcAutoConnect(); if (!sdBase()) throw new Error('нужен адрес моста — кнопка ⚙');
   try{ return await netFetch(sdBase()+path, opt, ms); }
-  catch(e){ if (/нет связи/.test(e.message)){ const was=sdBase(), nb=await bridgePick(true); if (nb && nb!==was) return await netFetch(nb+path, opt, ms); } // left home / came back: the other address
+  catch(e){ if (/нет связи/.test(e.message) && IS_DESK && await pcAutoConnect() && BR.local!==sdBase()){ BR.base=BR.local; BR.at=Date.now(); return await netFetch(BR.local+path, opt, ms); } // №115: the PC app — back to the local bridge
+    if (/нет связи/.test(e.message)){ const was=sdBase(), nb=await bridgePick(true); if (nb && nb!==was) return await netFetch(nb+path, opt, ms); } // left home / came back: the other address
     if (/нет связи/.test(e.message)) throw new Error('компьютер не отвечает: мост запущен? iPad в той же Wi-Fi (или включён Tailscale)? сертификат установлен?'); throw e; } }
 let sdModelsCache=null;
 async function sdModels(){ const r=await (await sdFetch('/sdapi/v1/sd-models',{},15000)).json(); sdModelsCache=(r||[]).map(m=>m.title); return sdModelsCache; }
@@ -4019,7 +4020,7 @@ async function sdGo(){
       const c=mk(P.r.w,P.r.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,P.r.w,P.r.h); bm.close&&bm.close(); g.variants.push(c); }
     genPick(g.variants.length-imgs.length, true);
     g.busy=null; genBuild(); toast('Готово — выбери вариант',1500);
-  }catch(e){ g.busy=null; if (gen===g) genBuild(); if (e.message!=='cancel'){ console.error(e); toast('SD Inpaint: '+e.message,5000); } else toast('Остановлено',1200); }
+  }catch(e){ g.busy=null; if (gen===g) genBuild(); if (sdDown(e)) toastAct('Stable на компьютере не запущен','Запустить',()=>sdStart(()=>toast('Stable готов — жми «Сгенерировать»',2200)),8000); else if (e.message!=='cancel'){ console.error(e); toast('SD Inpaint: '+e.message,5000); } else toast('Остановлено',1200); }
 }
 /* №112 F2 «SD-ретушь выделения» — like the F2 command of the Photoshop plugin SD Inpaint: no panel, the plugin's fixed skin settings
    (0.05 / 60 steps / CFG 7 / Euler a / mask blur 4 / original), its prompt and negative read from the plugin through the bridge,
@@ -4032,6 +4033,15 @@ function sdqChip(t){ let c=$('#sdq'); if (!t){ if (c) c.hidden=true; if (typeof 
 async function sdPreset(){ // the Photoshop plugin's own prompt; an older bridge or no plugin — Проявка's saved SD prompt
   try{ const r=await fetch(sdBase()+'/proyavka/sdpreset',{cache:'no-store'}); if (r.ok){ const j=await r.json(); if (j && typeof j.prompt==='string') return {prompt:j.prompt, neg:j.neg||'', from:'ps'}; } }catch(e){}
   return {prompt:genCfg.sdPrompt||'', neg:genCfg.sdNeg||'', from:'own'}; }
+async function sdStart(then){ // №115: the bridge starts Automatic1111 hidden; when it answers — go on
+  try{ const j=await (await sdFetch('/proyavka/sdstart',{method:'POST'},15000)).json(); if (j.state==='running'){ if (then) then(); return; } }
+  catch(e){ toast('Не запустился: '+(/HTTP 404/.test(e.message)?'мост старой версии':e.message),4000); return; }
+  sdqChip('Stable запускается… обычно минута-две'); const t0=Date.now();
+  while (Date.now()-t0<300000){ await new Promise(r=>setTimeout(r,4000));
+    try{ const r=await fetch(sdBase()+'/sdapi/v1/sd-models',{cache:'no-store'}); if (r.ok){ sdqChip(null); sdModelsCache=null; toast('Stable готов',1500); if (then) then(); return; } }catch(e){}
+    sdqChip('Stable запускается… '+Math.round((Date.now()-t0)/1000)+' с'); }
+  sdqChip(null); toast('Stable не ответил за 5 минут — загляни в sd-autostart.log рядом с мостом',5000); }
+const sdDown = e => /Automatic1111 не запущен/.test(e && e.message || '');
 async function sdQuick(){
   if (!doc) return; if (sdq){ toast('SD ещё считает прошлое выделение',1500); return; }
   if (!sel){ toast('Сначала выдели участок — F2 прогонит его через SD, как в Фотошопе',2600); return; }
@@ -4059,7 +4069,7 @@ async function sdQuick(){
     const m=newMask(L); m.ctx.clearRect(0,0,D.w,D.h); m.ctx.drawImage(selMask,0,0); L.mask=m;
     insertLayer(L, doc.active+1, 'SD-ретушь'); layersChanged(); markDirty(); requestRender();
     toast('SD-ретушь легла слоем с маской'+(pr.from==='own'?' · промпт Проявки (плагин Фотошопа не нашёлся)':''),1800);
-  }catch(e){ if (e.message==='cancel' || q.cancelled) toast('SD остановлен',1200); else { console.error(e); toast('SD-ретушь: '+e.message,5000); } }
+  }catch(e){ if (e.message==='cancel' || q.cancelled) toast('SD остановлен',1200); else if (sdDown(e)) toastAct('Stable на компьютере не запущен','Запустить и прогнать',()=>sdStart(()=>{ if (sel) sdQuick(); else toast('Stable готов — выдели участок и жми ещё раз',2600); }),8000); else { console.error(e); toast('SD-ретушь: '+e.message,5000); } }
   finally{ polling=false; if (sdq===q) sdq=null; sdqChip(null); }
 }
 function genSettings(tab){
@@ -9189,7 +9199,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №114 Островок: SD-ретушь, значки плитками, до 6 кнопок'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №115 ПК держится за свой мост, запуск Stable из Проявки'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
@@ -9338,11 +9348,13 @@ async function checkUpdate(){
 window.addEventListener('load', ()=>setTimeout(checkUpdate, 2500));
 /* PC version: the bridge runs on this same computer and tells its own address to local pages only */
 async function pcAutoConnect(){
-  if (!/[?&]pc=1/.test(location.search) && !IS_DESK) return;
+  if (!/[?&]pc=1/.test(location.search) && !IS_DESK) return false;
   try{ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),2000);
     const j=await (await fetch('https://127.0.0.1:7861/local/config',{signal:ctl.signal, cache:'no-store'})).json(); clearTimeout(T);
-    if (j.base && genCfg.sdUrl!==j.base){ genCfg.sdUrl=j.base; genSave(); PC.alive=null; PC.sess={}; toast('Проявка для ПК: SD и нейросети — на этом компьютере',2200); } }
-  catch(e){ /* bridge is not running: everything still works in the browser */ }
+    if (!j.base) return false; const was=BR.base; BR.local=j.base; if (BR.base!==j.base){ BR.base=j.base; BR.at=Date.now(); PC.alive=null; PC.sess={}; }
+    if (genCfg.sdUrl!==j.base){ genCfg.sdUrl=j.base; genSave(); if (!was) toast('Проявка для ПК: SD и нейросети — на этом компьютере',2200); }
+    return true; }
+  catch(e){ if (IS_DESK && !pcAutoConnect.t) pcAutoConnect.t=setTimeout(()=>{ pcAutoConnect.t=0; pcAutoConnect(); }, 15000); return false; } // the bridge may start a bit later (autostart) — try again
 }
 window.addEventListener('load', ()=>setTimeout(pcAutoConnect, 600));
 document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible') checkUpdate(); });

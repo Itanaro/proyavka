@@ -156,6 +156,24 @@ def sd_preset():
     if not best: return None
     return {'prompt': best.get('prompt', ''), 'neg': best.get('negPrompt', '')}
 
+def sd_running():
+    try: socket.create_connection(UPSTREAM, 0.6).close(); return True
+    except Exception: return False
+
+SD_START = {'at': 0}
+def sd_start():
+    """№115: start Automatic1111 hidden, like the Windows autostart does — only if it is not running (a second copy would fight for the ports)."""
+    if sd_running(): return 'running'
+    if time.time() - SD_START['at'] < 240: return 'starting'
+    bat = os.path.join(SD_ROOT, 'webui-user.bat')
+    if not os.path.isfile(bat): raise RuntimeError('не нашла webui-user.bat')
+    env = {k: v for k, v in os.environ.items() if k.upper() not in ('HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY')}  # SD goes online directly, like autostart.bat
+    log = open(os.path.join(HERE, 'sd-autostart.log'), 'a', encoding='utf-8', errors='ignore')
+    flags = (0x08000000 | 0x00000200) if os.name == 'nt' else 0  # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
+    subprocess.Popen(['cmd', '/c', bat] if os.name == 'nt' else [bat], cwd=SD_ROOT, env=env, stdout=log, stderr=log, stdin=subprocess.DEVNULL, creationflags=flags, close_fds=True)
+    SD_START['at'] = time.time(); p(time.strftime('%H:%M:%S'), 'запускаю Automatic1111 по просьбе Проявки')
+    return 'started'
+
 def plugin_dir(pid):
     base = os.path.join(UXP_DIR, 'Plugins', 'External'); best = None
     for n in os.listdir(base) if os.path.isdir(base) else []:
@@ -252,6 +270,9 @@ class H(BaseHTTPRequestHandler):
         path = self.path[len(PREFIX):]
         if path == '/bridge/ping':
             return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'remote': REMOTE_ADDR, 'net': bool(os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')), 'subject': subject_state(), 'matting': subject_state('matting')}, ensure_ascii=False).encode())
+        if path == '/proyavka/sdstart':
+            try: st = sd_start(); return self.reply(200, json.dumps({'state': st}).encode())
+            except Exception as e: return self.reply(500, json.dumps({'error': str(e)}, ensure_ascii=False).encode())
         if path == '/proyavka/sdpreset':
             try: r = sd_preset()
             except Exception as e: p('Промпт SD Inpaint — ошибка:', e); r = None
@@ -327,6 +348,7 @@ class Server(ThreadingHTTPServer):
         p('Сбой соединения с', client_address[0], '—', e)
 
 # ---------- обновление моста без участия человека: файл поменялся — мост перезапускается сам ----------
+RESTART = {'on': False}  # the old process closes its socket on purpose — its serving loop then fails, which is not an error
 WATCH = [os.path.abspath(__file__), os.path.join(HERE, 'birefnet', 'subject.py')]
 def _stamp(): return tuple(os.path.getmtime(f) if os.path.exists(f) else 0 for f in WATCH)
 def watch_self(srv):
@@ -340,7 +362,7 @@ def watch_self(srv):
         if not why and n % 15 == 0 and remote_ip() != rip0: why = 'Адрес Tailscale изменился'  # Tailscale installed / turned on after the bridge started
         if not why: continue
         time.sleep(2)  # let the copy finish
-        p(time.strftime('%H:%M:%S'), why + ' — перезапускаюсь…')
+        p(time.strftime('%H:%M:%S'), why + ' — перезапускаюсь…'); RESTART['on'] = True
         try: srv.socket.close()  # free the port for the new process (shutdown() would wait on the serving loop)
         except Exception: pass
         log = open(os.path.join(HERE, 'bridge.log'), 'a', encoding='utf-8')
@@ -370,4 +392,7 @@ def main():
 if __name__ == '__main__':
     try: main()
     except Exception as e:
-        p('Ошибка:', e); input('Нажми Enter, чтобы закрыть…')
+        if RESTART['on']: time.sleep(5); os._exit(0)
+        p('Ошибка:', e)
+        try: input('Нажми Enter, чтобы закрыть…')
+        except EOFError: pass
