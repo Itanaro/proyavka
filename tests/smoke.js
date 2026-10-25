@@ -233,6 +233,25 @@ const steps = [
       await page.evaluate(() => fitView());
   }},
 
+  { name: 'Навигатор: тянуть рамку — холст едет, масштаб тот же; «Рука» Островка — один раз', run: async page => {
+      const r = await page.evaluate(async () => {
+        const out = {}; setTool('brush'); fitView(); const F = viewFree(), cx = F.L + F.W / 2, cy = F.T + F.H / 2; zoomAt(cx, cy, 4);
+        navToggle(true); await new Promise(r => setTimeout(r, 150)); out.open = !$('#navwin').hidden;
+        const s0 = view.s, cv0 = contentVer, b = $('#navwin .nb'), g = navGeom(), rr = b.getBoundingClientRect();
+        const C = toDoc(cx, cy), at = (x, y) => ({ clientX: rr.left + g.ox + x * g.k, clientY: rr.top + g.oy + y * g.k, pointerId: 9, button: 0, bubbles: true, pointerType: 'pen' });
+        b.dispatchEvent(new PointerEvent('pointerdown', at(C[0], C[1]))); b.dispatchEvent(new PointerEvent('pointermove', at(C[0] + 200, C[1] + 300)));
+        b.dispatchEvent(new PointerEvent('pointerup', at(C[0] + 200, C[1] + 300)));
+        const C2 = toDoc(cx, cy); out.moved = Math.abs(C2[0] - C[0] - 200) < 3 && Math.abs(C2[1] - C[1] - 300) < 3; out.zoom = view.s === s0;
+        b.dispatchEvent(new PointerEvent('pointerdown', at(100, 100))); b.dispatchEvent(new PointerEvent('pointerup', at(100, 100)));
+        const C3 = toDoc(cx, cy); out.jump = Math.abs(C3[0] - 100) < 3 && Math.abs(C3[1] - 100) < 3;
+        islandRun('hand'); out.handOn = penHand; const x0 = view.x;
+        const fire = (tp, x, bt) => oc.dispatchEvent(new PointerEvent(tp, { bubbles: true, pointerId: 11, pointerType: 'pen', clientX: x, clientY: 400, button: tp === 'pointermove' ? -1 : 0, buttons: bt, pressure: .5 }));
+        fire('pointerdown', 500, 1); fire('pointermove', 620, 1); fire('pointerup', 620, 0);
+        out.handPan = Math.abs(view.x - x0 - 120) < 1 && !penHand; out.noStroke = contentVer === cv0;
+        navToggle(false); fitView(); return out; });
+      for (const [k, v] of Object.entries(r)) check(v, 'навигатор / рука: не так — ' + k);
+  }},
+
   { name: 'Окна: История со снимком, Рефы', run: async page => {
       await page.evaluate(() => { histToggle(true); histSnap(); refToggle(true); });
       const r = await page.evaluate(() => ({ snaps: (doc.snaps || []).length, refs: !refEl().hidden, hist: !histEl().hidden }));

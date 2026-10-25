@@ -767,6 +767,13 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 /* №104: reference window (PureRef-like): pictures of the brief, assets, locations; kept with the document */
 #refwin{position:absolute;z-index:9;display:flex;flex-direction:column;min-width:220px;min-height:180px;border-radius:18px;background:var(--glass-work);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);overflow:hidden}
 #refwin[hidden],.hideui #refwin,body.home #refwin{display:none!important}
+#navwin{position:absolute;z-index:9;display:flex;flex-direction:column;min-width:160px;min-height:140px;border-radius:16px;background:var(--glass-work);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--glass-hi),var(--glass-shadow);overflow:hidden}
+#navwin[hidden],.hideui #navwin,body.home #navwin{display:none!important}
+#navwin .nh{display:flex;align-items:center;gap:4px;padding:5px 5px 5px 12px;cursor:move;touch-action:none;user-select:none;-webkit-user-select:none;border-bottom:1px solid var(--line-soft)}
+#navwin .nh b{font-size:12.5px;font-weight:600} #navwin .nh span{flex:1;color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap}
+#navwin .nh button{height:26px;min-width:26px;padding:0 6px;border-radius:8px;color:var(--muted);font-size:12px} #navwin .nh button:hover{background:var(--soft-2);color:var(--fg)}
+#navwin .nb{flex:1;min-height:0;position:relative;touch-action:none;cursor:pointer} #navwin .nb canvas{position:absolute;inset:0;width:100%;height:100%}
+#navwin .rz{position:absolute;right:2px;bottom:2px;width:18px;height:18px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 55%,var(--muted) 55%,var(--muted) 62%,transparent 62%,transparent 72%,var(--muted) 72%,var(--muted) 79%,transparent 79%);opacity:.6;z-index:2}
 #refwin .rh{display:flex;align-items:center;gap:4px;padding:6px 6px 6px 12px;cursor:move;touch-action:none;user-select:none;-webkit-user-select:none;border-bottom:1px solid var(--line-soft)}
 #refwin .rh b{font-size:13px;font-weight:600} #refwin .rh span{flex:1;color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #refwin .rh button{height:28px;min-width:28px;padding:0 7px;border-radius:9px;color:var(--muted);font-size:12px} #refwin .rh button:hover{background:var(--soft-2);color:var(--fg)}
@@ -1012,6 +1019,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <button data-i="smartrep" id="imgSmartRep">Заменить содержимое…</button>
     <button data-i="safe">Безопасная зона 900 / 1500 <small>слой-разметка</small></button>
     <button data-i="rulers">Линейки в пикселях <small>Ctrl+R</small></button>
+    <button data-i="nav">Навигатор <small>вся картина с рамкой</small></button>
     <button data-i="screen2">Второй экран <small>очки, 2-й монитор</small></button>
     <hr>
     <div class="aih" id="imgInfo"></div>
@@ -1176,6 +1184,7 @@ const S = {
 };
 let doc = null;          // {w,h,name,layers:[], active, editMask}
 let view = {x:0,y:0,s:1,r:0};
+let penHand=false; // №123 Островок «Рука»: the next pen / mouse drag on the canvas pans, then the tool is back
 let bird=null; // №122 «Обзор» (bird's-eye), see birdOpen
 let dpr = Math.min(window.devicePixelRatio||1, 2);
 let sel = null;          // {mask canvas, polys:[[x,y]...], bbox:{x,y,w,h}, inverted}
@@ -1440,7 +1449,7 @@ function getChecker(){
 let navigating=false, navT=null, contentVer=1, preview=null, previewVer=0;
 function navStart(){ navigating=true; clearTimeout(navT); }
 let pvT=null;
-function bumpContent(){ contentVer++; clearTimeout(pvT); pvT=setTimeout(function pv(){ if(!doc) return; if (navigating || stroke || xf || liqStroke || toolPtr!==null || hover){ pvT=setTimeout(pv,700); return; } getPreview(); }, 900); } // the navigation copy is rebuilt in a pause, not between strokes
+function bumpContent(){ contentVer++; clearTimeout(pvT); pvT=setTimeout(function pv(){ if(!doc) return; if (navigating || stroke || xf || liqStroke || toolPtr!==null || hover){ pvT=setTimeout(pv,700); return; } getPreview(); navDraw(); }, 900); } // the navigation copy is rebuilt in a pause, not between strokes
 function navEnd(delay=90){ clearTimeout(navT); navT=setTimeout(()=>{ navigating=false; requestRender(); }, delay); }
 function getPreview(){
   if (preview && previewVer===contentVer) return preview;
@@ -1487,7 +1496,7 @@ function render(){
   if (navigating && !stroke && !xf){
     const pc=getPreview();
     if (pc){ vx.imageSmoothingEnabled = view.s*doc.w/pc.width < 2.5; vx.imageSmoothingQuality='low';
-      setVT(vx); vx.drawImage(pc,0,0,doc.w,doc.h); renderOverlay(); updateStatus(); return; }
+      setVT(vx); vx.drawImage(pc,0,0,doc.w,doc.h); renderOverlay(); updateStatus(); navDraw(); return; }
   }
   // composite
   const cc=ctx2(comp); cc.setTransform(1,0,0,1,0,0); cc.clearRect(0,0,W,H);
@@ -1501,6 +1510,7 @@ function render(){
     vx.save(); setVT(vx); vx.beginPath(); vx.rect(-1e6,-1e6,2e6,2e6); vx.rect(0,0,doc.w,doc.h); vx.clip('evenodd');
     vx.globalAlpha=0.32; setVT(vx, xfMatrix()); vx.drawImage(xf.float,0,0); vx.restore();
   }
+  navDraw(); // №123
   renderOverlay();
   updateStatus();
 }
@@ -6259,8 +6269,8 @@ $('#bImg').onclick=e=>{ e.stopPropagation(); closePops('imgmenu'); const m=$('#i
   { const L=doc&&AL(), s=!!(L&&L.smart); $('#imgSmart').textContent = s ? 'Растрировать смарт-объект' : 'В смарт-объект'; $('#imgSmartRep').hidden=!s; }
   m.querySelector('#imgInfo').textContent = doc ? doc.w+'×'+doc.h+' px · '+(doc.dpi||72)+' ppi · '+((doc.w/(doc.dpi||72))*2.54).toFixed(1)+'×'+((doc.h/(doc.dpi||72))*2.54).toFixed(1)+' см' : '';
   const r=$('#bImg').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
-document.querySelectorAll('#imgmenu [data-i]').forEach(b=>b.onclick=()=>{ closePops(); if (!doc) return; const i=b.dataset.i; if (!['safe','rulers','screen2'].includes(i) && aip && !aiSettle()) return;
-  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, detail:()=>cropOpen({detail:true}), xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>rmbgOpen(), safe:safeZoneToggle, rulers:rulersToggle, screen2:s2Open, stamp:()=>{ if (!panelBusy()) stampVisible(); }, mergevis:()=>{ if (!panelBusy()) mergeVisible(); }, smart:()=>{ if (AL().smart) smartRasterize(); else smartConvert(); }, smartrep:smartReplace})[i](); });
+document.querySelectorAll('#imgmenu [data-i]').forEach(b=>b.onclick=()=>{ closePops(); if (!doc) return; const i=b.dataset.i; if (!['safe','rulers','screen2','nav'].includes(i) && aip && !aiSettle()) return;
+  ({crop:cropOpen, isize:imageSizeDialog, csize:canvasSizeDialog, expand:expandDialog, detail:()=>cropOpen({detail:true}), xf:()=>setTool('transform'), pup:pupOpen, liq:()=>{ if (!panelBusy()) setTool('liquify'); }, rmbg:()=>rmbgOpen(), safe:safeZoneToggle, rulers:rulersToggle, screen2:s2Open, nav:()=>navToggle(), stamp:()=>{ if (!panelBusy()) stampVisible(); }, mergevis:()=>{ if (!panelBusy()) mergeVisible(); }, smart:()=>{ if (AL().smart) smartRasterize(); else smartConvert(); }, smartrep:smartReplace})[i](); });
 $('#bCrop').onclick=()=>cropOpen();
 $('#docInfo').title='Размер изображения (Ctrl+Alt+I)'; $('#docInfo').onclick=()=>imageSizeDialog();
 
@@ -7054,6 +7064,7 @@ function showHelpPad(){
    <dt>1 палец, удерживать</dt><dd>Пипетка как в Procreate: кольцо вокруг пальца, верх — новый цвет, низ — текущий. Веди, отпусти — цвет взят.</dd>
    <dt>Карандаш, задержать на месте</dt><dd>В кисти и ластике: подержи карандаш неподвижно ~0.5 с — включится та же пипетка (выключается в меню «Файл»).</dd>
    <dt>2 пальца</dt><dd>Щипок — масштаб, поворот, сдвиг. Поворот прилипает к нулю.</dd>
+   <dt>Навигатор</dt><dd>«Изображение → Навигатор» или кнопка Островка: окошко со всей картиной и рамкой. Тяни рамку карандашом — холст едет следом, масштаб не меняется; ткни мимо рамки — переедет туда. Кнопка Островка «Рука» — один раз потянуть холст карандашом, потом инструмент снова твой.</dd>
    <dt>Обзор (кнопка Островка)</dt><dd>Руки заняты карандашом: поставь на Островок кнопку «Обзор» (удержание кнопки → плитка). Нажми её — видна вся картина и рамка того, что было на экране. Тяни рамку карандашом или ткни, куда надо, — отпустишь, и масштаб вернётся уже туда.</dd>
    <dt>2 пальца, тап</dt><dd>Отменить.</dd>
    <dt>3 пальца, тап</dt><dd>Вернуть то, что отменила двумя пальцами.</dd>
@@ -7097,7 +7108,7 @@ function showHelpDesk(){
   const card=(t,rows)=>'<section><h4>'+t+'</h4>'+rows.map(([k,v])=>'<div class="hk"><span>'+k.split(' / ').map(K).join('<i>/</i>')+'</span><b>'+v+'</b></div>').join('')+'</section>';
   const html=`<h3>Клавиши и мышь</h3><p>Клавиши — как в фотошопе и работают в любой раскладке. Перо планшета рисует с нажимом, мышь — без.</p>
    <div class="hkgrid">`+
-   card('Холст',[['Колёсико / Alt+колёсико','масштаб'],['Ctrl+колёсико','масштаб (на тачпаде — щипок)'],['Shift+колёсико','сдвиг вбок'],['Alt+Shift+колёсико','поворот'],['Пробел / средняя кнопка / боковая кнопка пера','держать и тянуть — рука'],['H + нажать (при увеличении)','обзор: вся картина, рамкой выбрать место, отпустить — туда'],['Ctrl+Пробел / Alt+Пробел','клик — ближе / дальше, тянуть — плавно'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум по шагам фотошопа (50 · 67 · 100 · 200 %)'],['Ctrl+R','линейки в px вдоль верхней и левой панели'],['Tab / F','спрятать панели'],['Правый клик мимо картинки','фон вокруг холста']])+
+   card('Холст',[['Колёсико / Alt+колёсико','масштаб'],['Ctrl+колёсико','масштаб (на тачпаде — щипок)'],['Shift+колёсико','сдвиг вбок'],['Alt+Shift+колёсико','поворот'],['Пробел / средняя кнопка / боковая кнопка пера','держать и тянуть — рука'],['Изображение → Навигатор','вся картина с рамкой: тянуть рамку — холст едет, масштаб тот же'],['H + нажать (при увеличении)','обзор: вся картина, рамкой выбрать место, отпустить — туда'],['Ctrl+Пробел / Alt+Пробел','клик — ближе / дальше, тянуть — плавно'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум по шагам фотошопа (50 · 67 · 100 · 200 %)'],['Ctrl+R','линейки в px вдоль верхней и левой панели'],['Tab / F','спрятать панели'],['Правый клик мимо картинки','фон вокруг холста']])+
    card('Файл и документы',[['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить в свой файл; PNG / JPG со слоями — предложит PSD'],['Ctrl+Shift+S','сохранить как: PSD / PNG / JPG — файл становится рабочим'],['Ctrl+Alt+Shift+S','сдать кат: проверка + PSD и PNG 1500×2000'],['Ctrl+W / Ctrl+F4','закрыть документ (в приложении); последний — экран «Начало»'],['Ctrl+Tab / Ctrl+Shift+Tab','следующая / предыдущая вкладка'],['Средняя кнопка по вкладке','закрыть вкладку'],['Файлы на вкладки','открыть каждый своим документом']])+
    card('Правка',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+C / Ctrl+Shift+C','копировать выделенное: слой / всё видимое'],['Ctrl+V','вставить новым слоем на то же место; в Доводке — в рефы'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
    card('Выделение',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','до начала — добавить / вычесть'],['Shift / Alt (по ходу)','прямоугольник: квадрат / от центра'],['Тянуть внутри выделения','сдвинуть контур (лассо, прямоугольник, палочка)'],['Стрелки / Shift+стрелки','сдвинуть выделение на 1 / 10 px'],['Ctrl+Alt+R / Shift+F6','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой']])+
@@ -7890,7 +7901,60 @@ document.addEventListener('keydown', e=>{ if (!refView || !$('#refwin') || $('#r
   if (e.key==='Escape' && refView.fm){ e.preventDefault(); e.stopImmediatePropagation(); refView.toggleFrame(false); return; }
   if (e.key==='Escape'){ e.preventDefault(); e.stopImmediatePropagation(); refView=null; refRender(); } else if (e.key==='ArrowRight'&&n>1){ e.preventDefault(); e.stopImmediatePropagation(); refView={i:(refView.i+1)%n,s:0,fm:refView.fm}; refRender(); } else if (e.key==='ArrowLeft'&&n>1){ e.preventDefault(); e.stopImmediatePropagation(); refView={i:(refView.i-1+n)%n,s:0,fm:refView.fm}; refRender(); } }, true);
 /* a document switch shows its own refs */
-function refDocChanged(){ refView=null; const el=$('#refwin'); if (!el) { if (refUI.open && doc) refToggle(true); return; } el.hidden=!refUI.open || !doc; const b=$('#bRefs'); if (b) b.classList.toggle('on', refUI.open); if (!el.hidden){ refPlace(); refRender(); } }
+function refDocChanged(){ { const ne=$('#navwin'); if (ne){ ne.hidden=!navUI.open || !doc; if (!ne.hidden){ navPlace(); navDraw(); } } else if (navUI.open && doc) navToggle(true); } refView=null; const el=$('#refwin'); if (!el) { if (refUI.open && doc) refToggle(true); return; } el.hidden=!refUI.open || !doc; const b=$('#bRefs'); if (b) b.classList.toggle('on', refUI.open); if (!el.hidden){ refPlace(); refRender(); } }
+/* ============ №123 Навигатор — как в Фотошопе ============
+   The whole picture with a frame of what is on screen (the part between the bars). Drag the frame — the canvas follows,
+   the zoom does not change; press outside the frame — it moves there. Wheel over it — zoom around the middle. The window:
+   drag by the title, resize by the corner, position and size kept per device. «Изображение → Навигатор», Островок. */
+let navUI=(()=>{ const d={open:false,x:null,y:null,w:230,h:280}; try{ return Object.assign(d, JSON.parse(localStorage.getItem('proyavka.navwin')||'{}')); }catch(_){ return d; } })();
+const navUISave=()=>{ try{ localStorage.setItem('proyavka.navwin', JSON.stringify(navUI)); }catch(_){} };
+let navDragP=null;
+function navEl(){ let el=$('#navwin'); if (el) return el;
+  el=document.createElement('div'); el.id='navwin'; el.hidden=true;
+  el.innerHTML='<div class="nh"><b>Навигатор</b><span></span><button data-n="fit" title="Вписать в окно (Ctrl+0)">⤢</button><button data-n="close" title="Закрыть">✕</button></div><div class="nb"><canvas></canvas></div><div class="rz"></div>';
+  $('#stage').append(el); navWire(el); return el; }
+function navPlace(){ const el=$('#navwin'); if (!el || el.hidden) return; const st=$('#stage').getBoundingClientRect();
+  let w=Math.max(160, Math.min(navUI.w, st.width-20)), h=Math.max(140, Math.min(navUI.h, st.height-20)), x=navUI.x, y=navUI.y;
+  if (x==null){ const F=viewFree(); x=F.L+F.W-w-16; y=F.T+16; }
+  x=Math.max(6, Math.min(st.width-w-6, x)); y=Math.max(6, Math.min(st.height-h-6, y));
+  Object.assign(el.style, {left:x+'px', top:y+'px', width:w+'px', height:h+'px'}); }
+function navToggle(on){ const el=navEl(); navUI.open = on==null ? el.hidden : !!on; navUISave(); el.hidden=!navUI.open || !doc; if (typeof islandSync==='function') islandSync(); if (!el.hidden){ navPlace(); navDraw(); } }
+function navGeom(){ const el=$('#navwin'), b=el.querySelector('.nb'), W=b.clientWidth, H=b.clientHeight, pad=8, k=Math.min((W-2*pad)/doc.w, (H-2*pad)/doc.h);
+  return {W, H, k, ox:(W-doc.w*k)/2, oy:(H-doc.h*k)/2}; }
+function navFrame(){ const F=viewFree(), x1=F.L+F.W, y1=F.T+F.H; return [[F.L,F.T],[x1,F.T],[x1,y1],[F.L,y1]].map(q=>toDoc(q[0],q[1])); }
+function navDraw(){ const el=$('#navwin'); if (!el || el.hidden || !doc) return; const g=navGeom(); if (g.W<10 || g.H<10) return;
+  const cv=el.querySelector('canvas'), w=Math.round(g.W*dpr), h=Math.round(g.H*dpr); if (cv.width!==w || cv.height!==h){ cv.width=w; cv.height=h; }
+  const x=ctx2(cv); x.setTransform(1,0,0,1,0,0); x.clearRect(0,0,w,h); x.setTransform(dpr,0,0,dpr,0,0);
+  const pv = preview || getPreview(); x.imageSmoothingEnabled=true; x.imageSmoothingQuality='high';
+  x.fillStyle=getChecker(); x.save(); x.translate(g.ox,g.oy); x.fillRect(0,0,doc.w*g.k,doc.h*g.k); x.restore();
+  if (pv) x.drawImage(pv, g.ox, g.oy, doc.w*g.k, doc.h*g.k);
+  const q=navFrame().map(t=>[g.ox+t[0]*g.k, g.oy+t[1]*g.k]);
+  x.beginPath(); x.rect(0,0,g.W,g.H); q.forEach((t,i)=>i?x.lineTo(t[0],t[1]):x.moveTo(t[0],t[1])); x.closePath(); x.fillStyle='rgba(0,0,0,.38)'; x.fill('evenodd');
+  x.beginPath(); q.forEach((t,i)=>i?x.lineTo(t[0],t[1]):x.moveTo(t[0],t[1])); x.closePath(); x.lineWidth=2; x.strokeStyle=cssVar('--accent'); x.stroke();
+  const sp=el.querySelector('.nh span'), z=Math.round(view.s*100)+'%'; if (sp.textContent!==z) sp.textContent=z; }
+function navCenterOn(P){ const F=viewFree(), cx=F.L+F.W/2, cy=F.T+F.H/2, c=Math.cos(view.r)*view.s, sn=Math.sin(view.r)*view.s; view.x=cx-(c*P[0]-sn*P[1]); view.y=cy-(sn*P[0]+c*P[1]); requestRender(); }
+function navWire(el){
+  const b=el.querySelector('.nb');
+  el.querySelector('.nh').addEventListener('click', e=>{ const t=e.target.closest('button'); if (!t) return; if (t.dataset.n==='close') navToggle(false); else { fitView(); } });
+  const docAt=e=>{ const g=navGeom(), r=b.getBoundingClientRect(); return [(e.clientX-r.left-g.ox)/g.k, (e.clientY-r.top-g.oy)/g.k]; };
+  const inside=([x,y])=>{ const q=navFrame(); let o=false; for (let i=0,j=3;i<4;j=i++){ const [xi,yi]=q[i], [xj,yj]=q[j]; if ((yi>y)!==(yj>y) && x<(xj-xi)*(y-yi)/(yj-yi)+xi) o=!o; } return o; };
+  b.addEventListener('pointerdown', e=>{ e.stopPropagation(); e.preventDefault(); if (!doc || navDragP) return; const p=docAt(e), F=viewFree(), C=toDoc(F.L+F.W/2, F.T+F.H/2);
+    navStart(); if (!inside(p)){ navCenterOn(p); navDragP={id:e.pointerId, off:[0,0]}; } else navDragP={id:e.pointerId, off:[C[0]-p[0], C[1]-p[1]]};
+    try{ b.setPointerCapture(e.pointerId); }catch(_){} });
+  b.addEventListener('pointermove', e=>{ if (!navDragP || e.pointerId!==navDragP.id) return; const p=docAt(e); navCenterOn([p[0]+navDragP.off[0], p[1]+navDragP.off[1]]); });
+  const up=e=>{ if (!navDragP || e.pointerId!==navDragP.id) return; navDragP=null; navEnd(); };
+  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+  b.addEventListener('wheel', e=>{ e.preventDefault(); e.stopPropagation(); if (!doc) return; const F=viewFree(); navStart(); navEnd(200); zoomAt(F.L+F.W/2, F.T+F.H/2, Math.exp(-e.deltaY*0.0015)); }, {passive:false});
+  let d=null; const h=el.querySelector('.nh'), z=el.querySelector('.rz');
+  h.addEventListener('pointerdown', e=>{ if (e.target.closest('button')) return; const r=el.getBoundingClientRect(), st=$('#stage').getBoundingClientRect(); d={m:'move', id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, st}; try{ h.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); e.stopPropagation(); });
+  z.addEventListener('pointerdown', e=>{ const r=el.getBoundingClientRect(); d={m:'size', id:e.pointerId, x0:e.clientX, y0:e.clientY, w0:r.width, h0:r.height}; try{ z.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); e.stopPropagation(); });
+  const mv=e=>{ if (!d || e.pointerId!==d.id) return; if (d.m==='move'){ navUI.x=e.clientX-d.st.left-d.dx; navUI.y=e.clientY-d.st.top-d.dy; } else { navUI.w=Math.max(160, d.w0+e.clientX-d.x0); navUI.h=Math.max(140, d.h0+e.clientY-d.y0); } navPlace(); navDraw(); };
+  const upw=e=>{ if (!d || e.pointerId!==d.id) return; d=null; navUISave(); };
+  for (const x of [h,z]){ x.addEventListener('pointermove', mv); x.addEventListener('pointerup', upw); x.addEventListener('pointercancel', upw); }
+  h.addEventListener('dblclick', e=>{ if (e.target.closest('button')) return; navUI.x=navUI.y=null; navUISave(); navPlace(); });
+  el.addEventListener('pointerdown', e=>e.stopPropagation()); el.addEventListener('wheel', e=>e.stopPropagation(), {passive:true}); }
+window.addEventListener('resize', ()=>{ navPlace(); navDraw(); });
+
 /* ============ №101: «Островок» ============
    Three quick buttons on a floating pill that lives where the hand is — on a big pen display the tool rail is far away.
    Drag it by the dotted grip (position kept per device), double-click / double-tap the grip — horizontal ↔ vertical.
@@ -7905,6 +7969,8 @@ const ISLAND_ACTS={
   crop:{t:'Кадрирование', icon:()=>$('#bCrop').innerHTML, run:()=>{ if (!document.querySelector('.scrim')) cropOpen(); }},
   sdq:{t:'SD-ретушь (как F2)', svg:'<rect x="2" y="4.5" width="20" height="15" rx="4.5"/><text x="12" y="15.8" text-anchor="middle" font-size="10" font-weight="700" font-family="system-ui,sans-serif" fill="currentColor" stroke="none">SD</text>', run:()=>sdQuick()},
   airm:{t:'Убрать нейросетью (выделение)', svg:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M12 8.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="currentColor"/>', run:()=>{ if (sel) inpaintFromSel(); else toast('Сначала выдели, что убрать'); }},
+  nav:{t:'Навигатор — вся картина, тянуть рамку', svg:'<rect x="3" y="4" width="18" height="16" rx="3"/><rect x="9" y="8.5" width="8" height="6.5" rx="1"/>', run:()=>navToggle()}, // №123
+  hand:{t:'Рука — один раз потянуть холст пером', svg:'<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11V5a1.5 1.5 0 0 1 3 0v6M14 11V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.5a5.5 5.5 0 0 1-4.6-2.5L3.6 14a1.5 1.5 0 0 1 2.5-1.6L8 15"/>', run:()=>{ penHand=!penHand; islandSync(); updateCursor(); if (penHand) toast('Тяни холст пером — потом инструмент вернётся',1600); }},
   obzor:{t:'Обзор — вся картина, рамкой выбрать, куда вернуться', svg:'<rect x="3" y="3" width="18" height="18" rx="3"/><rect x="11" y="10" width="7" height="6" rx="1" fill="currentColor" stroke="none" opacity=".55"/><path d="M6 7h3M6 7v3"/>', run:()=>{ if (bird) birdClose(false); else birdOpen(false); }}, // №122
   hist:{t:'История', svg:'<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3 4v4.5h4.5"/><path d="M12 7.5V12l3 2"/>', run:()=>histToggle()},
   undo:{t:'Отменить', svg:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', run:()=>undo()},
@@ -7925,7 +7991,7 @@ function islandBuild(){
   const g=document.createElement('div'); g.className='grip'; g.title='Тяни — переставить. Двойной клик — повернуть'; el.append(g);
   island.slots.forEach((k,i)=>{ const b=document.createElement('button'); b.className='ib'; b.dataset.i=i; b.dataset.k=k; b.innerHTML=islandIcon(k); b.title=(ISLAND_ACTS[k]||{}).t+' · правый клик или удержание — поменять'; el.append(b); });
   islandSync(); islandPlace(); }
-function islandSync(){ const tb=$('#bIsland'); if (tb){ tb.classList.toggle('on', !!island.on); tb.setAttribute('aria-pressed', island.on?'true':'false'); } const el=$('#island'); if (!el) return; el.querySelectorAll('.ib').forEach(b=>{ const a=ISLAND_ACTS[b.dataset.k]; b.classList.toggle('busy', b.dataset.k==='sdq' && !!sdq); b.classList.toggle('on', !!(a && a.tool && a.tool===S.tool) || (b.dataset.k==='obzor' && !!bird)); }); }
+function islandSync(){ const tb=$('#bIsland'); if (tb){ tb.classList.toggle('on', !!island.on); tb.setAttribute('aria-pressed', island.on?'true':'false'); } const el=$('#island'); if (!el) return; el.querySelectorAll('.ib').forEach(b=>{ const a=ISLAND_ACTS[b.dataset.k]; b.classList.toggle('busy', b.dataset.k==='sdq' && !!sdq); b.classList.toggle('on', !!(a && a.tool && a.tool===S.tool) || (b.dataset.k==='obzor' && !!bird) || (b.dataset.k==='nav' && !!navUI.open) || (b.dataset.k==='hand' && penHand)); }); }
 function islandPlace(){ const el=$('#island'); if (!el || el.hidden) return; const st=$('#stage').getBoundingClientRect(), w=el.offsetWidth, h=el.offsetHeight;
   let x, y; if (island.x!=null){ x=island.x*st.width; y=island.y*st.height; }
   else { const ly=$('#layers'), right=(ly && !ly.hidden ? ly.getBoundingClientRect().left-st.left : st.width)-24; x=right-w; y=st.height-h-28; } // by default: low on the right, next to the layers
@@ -8327,7 +8393,7 @@ function penPressure(e){ if(e.pointerType==='mouse') return e.buttons?1:0; retur
 
 // several picked layers: a plain click on the picture or on an empty part of the layer list drops back to one (the active) layer
 function pickDropOn(e){ if (!doc || !doc.pick || doc.pick.size<2 || e.shiftKey || e.ctrlKey || e.metaKey || xf || S.tool==='transform') return; doc.pick=null; layersChanged(); }
-stage.addEventListener('pointerdown', e=>{ if (e.target===stage || e.target.tagName==='CANVAS') pickDropOn(e); }, true);
+stage.addEventListener('pointerdown', e=>{ if (e.target===stage || (e.target.tagName==='CANVAS' && !e.target.closest('#navwin'))) pickDropOn(e); }, true);
 $('#lyList').addEventListener('pointerdown', e=>{ if (!e.target.closest('.ly')) pickDropOn(e); });
 stage.addEventListener('pointerdown', e=>{
   if (e.target!==oc && e.target!==vc) return;
@@ -8354,6 +8420,7 @@ stage.addEventListener('pointerdown', e=>{
   if ((zHeld || spaceZoom()) && toolPtr===null){ zoomDrag={id:e.pointerId, x:e.clientX, p:stagePos(e), out:altDown||e.altKey, moved:false}; capture(e); return; }
   if (rHeld && toolPtr===null){ const st=stage.getBoundingClientRect(), p=stagePos(e); rotDrag={id:e.pointerId, cx:st.width/2, cy:st.height/2, a:Math.atan2(p[1]-st.height/2, p[0]-st.width/2)}; capture(e); updateCursor(); return; }
   if (hHeld && !spaceDown && toolPtr===null && !birdFits()){ birdOpen(true); birdDown(e, false); return; } // №122: H + press — bird's-eye, as in Photoshop
+  if (penHand && toolPtr===null){ penHand=false; islandSync(); panDrag={id:e.pointerId,x:e.clientX,y:e.clientY,vx:view.x,vy:view.y}; capture(e); updateCursor(); return; } // №123
   if ((spaceDown || hHeld || e.button===1 || (e.pointerType==='pen' && e.button===2)) && toolPtr===null){ panDrag={id:e.pointerId,x:e.clientX,y:e.clientY,vx:view.x,vy:view.y}; capture(e); updateCursor(); return; }
   lastPenT=Date.now();
   if (toolPtr!==null){ if (fingerTool) return; toolUp(e); } // there is only one pen: an old stroke still open means Safari lost its pointerup — finish it, then start the new one
@@ -8588,7 +8655,7 @@ function updateCursor(){
   if (panDrag) { st.cursor='grabbing'; return; }
   if (spaceZoom()) { st.cursor = altDown ? 'zoom-out' : 'zoom-in'; return; }
   if (bird){ st.cursor = bird.drag ? 'grabbing' : 'move'; return; } // №122
-  if (spaceDown || hHeld) { st.cursor='grab'; return; }
+  if (spaceDown || hHeld || penHand) { st.cursor = panDrag ? 'grabbing' : 'grab'; return; }
   if (zHeld) { st.cursor = altDown ? 'zoom-out' : 'zoom-in'; return; }
   if (rHeld) { st.cursor=CUR_ROTATE; return; }
   const selT=['lasso','rect','wand','tap'].includes(t);
@@ -9437,7 +9504,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №122 Обзор — двигать увеличенный холст не выпуская пера'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №123 Навигатор и Рука на Островке — холст пером без скачков'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
