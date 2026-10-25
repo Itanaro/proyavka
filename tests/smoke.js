@@ -347,6 +347,16 @@ const steps = [
       check(r.quiet, 'при удалении кистью экран затемнился'); check(r.dl, 'скачивание модели должно быть видно'); check(r.mark, 'мазок не мерцает на месте, пока считается');
   }},
 
+  { name: 'Удаление нейросетью: зерно возвращается в заплатку', run: async page => {
+      const r = await page.evaluate(() => { const W = 120, H = 120, N = W * H, R = rngSeed(7);
+        const D = new Uint8ClampedArray(N * 4), G = new Float32Array(N * 4), hole = new Uint8Array(N);
+        for (let i = 0; i < N; i++) { const n = (R() - 0.5) * 24; for (let c = 0; c < 3; c++) { D[i * 4 + c] = 100 + n; G[i * 4 + c] = 100; } D[i * 4 + 3] = G[i * 4 + 3] = 255;
+          const x = i % W, y = (i / W) | 0; hole[i] = Math.abs(x - 60) < 12 ? 1 : 0; if (hole[i]) for (let c = 0; c < 3; c++) G[i * 4 + c] = 100; }
+        regrain(D, G, hole, W, H); let s = 0, n = 0; for (let i = 0; i < N; i++) if (hole[i]) { s += (G[i * 4] - 100) ** 2; n++; }
+        return { sd: Math.sqrt(s / n), fn: typeof migaNative }; });
+      check(r.fn === 'function', 'нет нарезки по плиткам'); check(r.sd > 2, 'зерно в заплатку не добавилось: ' + r.sd.toFixed(2));
+  }},
+
   { name: 'Темы переключаются', run: async page => {
       const r = await page.evaluate(() => { const out = []; for (const t of ['night', 'cloud', 'sun', 'graphite']) { themeSet(t); out.push(document.documentElement.getAttribute('data-theme') === t); } return out; });
       check(r.every(Boolean), 'не все темы встали');

@@ -4921,8 +4921,53 @@ async function loadMigan(){
   try{ return await miganLoading; } finally{ miganLoading=null; }
 }
 // hole: Uint8 0..255 over region r. returns generated RGBA (r-sized) — only meaningful inside the hole
-async function generateFill(r, D, hole, method){
+/* №125 film grain back into a generated patch: the network paints it smooth, the photo around has grain.
+   Measure the fine noise in a ring around the hole, add the missing part as matching grain inside the hole. */
+function distOut(m, W, H, on){ const g=new Float32Array(W*H); for (let i=0;i<g.length;i++) g[i]=on(m[i])?0:1e20; edt2d(g,W,H); for (let i=0;i<g.length;i++) g[i]=Math.sqrt(g[i]); return g; }
+function regrain(D, G, hole, W, H){ // D original RGBA, G generated RGBA (changed in place), hole: Uint8 0/1
+  const N=W*H, dd=distOut(hole,W,H,v=>v>0);
+  const hp=(src)=>{ const o=[]; for (let c=0;c<3;c++){ const f=new Float32Array(N); for (let i=0;i<N;i++) f[i]=src[i*4+c]; const b=gauss(Float32Array.from(f),W,H,1.2); for (let i=0;i<N;i++) f[i]-=b[i]; o.push(f); } return o; };
+  const ho=hp(D), hg=hp(G), add=[0,0,0];
+  for (let c=0;c<3;c++){ let so=0,no=0,sg=0,ng=0;
+    for (let i=0;i<N;i++){ const d=dd[i]; if (d>2 && d<=14 && D[i*4+3]>200){ so+=ho[c][i]*ho[c][i]; no++; } else if (hole[i]){ sg+=hg[c][i]*hg[c][i]; ng++; } }
+    if (no>50 && ng>0) add[c]=Math.sqrt(Math.max(0, so/no - sg/ng)); }
+  if (add[0]+add[1]+add[2]<0.3) return G;
+  const R=rngSeed(12345), nrm=()=>{ let u=0,v=0; while(!u) u=R(); v=R(); return Math.sqrt(-2*Math.log(u))*Math.cos(6.2831853*v); };
+  const mkN=()=>{ const f=new Float32Array(N); for (let i=0;i<N;i++) f[i]=nrm(); gauss(f,W,H,0.6); let s=0; for (let i=0;i<N;i++) s+=f[i]*f[i]; const k=1/Math.sqrt(s/N||1); for (let i=0;i<N;i++) f[i]*=k; return f; };
+  const L=mkN(), ch=[mkN(),mkN(),mkN()]; // grain is mostly brightness, a little colour
+  for (let i=0;i<N;i++) if (hole[i]) for (let c=0;c<3;c++) G[i*4+c]+=add[c]*(0.85*L[i]+0.53*ch[c][i]);
+  return G;
+}
+/* №125 thin strokes (hairs, wires, scratches): the network works at the picture's own scale, tile by tile
+   (256 px, 128 px of context around each); before it shrank the whole area to one 512 crop — soft, smeared, lighter. */
+async function migaNative(r, D, hole){
+  const W=r.w, H=r.h, T=256, OV=32, MG=128, step=T-OV;
+  const out=new Float32Array(W*H*4); for (let i=0;i<W*H;i++){ const a=D[i*4+3]/255; out[i*4]=D[i*4]*a; out[i*4+1]=D[i*4+1]*a; out[i*4+2]=D[i*4+2]*a; out[i*4+3]=255; }
+  let x0=W,y0=H,x1=-1,y1=-1; for (let y=0;y<H;y++) for (let x=0;x<W;x++) if (hole[y*W+x]){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+  if (x1<0) return out;
+  const done=new Uint8Array(W*H);
+  for (let ty=y0; ty<=y1; ty+=step) for (let tx=x0; tx<=x1; tx+=step){
+    const bx1=Math.min(W,tx+T), by1=Math.min(H,ty+T);
+    let need=false; for (let y=ty;y<by1&&!need;y++) for (let x=tx;x<bx1;x++){ const i=y*W+x; if (hole[i]&&!done[i]){ need=true; break; } }
+    if (!need) continue;
+    const rx0=Math.max(0,tx-MG), ry0=Math.max(0,ty-MG), rx1=Math.min(W,bx1+MG), ry1=Math.min(H,by1+MG), cw=rx1-rx0, chh=ry1-ry0, M=cw*chh;
+    const img=new Uint8Array(3*M), msk=new Uint8Array(M);
+    for (let y=0;y<chh;y++) for (let x=0;x<cw;x++){ const gx=x+rx0, gy=y+ry0, i=gy*W+gx, k=y*cw+x;
+      img[k]=Math.max(0,Math.min(255,out[i*4]+0.5)); img[k+M]=Math.max(0,Math.min(255,out[i*4+1]+0.5)); img[k+2*M]=Math.max(0,Math.min(255,out[i*4+2]+0.5));
+      const inT=gx>=tx&&gx<bx1&&gy>=ty&&gy<by1; msk[k]=(hole[i]&&(!done[i]||inT))?0:255; }
+    const o=await miganRun(img, msk, cw, chh);
+    for (let gy=ty; gy<by1; gy++){ const wy=(ty>y0 && gy-ty<OV)?(gy-ty+1)/(OV+1):1;
+      for (let gx=tx; gx<bx1; gx++){ const i=gy*W+gx; if (!hole[i]) continue;
+        const wx=(tx>x0 && gx-tx<OV)?(gx-tx+1)/(OV+1):1, w=done[i]?wx*wy:1, k=(gy-ry0)*cw+(gx-rx0);
+        out[i*4]+=(o[k]-out[i*4])*w; out[i*4+1]+=(o[k+M]-out[i*4+1])*w; out[i*4+2]+=(o[k+2*M]-out[i*4+2])*w; done[i]=1; } }
+    await nextFrame();
+  }
+  return out;
+}
+async function generateFill(r, D, hole, method, opt){
   const N=r.w*r.h;
+  if (method==='ai' && opt && opt.hole){ busy(true,'Нейросеть дорисовывает…'); await nextFrame();
+    return regrain(D, await migaNative(r, D, opt.hole), opt.hole, r.w, r.h); }
   if (method==='ai'){
     const cap = (await pcML()) ? 1280 : 768; // the PC has memory to spare: the patch comes out sharper
     const k=Math.min(1, cap/Math.max(r.w,r.h)), cw=Math.max(8,Math.round(r.w*k)), ch=Math.max(8,Math.round(r.h*k));
@@ -4939,7 +4984,8 @@ async function generateFill(r, D, hole, method){
     for (let i=0;i<M;i++){ oid.data[i*4]=o[i]; oid.data[i*4+1]=o[i+M]; oid.data[i*4+2]=o[i+2*M]; oid.data[i*4+3]=255; }
     ox_.putImageData(oid,0,0);
     const big=mk(r.w,r.h), bx=ctx2(big,{willReadFrequently:true}); bx.imageSmoothingQuality='high'; bx.drawImage(oc_,0,0,r.w,r.h);
-    return bx.getImageData(0,0,r.w,r.h).data;
+    const G=Float32Array.from(bx.getImageData(0,0,r.w,r.h).data), hb=new Uint8Array(N); for (let i=0;i<N;i++) hb[i]=hole[i]>20?1:0;
+    return regrain(D, G, hb, r.w, r.h); // big holes still go through one shrunk crop — at least the grain comes back
   }
   // PatchMatch in the worker (same engine as content-aware fill)
   const k=Math.min(1, 1200/Math.max(r.w,r.h)), cw=Math.max(8,Math.round(r.w*k)), ch=Math.max(8,Math.round(r.h*k));
@@ -4982,15 +5028,25 @@ async function runRemoval(holeDoc, bb, method, name, lite){
   if (!S.retouchAll && !shown(AL())){ toast('Слой скрыт'); return; }
   inpaintBusy=true; if (lite) busyLite=true;
   try{
-    const side=Math.max(bb.w,bb.h), mg=Math.round(Math.max(48, side*(method==='ai'?0.9:0.7)));
+    const side=Math.max(bb.w,bb.h);
+    // №125 how thick is the hole? hairs and thin strokes go tile by tile at full scale, wide areas through one crop
+    let thin=false;
+    if (method==='ai'){ const r0=clipRect(bb.x-2, bb.y-2, bb.w+4, bb.h+4), a0=holeDoc(r0), din=distOut(a0, r0.w, r0.h, v=>v===0);
+      let mx=0; for (let i=0;i<din.length;i++) if (a0[i] && din[i]>mx) mx=din[i]; thin = mx>0 && mx<=100; }
+    const mg = thin ? 160 : Math.round(Math.max(48, side*(method==='ai'?0.9:0.7)));
     const r=clipRect(bb.x-mg, bb.y-mg, bb.w+2*mg, bb.h+2*mg), N=r.w*r.h;
     const raw=holeDoc(r);
-    // grow a little and soften: covers halos and hides the seam
-    const grow=Math.max(2, Math.round(side*0.03)), soft=edgeProcess(raw, r.w, r.h, 0, 3, grow);
+    let soft, opt;
+    if (thin){ // only 2 px around the stroke goes (the hair's soft edge), seam softened by 1 px — no wide smudge
+      const d=distOut(raw, r.w, r.h, v=>v>0), hb=new Uint8Array(N), f=new Float32Array(N);
+      for (let i=0;i<N;i++){ hb[i]=d[i]<=2?1:0; f[i]=d[i]<=3?255:0; } gauss(f, r.w, r.h, 0.8);
+      soft=new Uint8Array(N); for (let i=0;i<N;i++) soft[i]=hb[i]?255:Math.min(255,f[i]+0.5); opt={hole:hb};
+    } else { // grow a little and soften: covers halos and hides the seam
+      const grow=Math.max(2, Math.round(side*0.03)); soft=edgeProcess(raw, r.w, r.h, 0, 3, grow); }
     let any=false; for (let i=0;i<N;i+=5) if (soft[i]>20){ any=true; break; } if(!any){ return; }
     const D=destPixels(r);
     busy(true, method==='ai'?'Нейросеть дорисовывает…':'Заполняю…'); await nextFrame();
-    const G=await generateFill(r, D, soft, method);
+    const G=await generateFill(r, D, soft, method, opt);
     writeFill(r, D, G, soft, name);
     busy(false);
   }catch(err){ console.error(err); busy(false);
@@ -9528,7 +9584,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №124 Навигатор встроен в панель слоёв'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №125 Удаление нейросетью без мазни'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

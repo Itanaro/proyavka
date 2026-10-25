@@ -64,7 +64,7 @@ python3 tools/map.py градиент     # русское название са
 - `dodge / burn / blur / sharpen` — тон кистью плитками; там же `selectSubject` / `pcSubject` /
   `removeBackground` (BiRefNet на ПК).
 - `retouch` — заплатка, восстанавливающая кисть, штамп (`seamless` = Пуассон).
-- `removal` — отсек нейросетей (`mlWorker`, `mlSession`), те же сети на ПК (`pcML`), MI-GAN; удаление мазком считается тихо (`busyLite`, мерцающий след `inpaintPend`).
+- `removal` — отсек нейросетей (`mlWorker`, `mlSession`), те же сети на ПК (`pcML`), MI-GAN; удаление мазком считается тихо (`busyLite`, мерцающий след `inpaintPend`); тонкие мазки — плитками в родном масштабе `migaNative`, зерно — `regrain` (№125).
 - `content-aware fill` — PatchMatch в воркере, **`compositeRegion`** (видимое сведение куска).
 
 **Фильтры, тон, коррекции**
