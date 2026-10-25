@@ -299,6 +299,27 @@ const steps = [
       check(a > 0, 'крестик над холстом не нарисовался');
   }},
 
+  { name: 'Цветовой профиль: sRGB в сохранении, перевод из Adobe RGB', run: async page => {
+      const r = await page.evaluate(async () => {
+        const s = u => String.fromCharCode(...u), out = {};
+        out.self = iccParse(srgbIcc()).srgb;
+        const pr = iccParse(agPsd.readPsd(psdBuffer(), { skipLayerImageData: true, skipThumbnail: true }).imageResources.iccProfile);
+        out.psd = !!(pr && pr.srgb);
+        const c = flatten(0.1);
+        out.png = s(new Uint8Array(await (await blobSrgb(await toBlob(c, 'image/png'))).arrayBuffer()).subarray(37, 41)) === 'iCCP';
+        out.jpg = s(new Uint8Array(await (await blobSrgb(await toBlob(c, 'image/jpeg', 0.9))).arrayBuffer()).subarray(0, 40)).includes('ICC_PROFILE');
+        // a copy of our sRGB profile with Adobe RGB primaries and gamma 2.2 → must be recognised as foreign and converted
+        const u = srgbIcc().slice(), v = new DataView(u.buffer), n = v.getUint32(128), tag = {};
+        for (let k = 0; k < n; k++) { const o = 132 + k * 12; tag[s(u.subarray(o, o + 4))] = v.getUint32(o + 4); }
+        const put = (t, a) => a.forEach((x, i) => v.setInt32(tag[t] + 8 + i * 4, Math.round(x * 65536)));
+        put('rXYZ', [0.6097559, 0.3111145, 0.0194702]); put('gXYZ', [0.2052401, 0.6256714, 0.0608902]); put('bXYZ', [0.1492240, 0.0632141, 0.7445396]);
+        const ap = iccParse(u); out.foreign = !ap.srgb && !!ap.conv;
+        const t = document.createElement('canvas'); t.width = t.height = 2; const x = t.getContext('2d'); x.fillStyle = 'rgb(128,128,128)'; x.fillRect(0, 0, 2, 2);
+        iccConvertCanvas(t, ap.conv); const d = x.getImageData(0, 0, 1, 1).data; out.grey = Math.abs(d[0] - 128) <= 3 && d[0] === d[1] && d[1] === d[2];
+        return out; });
+      for (const [k, v] of Object.entries(r)) check(v, 'профиль: не так — ' + k);
+  }},
+
   { name: 'Автосохранение → перезагрузка → документ на месте', run: async page => {
       await page.evaluate(async () => { const t = TABS.list.find(t => t.doc && t.doc.name === 'Тест'); if (t && t.doc !== doc) await tabSwitch(t); });
       const n = await page.evaluate(async () => { await autosave(true); await flushSave(); return doc.layers.length; });

@@ -113,6 +113,7 @@ python3 tools/map.py градиент     # русское название са
 - `files` — `openPsd`, `placeFile`, `flatten`, фоновое кодирование PNG.
 - `the PC speaks PC` — `deskText` + `DESK_PHRASES` / `DESK_WORDS` (тексты ПК-версии);
   `saveAsDesk`, `exportImg`, **`psdBuffer`** (вся запись PSD).
+- `№116 цветовой профиль` — `SRGB_ICC_B64` / `srgbIcc`, `iccParse`, `iccConvertCanvas`, `iccOnOpen` (окно при открытии PSD), `blobSrgb` (профиль в PNG/JPEG). В `vendor/ag-psd.js` своя правка: ресурс 1039 → `iccProfile`.
 - `№107 «Сдать кат»` — `deliverChecks`, `deliverGo`.
 - `№89` — файл документа (`docBindFile`, `fileHandle`), безопасная зона, линейки, «Реф с позы».
 - `№104 «Рефы»`, `№108 История`, `№101 «Островок»`, `№88 interface themes`.

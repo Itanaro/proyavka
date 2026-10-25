@@ -7106,14 +7106,14 @@ $('#fOpen').addEventListener('change', async e=>{ const fs=[...e.target.files]; 
 async function openPsd(f){
   if (!window.agPsd) throw new Error('Библиотека PSD не загрузилась');
   const buf=await f.arrayBuffer();
-  const psd=agPsd.readPsd(buf,{skipThumbnail:true,skipCompositeImageData:false});
+  const psd=agPsd.readPsd(buf,{skipThumbnail:true,skipCompositeImageData:false}), prof=iccParse(psd.imageResources&&psd.imageResources.iccProfile); // №116
   createDoc(psd.width, psd.height, f.name.replace(/\.psd$/i,'')); { const ri=psd.imageResources&&psd.imageResources.resolutionInfo; if (ri && ri.horizontalResolution) doc.dpi=Math.round(ri.horizontalResolution); }
   const layers=[];
   (function walk(ch, P){ for(const c of ch||[]){
     if(c.children){ const G=newGroup(c.name||'Группа'); G.visible=!c.hidden; G.opacity=c.opacity??1; G.blend=c.blendMode==='pass through'?'pass':psdToBlend(c.blendMode||'normal'); G.collapsed=!c.opened; G.parent=P;
       if (c.mask && c.mask.canvas) G.mask=psdMask(c.mask, G); walk(c.children, G); layers.push(G); }
     else { c.__parent=P; layers.push(c); } } })(psd.children, null);
-  if (!layers.some(x=>!isGroup(x)) && psd.canvas){ doc.layers[0].ctx.clearRect(0,0,doc.w,doc.h); doc.layers[0].ctx.drawImage(psd.canvas,0,0); doc.layers.length=1; doc.active=0; return; }
+  if (!layers.some(x=>!isGroup(x)) && psd.canvas){ doc.layers[0].ctx.clearRect(0,0,doc.w,doc.h); doc.layers[0].ctx.drawImage(psd.canvas,0,0); doc.layers.length=1; doc.active=0; await iccOnOpen(prof); return; }
   doc.layers=[];
   for (const c of layers){
     if (isGroup(c)){ doc.layers.push(c); continue; }
@@ -7129,6 +7129,7 @@ async function openPsd(f){
     await nextFrame();
   }
   doc.active=doc.layers.length-1; clearHistory();
+  await iccOnOpen(prof);
 }
 function psdMask(cm, owner){
   const m=newMask(owner), mx=m.ctx, def=(cm.defaultColor??255);
@@ -7313,7 +7314,7 @@ async function exportImg(kind){
       return;
     }
     const c=flatten(kind==='png50'?0.5:1, kind==='jpg');
-    const blob=await toBlob(c, kind==='jpg'?'image/jpeg':'image/png', 0.95);
+    const blob=await blobSrgb(await toBlob(c, kind==='jpg'?'image/jpeg':'image/png', 0.95)); // №116: with the sRGB profile
     busy(false); await saveFile(safeName()+(kind==='png50'?'_preview':'')+(kind==='jpg'?'.jpg':'.png'), blob);
   }catch(err){ console.error(err); busy(false); toast('Экспорт не удался: '+(err.message||'ошибка'),4000); }
 }
@@ -7328,7 +7329,110 @@ function psdBuffer(){
         if (L.smart && !isGroup(L) && L.kind!=='adj') smartPsd(o, L, linked, bySrc);
         return o; });
       const children=build(null);
-      return agPsd.writePsd({width:doc.w,height:doc.h,children,canvas:flatten(1),...(linked.length?{linkedFiles:linked}:{}),imageResources:{resolutionInfo:{horizontalResolution:doc.dpi||72,horizontalResolutionUnit:'PPI',widthUnit:'Inches',verticalResolution:doc.dpi||72,verticalResolutionUnit:'PPI',heightUnit:'Inches'}}},{generateThumbnail:false});
+      return agPsd.writePsd({width:doc.w,height:doc.h,children,canvas:flatten(1),...(linked.length?{linkedFiles:linked}:{}),imageResources:{iccProfile:srgbIcc(), resolutionInfo:{horizontalResolution:doc.dpi||72,horizontalResolutionUnit:'PPI',widthUnit:'Inches',verticalResolution:doc.dpi||72,verticalResolutionUnit:'PPI',heightUnit:'Inches'}}},{generateThumbnail:false});
+}
+
+/* ============ №116 цветовой профиль: Проявка работает в sRGB ============
+   Saved PSD / PNG / JPEG carry an embedded "sRGB IEC61966-2.1" profile (Photoshop sees sRGB, not "untagged").
+   A PSD with a foreign profile (Adobe RGB, ProPhoto, Display P3 …) asks on open: convert to sRGB (like Photoshop's
+   «Преобразовать в профиль», relative colorimetric) or keep the numbers as they are. Matrix/curve RGB profiles only;
+   anything else (CMYK, LUT profiles) — a note, the pixels are shown as sRGB. */
+const SRGB_ICC_B64='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';
+let _srgbIcc=null; const srgbIcc=()=>_srgbIcc||(_srgbIcc=Uint8Array.from(atob(SRGB_ICC_B64),c=>c.charCodeAt(0)));
+const SRGB_D50=[0.4360747,0.3850649,0.1430804, 0.2225045,0.7168786,0.0606169, 0.0139322,0.0971045,0.7141733];
+function m3inv(m){ const [a,b,c,d,e,f,g,h,i]=m, A=e*i-f*h, B=f*g-d*i, C=d*h-e*g, det=a*A+b*B+c*C;
+  return [A/det,(c*h-b*i)/det,(b*f-c*e)/det, B/det,(a*i-c*g)/det,(c*d-a*f)/det, C/det,(b*g-a*h)/det,(a*e-b*d)/det]; }
+function m3mul(p,q){ const r=new Array(9); for (let y=0;y<3;y++) for (let x=0;x<3;x++) r[y*3+x]=p[y*3]*q[x]+p[y*3+1]*q[3+x]+p[y*3+2]*q[6+x]; return r; }
+let SRGB_ENC=null; // linear 0..1 (4096 steps) → sRGB 8-bit
+function srgbEnc(){ if (!SRGB_ENC){ SRGB_ENC=new Uint8Array(4096); for (let i=0;i<4096;i++) SRGB_ENC[i]=Math.round(lin2srgb(i/4095)); } return SRGB_ENC; }
+function iccParse(u){
+  if (!u || u.length<132) return null;
+  const v=new DataView(u.buffer,u.byteOffset,u.byteLength), str=(o,n)=>String.fromCharCode(...u.subarray(o,o+n));
+  const P={space:str(16,4), cls:str(12,4), name:'', conv:null, srgb:false}, tags={}, n=v.getUint32(128);
+  for (let k=0;k<n && 132+k*12+12<=u.length;k++){ const o=132+k*12; tags[str(o,4)]=[v.getUint32(o+4), v.getUint32(o+8)]; }
+  try{ const t=tags.desc; if (t){ const [o]=t, ty=str(o,4);
+      if (ty==='desc'){ const len=v.getUint32(o+8); P.name=str(o+12,Math.max(0,len-1)); }
+      else if (ty==='mluc'){ const len=v.getUint32(o+20), off=v.getUint32(o+24); let s=''; for (let i=0;i<len;i+=2) s+=String.fromCharCode(v.getUint16(o+off+i)); P.name=s; } } }catch(_){}
+  P.name=P.name.replace(/\0+$/,'').trim();
+  const trc=tg=>{ const t=tags[tg]; if (!t) return null; const [o]=t, ty=str(o,4), T=new Float32Array(256);
+    if (ty==='curv'){ const c=v.getUint32(o+8);
+      if (c===0) for (let i=0;i<256;i++) T[i]=i/255;
+      else if (c===1){ const g=v.getUint16(o+12)/256; for (let i=0;i<256;i++) T[i]=Math.pow(i/255,g); }
+      else for (let i=0;i<256;i++){ const x=i/255*(c-1), a=Math.floor(x), b=Math.min(c-1,a+1), f=x-a; T[i]=(v.getUint16(o+12+a*2)*(1-f)+v.getUint16(o+12+b*2)*f)/65535; }
+      return T; }
+    if (ty==='para'){ const fn=v.getUint16(o+8), p=[]; for (let k=0;k<7;k++) p.push(o+12+k*4+4<=u.length ? v.getInt32(o+12+k*4)/65536 : 0);
+      const [g,a,b,c,d,e,f]=p;
+      for (let i=0;i<256;i++){ const X=i/255; let Y;
+        if (fn===0) Y=Math.pow(X,g);
+        else if (fn===1) Y= X>=-b/a ? Math.pow(a*X+b,g) : 0;
+        else if (fn===2) Y= X>=-b/a ? Math.pow(a*X+b,g)+c : c;
+        else if (fn===3) Y= X>=d ? Math.pow(a*X+b,g) : c*X;
+        else if (fn===4) Y= X>=d ? Math.pow(a*X+b,g)+e : c*X+f;
+        else return null;
+        T[i]=Math.min(1,Math.max(0,Y||0)); }
+      return T; }
+    return null; };
+  const xyz=tg=>{ const t=tags[tg]; if (!t || str(t[0],4)!=='XYZ ') return null; const o=t[0]; return [v.getInt32(o+8)/65536, v.getInt32(o+12)/65536, v.getInt32(o+16)/65536]; };
+  if (P.space==='RGB '){ const r=xyz('rXYZ'), g=xyz('gXYZ'), b=xyz('bXYZ'), T=[trc('rTRC'),trc('gTRC'),trc('bTRC')];
+    if (r && g && b && T.every(Boolean)){ const src=[r[0],g[0],b[0], r[1],g[1],b[1], r[2],g[2],b[2]]; P.conv={T, M:m3mul(m3inv(SRGB_D50), src)}; } }
+  if (P.conv){ // sRGB under any name ("sRGB built-in", "IEC 61966-2.1 Default RGB…"): converting changes nothing visible
+    const enc=srgbEnc(), {T,M}=P.conv; let worst=0;
+    for (const [R,G,B] of [[10,20,30],[128,64,200],[250,240,5],[77,180,90],[255,255,255],[255,0,0],[0,255,0],[0,0,255],[200,200,200]]){
+      const lr=T[0][R], lg=T[1][G], lb=T[2][B], o=[M[0]*lr+M[1]*lg+M[2]*lb, M[3]*lr+M[4]*lg+M[5]*lb, M[6]*lr+M[7]*lg+M[8]*lb];
+      [R,G,B].forEach((x,k)=>{ worst=Math.max(worst, Math.abs(enc[Math.round(Math.min(1,Math.max(0,o[k]))*4095)]-x)); }); }
+    P.srgb = worst<=2;
+  } else P.srgb = /srgb|61966/i.test(P.name);
+  return P;
+}
+function iccConvertCanvas(c, conv){
+  if (!c || !c.width || !c.height) return;
+  const x=ctx2(c,{willReadFrequently:true}), im=x.getImageData(0,0,c.width,c.height), d=im.data, enc=srgbEnc(), [T0,T1,T2]=conv.T, M=conv.M;
+  for (let i=0;i<d.length;i+=4){ if (!d[i+3]) continue;
+    const r=T0[d[i]], g=T1[d[i+1]], b=T2[d[i+2]];
+    let o=M[0]*r+M[1]*g+M[2]*b; d[i]  =enc[o<=0?0:o>=1?4095:(o*4095+0.5)|0];
+    o=M[3]*r+M[4]*g+M[5]*b;     d[i+1]=enc[o<=0?0:o>=1?4095:(o*4095+0.5)|0];
+    o=M[6]*r+M[7]*g+M[8]*b;     d[i+2]=enc[o<=0?0:o>=1?4095:(o*4095+0.5)|0]; }
+  x.putImageData(im,0,0);
+}
+const iccAsk=(name)=>new Promise(res=>{ const nm=escapeHtml(name||'без названия');
+  const d=dialog(`<h3>Цветовой профиль файла</h3><p>В файле профиль «${nm}». Проявка работает в sRGB.</p>
+    <p><small>«Преобразовать» — цвета останутся такими же на вид, как в Фотошопе (как «Редактирование → Преобразовать в профиль»). «Оставить» — числа цветов не трогаются, картинка будет выглядеть иначе (обычно тусклее).</small></p>`,
+    [['Оставить как есть',()=>res(false)], ['Преобразовать в sRGB',()=>res(true),true]]);
+  const s=d.closest('.scrim'); if (s) s.addEventListener('pointerdown',e=>{ if(e.target===s) res(false); }); });
+async function iccOnOpen(prof){ // after openPsd has built the layers of `doc`
+  if (!prof || prof.srgb) return;
+  if (!prof.conv){ toast('Профиль файла «'+(prof.name||prof.space.trim())+'» Проявка не переводит — цвета показаны как sRGB',4200); return; }
+  const wasBusy=!!document.querySelector('#busy:not([hidden])'); busy(false);
+  const go=await iccAsk(prof.name);
+  if (!go){ toast('Оставила числа цветов как в файле',1800); if (wasBusy) busy(true,'Открываю…'); return; }
+  busy(true,'Перевожу в sRGB…'); await nextFrame();
+  const D=doc;
+  for (const L of D.layers){ if (isGroup(L) || L.kind==='adj') continue;
+    if (L.smart && L.smart.src){ iccConvertCanvas(L.smart.src, prof.conv); smartRender(L); } else iccConvertCanvas(L.canvas, prof.conv);
+    await nextFrame(); }
+  toast('Переведено из «'+prof.name+'» в sRGB',2000);
+}
+/* add the sRGB profile to a finished PNG / JPEG blob (iCCP chunk / APP2 segment); if the file already has one — as is */
+async function blobSrgb(blob){
+  try{
+    const u=new Uint8Array(await blob.arrayBuffer()), icc=srgbIcc();
+    if (u[0]===0x89 && u[1]===0x50 && u[2]===0x4E && u[3]===0x47){
+      for (let p=8; p+8<=u.length; ){ const len=(u[p]<<24|u[p+1]<<16|u[p+2]<<8|u[p+3])>>>0, ty=String.fromCharCode(u[p+4],u[p+5],u[p+6],u[p+7]);
+        if (ty==='iCCP' || ty==='sRGB') return blob; if (ty==='IDAT' || ty==='IEND') break; p+=12+len; }
+      const name='sRGB IEC61966-2.1', z=fflate.zlibSync(icc,{level:9}), data=new Uint8Array(name.length+2+z.length);
+      for (let i=0;i<name.length;i++) data[i]=name.charCodeAt(i); data.set(z,name.length+2);
+      const ch=new Uint8Array(12+data.length), v=new DataView(ch.buffer); v.setUint32(0,data.length); ch.set([0x69,0x43,0x43,0x50],4); ch.set(data,8);
+      v.setUint32(8+data.length, ~crc32(ch.subarray(4,8+data.length))>>>0);
+      const at=8+25; return new Blob([u.subarray(0,at), ch, u.subarray(at)], {type:blob.type||'image/png'}); }
+    if (u[0]===0xFF && u[1]===0xD8){
+      for (let p=2; p+4<=u.length && u[p]===0xFF; ){ const m=u[p+1], len=u[p+2]<<8|u[p+3];
+        if (m===0xE2 && String.fromCharCode(...u.subarray(p+4,p+15))==='ICC_PROFILE') return blob; if (m===0xDA) break; p+=2+len; }
+      const seg=new Uint8Array(4+14+icc.length); seg.set([0xFF,0xE2,(seg.length-2)>>8,(seg.length-2)&255],0);
+      for (let i=0;i<11;i++) seg[4+i]='ICC_PROFILE'.charCodeAt(i); seg[15]=0; seg[16]=1; seg[17]=1; seg.set(icc,18);
+      let at=2; if (u[2]===0xFF && u[3]===0xE0) at=4+(u[4]<<8|u[5]); // after JFIF
+      return new Blob([u.subarray(0,at), seg, u.subarray(at)], {type:blob.type||'image/jpeg'}); }
+  }catch(e){ console.warn('srgb tag', e); }
+  return blob;
 }
 
 /* ============ №107 «Сдать кат»: проверка по стандарту Senses → PSD + PNG 1500×2000 одной кнопкой ============
@@ -7400,7 +7504,7 @@ async function deliverGo(name){
   try{ const SZ=safeLayer(), at=SZ?doc.layers.indexOf(SZ):-1; let buf, flat; // the safe-zone marking stays out of the delivered files
     if (SZ) doc.layers.splice(at,1);
     try{ buf=psdBuffer(); flat=flatten(doc.w*4===doc.h*3 ? DELIVER_PNG_W/doc.w : 0.5); } finally{ if (SZ) doc.layers.splice(at,0,SZ); }
-    const psd=new Blob([buf],{type:'image/vnd.adobe.photoshop'}), png=await toBlob(flat,'image/png');
+    const psd=new Blob([buf],{type:'image/vnd.adobe.photoshop'}), png=await blobSrgb(await toBlob(flat,'image/png'));
     files=[[name+'.psd',psd],[name+'.png',png]]; }
   catch(e){ busy(false); console.error(e); toast('Не собралось: '+(e.message||'ошибка'),4000); return; }
   busy(false);
@@ -9199,7 +9303,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №115 ПК держится за свой мост, запуск Stable из Проявки'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №116 цветовой профиль: sRGB в сохранении, перевод PSD с чужим профилем'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

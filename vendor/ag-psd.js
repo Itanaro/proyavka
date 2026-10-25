@@ -8066,14 +8066,11 @@ addHandler(1041, target => target.iccUntaggedProfile !== undefined, (reader, tar
 }, (writer, target) => {
     (0, psdWriter_1.writeUint8)(writer, target.iccUntaggedProfile ? 1 : 0);
 });
-helpers_1.MOCK_HANDLERS && addHandler(1039, // ICC Profile
-// ICC Profile
-target => target._ir1039 !== undefined, (reader, target, left) => {
-    // TODO: this is raw bytes, just return as a byte array
-    LOG_MOCK_HANDLERS && console.log('image resource 1039', left());
-    target._ir1039 = (0, psdReader_1.readBytes)(reader, left());
+// Proyavka №116: the ICC profile is read and written as raw bytes (upstream keeps it behind MOCK_HANDLERS)
+addHandler(1039, target => target.iccProfile !== undefined, (reader, target, left) => {
+    target.iccProfile = (0, psdReader_1.readBytes)(reader, left());
 }, (writer, target) => {
-    (0, psdWriter_1.writeBytes)(writer, target._ir1039);
+    (0, psdWriter_1.writeBytes)(writer, target.iccProfile);
 });
 addHandler(1044, target => target.idsSeedNumber !== undefined, (reader, target) => target.idsSeedNumber = (0, psdReader_1.readUint32)(reader), (writer, target) => (0, psdWriter_1.writeUint32)(writer, target.idsSeedNumber));
 addHandler(1036, target => target.thumbnail !== undefined || target.thumbnailRaw !== undefined, (reader, target, left) => {
