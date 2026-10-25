@@ -785,7 +785,13 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 #refwin.drop .rb{outline:2px dashed var(--accent);outline-offset:-6px}
 #refwin .rv{position:absolute;inset:0;overflow:hidden;touch-action:none;cursor:grab;background:color-mix(in srgb,var(--bg) 70%,transparent)}
 #refwin .rv canvas{position:absolute;left:0;top:0;transform-origin:0 0}
-#refwin .rvb{position:absolute;left:8px;right:8px;bottom:8px;display:flex;gap:6px;justify-content:center}
+#refwin .rvb{position:absolute;left:8px;right:8px;bottom:8px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+#refwin .rvb button.on{background:var(--accent);color:var(--accent-ink)}
+#refwin .rv.framing{cursor:crosshair} #refwin .rv.framing.space{cursor:grab}
+#refwin .rcrop{position:absolute;box-sizing:border-box;border:1.5px solid var(--accent);box-shadow:0 0 0 9999px color-mix(in srgb,var(--bg) 55%,transparent);pointer-events:none}
+#refwin .rcrop[hidden]{display:none} #refwin .rcrop i{position:absolute;width:10px;height:10px;margin:-5px;background:var(--accent);border-radius:2px;display:none}
+#refwin .rv.framing .rcrop i{display:block} #refwin .rcrop .nw{left:0;top:0} #refwin .rcrop .ne{left:100%;top:0} #refwin .rcrop .sw{left:0;top:100%} #refwin .rcrop .se{left:100%;top:100%}
+#refwin .rtc{position:absolute;box-sizing:border-box;border:1.5px solid var(--accent);border-radius:3px;box-shadow:0 0 0 999px color-mix(in srgb,var(--bg) 45%,transparent);pointer-events:none}
 #refwin .rvb button{height:30px;padding:0 11px;border-radius:10px;font-size:12px;background:var(--glass-solid);border:1px solid var(--glass-edge);color:var(--fg)}
 #refwin .rvb button:hover{background:var(--accent);color:var(--accent-ink)}
 #refwin .rz{position:absolute;right:2px;bottom:2px;width:18px;height:18px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 55%,var(--muted) 55%,var(--muted) 62%,transparent 62%,transparent 72%,var(--muted) 72%,var(--muted) 79%,transparent 79%);opacity:.6;z-index:2}
@@ -7657,10 +7663,13 @@ async function refAddFiles(files){ let n=0; for (const f of files){ if (!/^image
 function refFromCanvas(){ if (!doc) return; const r = sel && !sel.inverted ? selBBox() : {x:0,y:0,w:doc.w,h:doc.h}; if (!r.w||!r.h) return;
   const c=compositeRegion(r, r.w, r.h); refAdd(c, sel ? 'Кусок кадра' : 'Кадр целиком'); toast(sel?'Выделенное — в рефы':'Кадр целиком — в рефы',1400); }
 function refDel(i){ const D=doc, r=refsOf(D)[i]; if (!r) return; refsOf(D).splice(i,1); idbTx({}, [PFX(D.id)+r.k]).catch(()=>{}); D.pristine=false; markDirty(); if (refView && refView.i>=refsOf(D).length) refView=null; refRender(); }
-async function refToDetail(i){ const r=refsOf()[i]; const c=await refLoad(r); if (!c) return; const cc=mk(c.width,c.height); ctx2(cc).drawImage(c,0,0);
-  const n=detailRefs.length; detailRefAdd(cc); if (detailRefs.length>n) toast('Реф @img'+(detailRefs.length+1)+' — в Доводке'+(aip&&aip.detail?'':' (откроешь Доводку — он там)'),2000); }
-async function refToLayer(i){ if (!doc || panelBusy()) return; const r=refsOf()[i]; const c=await refLoad(r); if (!c) return;
-  const L=newLayer(r.name||'Реф'), k=Math.min(1, doc.w*0.8/c.width, doc.h*0.8/c.height), w=Math.round(c.width*k), h=Math.round(c.height*k);
+/* №121: the frame of a ref (r.crop, in the ref's pixels, saved with the document) — only it goes to Доводка and as a layer. */
+function refCropOf(r, c){ const f=r&&r.crop; if (!f || !c) return null; const x=Math.max(0,Math.round(f.x)), y=Math.max(0,Math.round(f.y)), w=Math.min(c.width-x, Math.round(f.w)), h=Math.min(c.height-y, Math.round(f.h)); return w>=8 && h>=8 ? {x,y,w,h} : null; }
+function refCut(c, f){ const cc=mk(f?f.w:c.width, f?f.h:c.height); if (f) ctx2(cc).drawImage(c, f.x,f.y,f.w,f.h, 0,0,f.w,f.h); else ctx2(cc).drawImage(c,0,0); return cc; }
+async function refToDetail(i){ const r=refsOf()[i]; const c=await refLoad(r); if (!c) return; const f=refCropOf(r,c), cc=refCut(c,f);
+  const n=detailRefs.length; detailRefAdd(cc); if (detailRefs.length>n) toast('Реф @img'+(detailRefs.length+1)+(f?' (рамка)':'')+' — в Доводке'+(aip&&aip.detail?'':' (откроешь Доводку — он там)'),2000); }
+async function refToLayer(i){ if (!doc || panelBusy()) return; const r=refsOf()[i]; const c0=await refLoad(r); if (!c0) return; const f=refCropOf(r,c0), c=f?refCut(c0,f):c0;
+  const L=newLayer((r.name||'Реф')+(f?' — рамка':'')), k=Math.min(1, doc.w*0.8/c.width, doc.h*0.8/c.height), w=Math.round(c.width*k), h=Math.round(c.height*k);
   const cap=smartCap(c,true); L.smart={src:cap.src, M:[k*cap.k,0,0,k*cap.k,Math.round((doc.w-w)/2),Math.round((doc.h-h)/2)]}; smartRender(L); // №109: placed as a smart object
   insertLayer(L, doc.active+1, 'Реф — смарт-объектом'); requestRender(); markDirty(); }
 function refPick(){ const i=document.createElement('input'); i.type='file'; i.accept='image/*'; i.multiple=true; i.onchange=()=>refAddFiles([...i.files]); i.click(); }
@@ -7685,7 +7694,10 @@ async function refRender(){ const el=$('#refwin'); if (!el || el.hidden || !doc)
     e.onclick=()=>refPick(); body.append(e); return; } // №120: the whole empty area opens the file picker
   const g=document.createElement('div'); g.className='rg'; body.append(g);
   for (let i=0;i<list.length;i++){ const r=list[i], t=document.createElement('div'); t.className='rt'; t.style.setProperty('--ar', (r.w/r.h).toFixed(3)); t.title=r.name||'';
-    const cv=mk(1,1); t.append(cv); const a=document.createElement('div'); a.className='ra';
+    const cv=mk(1,1); t.append(cv);
+    if (r.crop && r.w && r.h){ const o=document.createElement('div'), f=r.crop; o.className='rtc'; t.title=(r.name||'')+' · рамка: в Доводку и слоем идёт обведённое';
+      Object.assign(o.style,{left:(f.x/r.w*100)+'%', top:(f.y/r.h*100)+'%', width:(f.w/r.w*100)+'%', height:(f.h/r.h*100)+'%'}); t.append(o); } // №121
+    const a=document.createElement('div'); a.className='ra';
     a.innerHTML='<button data-a="det" title="В рефы Доводки (@img2…)">→ Доводка</button><button data-a="lay" title="Новым слоем в документ">Слоем</button><button class="x" data-a="del" title="Убрать из рефов">×</button>';
     t.append(a); g.append(t);
     t.onclick=e=>{ const b=e.target.closest('button'); if (b){ e.stopPropagation(); if (b.dataset.a==='det') refToDetail(i); else if (b.dataset.a==='lay') refToLayer(i); else refDel(i); return; } refView={i, s:0, x:0, y:0}; refRender(); };
@@ -7702,24 +7714,59 @@ function refTile(t, cv, c){
   let src=c, sw=c.width, sh=c.height;
   while (sw/2>=w*1.5 && sh/2>=h*1.5){ const nw=Math.round(sw/2), nh=Math.round(sh/2), st=mk(nw,nh), sx=ctx2(st); sx.imageSmoothingQuality='high'; sx.drawImage(src,0,0,nw,nh); src=st; sw=nw; sh=nh; }
   cv.width=w; cv.height=h; const x=ctx2(cv); x.imageSmoothingEnabled=true; x.imageSmoothingQuality='high'; x.drawImage(src,0,0,w,h); }
+/* №121: the viewer keeps its zoom when the window is resized (the middle stays in the middle; not zoomed yet — fits the new
+   window). «▭ Рамка» (C on the PC) — draw what goes to Доводка / as a layer: drag — new frame, inside — move, corners — size;
+   wheel / two fingers — zoom and move, Space — hand. The frame stays with the ref; «✕» — the whole picture again. */
+let refSpace=false;
 async function refViewer(body){ const list=refsOf(), r=list[refView.i]; if (!r){ refView=null; return refRender(); }
-  const v=document.createElement('div'); v.className='rv'; body.append(v); const c=await refLoad(r); if (!c || !refView) return; const cv=mk(c.width,c.height); ctx2(cv).drawImage(c,0,0); v.append(cv);
-  const fit=()=>{ const w=v.clientWidth, h=v.clientHeight-44; if (!refView.s){ refView.s=Math.min(w/c.width, h/c.height); refView.x=(w-c.width*refView.s)/2; refView.y=(h-c.height*refView.s)/2; } cv.style.transform='translate('+refView.x+'px,'+refView.y+'px) scale('+refView.s+')'; };
-  requestAnimationFrame(fit);
-  const bar=document.createElement('div'); bar.className='rvb';
-  bar.innerHTML='<button data-v="back">← Все</button>'+(list.length>1?'<button data-v="prev">‹</button><button data-v="next">›</button>':'')+'<button data-v="det">→ Доводка</button><button data-v="lay">Слоем</button>'; body.append(bar);
+  const V=refView, v=document.createElement('div'); v.className='rv'; body.append(v); const c=await refLoad(r); if (!c || refView!==V) return;
+  const cv=mk(c.width,c.height); ctx2(cv).drawImage(c,0,0); v.append(cv);
+  const fr=document.createElement('div'); fr.className='rcrop'; fr.hidden=true; fr.innerHTML='<i class="nw"></i><i class="ne"></i><i class="sw"></i><i class="se"></i>'; v.append(fr);
+  let ro=null;
+  const fit=()=>{ if (!v.isConnected || refView!==V){ if (ro) ro.disconnect(); return; } const w=v.clientWidth, h=v.clientHeight-44; if (w<=0 || h<=0) return;
+    if (!V.s || V.fitted){ V.s=Math.min(w/c.width, h/c.height); V.x=(w-c.width*V.s)/2; V.y=(h-c.height*V.s)/2; V.fitted=true; }
+    else if (V.vw!=null && (w!==V.vw || h!==V.vh)){ V.x+=(w-V.vw)/2; V.y+=(h-V.vh)/2; }
+    V.vw=w; V.vh=h; cv.style.transform='translate('+V.x+'px,'+V.y+'px) scale('+V.s+')';
+    const f=refCropOf(r,c); fr.hidden=!f; if (f) Object.assign(fr.style,{left:(V.x+f.x*V.s)+'px', top:(V.y+f.y*V.s)+'px', width:(f.w*V.s)+'px', height:(f.h*V.s)+'px'});
+    v.classList.toggle('framing', !!V.fm); v.classList.toggle('space', !!(V.fm && refSpace)); };
+  if (typeof ResizeObserver!=='undefined'){ ro=new ResizeObserver(()=>fit()); ro.observe(v); } requestAnimationFrame(fit);
+  const zoomAt=(mx,my,k)=>{ V.x=mx-(mx-V.x)*k; V.y=my-(my-V.y)*k; V.s*=k; V.fitted=false; fit(); };
+  const bar=document.createElement('div'); bar.className='rvb'; body.append(bar);
+  const drawBar=()=>{ const has=!!refCropOf(r,c);
+    bar.innerHTML='<button data-v="back">← Все</button>'+(list.length>1?'<button data-v="prev">‹</button><button data-v="next">›</button>':'')+
+      '<button data-v="frame"'+(V.fm?' class="on"':'')+' title="Обвести, что уйдёт в Доводку и слоем'+(IS_DESK?' (C)':'')+'">▭ Рамка</button>'+
+      (has?'<button data-v="nofr" title="Убрать рамку — пойдёт картинка целиком">✕</button>':'')+
+      '<button data-v="det">→ Доводка'+(has?' · рамка':'')+'</button><button data-v="lay">Слоем'+(has?' · рамка':'')+'</button>'; };
+  const dirty=()=>{ if (doc){ doc.pristine=false; markDirty(); } };
+  V.toggleFrame=on=>{ V.fm = on==null ? !V.fm : !!on; if (V.fm && !refCropOf(r,c)) toast(IS_DESK?'Обведи мышью, что уйдёт в Доводку. Колесо — масштаб, пробел — рука':'Обведи пером, что уйдёт в Доводку. Двумя пальцами — масштаб и сдвиг',2600); drawBar(); fit(); };
+  V.redraw=fit; drawBar();
   bar.onclick=e=>{ const b=e.target.closest('button'); if (!b) return; const a=b.dataset.v, n=list.length;
-    if (a==='back') refView=null; else if (a==='prev') refView={i:(refView.i-1+n)%n, s:0}; else if (a==='next') refView={i:(refView.i+1)%n, s:0}; else if (a==='det'){ refToDetail(refView.i); return; } else if (a==='lay'){ refToLayer(refView.i); return; }
+    if (a==='frame') return V.toggleFrame(); if (a==='nofr'){ r.crop=null; dirty(); drawBar(); fit(); return; }
+    if (a==='det'){ refToDetail(V.i); return; } if (a==='lay'){ refToLayer(V.i); return; }
+    if (a==='back') refView=null; else if (a==='prev') refView={i:(V.i-1+n)%n, s:0, fm:V.fm}; else if (a==='next') refView={i:(V.i+1)%n, s:0, fm:V.fm};
     refRender(); };
-  v.addEventListener('wheel', e=>{ e.preventDefault(); e.stopPropagation(); const rr=v.getBoundingClientRect(), mx=e.clientX-rr.left, my=e.clientY-rr.top, k=Math.exp(-e.deltaY*0.0015);
-    refView.x=mx-(mx-refView.x)*k; refView.y=my-(my-refView.y)*k; refView.s*=k; fit(); }, {passive:false});
-  const pts=new Map(); let last=null;
-  v.addEventListener('pointerdown', e=>{ e.stopPropagation(); pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); try{ v.setPointerCapture(e.pointerId); }catch(_){} last=null; });
+  v.addEventListener('wheel', e=>{ e.preventDefault(); e.stopPropagation(); const rr=v.getBoundingClientRect(); zoomAt(e.clientX-rr.left, e.clientY-rr.top, Math.exp(-e.deltaY*0.0015)); }, {passive:false});
+  const pts=new Map(); let last=null, lastMid=null, drag=null;
+  const imgPt=e=>{ const rr=v.getBoundingClientRect(); return {x:(e.clientX-rr.left-V.x)/V.s, y:(e.clientY-rr.top-V.y)/V.s}; };
+  const cl=(a,lo,hi)=>Math.max(lo, Math.min(hi, a));
+  v.addEventListener('pointerdown', e=>{ e.stopPropagation(); pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); try{ v.setPointerCapture(e.pointerId); }catch(_){} last=null; lastMid=null; drag=null;
+    if (pts.size!==1 || !V.fm || e.button!==0 || refSpace) return;
+    const p=imgPt(e), f=refCropOf(r,c), tol=14/V.s;
+    if (f){ const cs={nw:[f.x,f.y], ne:[f.x+f.w,f.y], sw:[f.x,f.y+f.h], se:[f.x+f.w,f.y+f.h]};
+      for (const k in cs) if (Math.abs(p.x-cs[k][0])<tol && Math.abs(p.y-cs[k][1])<tol){ drag={m:k, f}; break; }
+      if (!drag && p.x>f.x && p.x<f.x+f.w && p.y>f.y && p.y<f.y+f.h) drag={m:'move', p0:p, f}; }
+    if (!drag) drag={m:'new', p0:{x:cl(p.x,0,c.width), y:cl(p.y,0,c.height)}}; });
   v.addEventListener('pointermove', e=>{ if (!pts.has(e.pointerId)) return; const p0=pts.get(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    if (pts.size===1){ refView.x+=e.clientX-p0.x; refView.y+=e.clientY-p0.y; fit(); return; }
+    if (pts.size===1 && drag){ const p=imgPt(e), px=cl(p.x,0,c.width), py=cl(p.y,0,c.height), g=drag.f; let x0,y0,x1,y1;
+      if (drag.m==='new'){ x0=drag.p0.x; y0=drag.p0.y; x1=px; y1=py; }
+      else if (drag.m==='move'){ x0=cl(g.x+p.x-drag.p0.x, 0, c.width-g.w); y0=cl(g.y+p.y-drag.p0.y, 0, c.height-g.h); x1=x0+g.w; y1=y0+g.h; }
+      else { x0=g.x; y0=g.y; x1=g.x+g.w; y1=g.y+g.h; if (drag.m[1]==='w') x0=px; else x1=px; if (drag.m[0]==='n') y0=py; else y1=py; }
+      r.crop={x:Math.min(x0,x1), y:Math.min(y0,y1), w:Math.abs(x1-x0), h:Math.abs(y1-y0)}; fit(); return; }
+    if (pts.size===1){ V.x+=e.clientX-p0.x; V.y+=e.clientY-p0.y; V.fitted=false; fit(); return; }
     const [a,b]=[...pts.values()], d=Math.hypot(a.x-b.x,a.y-b.y), rr=v.getBoundingClientRect(), mx=(a.x+b.x)/2-rr.left, my=(a.y+b.y)/2-rr.top;
-    if (last){ const k=d/last; refView.x=mx-(mx-refView.x)*k; refView.y=my-(my-refView.y)*k; refView.s*=k; fit(); } last=d; });
-  const up=e=>{ pts.delete(e.pointerId); last=null; }; v.addEventListener('pointerup', up); v.addEventListener('pointercancel', up); }
+    if (last){ if (lastMid){ V.x+=mx-lastMid.x; V.y+=my-lastMid.y; } zoomAt(mx, my, d/last); } last=d; lastMid={x:mx,y:my}; });
+  const up=e=>{ pts.delete(e.pointerId); last=null; lastMid=null; if (drag){ drag=null; if (!refCropOf(r,c)) r.crop=null; dirty(); drawBar(); fit(); } };
+  v.addEventListener('pointerup', up); v.addEventListener('pointercancel', up); }
 function refWire(el){
   el.addEventListener('pointerenter', ()=>refOver=true); el.addEventListener('pointerleave', ()=>refOver=false);
   el.addEventListener('wheel', e=>e.stopPropagation(), {passive:true});
@@ -7729,8 +7776,8 @@ function refWire(el){
   let d=null; const h=el.querySelector('.rh'), z=el.querySelector('.rz');
   h.addEventListener('pointerdown', e=>{ if (e.target.closest('button')) return; const r=el.getBoundingClientRect(), st=$('#stage').getBoundingClientRect(); d={m:'move', id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, st}; try{ h.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
   z.addEventListener('pointerdown', e=>{ const r=el.getBoundingClientRect(); d={m:'size', id:e.pointerId, x0:e.clientX, y0:e.clientY, w0:r.width, h0:r.height}; try{ z.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); e.stopPropagation(); });
-  const mv=e=>{ if (!d || e.pointerId!==d.id) return; if (d.m==='move'){ refUI.x=e.clientX-d.st.left-d.dx; refUI.y=e.clientY-d.st.top-d.dy; } else { refUI.w=Math.max(220, d.w0+e.clientX-d.x0); refUI.h=Math.max(180, d.h0+e.clientY-d.y0); } refPlace(); if (refView && d.m==='size'){ refView.s=0; } };
-  const up=e=>{ if (!d || e.pointerId!==d.id) return; const m=d.m; d=null; refUISave(); if (m==='size') refRender(); };
+  const mv=e=>{ if (!d || e.pointerId!==d.id) return; if (d.m==='move'){ refUI.x=e.clientX-d.st.left-d.dx; refUI.y=e.clientY-d.st.top-d.dy; } else { refUI.w=Math.max(220, d.w0+e.clientX-d.x0); refUI.h=Math.max(180, d.h0+e.clientY-d.y0); } refPlace(); };
+  const up=e=>{ if (!d || e.pointerId!==d.id) return; const m=d.m; d=null; refUISave(); if (m==='size' && !refView) refRender(); }; // №121: the viewer follows the size itself, zoom kept
   for (const x of [h,z]){ x.addEventListener('pointermove', mv); x.addEventListener('pointerup', up); x.addEventListener('pointercancel', up); }
   h.addEventListener('dblclick', e=>{ if (e.target.closest('button')) return; refUI.x=refUI.y=null; refUISave(); refPlace(); });
   el.addEventListener('dragover', e=>{ e.preventDefault(); e.stopPropagation(); el.classList.add('drop'); });
@@ -7830,8 +7877,13 @@ window.addEventListener('resize', ()=>histPlace());
 setTimeout(()=>{ if (histUI.open && doc) histToggle(true); }, 1200);
 $('#bRefs').onclick=()=>{ if (!doc){ toast('Сначала открой документ'); return; } refToggle(); };
 addEventListener('resize', ()=>setTimeout(refPlace,60));
+document.addEventListener('keyup', e=>{ if (e.code==='Space' && refSpace){ refSpace=false; if (refView && refView.redraw) refView.redraw(); } }, true);
+window.addEventListener('blur', ()=>{ refSpace=false; });
 document.addEventListener('keydown', e=>{ if (!refView || !$('#refwin') || $('#refwin').hidden || !refOver) return; const n=refsOf().length;
-  if (e.key==='Escape'){ e.preventDefault(); e.stopImmediatePropagation(); refView=null; refRender(); } else if (e.key==='ArrowRight'&&n>1){ e.preventDefault(); e.stopImmediatePropagation(); refView={i:(refView.i+1)%n,s:0}; refRender(); } else if (e.key==='ArrowLeft'&&n>1){ e.preventDefault(); e.stopImmediatePropagation(); refView={i:(refView.i-1+n)%n,s:0}; refRender(); } }, true);
+  if (e.code==='Space'){ e.preventDefault(); e.stopImmediatePropagation(); if (!refSpace){ refSpace=true; if (refView.redraw) refView.redraw(); } return; } // №121: hand inside the viewer
+  if (e.code==='KeyC' && !e.ctrlKey && !e.metaKey && !e.altKey){ e.preventDefault(); e.stopImmediatePropagation(); if (refView.toggleFrame) refView.toggleFrame(); return; }
+  if (e.key==='Escape' && refView.fm){ e.preventDefault(); e.stopImmediatePropagation(); refView.toggleFrame(false); return; }
+  if (e.key==='Escape'){ e.preventDefault(); e.stopImmediatePropagation(); refView=null; refRender(); } else if (e.key==='ArrowRight'&&n>1){ e.preventDefault(); e.stopImmediatePropagation(); refView={i:(refView.i+1)%n,s:0,fm:refView.fm}; refRender(); } else if (e.key==='ArrowLeft'&&n>1){ e.preventDefault(); e.stopImmediatePropagation(); refView={i:(refView.i-1+n)%n,s:0,fm:refView.fm}; refRender(); } }, true);
 /* a document switch shows its own refs */
 function refDocChanged(){ refView=null; const el=$('#refwin'); if (!el) { if (refUI.open && doc) refToggle(true); return; } el.hidden=!refUI.open || !doc; const b=$('#bRefs'); if (b) b.classList.toggle('on', refUI.open); if (!el.hidden){ refPlace(); refRender(); } }
 /* ============ №101: «Островок» ============
@@ -9168,7 +9220,7 @@ async function autosave(force, D0){
         if (L.mask){ keys.push('m'+L.id); if (need) put[P+'m'+L.id]=await toBlobBg(L.mask.canvas,'image/png'); }
       }catch(e){ throw e; }
     }
-    put[P+'meta']={ refs:(D.refs||[]).map(r=>({k:r.k, name:r.name, w:r.w, h:r.h})), file:D.fileName||null, owner:D.owner||acctId(), w:D.w, h:D.h, dpi:D.dpi||72, notes:D.notes||null, notesHide:!!D.notesHide, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,smart:L.smart?{M:L.smart.M.slice(),w:L.smart.src.width,h:L.smart.src.height}:undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
+    put[P+'meta']={ refs:(D.refs||[]).map(r=>({k:r.k, name:r.name, w:r.w, h:r.h, crop:r.crop||undefined})), file:D.fileName||null, owner:D.owner||acctId(), w:D.w, h:D.h, dpi:D.dpi||72, notes:D.notes||null, notesHide:!!D.notesHide, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,smart:L.smart?{M:L.smart.M.slice(),w:L.smart.src.width,h:L.smart.src.height}:undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
     try{ const k=Math.min(1,360/Math.max(D.w,D.h)), cur=doc; let th; doc=D; try{ th=flatten(k,true); } finally{ doc=cur; } put[P+'thumb']=await toBlob(th,'image/jpeg',0.8); }catch(_){}
     const lib=await libGet(), e={id:D.id, name:D.name, file:D.fileName||null, w:D.w, h:D.h, t:Date.now(), n:D.layers.filter(x=>!isGroup(x)).length, owner:D.owner||acctId(), dev:DEVICE_ID}, i=lib.findIndex(x=>x.id===D.id);
     if (i>=0) lib[i]=e; else lib.unshift(e);
@@ -9342,7 +9394,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №120 пустое окно рефов открывает выбор файлов'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №121 рамка рефа в Доводку и слоем, масштаб просмотра держится'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

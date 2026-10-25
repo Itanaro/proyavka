@@ -190,6 +190,32 @@ const steps = [
       for (const [k, v] of Object.entries(r)) check(v, 'рефы: не так — ' + k);
   }},
 
+  { name: 'Рефы: рамка уходит в Доводку, масштаб держится при смене размера окна', run: async page => {
+      const r = await page.evaluate(async () => {
+        const n0 = refsOf().length, d0 = detailRefs.length, w0 = refUI.w, h0 = refUI.h;
+        const c = mk(1000, 2000), x = ctx2(c); x.fillStyle = '#c04030'; x.fillRect(0, 0, 1000, 2000);
+        await refAdd(c, 'Тест-рамка'); refUI.w = 420; refUI.h = 520; refToggle(true);
+        refView = { i: refsOf().length - 1, s: 0 }; await refRender(); await new Promise(r => setTimeout(r, 400));
+        const out = {}; refView.s *= 3; refView.fitted = false; refView.redraw(); const s1 = refView.s;
+        refUI.w = 600; refUI.h = 700; refPlace(); await new Promise(r => setTimeout(r, 400));
+        out.zoomKept = Math.abs(refView.s - s1) < 1e-6;
+        refView.s = 0; refView.redraw(); await new Promise(r => setTimeout(r, 100));
+        refView.toggleFrame(true);
+        const v = document.querySelector('#refwin .rv'), rr = v.getBoundingClientRect(), V = refView;
+        const at = (ix, iy) => ({ clientX: rr.left + V.x + ix * V.s, clientY: rr.top + V.y + iy * V.s, pointerId: 7, button: 0, bubbles: true, pointerType: 'pen' });
+        v.dispatchEvent(new PointerEvent('pointerdown', at(200, 100))); v.dispatchEvent(new PointerEvent('pointermove', at(500, 300)));
+        v.dispatchEvent(new PointerEvent('pointermove', at(700, 500))); v.dispatchEvent(new PointerEvent('pointerup', at(700, 500)));
+        const rf = refsOf()[refsOf().length - 1]; out.frame = !!rf.crop && Math.abs(rf.crop.w - 500) < 4 && Math.abs(rf.crop.h - 400) < 4;
+        out.shown = !document.querySelector('#refwin .rcrop').hidden;
+        await refToDetail(refsOf().length - 1); const dr = detailRefs[detailRefs.length - 1];
+        out.detail = detailRefs.length === d0 + 1 && Math.abs(dr.width - 500) < 4 && Math.abs(dr.height - 400) < 4;
+        detailRefs.length = d0; refView = null; await refRender();
+        out.tileMark = !!document.querySelector('#refwin .rt:last-child .rtc');
+        refDel(refsOf().length - 1); refUI.w = w0; refUI.h = h0; refToggle(false); out.back = refsOf().length === n0;
+        return out; });
+      for (const [k, v] of Object.entries(r)) check(v, 'рамка рефа: не так — ' + k);
+  }},
+
   { name: 'Окна: История со снимком, Рефы', run: async page => {
       await page.evaluate(() => { histToggle(true); histSnap(); refToggle(true); });
       const r = await page.evaluate(() => ({ snaps: (doc.snaps || []).length, refs: !refEl().hidden, hist: !histEl().hidden }));
