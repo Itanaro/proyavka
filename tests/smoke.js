@@ -90,6 +90,27 @@ const steps = [
       await page.evaluate(() => { undo(); undo(); setTool('brush'); });
   }},
 
+  { name: 'Помещённая картинка: кнопки панели трансформа — на ней, Марионетка — на ней', run: async page => {
+      const r = await page.evaluate(async () => {
+        const n0 = doc.layers.length, base = doc.layers[doc.active];
+        const c = mk(300, 200), x = ctx2(c); x.fillStyle = '#20a060'; x.fillRect(0, 0, 300, 200); x.fillStyle = '#fff'; x.fillRect(0, 0, 60, 200);
+        const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+        await placeFile(new File([blob], 'ассет.png', { type: 'image/png' }));
+        await new Promise(r => setTimeout(r, 300));
+        const out = { xf: !!xf, added: doc.layers.length === n0 + 1 }, placed = doc.layers[doc.active];
+        const px = () => { const d = ctx2(xf.float, { willReadFrequently: true }).getImageData(2, 2, 1, 1).data; return d[0]; };
+        const before = px(); document.getElementById('xfFlipH').click(); out.flip = px() !== before;
+        document.getElementById('xfContain').click(); out.fit = Math.abs(xf.float.width * xf.sx - doc.w) < 2 || Math.abs(xf.float.height * xf.sy - doc.h) < 2;
+        document.getElementById('xfPuppet').click(); await new Promise(r => setTimeout(r, 200));
+        out.kept = doc.layers.length === n0 + 1 && doc.layers.includes(placed);
+        out.onPlaced = !!pup && pup.layer === placed && pup.layer !== base;
+        if (pup) pupClose();
+        while (doc.layers.length > n0) undo();
+        out.back = doc.layers.length === n0;
+        return out; });
+      for (const [k, v] of Object.entries(r)) check(v, 'помещённая картинка: не так — ' + k);
+  }},
+
   { name: 'Смарт-объект: поместить, без потерь, растрировать, отмена', run: async page => {
       const r = await page.evaluate(async () => {
         const c = mk(400, 300), x = ctx2(c); x.fillStyle = '#e04080'; x.fillRect(0, 0, 400, 300); x.fillStyle = '#fff'; x.fillRect(100, 100, 50, 50);

@@ -6628,7 +6628,7 @@ const PUP_DENS={less:24, normal:38, more:56}, PUP_MODES={rigid:'Жёстко', n
 function pupOpen(){
   if (!doc) return; if (xf) xfCancel();
   if (filt||harm||dep||gen||(lift&&lift.open)||aip||edge||crop){ toast('Сначала закрой открытую панель'); return; }
-  const L=AL(); if (!pixelOnly()) return; if (doc.editMask){ toast('Марионетка работает с пикселями слоя — выбери миниатюру слоя, не маски',2600); return; }
+  const L=AL(); if (!pixelOnly(false, !!L.smart)) return; if (doc.editMask){ toast('Марионетка работает с пикселями слоя — выбери миниатюру слоя, не маски',2600); return; }
   const selMask = sel ? (()=>{ const c=mk(doc.w,doc.h); ctx2(c).drawImage(sel.mask,0,0); return c; })() : null;
   // source: the layer (only the selected part, if there is a selection) — its alpha decides where the mesh goes
   const k0=Math.min(1, 640/Math.max(doc.w,doc.h)), sw=Math.max(1,Math.round(doc.w*k0)), sh=Math.max(1,Math.round(doc.h*k0));
@@ -6863,7 +6863,7 @@ function pupApply(){
   pupClose(); layersChanged(); toast('Деформация применена'+(ents.length>1?' (вместе с маской)':''),1200);
 }
 
-$('#xfPuppet').onclick=()=>pupOpen();
+$('#xfPuppet').onclick=()=>{ if (xf) xfApply(); pupOpen(); }; // №118: the transform (a freshly placed picture too) is applied first — the puppet works on that layer, not the one under it
 /* ============ several open documents (tabs, like Photoshop) ============
    Each open document keeps its layers, selection, undo history and view in memory, so switching is a swap of a few
    references — no loading, no re-encoding. Leaving a document saves it in the background (only changed layers).
@@ -7981,7 +7981,7 @@ function s2Build(w){
     '#hud.off{opacity:0;pointer-events:none} #hud i{width:1px;height:22px;background:rgba(255,255,255,.12);margin:0 4px}'+
     '#hud button{font:inherit;font-size:14px;color:var(--muted);background:none;border:0;height:38px;padding:0 13px;border-radius:12px;cursor:pointer}'+
     '#hud button:hover{color:var(--fg);background:rgba(255,255,255,.07)} #hud button.on{color:var(--accent-ink);background:var(--accent)}'+
-    '#msg{position:fixed;inset:0;display:grid;place-items:center;color:var(--muted);font-size:17px;pointer-events:none;text-align:center;line-height:1.5}'+
+    '#msg{position:fixed;inset:0;display:grid;place-items:center;color:var(--muted);font-size:17px;pointer-events:none;text-align:center;line-height:1.5}'+'#msg .card{pointer-events:auto;max-width:460px;padding:28px 32px;border-radius:22px;background:rgba(22,23,28,.72);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 18px 40px rgba(0,0,0,.35)}'+'#msg .card b{display:block;color:var(--fg);font-size:19px;font-weight:600;margin-bottom:10px} #msg .card p{margin:8px 0}'+'#msg .ico{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.09);vertical-align:middle;margin:0 4px}'+'#msg .ico svg{width:20px;height:20px;fill:none;stroke:var(--fg);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}'+'#msg .go{margin-top:14px;font:inherit;font-size:15px;font-weight:600;height:42px;padding:0 20px;border:0;border-radius:13px;cursor:pointer;color:var(--accent-ink);background:var(--accent)}'+'body.drop #msg .card{box-shadow:0 0 0 2px var(--accent),0 18px 40px rgba(0,0,0,.35)}'+
     '</style></head><body><canvas id="c"></canvas><div id="msg"></div><div id="hud">'+
     '<button data-k="pic" title="Вся картина (1)">Картина</button><button data-k="refs" title="Рефы документа (2)">Рефы</button><i></i>'+
     '<button data-k="gray" title="Ч/Б — проверка тона (G)">Ч/Б</button><button data-k="flip" title="Отразить по горизонтали — свежий глаз (F)">⇋ Отразить</button>'+
@@ -7990,6 +7990,12 @@ function s2Build(w){
   d.close();
   s2={w, cv:d.getElementById('c'), hud:d.getElementById('hud'), msg:d.getElementById('msg'), z:1, px:0, py:0, key:'', vk:'', rk:'', refSel:-1, hideT:0};
   s2.x=s2.cv.getContext('2d');
+  { const b=d.body; // №118: pictures dropped on the second screen go to the document's refs
+    d.addEventListener('dragover', e=>{ e.preventDefault(); b.classList.add('drop'); });
+    d.addEventListener('dragleave', e=>{ if (!e.relatedTarget) b.classList.remove('drop'); });
+    d.addEventListener('drop', async e=>{ e.preventDefault(); b.classList.remove('drop'); const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])];
+      if (!doc){ toast('Сначала открой документ'); return; } if (!fs.length) return;
+      await refAddFiles(fs); if (s2Pref.mode!=='refs') s2Act('refs'); else { s2.rk=''; s2DrawRefs(); } }); }
   s2.hud.querySelectorAll('button').forEach(b=>b.onclick=()=>s2Act(b.dataset.k));
   const wake=()=>{ s2.hud.classList.remove('off'); clearTimeout(s2.hideT); s2.hideT=setTimeout(()=>{ if (s2Alive()) s2.hud.classList.add('off'); }, 2600); };
   let drag=null;
@@ -8047,11 +8053,18 @@ function s2Draw(){
   x.save(); x.beginPath(); x.rect(ox,oy,dw,dh); x.clip(); x.beginPath(); q.forEach(([a,b],i)=>{ const X=ox+a*k, Y=oy+b*k; i?x.lineTo(X,Y):x.moveTo(X,Y); }); x.closePath();
   x.lineWidth=4*d; x.strokeStyle='rgba(0,0,0,.55)'; x.stroke(); x.lineWidth=2*d; x.strokeStyle=cssVar('--accent')||'#f0b46a'; x.stroke(); x.restore();
 }
+function s2RefsEmpty(){ // №118: what to press and where, with the same icon as the button in the main window
+  const ico=($('#bRefs svg')||{}).outerHTML||'';
+  s2.msg.innerHTML='<div class="card"><b>Рефов у этого документа пока нет</b>'+
+    '<p>Перетащи картинки прямо сюда — из папки или из браузера.</p>'+
+    '<p>Или в главном окне: верхняя панель справа, кнопка <span class="ico">'+ico+'</span> «Окно рефов» → «＋».</p>'+
+    '<button class="go">Открыть окно рефов в главном окне</button></div>';
+  s2.msg.querySelector('.go').onclick=()=>{ refToggle(true); try{ window.focus(); }catch(_){} toast('Окно рефов открыто: «＋» — добавить файлы, или перетащи картинки в него',2600); }; }
 async function s2DrawRefs(){
   if (!s2Alive()) return; const [W,H,d]=s2Size(), x=s2.x, list=doc?refsOf():[], D=doc;
   x.setTransform(1,0,0,1,0,0); x.fillStyle=BG; x.fillRect(0,0,W,H);
   if (!doc){ s2.msg.textContent='Нет открытого документа'; return; }
-  if (!list.length){ s2.msg.textContent='В окне рефов этого документа пока пусто.\nДобавь их в главном окне — кнопка с картинками вверху.'; s2.msg.style.whiteSpace='pre-line'; return; }
+  if (!list.length){ s2RefsEmpty(); return; }
   s2.msg.textContent='';
   const cs=await Promise.all(list.map(r=>refLoad(r, D))); if (!s2Alive() || doc!==D || s2Pref.mode!=='refs') return;
   const [W2,H2]=s2Size(); x.setTransform(1,0,0,1,0,0); x.fillStyle=BG; x.fillRect(0,0,W2,H2);
@@ -9308,7 +9321,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №117 сторож моста на ПК, журнал причин завершения моста'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №118 Марионетка на помещённом слое, второй экран: пустые рефы понятнее'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
