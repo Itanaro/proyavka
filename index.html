@@ -7644,9 +7644,11 @@ const refUISave=()=>{ try{ localStorage.setItem('proyavka.refwin', JSON.stringif
 let refView=null, refOver=false;
 function refsOf(D){ D=D||doc; if (!D) return []; if (!D.refs) D.refs=[]; return D.refs; }
 async function refLoad(r, D){ if (r.c) return r.c; try{ const b=await idbGet(PFX((D||doc).id)+r.k); if (!b) return null; const bm=await createImageBitmap(b), c=mk(bm.width,bm.height); ctx2(c).drawImage(bm,0,0); bm.close&&bm.close(); r.c=c; return c; }catch(e){ console.warn('ref', e); return null; } }
+function refHasAlpha(c){ try{ const k=Math.min(1,256/Math.max(c.width,c.height)), w=Math.max(1,Math.round(c.width*k)), h=Math.max(1,Math.round(c.height*k)), t=mk(w,h), x=ctx2(t,{willReadFrequently:true});
+  x.drawImage(c,0,0,w,h); const d=x.getImageData(0,0,w,h).data; for (let i=3;i<d.length;i+=4) if (d[i]<250) return true; }catch(_){} return false; }
 async function refAdd(c, name){
   if (!doc || !c) return; const D=doc, k='ref'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-  const blob=await toBlob(c, 'image/jpeg', 0.92); const r={k, name:name||'Реф', w:c.width, h:c.height, c};
+  const blob=await toBlob(c, refHasAlpha(c)?'image/png':'image/jpeg', 0.92); const r={k, name:name||'Реф', w:c.width, h:c.height, c}; // №119: transparency kept
   refsOf(D).push(r); try{ await idbPut({[PFX(D.id)+k]:blob}); }catch(e){ toast('Реф не сохранился: '+e.message,3000); }
   if (D===doc){ doc.pristine=false; markDirty(); } refRender(); }
 async function refAddFiles(files){ let n=0; for (const f of files){ if (!/^image\//.test(f.type) && !/\.(png|jpe?g|webp|gif|bmp|avif|heic)$/i.test(f.name)) continue; try{ const bm=await createImageBitmap(f), c=mk(bm.width,bm.height); ctx2(c).drawImage(bm,0,0); bm.close&&bm.close(); await refAdd(c, f.name.replace(/\.[^.]+$/,'')); n++; }catch(e){ toast('Не открылся файл: '+f.name); } } if (n) toast('Рефов добавлено: '+n,1400); }
@@ -7680,7 +7682,19 @@ async function refRender(){ const el=$('#refwin'); if (!el || el.hidden || !doc)
     a.innerHTML='<button data-a="det" title="В рефы Доводки (@img2…)">→ Доводка</button><button data-a="lay" title="Новым слоем в документ">Слоем</button><button class="x" data-a="del" title="Убрать из рефов">×</button>';
     t.append(a); g.append(t);
     t.onclick=e=>{ const b=e.target.closest('button'); if (b){ e.stopPropagation(); if (b.dataset.a==='det') refToDetail(i); else if (b.dataset.a==='lay') refToLayer(i); else refDel(i); return; } refView={i, s:0, x:0, y:0}; refRender(); };
-    refLoad(r).then(c=>{ if (!c) return; const k=Math.min(1, 360/Math.max(c.width,c.height)); cv.width=Math.max(1,Math.round(c.width*k)); cv.height=Math.max(1,Math.round(c.height*k)); const x=ctx2(cv); x.imageSmoothingQuality='high'; x.drawImage(c,0,0,cv.width,cv.height); }); } }
+    refLoad(r).then(c=>{ if (c) refTile(t, cv, c); }); } }
+/* №119: a tile is drawn at the size it is shown on screen × the screen's pixel density (it was a 360 px preview stretched
+   over a big tile — soft on a large window and on dense screens); redrawn when the window or the tile size grows.
+   Big downscales go in halving steps — one jump from a 4000 px picture gives a mushy tile. */
+const refTileRO = typeof ResizeObserver!=='undefined' ? new ResizeObserver(es=>{ for (const e of es){ const t=e.target; if (t._ref) refTile(t, t._ref[0], t._ref[1]); } }) : null;
+function refTile(t, cv, c){
+  t._ref=[cv,c]; if (refTileRO && !t._ro){ t._ro=1; refTileRO.observe(t); }
+  const dpr=window.devicePixelRatio||1, bw=t.clientWidth||refUI.t||110, bh=t.clientHeight||bw;
+  const k=Math.min(1, Math.max(bw*dpr/c.width, bh*dpr/c.height, 0.01)), w=Math.max(1,Math.round(c.width*k)), h=Math.max(1,Math.round(c.height*k));
+  if (Math.abs(cv.width-w)<=2 && Math.abs(cv.height-h)<=2) return;
+  let src=c, sw=c.width, sh=c.height;
+  while (sw/2>=w*1.5 && sh/2>=h*1.5){ const nw=Math.round(sw/2), nh=Math.round(sh/2), st=mk(nw,nh), sx=ctx2(st); sx.imageSmoothingQuality='high'; sx.drawImage(src,0,0,nw,nh); src=st; sw=nw; sh=nh; }
+  cv.width=w; cv.height=h; const x=ctx2(cv); x.imageSmoothingEnabled=true; x.imageSmoothingQuality='high'; x.drawImage(src,0,0,w,h); }
 async function refViewer(body){ const list=refsOf(), r=list[refView.i]; if (!r){ refView=null; return refRender(); }
   const v=document.createElement('div'); v.className='rv'; body.append(v); const c=await refLoad(r); if (!c || !refView) return; const cv=mk(c.width,c.height); ctx2(cv).drawImage(c,0,0); v.append(cv);
   const fit=()=>{ const w=v.clientWidth, h=v.clientHeight-44; if (!refView.s){ refView.s=Math.min(w/c.width, h/c.height); refView.x=(w-c.width*refView.s)/2; refView.y=(h-c.height*refView.s)/2; } cv.style.transform='translate('+refView.x+'px,'+refView.y+'px) scale('+refView.s+')'; };
@@ -9321,7 +9335,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №118 Марионетка на помещённом слое, второй экран: пустые рефы понятнее'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №119 чёткие плитки рефов, прозрачность рефов'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

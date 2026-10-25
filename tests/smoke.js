@@ -168,6 +168,20 @@ const steps = [
       await page.evaluate(() => { crit = null; const b = document.getElementById('critbar'); if (b) b.hidden = true; requestRender(); });
   }},
 
+  { name: 'Рефы: плитка в полном разрешении экрана, прозрачность сохраняется', run: async page => {
+      const r = await page.evaluate(async () => {
+        const n0 = refsOf().length;
+        const c = mk(1600, 2400), x = ctx2(c); x.fillStyle = '#3050c0'; x.fillRect(400, 0, 800, 2400); // transparent sides
+        await refAdd(c, 'Тест-реф'); refUI.t = 200; refToggle(true); await refRender();
+        await new Promise(r => setTimeout(r, 600));
+        const t = [...document.querySelectorAll('#refwin .rt')].pop(), cv = t && t.querySelector('canvas');
+        const out = { tile: !!cv && cv.width >= Math.floor(t.clientWidth * (window.devicePixelRatio || 1)) - 2 && cv.width > 120 };
+        const rr = refsOf()[refsOf().length - 1], b = await idbGet(PFX(doc.id) + rr.k); out.png = !!b && b.type === 'image/png';
+        refDel(refsOf().length - 1); refUI.t = 110; refToggle(false); out.back = refsOf().length === n0;
+        return out; });
+      for (const [k, v] of Object.entries(r)) check(v, 'рефы: не так — ' + k);
+  }},
+
   { name: 'Окна: История со снимком, Рефы', run: async page => {
       await page.evaluate(() => { histToggle(true); histSnap(); refToggle(true); });
       const r = await page.evaluate(() => ({ snaps: (doc.snaps || []).length, refs: !refEl().hidden, hist: !histEl().hidden }));
