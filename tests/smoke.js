@@ -206,6 +206,18 @@ const steps = [
       await page.evaluate(() => { undo(); deselect(); genCfg.sdUrl = ''; });
   }},
 
+  { name: 'Островок: SD-ретушь третьей кнопкой, выбор значков, добавить / убрать', run: async page => {
+      const r = await page.evaluate(() => { const out = {};
+        out.third = island.slots[2] === 'sdq' && !!document.querySelector('#island .ib[data-k="sdq"] svg');
+        islandMenu(0, 300, 300); out.tiles = document.querySelectorAll('#lyCtx .igrid .it').length; out.icons = document.querySelectorAll('#lyCtx .igrid .it svg').length;
+        const add = [...document.querySelectorAll('#lyCtx > button')].find(b => b.textContent.includes('Добавить')); add.click(); out.four = island.slots.length;
+        islandMenu(1, 300, 300); [...document.querySelectorAll('#lyCtx > button')].find(b => b.textContent.includes('Убрать эту')).click(); out.back = island.slots.join(',');
+        islandMenu(2, 300, 300); [...document.querySelectorAll('#lyCtx .igrid .it')].find(b => b.title === 'Пластика').click(); out.swap = island.slots[2];
+        island.slots[2] = 'sdq'; islandSave(); islandBuild(); return out; });
+      check(r.third, 'третья кнопка островка — не SD-ретушь'); check(r.tiles >= 20 && r.icons >= r.tiles - 1, 'плитки без значков: ' + r.icons + ' из ' + r.tiles);
+      check(r.four === 4, 'кнопка не добавилась'); check(r.back === 'rect,lasso,sdq', 'кнопка не убралась: ' + r.back); check(r.swap === 'liquify', 'значок не заменился');
+  }},
+
   { name: 'Удаление кистью — без затемнения экрана', run: async page => {
       const r = await page.evaluate(() => { const b = () => { const e = document.getElementById('busy'); return !!e && !e.hidden; };
         busyLite = true; busy(true, 'Нейросеть дорисовывает…'); const quiet = !b(); busy(true, 'Загружаю нейросеть удаления… 3 из 28 МБ · тап — отменить'); const dl = b(); busy(false); busyLite = false;

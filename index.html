@@ -751,6 +751,11 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
 #island .ib svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 #island .ib:hover{background:var(--soft-2)} #island .ib:active{transform:scale(.92)}
 #island .ib.on{background:var(--accent-grad);color:var(--accent-ink);box-shadow:var(--accent-lift)}
+#island .ib.busy{color:var(--ai);animation:ibPulse 1.1s ease-in-out infinite}@keyframes ibPulse{50%{background:var(--soft-2);transform:scale(.94)}}
+#lyCtx .igrid{display:grid;grid-template-columns:repeat(4,76px);gap:4px;padding:2px 4px}
+#lyCtx .igrid button.it{height:auto;min-height:66px;padding:8px 4px 6px;flex-direction:column;justify-content:flex-start;gap:5px;text-align:center;white-space:normal;font-size:10.5px;line-height:1.15;color:var(--fg)}
+#lyCtx .igrid button.it svg{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#lyCtx .igrid button.it.on{background:var(--soft-3);box-shadow:inset 0 0 0 1.5px var(--accent)}
 #island .grip{width:14px;height:34px;border-radius:7px;cursor:grab;display:flex;align-items:center;justify-content:center;color:var(--muted);opacity:.7}
 #island.v .grip{width:34px;height:14px}
 #island .grip::before{content:"";width:4px;height:16px;border-radius:2px;background:radial-gradient(circle,currentColor 1.2px,transparent 1.6px) 0 0/4px 5px}
@@ -4020,10 +4025,10 @@ async function sdGo(){
    (0.05 / 60 steps / CFG 7 / Euler a / mask blur 4 / original), its prompt and negative read from the plugin through the bridge,
    the model as it is in Automatic1111; the result lies as a layer «SD …» with the selection as its mask, one undo. Work goes on meanwhile. */
 let sdq=null;
-function sdqChip(t){ let c=$('#sdq'); if (!t){ if (c) c.hidden=true; return; }
+function sdqChip(t){ let c=$('#sdq'); if (!t){ if (c) c.hidden=true; if (typeof islandSync==='function') islandSync(); return; }
   if (!c){ c=document.createElement('div'); c.id='sdq'; c.innerHTML='<span></span><button aria-label="Остановить">✕</button>'; $('#app').append(c);
     c.lastChild.onclick=()=>{ if (!sdq) return; sdq.cancelled=true; fetch(sdBase()+'/sdapi/v1/interrupt',{method:'POST'}).catch(()=>{}); try{ sdq.abort.abort(); }catch(e){} }; }
-  c.firstChild.textContent=t; c.hidden=false; }
+  c.firstChild.textContent=t; c.hidden=false; if (typeof islandSync==='function') islandSync(); }
 async function sdPreset(){ // the Photoshop plugin's own prompt; an older bridge or no plugin — Проявка's saved SD prompt
   try{ const r=await fetch(sdBase()+'/proyavka/sdpreset',{cache:'no-store'}); if (r.ok){ const j=await r.json(); if (j && typeof j.prompt==='string') return {prompt:j.prompt, neg:j.neg||'', from:'ps'}; } }catch(e){}
   return {prompt:genCfg.sdPrompt||'', neg:genCfg.sdNeg||'', from:'own'}; }
@@ -7070,7 +7075,7 @@ function showHelpDesk(){
    card('Выделение',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','до начала — добавить / вычесть'],['Shift / Alt (по ходу)','прямоугольник: квадрат / от центра'],['Тянуть внутри выделения','сдвинуть контур (лассо, прямоугольник, палочка)'],['Стрелки / Shift+стрелки','сдвинуть выделение на 1 / 10 px'],['Ctrl+Alt+R / Shift+F6','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой']])+
    card('Слои',[['Delete (без выделения)','удалить слой'],['Shift+клик / Ctrl+клик по слою','несколько слоёв: Delete, Ctrl+G, Ctrl+E, Ctrl+T, глаз, непрозрачность, режим — для всех'],['Двойной клик по имени','переименовать'],['Правый клик по слою','меню: слить, в группу, переименовать, удалить'],['Ctrl+Shift+N','новый слой'],['Ctrl+G / Ctrl+Shift+G','группа / разгруппировать'],['Ctrl+E','слить вниз'],['Ctrl+Shift+E','слить видимые'],['Ctrl+Alt+Shift+E','видимое — новым слоем'],['Ctrl+[ / Ctrl+]','слой ниже / выше'],['Ctrl+Shift+[ / ]','в самый низ / верх'],['Alt+[ / Alt+]','выбрать слой ниже / выше'],['Alt+клик глаза','только этот слой'],['Alt+клик по слою / Ctrl+Alt+G','обтравочная маска — слой только по форме нижнего'],['Shift+клик маски','выключить маску'],['Shift+＋ / Shift+−','режим наложения']])+
    card('Инструменты',[['V','трансформ'],['M','прямоугольник'],['L','лассо'],['W / Shift+W','палочка ↔ выбор объекта'],['I / держать Alt','пипетка'],['J / Shift+J','точечная ↔ удаление ↔ восст. ↔ заплатка'],['S','штамп (источник — Alt+клик)'],['B / E','кисть / ластик'],['G','градиент (Shift — по 45°)'],['O / Shift+O','осветление ↔ затемнение ↔ губка'],['P','марионетка'],['C','кадрирование'],['[ / ]','размер кисти'],['Shift+[ / ]','жёсткость'],['1…0','непрозрачность (4 5 = 45%)'],['Shift+1…0','поток'],['Caps Lock','точный крестик']])+
-   card('ИИ-окна',[['Ctrl+Enter','в поле промпта — запустить'],['Enter','в рамке Доводки — дальше'],['Островок','тяни за точки — переставить; правый клик по кнопке — поменять'],['Окно рефов','кнопка с картинками вверху; перетащи файлы, Ctrl+V над окном, ⧉ — выделенное'],['Тянуть за заголовок','переставить окно'],['Двойной клик по заголовку','окно — на место'],['?','в заголовке окна — показать подсказки']])+
+   card('ИИ-окна',[['Ctrl+Enter','в поле промпта — запустить'],['Enter','в рамке Доводки — дальше'],['Островок','тяни за точки — переставить; правый клик или удержание кнопки — поменять значок, добавить или убрать кнопку (до 6)'],['Окно рефов','кнопка с картинками вверху; перетащи файлы, Ctrl+V над окном, ⧉ — выделенное'],['Тянуть за заголовок','переставить окно'],['Двойной клик по заголовку','окно — на место'],['?','в заголовке окна — показать подсказки']])+
    `</div><h4 class="hkt">Инструменты подробно</h4><dl class="gest gcols">`+HELP_PC_TOOLS.map(([t,d])=>'<div><dt>'+t+'</dt><dd>'+d+'</dd></div>').join('')+'</dl>';
   const d=dialog(html, [['Понятно', ()=>{ try{localStorage.setItem('kadr.help','1');}catch(e){} }, true]]); d.classList.add('helpw');
 }
@@ -7698,15 +7703,22 @@ const ISLAND_ACTS={
   subject:{t:'Выделить объект', icon:()=>$('#bSubject').innerHTML, run:()=>$('#bSubject').click()},
   brush:{t:'Кисть', tool:'brush'}, eraser:{t:'Ластик', tool:'eraser'}, gradient:{t:'Градиент', tool:'gradient'}, picker:{t:'Пипетка', tool:'picker'}, transform:{t:'Трансформ', tool:'transform'},
   patch:{t:'Заплатка', tool:'patch'}, remove:{t:'Удаление · нейросеть', tool:'remove'}, clone:{t:'Штамп', tool:'clone'},
+  spot:{t:'Точечная восст. кисть', tool:'spot'}, liquify:{t:'Пластика', tool:'liquify'}, dodge:{t:'Осветление', tool:'dodge'}, burn:{t:'Затемнение', tool:'burn'}, // №114
+  puppet:{t:'Марионетка', icon:()=>toolIcon('@puppet'), run:()=>pupOpen()},
+  crop:{t:'Кадрирование', icon:()=>$('#bCrop').innerHTML, run:()=>{ if (!document.querySelector('.scrim')) cropOpen(); }},
+  sdq:{t:'SD-ретушь (как F2)', svg:'<rect x="2" y="4.5" width="20" height="15" rx="4.5"/><text x="12" y="15.8" text-anchor="middle" font-size="10" font-weight="700" font-family="system-ui,sans-serif" fill="currentColor" stroke="none">SD</text>', run:()=>sdQuick()},
+  airm:{t:'Убрать нейросетью (выделение)', svg:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M12 8.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="currentColor"/>', run:()=>{ if (sel) inpaintFromSel(); else toast('Сначала выдели, что убрать'); }},
   hist:{t:'История', svg:'<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3 4v4.5h4.5"/><path d="M12 7.5V12l3 2"/>', run:()=>histToggle()},
   undo:{t:'Отменить', svg:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', run:()=>undo()},
   redo:{t:'Вернуть', svg:'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>', run:()=>redo()},
   deselect:{t:'Снять выделение', svg:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="m9.5 9.5 5 5M14.5 9.5l-5 5"/>', run:()=>{ if (sel) deselect(); else reselect(); }},
   invert:{t:'Инвертировать выделение', svg:'<rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 2.5"/><path d="M12 4v16" /><path d="M12 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6z" fill="currentColor" stroke="none" opacity=".55"/>', run:()=>{ if (sel) invertSel(); else toast('Сначала выдели'); }},
 };
-const ISLAND_DEF={slots:['rect','lasso','undo'], on:true, v:false, x:null, y:null};
+const ISLAND_DEF={slots:['rect','lasso','sdq'], on:true, v:false, x:null, y:null}; // №114: the 3rd button is SD retouch (undo on the iPad is a two-finger tap)
 let island=(()=>{ try{ return Object.assign({}, ISLAND_DEF, JSON.parse(localStorage.getItem('proyavka.island')||'{}')); }catch(_){ return Object.assign({}, ISLAND_DEF); } })();
 const islandSave=()=>{ try{ localStorage.setItem('proyavka.island', JSON.stringify(island)); }catch(_){} };
+if (!island.m114){ island.m114=1; if (island.slots[2]==='undo') island.slots[2]='sdq'; island.slots=island.slots.filter(k=>ISLAND_ACTS[k]); if (!island.slots.length) island.slots=ISLAND_DEF.slots.slice(); islandSave(); }
+const ISLAND_MAX=6;
 function islandIcon(k){ const a=ISLAND_ACTS[k]; if (!a) return ''; if (a.svg) return '<svg viewBox="0 0 24 24">'+a.svg+'</svg>'; if (a.icon) return a.icon(); try{ return toolIcon(a.tool); }catch(_){ return ''; } }
 function islandRun(k){ const a=ISLAND_ACTS[k]; if (!a || !doc) return; if (a.tool) setTool(a.tool); else a.run(); }
 function islandBuild(){
@@ -7715,20 +7727,25 @@ function islandBuild(){
   const g=document.createElement('div'); g.className='grip'; g.title='Тяни — переставить. Двойной клик — повернуть'; el.append(g);
   island.slots.forEach((k,i)=>{ const b=document.createElement('button'); b.className='ib'; b.dataset.i=i; b.dataset.k=k; b.innerHTML=islandIcon(k); b.title=(ISLAND_ACTS[k]||{}).t+' · правый клик или удержание — поменять'; el.append(b); });
   islandSync(); islandPlace(); }
-function islandSync(){ const tb=$('#bIsland'); if (tb){ tb.classList.toggle('on', !!island.on); tb.setAttribute('aria-pressed', island.on?'true':'false'); } const el=$('#island'); if (!el) return; el.querySelectorAll('.ib').forEach(b=>{ const a=ISLAND_ACTS[b.dataset.k]; b.classList.toggle('on', !!(a && a.tool && a.tool===S.tool)); }); }
+function islandSync(){ const tb=$('#bIsland'); if (tb){ tb.classList.toggle('on', !!island.on); tb.setAttribute('aria-pressed', island.on?'true':'false'); } const el=$('#island'); if (!el) return; el.querySelectorAll('.ib').forEach(b=>{ const a=ISLAND_ACTS[b.dataset.k]; b.classList.toggle('busy', b.dataset.k==='sdq' && !!sdq); b.classList.toggle('on', !!(a && a.tool && a.tool===S.tool)); }); }
 function islandPlace(){ const el=$('#island'); if (!el || el.hidden) return; const st=$('#stage').getBoundingClientRect(), w=el.offsetWidth, h=el.offsetHeight;
   let x, y; if (island.x!=null){ x=island.x*st.width; y=island.y*st.height; }
   else { const ly=$('#layers'), right=(ly && !ly.hidden ? ly.getBoundingClientRect().left-st.left : st.width)-24; x=right-w; y=st.height-h-28; } // by default: low on the right, next to the layers
   x=Math.max(6, Math.min(st.width-w-6, x)); y=Math.max(6, Math.min(st.height-h-6, y)); el.style.left=x+'px'; el.style.top=y+'px'; }
-function islandMenu(i, cx, cy){
-  const m=$('#lyCtx'); m.textContent=''; const head=document.createElement('div'); head.className='aih'; head.textContent='Кнопка '+(+i+1)+' островка'; m.append(head);
-  for (const [k,a] of Object.entries(ISLAND_ACTS)){ const b=document.createElement('button'); b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=a.t; b.lastChild.textContent= island.slots[i]===k ? '✓' : '';
-    b.onclick=()=>{ m.hidden=true; island.slots[i]=k; islandSave(); islandBuild(); }; m.append(b); }
+function islandMenu(i, cx, cy){ // №114: a grid of tiles with icons; add / remove buttons (1…6)
+  i=+i; const m=$('#lyCtx'); m.textContent=''; const head=document.createElement('div'); head.className='aih'; head.textContent='Кнопка '+(i+1)+' островка — что на ней'; m.append(head);
+  const grid=document.createElement('div'); grid.className='igrid';
+  for (const [k,a] of Object.entries(ISLAND_ACTS)){ const b=document.createElement('button'); b.className='it'+(island.slots[i]===k?' on':''); b.innerHTML=islandIcon(k)+'<span></span>'; b.lastChild.textContent=a.t; b.title=a.t;
+    b.onclick=()=>{ m.hidden=true; island.slots[i]=k; islandSave(); islandBuild(); }; grid.append(b); }
+  m.append(grid);
   const hr=document.createElement('div'); hr.className='aih'; hr.textContent=' '; m.append(hr);
-  const v=document.createElement('button'); v.innerHTML='<span>'+(island.v?'Положить горизонтально':'Поставить вертикально')+'</span><small></small>'; v.onclick=()=>{ m.hidden=true; island.v=!island.v; islandSave(); islandBuild(); }; m.append(v);
-  const r=document.createElement('button'); r.innerHTML='<span>Вернуть на место</span><small></small>'; r.onclick=()=>{ m.hidden=true; island.x=island.y=null; islandSave(); islandPlace(); }; m.append(r);
-  const h=document.createElement('button'); h.innerHTML='<span>Спрятать островок</span><small></small>'; h.onclick=()=>{ m.hidden=true; island.on=false; islandSave(); islandBuild(); toast('Островок спрятан — вернуть: кнопка с капсулой вверху справа',2600); }; m.append(h);
-  closePops('lyCtx'); m.hidden=false; const rr=m.getBoundingClientRect(); m.style.left=Math.min(cx, innerWidth-rr.width-8)+'px'; m.style.top=Math.max(8, Math.min(cy-rr.height/2, innerHeight-rr.height-8))+'px'; }
+  const row=(t,fn)=>{ const b=document.createElement('button'); b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=t; b.onclick=()=>{ m.hidden=true; fn(); }; m.append(b); };
+  if (island.slots.length<ISLAND_MAX) row('＋ Добавить кнопку', ()=>{ island.slots.splice(i+1,0,'undo'); islandSave(); islandBuild(); toast('Новая кнопка — «Отменить». Удержи её, чтобы выбрать другое',2600); });
+  if (island.slots.length>1) row('Убрать эту кнопку', ()=>{ island.slots.splice(i,1); islandSave(); islandBuild(); });
+  row(island.v?'Положить горизонтально':'Поставить вертикально', ()=>{ island.v=!island.v; islandSave(); islandBuild(); });
+  row('Вернуть на место', ()=>{ island.x=island.y=null; islandSave(); islandPlace(); });
+  row('Спрятать островок', ()=>{ island.on=false; islandSave(); islandBuild(); toast('Островок спрятан — вернуть: кнопка с капсулой вверху справа',2600); });
+  closePops('lyCtx'); m.hidden=false; const rr=m.getBoundingClientRect(); m.style.left=Math.max(8, Math.min(cx, innerWidth-rr.width-8))+'px'; m.style.top=Math.max(8, Math.min(cy-rr.height/2, innerHeight-rr.height-8))+'px'; }
 function islandWire(el){
   let d=null, hold=null, lastTap=0;
   el.addEventListener('contextmenu', e=>{ e.preventDefault(); e.stopPropagation(); const b=e.target.closest('.ib'); if (b) islandMenu(b.dataset.i, e.clientX, e.clientY); });
@@ -9172,7 +9189,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №113 F2 — SD-ретушь как в Фотошопе'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №114 Островок: SD-ретушь, значки плитками, до 6 кнопок'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
