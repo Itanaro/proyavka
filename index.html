@@ -445,8 +445,9 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 .tb{border-radius:13px}
 #rail .tb{width:46px;height:46px;border-radius:15px}
 #rail .tb,#rail .vs,#rail .vlabel{flex:none}
-@media (max-height:900px){ #rail .vs{height:110px} #rail{gap:4px} }
-@media (max-height:780px){ #rail .vs{height:78px} #rail .tb{width:42px;height:42px} }
+#rail .vs{flex:1 1 150px;height:auto;min-height:52px;max-height:150px} /* №126 sliders give way so the column always fits */
+@media (max-height:900px){ #rail{gap:4px} }
+@media (max-height:780px){ #rail .tb{width:42px;height:42px} }
 .tb.on,#flyout button.on,.seg button.on,.fbar .pri,.dlg .actions .pri,#brushPop .bfoot .pri{background:var(--accent-grad);color:var(--accent-ink);box-shadow:var(--accent-lift)}
 .tb.on svg{filter:drop-shadow(0 1px 0 rgba(255,255,255,.35))}
 .tb:active:not(.on),.fbar button:active:not(.pri),#flyout button:active:not(.on),#menu button:active{background:var(--soft-3)}
@@ -1040,7 +1041,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <button data-m="save" class="deskonly">Сохранить <small>Ctrl+S</small></button>
     <button data-m="saveas" class="deskonly">Сохранить как… <small>Ctrl+Shift+S</small></button>
     <button data-m="psd" class="padonly">Сохранить PSD <small>со слоями</small></button>
-    <button data-m="deliver">Сдать кат… <small>PSD + PNG 1500×2000, с проверкой</small></button>
+    <button data-m="deliver">Сдать кат… <small>PSD + PNG, с проверкой</small></button>
     <div class="mrow"><span>Экспорт</span><button data-m="png">PNG</button><button data-m="png50" title="PNG, 50% — превью">PNG ½</button><button data-m="jpg">JPG</button></div>
     <hr class="padonly">
     <button data-m="crop" class="padonly">Кадрировать <small>C</small></button>
@@ -1230,7 +1231,7 @@ function createDoc(w,h,name='Без названия'){
   tabsLeave();
   clearHistory(); sel=null; xf=null; stroke=null; strokeBuf=null;
   resetDocState();
-  doc = { id:newDocId(), owner:acctId(), keys:[], w, h, name, layers:[], active:0, editMask:false };
+  doc = { id:newDocId(), owner:acctId(), keys:[], w, h, name, dpi:300, layers:[], active:0, editMask:false }; // №126: 300 ppi by the standard
   doc.layers.push(Object.assign(newLayer('Фон', true)));
   doc.layers.push(newLayer('Слой 1'));
   doc.active = 1;
@@ -8000,8 +8001,10 @@ function navDraw(){ const el=$('#navwin'); if (!el || el.hidden || !doc) return;
   x.fillStyle=getChecker(); x.save(); x.translate(g.ox,g.oy); x.fillRect(0,0,doc.w*g.k,doc.h*g.k); x.restore();
   if (pv) x.drawImage(pv, g.ox, g.oy, doc.w*g.k, doc.h*g.k);
   const q=navFrame().map(t=>[g.ox+t[0]*g.k, g.oy+t[1]*g.k]);
-  x.beginPath(); x.rect(0,0,g.W,g.H); q.forEach((t,i)=>i?x.lineTo(t[0],t[1]):x.moveTo(t[0],t[1])); x.closePath(); x.fillStyle='rgba(0,0,0,.38)'; x.fill('evenodd');
-  x.beginPath(); q.forEach((t,i)=>i?x.lineTo(t[0],t[1]):x.moveTo(t[0],t[1])); x.closePath(); x.lineWidth=2; x.strokeStyle=cssVar('--accent'); x.stroke();
+  // №126 like Photoshop: the frame is clipped to the picture (the whole picture in view = the frame on its edge)
+  const iw=doc.w*g.k, ih=doc.h*g.k; x.save(); x.beginPath(); x.rect(g.ox, g.oy, iw, ih); x.clip();
+  x.beginPath(); x.rect(g.ox, g.oy, iw, ih); q.forEach((t,i)=>i?x.lineTo(t[0],t[1]):x.moveTo(t[0],t[1])); x.closePath(); x.fillStyle='rgba(0,0,0,.38)'; x.fill('evenodd');
+  x.beginPath(); q.forEach((t,i)=>i?x.lineTo(t[0],t[1]):x.moveTo(t[0],t[1])); x.closePath(); x.lineWidth=4; x.strokeStyle=cssVar('--accent'); x.stroke(); x.restore();
   const sp=el.querySelector('.nh span'), z=Math.round(view.s*100)+'%'; if (sp.textContent!==z) sp.textContent=z; }
 function navCenterOn(P){ const F=viewFree(), cx=F.L+F.W/2, cy=F.T+F.H/2, c=Math.cos(view.r)*view.s, sn=Math.sin(view.r)*view.s; view.x=cx-(c*P[0]-sn*P[1]); view.y=cy-(sn*P[0]+c*P[1]); requestRender(); }
 function navWire(el){
@@ -8148,7 +8151,7 @@ function appearanceDialog(){
   const mark=v=>d.querySelectorAll('.pbg button').forEach(x=>x.classList.toggle('on', x.dataset.p===v));
   d.querySelectorAll('.pbg button[data-p]').forEach(b=>{ if (b.dataset.p!=='*') b.onclick=()=>{ pasteSet(b.dataset.p); mark(b.dataset.p); }; });
   { const p=document.createElement('div'); p.className='pbg'; p.style.marginTop='14px'; const b=document.createElement('button'); const upd=()=>{ b.innerHTML='<i style="background:'+(island.on?'var(--accent-grad)':'transparent')+'"></i>Островок быстрых кнопок: '+(island.on?'показан':'спрятан'); b.classList.toggle('on', island.on); };
-    b.onclick=()=>{ island.on=!island.on; islandSave(); islandBuild(); upd(); }; upd(); p.append(b); const n=document.createElement('p'); n.className='apn'; n.textContent='Три кнопки, которые можно поставить куда удобно. Правый клик или удержание на кнопке — выбрать, что она делает.'; d.querySelector('.pbg').after(p, n); }
+    b.onclick=()=>{ island.on=!island.on; islandSave(); islandBuild(); upd(); }; upd(); p.append(b); const n=document.createElement('p'); n.className='apn'; n.textContent=IS_DESK ? 'Плавающие кнопки (от одной до шести) — переставь куда удобно. Правый клик по кнопке — выбрать, что она делает.' : 'Плавающие кнопки (от одной до шести) — переставь куда удобно. Удержание на кнопке — выбрать, что она делает.'; d.querySelector('.pbg').after(p, n); }
   const ci=d.querySelector('input[type=color]'), own=d.querySelector('button[data-p="*"] i');
   ci.oninput=()=>{ pasteSet(ci.value); own.style.background=ci.value; mark('*'); };
 }
