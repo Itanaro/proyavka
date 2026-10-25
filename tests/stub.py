@@ -10,6 +10,7 @@
   POST /api/v1/chat/completions  — арт-директор: JSON с двумя замечаниями
   GET  /api/v1/models            — пара моделей с картинками на выходе
   GET  /api/v1/key               — ключ «or-good» годится, остальные — 401
+  /k/test/…                      — мост ПК: ping, промпт плагина SD (/proyavka/sdpreset), Automatic1111 img2img и progress (№112)
   GET  /_log                     — что приходило (модель, пропорция, число картинок) — для проверок в тестах
   POST /_reset                   — очистить журнал
 """
@@ -67,6 +68,9 @@ class H(BaseHTTPRequestHandler):
         p = self.path.split('?')[0]
         if p == '/_log':
             with LOCK: return self._send(200, LOG)
+        if p == '/k/test/bridge/ping': return self._send(200, {'ok': True, 'host': 'stub', 'ml': False})
+        if p == '/k/test/proyavka/sdpreset': return self._send(200, {'prompt': 'STUBPROMPT smooth skin', 'neg': 'stub neg'})
+        if p == '/k/test/sdapi/v1/progress': return self._send(200, {'progress': 0.5, 'state': {'sampling_step': 30, 'sampling_steps': 60, 'job_count': 1}})
         if not self._auth(): return self._send(401, {'error': {'message': 'bad key'}})
         if p in ('/api/v1/key', '/api/v1/auth/key'):
             return self._send(200, {'data': {'label': 'stub', 'limit': 10, 'usage': 0.5}})
@@ -86,6 +90,12 @@ class H(BaseHTTPRequestHandler):
         if p == '/_reset':
             with LOCK: LOG.clear()
             return self._send(200, {'ok': True})
+        if p == '/k/test/sdapi/v1/img2img':   # Automatic1111: the picture back, a bit greener
+            with LOCK: LOG.append({'kind': 'sd', 'prompt': body.get('prompt'), 'neg': body.get('negative_prompt'), 'denoise': body.get('denoising_strength'),
+                                   'steps': body.get('steps'), 'cfg': body.get('cfg_scale'), 'sampler': body.get('sampler_name'), 'blur': body.get('mask_blur'),
+                                   'w': body.get('width'), 'h': body.get('height'), 'model': (body.get('override_settings') or {}).get('sd_model_checkpoint')})
+            img = decode(body['init_images'][0]); img = Image.alpha_composite(img, Image.new('RGBA', img.size, (0, 200, 0, 90)))
+            return self._send(200, {'images': [png_b64(img.convert('RGB'))]})
         if not self._auth(): return self._send(401, {'error': {'message': 'bad key'}})
         if p == '/api/v1/images':
             if body.get('n', 1) > 1:   # как настоящий Google через OpenRouter

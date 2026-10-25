@@ -128,6 +128,34 @@ UXP_DIR = os.path.join(os.environ.get('APPDATA') or os.path.join(os.path.expandu
 PLUGIN_IDS = ('com.alisa.aiedit', 'com.alisa.sdinpaint')
 PLUGIN_FILES = ('index.html', 'main.js', 'manifest.json', 'team-config.json')
 def _ver(s): return tuple(int(x) for x in _re.findall(r'\d+', s))
+def sd_preset():
+    """№112: prompt and negative of the Photoshop plugin SD Inpaint (its F2 command) — read from Photoshop's storage of that plugin,
+    so Проявка's F2 uses the very same text. Newest file wins; the .log holds the latest writes."""
+    root = os.path.join(os.environ.get('APPDATA', ''), 'Adobe', 'UXP', 'PluginsStorage')
+    files = []
+    for app in ('PHSP', 'PHSPBETA'):
+        base = os.path.join(root, app)
+        if not os.path.isdir(base): continue
+        for ver in os.listdir(base):
+            d = os.path.join(base, ver, 'External', 'com.alisa.sdinpaint', 'LocalStorage')
+            if os.path.isdir(d):
+                files += [os.path.join(d, f) for f in os.listdir(d) if f.endswith(('.log', '.ldb'))]
+    best, best_t = None, -1
+    for f in files:
+        try: raw = open(f, 'rb').read(); t = os.path.getmtime(f)
+        except Exception: continue
+        txt = raw.decode('utf-8', 'ignore'); dec = json.JSONDecoder(); i = 0
+        while True:  # every stored value of the key; the last one in the newest file is current
+            i = txt.find('sdInpaintSettings', i)
+            if i < 0: break
+            k = txt.find('{', i, i + 40); i += 17
+            if k < 0: continue
+            try: j, _ = dec.raw_decode(txt, k)
+            except Exception: continue
+            if isinstance(j, dict) and 'prompt' in j and t >= best_t: best, best_t = j, t
+    if not best: return None
+    return {'prompt': best.get('prompt', ''), 'neg': best.get('negPrompt', '')}
+
 def plugin_dir(pid):
     base = os.path.join(UXP_DIR, 'Plugins', 'External'); best = None
     for n in os.listdir(base) if os.path.isdir(base) else []:
@@ -224,6 +252,10 @@ class H(BaseHTTPRequestHandler):
         path = self.path[len(PREFIX):]
         if path == '/bridge/ping':
             return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'remote': REMOTE_ADDR, 'net': bool(os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')), 'subject': subject_state(), 'matting': subject_state('matting')}, ensure_ascii=False).encode())
+        if path == '/proyavka/sdpreset':
+            try: r = sd_preset()
+            except Exception as e: p('Промпт SD Inpaint — ошибка:', e); r = None
+            return self.reply(200 if r else 404, json.dumps(r or {'error': 'не нашла настройки плагина SD Inpaint'}, ensure_ascii=False).encode())
         if path.startswith('/proyavka/subject'):
             n = int(self.headers.get('Content-Length') or 0); body = self.rfile.read(n) if n else b''
             try:

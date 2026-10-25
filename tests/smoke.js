@@ -62,7 +62,7 @@ const steps = [
   }},
 
   { name: 'Слои: новый, копия, группа, слить видимые, отмена', run: async page => {
-      const n0 = await page.evaluate(() => doc.layers.length);
+      const n0 = await page.evaluate(() => (window.__n0 = doc.layers.length));
       await page.evaluate(() => { insertLayer(newLayer('Т1'), doc.active + 1); dupLayer(); });
       check(await page.evaluate(() => doc.layers.length) === n0 + 2, 'новый слой или копия не добавились');
       await page.evaluate(() => makeGroup());
@@ -186,6 +186,24 @@ const steps = [
       check(r.items === 'transform,@puppet,liquify', 'в группе не те инструменты: ' + r.items); check(!r.tone, 'пластика осталась в группе «Тон»');
       const on = await page.evaluate(() => { groupRun('liquify'); const b = document.querySelector('#rail [data-group="warp"]').classList.contains('on'); setTool('brush'); return b; });
       check(on, 'группа не подсветилась при пластике');
+  }},
+
+  { name: 'F2 — SD-ретушь выделения, как в Фотошопе (заглушка моста)', run: async page => {
+      await page.request.post(STUB + '/_reset');
+      await page.evaluate(stub => { genCfg.sdUrl = stub + '/k/test'; BR.base = null; BR.at = Date.now(); doc.active = 0; layersChanged(); applySelPoly([[300, 400], [700, 400], [700, 900], [300, 900]]); }, STUB);
+      const n0 = await page.evaluate(() => (window.__n0 = doc.layers.length));
+      await page.evaluate(() => closePops()); await page.keyboard.press('F2').catch(() => {});
+      await page.waitForTimeout(300); await page.evaluate(() => { if (!sdq && doc.layers.length === window.__n0) sdQuick(); }); // iPad: no F2 — the menu item does the same
+      await until(page, n => doc.layers.length > n && !sdq, n0, 20000, 'слой SD-ретуши');
+      const r = await page.evaluate(() => { const L = AL(); return { name: L.name, mask: !!L.mask, a: L.ctx.getImageData(500, 600, 1, 1).data[3], out: L.ctx.getImageData(100, 100, 1, 1).data[3], chip: !document.getElementById('sdq') || document.getElementById('sdq').hidden }; });
+      const log = (await (await page.request.get(STUB + '/_log')).json()).filter(x => x.kind === 'sd');
+      check(log.length === 1, 'в Automatic1111 ушло запросов: ' + log.length);
+      const q = log[0];
+      check(q.prompt === 'STUBPROMPT smooth skin' && q.neg === 'stub neg', 'промпт не из плагина Фотошопа: ' + q.prompt);
+      check(q.denoise === 0.05 && q.steps === 60 && q.cfg === 7 && q.sampler === 'Euler a' && q.blur === 4 && !q.model, 'настройки не как у F2 в Фотошопе: ' + JSON.stringify(q));
+      check(r.name.startsWith('SD STUBPROMPT') && r.mask, 'слой не тот: ' + r.name);
+      check(r.a > 0 && r.out === 0, 'результат лёг не на место выделения'); check(r.chip, 'плашка прогресса не убралась');
+      await page.evaluate(() => { undo(); deselect(); genCfg.sdUrl = ''; });
   }},
 
   { name: 'Удаление кистью — без затемнения экрана', run: async page => {

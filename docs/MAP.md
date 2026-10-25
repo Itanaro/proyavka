@@ -83,7 +83,7 @@ python3 tools/map.py градиент     # русское название са
   ИИ-окно `aiOpen/aiGo/aiPick/aiDone/aiCancel`; 1 Вписать в сцену, 2 Отрисовать, 3 Расширить кадр
   (`canvasExpand`, `expandAlign`), 4 Арт-директор (`critRun`) и заметки на полях (`notes*`).
 - `SD Inpaint` — Automatic1111 через мост (`sdBase`, `bridgePick` — дом / Tailscale), ⚙ генерации
-  (`genSettings`).
+  (`genSettings`); F2 «SD-ретушь» без панели — `sdQuick`, промпт из плагина ФШ — `sdPreset` (мост `/proyavka/sdpreset`).
 - `object move` — «Сдвинуть объект» (Stardust), тень, перерисовать фон.
 - `AI Edit: the Photoshop plugin itself` (+ masks, image data, layers, executeAsModal, imaging,
   batchPlay, files) — **подмена API Фотошопа** для плагина. Код самого плагина не здесь и не наш.
