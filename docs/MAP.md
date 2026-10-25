@@ -64,7 +64,7 @@ python3 tools/map.py градиент     # русское название са
 - `dodge / burn / blur / sharpen` — тон кистью плитками; там же `selectSubject` / `pcSubject` /
   `removeBackground` (BiRefNet на ПК).
 - `retouch` — заплатка, восстанавливающая кисть, штамп (`seamless` = Пуассон).
-- `removal` — отсек нейросетей (`mlWorker`, `mlSession`), те же сети на ПК (`pcML`), MI-GAN.
+- `removal` — отсек нейросетей (`mlWorker`, `mlSession`), те же сети на ПК (`pcML`), MI-GAN; удаление мазком считается тихо (`busyLite`, мерцающий след `inpaintPend`).
 - `content-aware fill` — PatchMatch в воркере, **`compositeRegion`** (видимое сведение куска).
 
 **Фильтры, тон, коррекции**
@@ -104,7 +104,7 @@ python3 tools/map.py градиент     # русское название са
 - `layers ops` + `several layers at once` — выделение нескольких слоёв (`doc.pick`, `pickTops`),
   меню слоя `layerMenu`, `toggleClip`, `mergeGroup`, `dupLayer`.
 - `layers panel` — список слоёв `showLayers`, `layersChanged`, миниатюры, `adjIcon`.
-- `tools & options UI` — `setTool`, верхняя строка настроек `renderOpts`, свои ползунки `hslider`.
+- `tools & options UI` — группы левой панели `TOOL_GROUPS` (псевдо-пункты `@subject`, `@puppet` → `groupRun`), `setTool`, верхняя строка настроек `renderOpts`, свои ползунки `hslider`.
 - `colour picker` — палитра, `maskColorSync` (на маске только ч/б).
 - `several open documents (tabs)` — вкладки (`tabSwitch`, `tabsAdopt`), **`panelBusy` / `aiSettle` /
   `tabBusy`** (что можно делать при открытой панели), размещение окон (`dockPlace`, `aiDockPlace`,

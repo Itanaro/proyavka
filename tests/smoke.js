@@ -39,7 +39,7 @@ const steps = [
       // глубина, тап по объекту и удаление сразу грузят нейросеть и закрывают экран «Работаю…» — их здесь не трогаем
       const HEAVY = ['depth', 'tap', 'remove'];
       const bad = await page.evaluate(HEAVY => { const out = [];
-        for (const g of Object.values(TOOL_GROUPS)) for (const [t] of g.items) { if (t.startsWith('@') || HEAVY.includes(t)) continue; setTool(t); if (S.tool !== t) out.push(t); }
+        for (const g of Object.values(TOOL_GROUPS)) for (const [t] of g.items) { if (t.startsWith('@') || HEAVY.includes(t)) continue; setTool(t); if (S.tool !== t) out.push(t); if (xf) xfCancel(); }
         setTool('brush'); return out; }, HEAVY);
       await notBusy(page);
       check(!bad.length, 'не включились: ' + bad.join(', '));
@@ -169,6 +169,33 @@ const steps = [
       const r = await page.evaluate(() => deliverChecks());
       check(Array.isArray(r) && r.length >= 5, 'проверок меньше пяти');
       check(r.some(x => x.st === 'warn' || x.st === 'bad'), 'документ 1200×1600 должен получить предупреждение о размере');
+  }},
+
+  { name: '«Сдать кат»: стандарт 1500×2000, коррекция впечатана, без папки', run: async page => {
+      const r = await page.evaluate(() => deliverChecks().map(x => x.t));
+      check(!r.some(t => /папк/i.test(t)), 'осталась старая проверка про папку с коррекцией');
+      check(r.some(t => /коррекц/i.test(t)), 'нет проверки «коррекция впечатана»');
+      const ok = await page.evaluate(() => { const w = doc.w, h = doc.h; doc.w = 1500; doc.h = 2000; const c = deliverChecks()[0]; doc.w = w; doc.h = h; return c.st; });
+      check(ok === 'ok', '1500×2000 должен проходить проверку размера, а вышло: ' + ok);
+  }},
+
+  { name: 'Группа «Трансформ и деформация» на левой панели', run: async page => {
+      const r = await page.evaluate(() => ({ grp: !!document.querySelector('#rail [data-group="warp"]'), old: !!document.querySelector('#rail [data-tool="transform"]'),
+        items: TOOL_GROUPS.warp.items.map(i => i[0]).join(','), tone: TOOL_GROUPS.tone.items.some(i => i[0] === 'liquify') }));
+      check(r.grp, 'на левой панели нет новой группы'); check(!r.old, 'отдельная кнопка трансформа осталась');
+      check(r.items === 'transform,@puppet,liquify', 'в группе не те инструменты: ' + r.items); check(!r.tone, 'пластика осталась в группе «Тон»');
+      const on = await page.evaluate(() => { groupRun('liquify'); const b = document.querySelector('#rail [data-group="warp"]').classList.contains('on'); setTool('brush'); return b; });
+      check(on, 'группа не подсветилась при пластике');
+  }},
+
+  { name: 'Удаление кистью — без затемнения экрана', run: async page => {
+      const r = await page.evaluate(() => { const b = () => { const e = document.getElementById('busy'); return !!e && !e.hidden; };
+        busyLite = true; busy(true, 'Нейросеть дорисовывает…'); const quiet = !b(); busy(true, 'Загружаю нейросеть удаления… 3 из 28 МБ · тап — отменить'); const dl = b(); busy(false); busyLite = false;
+        const c = mk(200, 200), x = ctx2(c); x.fillStyle = '#ff3b30'; x.fillRect(0, 0, 200, 200);
+        inpaintPend = { c, r: { x: 500, y: 700, w: 200, h: 200 }, doc, t0: performance.now(), t: 0 }; renderOverlay();
+        const [sx, sy] = toScr(600, 800), d = ox.getImageData(Math.round(sx * dpr), Math.round(sy * dpr), 1, 1).data[3]; inpaintPendEnd(); renderOverlay();
+        return { quiet, dl, mark: d > 0 }; });
+      check(r.quiet, 'при удалении кистью экран затемнился'); check(r.dl, 'скачивание модели должно быть видно'); check(r.mark, 'мазок не мерцает на месте, пока считается');
   }},
 
   { name: 'Темы переключаются', run: async page => {
