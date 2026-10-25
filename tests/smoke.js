@@ -216,6 +216,23 @@ const steps = [
       for (const [k, v] of Object.entries(r)) check(v, 'рамка рефа: не так — ' + k);
   }},
 
+  { name: 'Обзор: вся картина, рамкой выбрать место — масштаб возвращается туда; Esc — на место', run: async page => {
+      const wait = async () => { await page.waitForFunction(() => viewTweens === 0, null, { timeout: 5000 }); await page.waitForTimeout(50); };
+      const v0 = await page.evaluate(() => { setTool('brush'); fitView(); const F = viewFree(), cx = F.L + F.W / 2, cy = F.T + F.H / 2; zoomAt(cx, cy, 4); const q = toScr(300, 400); view.x += cx - q[0]; view.y += cy - q[1]; requestRender(); return { s: view.s, cv: contentVer }; });
+      await page.evaluate(() => islandRun('obzor')); await wait();
+      check(await page.evaluate(() => !!bird && birdFits()), 'обзор не показал картину целиком');
+      await penDrag(page, [[300, 400], [600, 800], [900, 1200]]); await wait();
+      const r = await page.evaluate(() => { const F = viewFree(), c = toDoc(F.L + F.W / 2, F.T + F.H / 2); return { bird: !!bird, s: view.s, cx: c[0], cy: c[1], cv: contentVer }; });
+      check(!r.bird, 'обзор не закрылся после отпускания');
+      check(Math.abs(r.s - v0.s) < 1e-6, 'масштаб не вернулся');
+      check(Math.abs(r.cx - 900) < 8 && Math.abs(r.cy - 1200) < 8, `вернулся не туда: ${Math.round(r.cx)}, ${Math.round(r.cy)}`);
+      check(r.cv === v0.cv, 'кисть нарисовала мазок во время обзора');
+      const before = await page.evaluate(() => JSON.stringify(view));
+      await page.evaluate(() => islandRun('obzor')); await wait(); await page.keyboard.press('Escape'); await wait();
+      check(await page.evaluate(b => !bird && JSON.stringify(view) === b, before), 'Esc не вернул вид на место');
+      await page.evaluate(() => fitView());
+  }},
+
   { name: 'Окна: История со снимком, Рефы', run: async page => {
       await page.evaluate(() => { histToggle(true); histSnap(); refToggle(true); });
       const r = await page.evaluate(() => ({ snaps: (doc.snaps || []).length, refs: !refEl().hidden, hist: !histEl().hidden }));

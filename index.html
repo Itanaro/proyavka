@@ -1176,6 +1176,7 @@ const S = {
 };
 let doc = null;          // {w,h,name,layers:[], active, editMask}
 let view = {x:0,y:0,s:1,r:0};
+let bird=null; // №122 «Обзор» (bird's-eye), see birdOpen
 let dpr = Math.min(window.devicePixelRatio||1, 2);
 let sel = null;          // {mask canvas, polys:[[x,y]...], bbox:{x,y,w,h}, inverted}
 let stroke = null;       // active stroke
@@ -1360,14 +1361,16 @@ function memMB(){
 }
 
 /* ============ view ============ */
-function fitView(){
-  if (!doc || $('#stage').clientWidth<10 || $('#stage').clientHeight<10) return;
-  // the bars float over the canvas: fit the picture into what they leave free
+function viewFree(){ // the part of the stage the floating bars leave free
   const st=$('#stage'), sr=st.getBoundingClientRect(), ui=!document.body.classList.contains('hideui');
   const RU = ui && rulersOn ? RULER_W+6 : 0; // the rulers take a strip along the top bar and the tool rail
   const L = ui ? Math.max(0, $('#rail').getBoundingClientRect().right - sr.left) + RU : 0, T = ui ? Math.max(0, $('#top').getBoundingClientRect().bottom - sr.top) + RU : 0;
   const R = ($('#layers').hidden ? 0 : Math.min(316, st.clientWidth*0.5)) + (ui && $('#airail') ? 58 : 0);
-  const W=st.clientWidth-L-R, H=st.clientHeight-T;
+  return {L, T, W:st.clientWidth-L-R, H:st.clientHeight-T}; }
+function fitView(){
+  if (!doc || $('#stage').clientWidth<10 || $('#stage').clientHeight<10) return;
+  // the bars float over the canvas: fit the picture into what they leave free
+  const {L,T,W,H}=viewFree();
   const s = Math.min(W/doc.w, H/doc.h)*0.92;
   view = { s, r:0, x:L+(W-doc.w*s)/2, y:T+(H-doc.h*s)/2 };
   requestRender();
@@ -1587,6 +1590,7 @@ function renderOverlay(){ if(!doc) return;
   }
   if (typeof aip!=='undefined' && aip && aip.frame){ const f=aip.frame; // Detail: the frame stays visible while the panel is open
     polyPath([[f.x,f.y],[f.x+f.w,f.y],[f.x+f.w,f.y+f.h],[f.x,f.y+f.h]]); ox.lineWidth=1.5; ox.strokeStyle='rgba(0,0,0,.6)'; ox.stroke(); ox.setLineDash([7,5]); ox.strokeStyle=cssVar('--accent'); ox.stroke(); ox.setLineDash([]); }
+  if (bird){ birdOverlay(ox); return; } // №122
   if (pup){ pupOverlay(ox); return; }
   if (crop){ cropOverlay(ox); return; }
   if (xf){
@@ -7050,6 +7054,7 @@ function showHelpPad(){
    <dt>1 палец, удерживать</dt><dd>Пипетка как в Procreate: кольцо вокруг пальца, верх — новый цвет, низ — текущий. Веди, отпусти — цвет взят.</dd>
    <dt>Карандаш, задержать на месте</dt><dd>В кисти и ластике: подержи карандаш неподвижно ~0.5 с — включится та же пипетка (выключается в меню «Файл»).</dd>
    <dt>2 пальца</dt><dd>Щипок — масштаб, поворот, сдвиг. Поворот прилипает к нулю.</dd>
+   <dt>Обзор (кнопка Островка)</dt><dd>Руки заняты карандашом: поставь на Островок кнопку «Обзор» (удержание кнопки → плитка). Нажми её — видна вся картина и рамка того, что было на экране. Тяни рамку карандашом или ткни, куда надо, — отпустишь, и масштаб вернётся уже туда.</dd>
    <dt>2 пальца, тап</dt><dd>Отменить.</dd>
    <dt>3 пальца, тап</dt><dd>Вернуть то, что отменила двумя пальцами.</dd>
    <dt>4 пальца, тап</dt><dd>Спрятать или вернуть интерфейс.</dd>
@@ -7092,7 +7097,7 @@ function showHelpDesk(){
   const card=(t,rows)=>'<section><h4>'+t+'</h4>'+rows.map(([k,v])=>'<div class="hk"><span>'+k.split(' / ').map(K).join('<i>/</i>')+'</span><b>'+v+'</b></div>').join('')+'</section>';
   const html=`<h3>Клавиши и мышь</h3><p>Клавиши — как в фотошопе и работают в любой раскладке. Перо планшета рисует с нажимом, мышь — без.</p>
    <div class="hkgrid">`+
-   card('Холст',[['Колёсико / Alt+колёсико','масштаб'],['Ctrl+колёсико','масштаб (на тачпаде — щипок)'],['Shift+колёсико','сдвиг вбок'],['Alt+Shift+колёсико','поворот'],['Пробел / H / средняя кнопка','держать и тянуть — рука'],['Ctrl+Пробел / Alt+Пробел','клик — ближе / дальше, тянуть — плавно'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум по шагам фотошопа (50 · 67 · 100 · 200 %)'],['Ctrl+R','линейки в px вдоль верхней и левой панели'],['Tab / F','спрятать панели'],['Правый клик мимо картинки','фон вокруг холста']])+
+   card('Холст',[['Колёсико / Alt+колёсико','масштаб'],['Ctrl+колёсико','масштаб (на тачпаде — щипок)'],['Shift+колёсико','сдвиг вбок'],['Alt+Shift+колёсико','поворот'],['Пробел / средняя кнопка / боковая кнопка пера','держать и тянуть — рука'],['H + нажать (при увеличении)','обзор: вся картина, рамкой выбрать место, отпустить — туда'],['Ctrl+Пробел / Alt+Пробел','клик — ближе / дальше, тянуть — плавно'],['Z','держать: клик — ближе, Alt — дальше, тянуть — плавно'],['R','держать и тянуть — повернуть вид'],['Esc','вид прямо'],['Ctrl+0','вписать в окно'],['Ctrl+1 / Ctrl+Alt+0','100%'],['Ctrl+= / Ctrl+-','зум по шагам фотошопа (50 · 67 · 100 · 200 %)'],['Ctrl+R','линейки в px вдоль верхней и левой панели'],['Tab / F','спрятать панели'],['Правый клик мимо картинки','фон вокруг холста']])+
    card('Файл и документы',[['Ctrl+N / Ctrl+O','новый / открыть'],['Ctrl+S','сохранить в свой файл; PNG / JPG со слоями — предложит PSD'],['Ctrl+Shift+S','сохранить как: PSD / PNG / JPG — файл становится рабочим'],['Ctrl+Alt+Shift+S','сдать кат: проверка + PSD и PNG 1500×2000'],['Ctrl+W / Ctrl+F4','закрыть документ (в приложении); последний — экран «Начало»'],['Ctrl+Tab / Ctrl+Shift+Tab','следующая / предыдущая вкладка'],['Средняя кнопка по вкладке','закрыть вкладку'],['Файлы на вкладки','открыть каждый своим документом']])+
    card('Правка',[['Ctrl+Z','отменить'],['Ctrl+Shift+Z','вернуть'],['Ctrl+C / Ctrl+Shift+C','копировать выделенное: слой / всё видимое'],['Ctrl+V','вставить новым слоем на то же место; в Доводке — в рефы'],['Ctrl+T','трансформ'],['C','кадрирование (Enter / Esc)'],['Ctrl+Alt+I','размер изображения'],['Ctrl+Alt+C','размер холста'],['Ctrl+Shift+X','пластика'],['Ctrl+M / L / U / B','кривые / уровни / тон / баланс'],['Alt+Backspace','залить основным'],['Ctrl+Backspace','залить фоновым'],['Ctrl+I','негатив (на маске — инверсия маски)'],['D / X','цвета по умолчанию / поменять'],['Enter / Esc','применить / отмена']])+
    card('Выделение',[['Ctrl+A / Ctrl+D','всё / снять'],['Ctrl+Shift+D','вернуть выделение'],['Ctrl+Shift+I','инвертировать выделение'],['Shift / Alt','до начала — добавить / вычесть'],['Shift / Alt (по ходу)','прямоугольник: квадрат / от центра'],['Тянуть внутри выделения','сдвинуть контур (лассо, прямоугольник, палочка)'],['Стрелки / Shift+стрелки','сдвинуть выделение на 1 / 10 px'],['Ctrl+Alt+R / Shift+F6','выделение и маска (край)'],['Delete','стереть выделенное'],['Ctrl+клик миниатюры','выделить по слою'],['Ctrl+J / Ctrl+Shift+J','скопировать / вырезать на слой']])+
@@ -7900,6 +7905,7 @@ const ISLAND_ACTS={
   crop:{t:'Кадрирование', icon:()=>$('#bCrop').innerHTML, run:()=>{ if (!document.querySelector('.scrim')) cropOpen(); }},
   sdq:{t:'SD-ретушь (как F2)', svg:'<rect x="2" y="4.5" width="20" height="15" rx="4.5"/><text x="12" y="15.8" text-anchor="middle" font-size="10" font-weight="700" font-family="system-ui,sans-serif" fill="currentColor" stroke="none">SD</text>', run:()=>sdQuick()},
   airm:{t:'Убрать нейросетью (выделение)', svg:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M12 8.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="currentColor"/>', run:()=>{ if (sel) inpaintFromSel(); else toast('Сначала выдели, что убрать'); }},
+  obzor:{t:'Обзор — вся картина, рамкой выбрать, куда вернуться', svg:'<rect x="3" y="3" width="18" height="18" rx="3"/><rect x="11" y="10" width="7" height="6" rx="1" fill="currentColor" stroke="none" opacity=".55"/><path d="M6 7h3M6 7v3"/>', run:()=>{ if (bird) birdClose(false); else birdOpen(false); }}, // №122
   hist:{t:'История', svg:'<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3 4v4.5h4.5"/><path d="M12 7.5V12l3 2"/>', run:()=>histToggle()},
   undo:{t:'Отменить', svg:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', run:()=>undo()},
   redo:{t:'Вернуть', svg:'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>', run:()=>redo()},
@@ -7919,7 +7925,7 @@ function islandBuild(){
   const g=document.createElement('div'); g.className='grip'; g.title='Тяни — переставить. Двойной клик — повернуть'; el.append(g);
   island.slots.forEach((k,i)=>{ const b=document.createElement('button'); b.className='ib'; b.dataset.i=i; b.dataset.k=k; b.innerHTML=islandIcon(k); b.title=(ISLAND_ACTS[k]||{}).t+' · правый клик или удержание — поменять'; el.append(b); });
   islandSync(); islandPlace(); }
-function islandSync(){ const tb=$('#bIsland'); if (tb){ tb.classList.toggle('on', !!island.on); tb.setAttribute('aria-pressed', island.on?'true':'false'); } const el=$('#island'); if (!el) return; el.querySelectorAll('.ib').forEach(b=>{ const a=ISLAND_ACTS[b.dataset.k]; b.classList.toggle('busy', b.dataset.k==='sdq' && !!sdq); b.classList.toggle('on', !!(a && a.tool && a.tool===S.tool)); }); }
+function islandSync(){ const tb=$('#bIsland'); if (tb){ tb.classList.toggle('on', !!island.on); tb.setAttribute('aria-pressed', island.on?'true':'false'); } const el=$('#island'); if (!el) return; el.querySelectorAll('.ib').forEach(b=>{ const a=ISLAND_ACTS[b.dataset.k]; b.classList.toggle('busy', b.dataset.k==='sdq' && !!sdq); b.classList.toggle('on', !!(a && a.tool && a.tool===S.tool) || (b.dataset.k==='obzor' && !!bird)); }); }
 function islandPlace(){ const el=$('#island'); if (!el || el.hidden) return; const st=$('#stage').getBoundingClientRect(), w=el.offsetWidth, h=el.offsetHeight;
   let x, y; if (island.x!=null){ x=island.x*st.width; y=island.y*st.height; }
   else { const ly=$('#layers'), right=(ly && !ly.hidden ? ly.getBoundingClientRect().left-st.left : st.width)-24; x=right-w; y=st.height-h-28; } // by default: low on the right, next to the layers
@@ -8327,6 +8333,7 @@ stage.addEventListener('pointerdown', e=>{
   if (e.target!==oc && e.target!==vc) return;
   e.preventDefault();
   closePops();
+  if (bird){ if (!bird.drag && !(e.pointerType==='touch' && touches.size)) birdDown(e, true); return; } // №122 «Обзор»: the frame follows the pen / finger
   if (e.pointerType==='touch'){
     if (toolPtr!==null && !fingerTool) return; // palm while the pen works
     const p=stagePos(e); touches.set(e.pointerId,{x:p[0],y:p[1],x0:p[0],y0:p[1]}); capture(e);
@@ -8346,13 +8353,15 @@ stage.addEventListener('pointerdown', e=>{
   // pen / mouse
   if ((zHeld || spaceZoom()) && toolPtr===null){ zoomDrag={id:e.pointerId, x:e.clientX, p:stagePos(e), out:altDown||e.altKey, moved:false}; capture(e); return; }
   if (rHeld && toolPtr===null){ const st=stage.getBoundingClientRect(), p=stagePos(e); rotDrag={id:e.pointerId, cx:st.width/2, cy:st.height/2, a:Math.atan2(p[1]-st.height/2, p[0]-st.width/2)}; capture(e); updateCursor(); return; }
-  if ((spaceDown || hHeld || e.button===1) && toolPtr===null){ panDrag={id:e.pointerId,x:e.clientX,y:e.clientY,vx:view.x,vy:view.y}; capture(e); updateCursor(); return; }
+  if (hHeld && !spaceDown && toolPtr===null && !birdFits()){ birdOpen(true); birdDown(e, false); return; } // №122: H + press — bird's-eye, as in Photoshop
+  if ((spaceDown || hHeld || e.button===1 || (e.pointerType==='pen' && e.button===2)) && toolPtr===null){ panDrag={id:e.pointerId,x:e.clientX,y:e.clientY,vx:view.x,vy:view.y}; capture(e); updateCursor(); return; }
   lastPenT=Date.now();
   if (toolPtr!==null){ if (fingerTool) return; toolUp(e); } // there is only one pen: an old stroke still open means Safari lost its pointerup — finish it, then start the new one
   capture(e);
   toolDown(e, stagePos(e));
 });
 stage.addEventListener('pointermove', e=>{
+  if (bird){ if (bird.drag && e.pointerId===bird.drag.id) birdMove(e); return; }
   if (e.pointerType==='touch'){
     const t=touches.get(e.pointerId); if(!t) return;
     const p=stagePos(e); t.x=p[0]; t.y=p[1];
@@ -8390,13 +8399,14 @@ function endTouch(e){
   } else if (touches.size>=2 && gesture) startPinch();
   else if (touches.size===1){ gesture && (gesture.start=null); const [t]=touches.values(); onePan={x:t.x,y:t.y,vx:view.x,vy:view.y,moved:true}; }
 }
-stage.addEventListener('pointerup', e=>{ if(e.pointerType==='touch'){ endTouch(e); return; } if(panDrag && e.pointerId===panDrag.id){ panDrag=null; navEnd(); updateCursor(); return; }
+stage.addEventListener('pointerup', e=>{ if (bird && bird.drag && e.pointerId===bird.drag.id){ birdClose(true); return; }
+  if(e.pointerType==='touch'){ endTouch(e); return; } if(panDrag && e.pointerId===panDrag.id){ panDrag=null; navEnd(); updateCursor(); return; }
   if (zoomDrag && e.pointerId===zoomDrag.id){ const z=zoomDrag; zoomDrag=null; if (!z.moved) zoomAt(z.p[0], z.p[1], z.out||e.altKey ? 1/1.6 : 1.6); navEnd(); return; }
   if (rotDrag && e.pointerId===rotDrag.id){ rotDrag=null; navEnd(); updateCursor(); return; }
   if(e.pointerId===toolPtr) toolUp(e); });
 stage.addEventListener('lostpointercapture', e=>{ if (e.pointerType!=='touch' && e.pointerId===toolPtr && !fingerTool) toolUp(e); });
 stage.addEventListener('auxclick', e=>e.preventDefault());
-stage.addEventListener('pointercancel', e=>{ if(e.pointerType==='touch'){ endTouch(e); return; } if(e.pointerId===toolPtr) toolCancel(); });
+stage.addEventListener('pointercancel', e=>{ if (bird && bird.drag && e.pointerId===bird.drag.id){ birdClose(false); return; } if(e.pointerType==='touch'){ endTouch(e); return; } if(e.pointerId===toolPtr) toolCancel(); });
 stage.addEventListener('pointerleave', e=>{ if(e.pointerType!=='touch' && toolPtr===null){ hover=null; renderOverlay(); } });
 
 function startPinch(){
@@ -8490,6 +8500,38 @@ function rotateAt(px,py,a){
   const c=Math.cos(view.r)*view.s, sn=Math.sin(view.r)*view.s;
   view.x=px-(c*dx-sn*dy); view.y=py-(sn*dx+c*dy); requestRender();
 }
+/* №122 «Обзор» — bird's-eye like Photoshop's (H + press): the picture zooms out to the whole frame, a frame shows what was
+   on screen; drag it (or tap where to go) — on release the zoom comes back there. For the pen with no free hand:
+   Островок button «Обзор» → press and drag on the picture → release. PC: hold H and press (zoomed in; when the whole picture
+   fits, H + drag pans as before). Esc / the button again — back where it was. Works with any tool and over transforms. */
+function stageWH(){ const st=$('#stage'); return [st.clientWidth, st.clientHeight]; }
+function birdFits(){ if (!doc) return true; const [W,H]=stageWH(); for (const [x,y] of [[0,0],[doc.w,0],[0,doc.h],[doc.w,doc.h]]){ const [a,b]=toScr(x,y); if (a<-2||b<-2||a>W+2||b>H+2) return false; } return true; }
+let viewTweens=0, vtTok=0; // views flying right now (the tests wait for 0); a new flight stops the old one
+function viewTween(to, ms, done){ const from=Object.assign({}, view), t0=performance.now(), tok=++vtTok; navStart(); viewTweens++;
+  const step=now=>{ if (tok!==vtTok){ viewTweens--; return; } const t=Math.min(1,(now-t0)/ms), k=t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+    view={ s:Math.exp(Math.log(from.s)+(Math.log(to.s)-Math.log(from.s))*k), r:from.r+(to.r-from.r)*k, x:from.x+(to.x-from.x)*k, y:from.y+(to.y-from.y)*k };
+    requestRender(); if (t<1) requestAnimationFrame(step); else { view=Object.assign({}, to); viewTweens--; requestRender(); navEnd(); done&&done(); } };
+  requestAnimationFrame(step); }
+function birdOpen(viaKey){ if (!doc || bird) return; const v0=Object.assign({}, view), F=viewFree(), x1=F.L+F.W, y1=F.T+F.H; // the frame = what is visible between the bars
+  bird={ v0, F, c0:toDoc(F.L+F.W/2, F.T+F.H/2), d:[0,0], quad:[[F.L,F.T],[x1,F.T],[x1,y1],[F.L,y1]].map(q=>toDoc(q[0],q[1])), drag:null, viaKey:!!viaKey };
+  fitView(); const to=Object.assign({}, view); view=v0; viewTween(to, 170); updateCursor(); requestOverlay();
+  islandSync(); }
+function birdClose(go){ if (!bird) return; const b=bird; bird=null; const v=b.v0, cx=b.F.L+b.F.W/2, cy=b.F.T+b.F.H/2;
+  let to=v; if (go){ const P=[b.c0[0]+b.d[0], b.c0[1]+b.d[1]], c=Math.cos(v.r)*v.s, sn=Math.sin(v.r)*v.s; to={s:v.s, r:v.r, x:cx-(c*P[0]-sn*P[1]), y:cy-(sn*P[0]+c*P[1])}; }
+  viewTween(to, 170); updateCursor(); requestOverlay();
+  islandSync(); }
+function birdQuad(){ const b=bird; return b.quad.map(q=>[q[0]+b.d[0], q[1]+b.d[1]]); }
+function birdInside(x,y){ const q=birdQuad(); let o=false; for (let i=0,j=3;i<4;j=i++){ const [xi,yi]=q[i], [xj,yj]=q[j]; if ((yi>y)!==(yj>y) && x<(xj-xi)*(y-yi)/(yj-yi)+xi) o=!o; } return o; }
+function birdDown(e, jump){ if (!bird || bird.drag) return; capture(e); const p=stagePos(e);
+  if (jump){ const [x,y]=toDoc(p[0],p[1]); if (!birdInside(x,y)){ bird.d=[x-bird.c0[0], y-bird.c0[1]]; } }
+  bird.drag={id:e.pointerId, x:p[0], y:p[1]}; requestOverlay(); }
+function birdMove(e){ const g=bird.drag, p=stagePos(e), c=Math.cos(-view.r)/view.s, sn=Math.sin(-view.r)/view.s, dx=p[0]-g.x, dy=p[1]-g.y;
+  bird.d[0]+=dx*c-dy*sn; bird.d[1]+=dx*sn+dy*c; g.x=p[0]; g.y=p[1]; requestOverlay(); }
+function birdOverlay(ox){ const q=birdQuad().map(t=>toScr(t[0],t[1])), W=oc.width/dpr, H=oc.height/dpr;
+  ox.save(); ox.beginPath(); ox.rect(0,0,W,H); q.forEach((t,i)=>i?ox.lineTo(t[0],t[1]):ox.moveTo(t[0],t[1])); ox.closePath();
+  ox.fillStyle='rgba(0,0,0,.32)'; ox.fill('evenodd');
+  ox.beginPath(); q.forEach((t,i)=>i?ox.lineTo(t[0],t[1]):ox.moveTo(t[0],t[1])); ox.closePath(); ox.lineWidth=3.5; ox.strokeStyle='rgba(0,0,0,.45)'; ox.stroke(); ox.lineWidth=2; ox.strokeStyle=cssVar('--accent'); ox.stroke(); ox.restore(); }
+document.addEventListener('keydown', e=>{ if (bird && e.key==='Escape'){ e.preventDefault(); e.stopImmediatePropagation(); birdClose(false); } }, true);
 stage.addEventListener('wheel', e=>{
   if (!e.target.closest('#stage > canvas')) return;
   e.preventDefault();
@@ -8545,6 +8587,7 @@ function updateCursor(){
   if (rotDrag) { st.cursor=CUR_ROTATE; return; }
   if (panDrag) { st.cursor='grabbing'; return; }
   if (spaceZoom()) { st.cursor = altDown ? 'zoom-out' : 'zoom-in'; return; }
+  if (bird){ st.cursor = bird.drag ? 'grabbing' : 'move'; return; } // №122
   if (spaceDown || hHeld) { st.cursor='grab'; return; }
   if (zHeld) { st.cursor = altDown ? 'zoom-out' : 'zoom-in'; return; }
   if (rHeld) { st.cursor=CUR_ROTATE; return; }
@@ -9394,7 +9437,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №121 рамка рефа в Доводку и слоем, масштаб просмотра держится'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-10-25 · №122 Обзор — двигать увеличенный холст не выпуская пера'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
