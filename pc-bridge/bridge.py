@@ -190,6 +190,75 @@ def plugin_data_dir(pid):
             if t > bt: best, bt = d, t
     if not best: best = os.path.join(HERE, 'plugin-data', pid); os.makedirs(best, exist_ok=True)
     return best
+# №128: what a Photoshop plugin keeps in its own localStorage (the AI Edit prompt library) — read straight from
+# Photoshop's LevelDB, read-only. Photoshop may hold the folder open; the files are only read. Blocks of .ldb are
+# Snappy-compressed — a tiny decoder below; the .log holds the latest writes. The newest version folder wins.
+UXP_STORE_KEYS = {'com.alisa.aiedit': ('aiEditLibrary', 'aiEditLibSeed')}
+def _lv_varint(b, p):
+    r = s = 0
+    while True:
+        c = b[p]; p += 1; r |= (c & 127) << s; s += 7
+        if c < 128: return r, p
+def _lv_unsnappy(b):
+    _, p = _lv_varint(b, 0); o = bytearray()
+    while p < len(b):
+        t = b[p]; p += 1; k = t & 3
+        if k == 0:
+            l = t >> 2
+            if l >= 60: nb = l - 59; l = int.from_bytes(b[p:p + nb], 'little'); p += nb
+            l += 1; o += b[p:p + l]; p += l; continue
+        if k == 1: l = ((t >> 2) & 7) + 4; off = ((t >> 5) << 8) | b[p]; p += 1
+        elif k == 2: l = (t >> 2) + 1; off = int.from_bytes(b[p:p + 2], 'little'); p += 2
+        else: l = (t >> 2) + 1; off = int.from_bytes(b[p:p + 4], 'little'); p += 4
+        for _ in range(l): o.append(o[-off])
+    return bytes(o)
+def _lv_block(b):
+    import struct
+    nr = struct.unpack('<I', b[-4:])[0]; end = len(b) - 4 - 4 * nr; p = 0; last = b''; out = []
+    while p < end:
+        sh, p = _lv_varint(b, p); ns, p = _lv_varint(b, p); vl, p = _lv_varint(b, p)
+        k = last[:sh] + b[p:p + ns]; p += ns; out.append((k, b[p:p + vl])); p += vl; last = k
+    return out
+def _lv_table(f):
+    import struct
+    def rb(off, size): raw = f[off:off + size]; return _lv_unsnappy(raw) if f[off + size] == 1 else raw
+    ft = f[-48:]; p = 0; _, p = _lv_varint(ft, p); _, p = _lv_varint(ft, p); io, p = _lv_varint(ft, p); isz, p = _lv_varint(ft, p)
+    for _, h in _lv_block(rb(io, isz)):
+        q = 0; o, q = _lv_varint(h, q); sz, q = _lv_varint(h, q)
+        for kk, vv in _lv_block(rb(o, sz)):
+            tag = struct.unpack('<Q', kk[-8:])[0]; yield kk[:-8], tag, (vv if (tag & 255) == 1 else None)
+def _lv_log(f):
+    import struct
+    p = 0; data = bytearray()
+    while p + 7 <= len(f):
+        if 32768 - (p % 32768) < 7: p += 32768 - (p % 32768); continue
+        l = struct.unpack('<H', f[p + 4:p + 6])[0]; t = f[p + 6]; data += f[p + 7:p + 7 + l]; p += 7 + l
+        if t in (1, 4):
+            r = bytes(data); data = bytearray()
+            if len(r) < 12: continue
+            seq = struct.unpack('<Q', r[:8])[0]; cnt = struct.unpack('<I', r[8:12])[0]; q = 12
+            for i in range(cnt):
+                ty = r[q]; q += 1; kl, q = _lv_varint(r, q); k = r[q:q + kl]; q += kl; v = None
+                if ty == 1: vl, q = _lv_varint(r, q); v = r[q:q + vl]; q += vl
+                yield k, ((seq + i) << 8) | ty, v
+def uxp_storage(pid, key):
+    root = os.path.join(UXP_DIR, 'PluginsStorage', 'PHSP'); best = None; bt = -1
+    for v in os.listdir(root) if os.path.isdir(root) else []:
+        d = os.path.join(root, v, 'External', pid, 'LocalStorage')
+        if os.path.isdir(d):
+            t = max([os.path.getmtime(os.path.join(d, f)) for f in os.listdir(d)] + [0])
+            if t > bt: best, bt = d, t
+    if not best: return None
+    want = b'/' + key.encode('utf-8'); found = None
+    for f in sorted(os.listdir(best)):
+        if not f.endswith(('.ldb', '.log')): continue
+        try:
+            raw = open(os.path.join(best, f), 'rb').read()
+            for k, tag, v in (_lv_table(raw) if f.endswith('.ldb') else _lv_log(raw)):
+                if k == want and (found is None or tag > found[0]): found = (tag, v)
+        except Exception as e: p('Хранилище плагина: не прочитала', f, '—', e)
+    if not found or found[1] is None: return None
+    return {'value': found[1].decode('utf-8', 'replace'), 'mtime': bt}
 def plugin_manifest(pid):
     d = plugin_dir(pid)
     if not d: return None
@@ -297,6 +366,10 @@ class H(BaseHTTPRequestHandler):
                 if not f or not os.path.isfile(f): return self.reply(404, b'{}')
                 ct = {'html': 'text/html', 'js': 'text/javascript', 'json': 'application/json'}[parts[2].rsplit('.', 1)[1]]
                 return self.reply(200, open(f, 'rb').read(), ct + '; charset=utf-8')
+            if len(parts) == 3 and parts[1] == 'storage' and parts[2] in UXP_STORE_KEYS.get(pid, ()):
+                try: r = uxp_storage(pid, parts[2])
+                except Exception as e: p('Хранилище плагина — ошибка:', e); r = None
+                return self.reply(200 if r else 404, json.dumps(r or {'error': 'нет такой записи у плагина'}, ensure_ascii=False).encode())
             if len(parts) == 3 and parts[1] == 'data' and _re.fullmatch(r'[\w.-]+\.(json|jsonl|txt)', parts[2]):
                 f = os.path.join(plugin_data_dir(pid), parts[2])
                 if self.command == 'POST':

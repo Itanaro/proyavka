@@ -164,6 +164,21 @@ const steps = [
       check(await page.evaluate(() => doc.name) === 'Тест', 'не вернулась на вкладку «Тест»');
   }},
 
+  { name: 'AI Edit: библиотека промптов из Фотошопа — его тексты, удалённое там уходит, своё остаётся', run: async page => {
+      const r = await page.evaluate(() => {
+        const keep = { lib: localStorage.getItem(AE_LIB), syn: localStorage.getItem(AE_LIB_SYNCED), seed: localStorage.getItem('aiEditLibSeed') };
+        localStorage.setItem(AE_LIB, JSON.stringify([{ name: 'Старый', prompt: 'a' }, { name: 'Кожа', prompt: 'старый текст' }, { name: 'Моё', prompt: 'c' }]));
+        localStorage.setItem(AE_LIB_SYNCED, JSON.stringify(['Старый', 'Кожа']));
+        const m = aeLibMerge([{ name: 'Кожа', prompt: 'новый текст' }, { name: 'Рога огонь', prompt: 'd' }], '9');
+        const lib = JSON.parse(localStorage.getItem(AE_LIB)), seed = localStorage.getItem('aiEditLibSeed');
+        for (const [k, v] of [[AE_LIB, keep.lib], [AE_LIB_SYNCED, keep.syn], ['aiEditLibSeed', keep.seed]]) v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v);
+        return { names: lib.map(x => x.name).join(','), skin: lib.find(x => x.name === 'Кожа').prompt, m, seed };
+      });
+      check(r.names === 'Кожа,Рога огонь,Моё', 'состав библиотеки после синхронизации: ' + r.names);
+      check(r.skin === 'новый текст', 'текст пресета не взялся из Фотошопа');
+      check(r.m.n === 2 && r.m.own === 1 && r.seed === '9', 'итог синхронизации ' + JSON.stringify(r.m) + ', метка ' + r.seed);
+  }},
+
   { name: 'Кадрирование холста и отмена', run: async page => {
       await page.evaluate(() => canvasReframe(0, 0, 1000, 1400));
       check(await page.evaluate(() => doc.w === 1000 && doc.h === 1400), 'холст не обрезался');

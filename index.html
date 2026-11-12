@@ -6481,6 +6481,25 @@ function aeBuildHtml(src){
   if (!done) html=head+html;
   return html;
 }
+/* №128: the prompt library comes from Photoshop. The bridge reads the plugin's own storage in Photoshop (read-only), and the
+   panel here gets the same list before it starts (it keeps its library in this page's localStorage, key aiEditLibrary).
+   Photoshop is the master: same name — Photoshop's text; gone in Photoshop since the last sync — gone here too;
+   a preset made here and never seen in Photoshop stays. No bridge / old bridge — the library stays as it was. */
+const AE_LIB='aiEditLibrary', AE_LIB_SYNCED='proyavka.aiedit.libSynced';
+async function aeLibSync(){
+  const base=sdBase(); if (!base) return null;
+  const get=async k=>{ try{ const r=await aeFetch(base+'/plugin/'+AE_PID+'/storage/'+k,{},6000); if (!r.ok) return null; const j=await r.json(); return j && typeof j.value==='string' ? j.value : null; }catch(e){ return null; } };
+  const [raw, seed]=await Promise.all([get(AE_LIB), get('aiEditLibSeed')]); if (raw==null) return null;
+  let ps; try{ ps=JSON.parse(raw); }catch(e){ return null; } if (!Array.isArray(ps)) return null;
+  return aeLibMerge(ps, seed); }
+function aeLibMerge(ps, seed){
+  let mine=[], synced=[]; try{ mine=JSON.parse(localStorage.getItem(AE_LIB)||'[]'); }catch(e){} try{ synced=JSON.parse(localStorage.getItem(AE_LIB_SYNCED)||'[]'); }catch(e){}
+  if (!Array.isArray(mine)) mine=[];
+  const psNames=new Set(ps.map(x=>x&&x.name)), seen=new Set(synced), keep=mine.filter(x=>x && x.name && !psNames.has(x.name) && !seen.has(x.name));
+  const out=ps.filter(x=>x && x.name).concat(keep);
+  try{ localStorage.setItem(AE_LIB, JSON.stringify(out)); localStorage.setItem(AE_LIB_SYNCED, JSON.stringify([...psNames]));
+    if (seed!=null && /^\d+$/.test(seed)) localStorage.setItem('aiEditLibSeed', seed); }catch(e){ return null; } // Photoshop's seed mark: defaults it deleted do not come back here
+  return {n:ps.length, own:keep.length}; }
 /* ---- the panel ---- */
 async function aeOpen(reload){
   const w=$('#aiedit'); w.hidden=false; aePlace();
@@ -6491,6 +6510,7 @@ async function aeOpen(reload){
   const s=AE.src, d=s.mtime ? new Date(s.mtime*1000) : null, dt=d ? d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '';
   ver.textContent=(s.from==='pc' ? 'с компьютера' : 'сохранённая копия (компьютер не ответил)')+' · v'+(s.ver||'?')+(dt?' · правка '+dt:'');
   ver.title=s.from==='pc' ? 'Код взят из папки плагина Фотошопа: '+s.dir : 'Мост не ответил'+(s.why?' ('+s.why+')':'')+'. Запущена последняя копия, полученная с компьютера.';
+  const lib=s.from==='pc' ? await aeLibSync() : null; if (lib) ver.title+='\nБиблиотека промптов — из Фотошопа: '+lib.n+(lib.own?' (+ '+lib.own+' сделано здесь)':'');
   AE.loaded=true; $('#aeFrame').srcdoc=aeBuildHtml(s);
 }
 function aeClose(){ $('#aiedit').hidden=true; }
@@ -9668,7 +9688,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-12 · №127 Открытие и сохранение как в Фотошопе'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-12 · №128 Библиотека AI Edit из Фотошопа'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
