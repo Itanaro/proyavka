@@ -7130,8 +7130,17 @@ window.addEventListener('resize', ()=>setTimeout(tabsLayout,50));
 (function(){ const box=$('#tabs'); if (!box) return;
   box.addEventListener('dragover', e=>{ e.preventDefault(); e.stopPropagation(); box.classList.add('drop'); });
   box.addEventListener('dragleave', ()=>box.classList.remove('drop'));
-  box.addEventListener('drop', e=>{ e.preventDefault(); e.stopPropagation(); box.classList.remove('drop'); const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])]; if (fs.length) openFilesAsDocs(fs); });
+  box.addEventListener('drop', async e=>{ e.preventDefault(); e.stopPropagation(); box.classList.remove('drop'); const fs=await dropFiles(e); if (fs.length) openFilesAsDocs(fs); });
 })();
+/* №127: files dropped from Explorer keep their place on disk (like Ctrl+O): Ctrl+S writes back into them,
+   «Сохранить как» opens in their folder. The handles must be asked for inside the drop event, before any await. */
+async function dropFiles(e){
+  const dt=e.dataTransfer; if (!dt) return [];
+  const plain=[...(dt.files||[])], items=[...(dt.items||[])].filter(i=>i.kind==='file');
+  let hp=[]; try{ if (items.length && items[0].getAsFileSystemHandle) hp=items.map(i=>i.getAsFileSystemHandle()); }catch(_){ hp=[]; }
+  if (!hp.length) return plain;
+  const out=[]; for (let k=0;k<hp.length;k++){ try{ const h=await hp[k]; if (h && h.kind==='file'){ const f=await h.getFile(); f._h=h; out.push(f); continue; } }catch(_){} if (plain[k]) out.push(plain[k]); }
+  return out.length ? out : plain; }
 async function openFilesAsDocs(files){
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   let n=0;
@@ -7140,7 +7149,8 @@ async function openFilesAsDocs(files){
     busy(true,'Открываю '+f.name+(files.length>1?' ('+(n+1)+' из '+files.length+')':'')+'…'); await nextFrame();
     try{
       if (/\.psd$/i.test(f.name)) await openPsd(f);
-      else if (/^image\//.test(f.type) || /\.(png|jpe?g|webp|gif|bmp|tiff?|avif|heic)$/i.test(f.name)){ const im=await loadImage(f); createDoc(im.naturalWidth, im.naturalHeight, f.name.replace(/\.[^.]+$/,'')); doc.layers[0].ctx.clearRect(0,0,doc.w,doc.h); doc.layers[0].ctx.drawImage(im,0,0); doc.layers[0].name=f.name; }
+      else if (/^image\//.test(f.type) || /\.(png|jpe?g|webp|gif|bmp|tiff?|avif|heic)$/i.test(f.name)){ const im=await loadImage(f); createDoc(im.naturalWidth, im.naturalHeight, f.name.replace(/\.[^.]+$/,'')); doc.layers[0].ctx.clearRect(0,0,doc.w,doc.h); doc.layers[0].ctx.drawImage(im,0,0); doc.layers[0].name=f.name;
+        doc.layers.length=1; doc.active=0; clearHistory(); } // №127: like Photoshop — an opened picture is one layer, no empty one on top
       else continue;
       if (f._h) docBindFile(doc, f._h);
       layersChanged(); requestRender(); markDirty(); n++;
@@ -7396,7 +7406,7 @@ async function saveFileDesk(name, data, again){ // straight into a folder on dis
   const blob = data instanceof Blob ? data : new Blob([data]); const ext=(name.match(/\.[a-z0-9]+$/i)||['.png'])[0].toLowerCase();
   const types={'.psd':{'image/vnd.adobe.photoshop':['.psd']}, '.png':{'image/png':['.png']}, '.jpg':{'image/jpeg':['.jpg','.jpeg']}, '.zip':{'application/zip':['.zip']}};
   let h = saveFile.handle || (again && doc && doc.fileHandle && doc.fileHandle.name.toLowerCase().endsWith(ext) ? doc.fileHandle : null);
-  if (!h){ h=await window.showSaveFilePicker({suggestedName:name, types:[{description:name.split('.').pop().toUpperCase(), accept:types[ext]||{'application/octet-stream':[ext]}}]}); if (doc && ext==='.psd') docBindFile(doc, h); }
+  if (!h){ h=await window.showSaveFilePicker({suggestedName:name, id:'proyavka-save', ...(doc && doc.fileHandle ? {startIn:doc.fileHandle} : {}), types:[{description:name.split('.').pop().toUpperCase(), accept:types[ext]||{'application/octet-stream':[ext]}}]}); if (doc && ext==='.psd') docBindFile(doc, h); }
   const w=await h.createWritable(); await w.write(blob); await w.close(); toast('Сохранено: '+h.name,1500);
 }
 /* PC: Ctrl+Shift+S — «Сохранить как»: the system dialog with PSD / PNG / JPEG in its type list; the chosen type decides the format.
@@ -7405,9 +7415,13 @@ async function saveAsDesk(again){
   if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   let h = again && doc.fileHandle ? doc.fileHandle : null, toPsd=false;
   // like Photoshop: Ctrl+S on a PNG / JPEG that now has layers does not flatten it silently — it asks where to save the PSD
-  if (h && !/\.psd$/i.test(h.name) && docLayered()){ h=null; toPsd=true; }
-  if (h && !(await filePerm(h))) h=null;
-  if (!h){ try{ h=await window.showSaveFilePicker({ suggestedName: safeName()+(doc.fileHandle && !toPsd ? (doc.fileHandle.name.match(/\.[a-z0-9]+$/i)||['.psd'])[0] : '.psd'), excludeAcceptAllOption:true, ...(doc.fileHandle ? {startIn:doc.fileHandle} : {}),
+  if (h && !/\.psd$/i.test(h.name) && docLayered()){ h=null; toPsd=true; // №127: say what keeps it layered, so it is clear what to merge
+    const px=doc.layers.filter(L=>!isGroup(L) && L.kind!=='adj' && !layerBlank(L)), why=[];
+    if (px.length>1) why.push(px.length+' '+plurN(px.length,'слой','слоя','слоёв')+(px.some(L=>!L.visible)?' (есть скрытые)':''));
+    if (doc.layers.some(L=>L.mask)) why.push('маска'); if (doc.layers.some(L=>L.kind==='adj')) why.push('корр. слой'); if (doc.layers.some(isGroup)) why.push('группа');
+    const fn=doc.fileHandle.name; toast('В '+fn+' не влезут слои ('+why.join(', ')+') — сохраню PSD рядом. Слей всё в один — и Ctrl+S запишет прямо в '+fn.split('.').pop().toUpperCase(),4200); }
+  if (h && !(await filePerm(h))){ h=null; toast('Windows не дал записать в '+doc.fileHandle.name+' — выбери место, папка та же',2600); } // №127: say why the dialog opened
+  if (!h){ try{ h=await window.showSaveFilePicker({ suggestedName: safeName()+(doc.fileHandle && !toPsd ? (doc.fileHandle.name.match(/\.[a-z0-9]+$/i)||['.psd'])[0] : '.psd'), excludeAcceptAllOption:true, id:'proyavka-save', ...(doc.fileHandle ? {startIn:doc.fileHandle} : {}),
         types:[{description:'Photoshop PSD — со слоями', accept:{'image/vnd.adobe.photoshop':['.psd']}}, {description:'PNG — картинка с прозрачностью', accept:{'image/png':['.png']}}, {description:'JPEG — картинка', accept:{'image/jpeg':['.jpg','.jpeg']}}] }); }
     catch(e){ if (e && e.name==='AbortError') toast('Сохранение отменено'); else { console.warn(e); toast('Не открылось окно сохранения: '+e.message,3000); } return; } }
   const ext=(h.name.match(/\.[a-z0-9]+$/i)||['.psd'])[0].toLowerCase(), kind = ext==='.png' ? 'png' : (ext==='.jpg'||ext==='.jpeg') ? 'jpg' : 'psd';
@@ -7667,7 +7681,10 @@ document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops
 /* The document remembers its file on disk, like Photoshop: opened from a file (PC) or saved as one — Ctrl+S writes there.
    The handle lives in IndexedDB next to the document (d:<id>:fh), so it survives a restart; the name shows the extension. */
 const docLabel = D => (D && (D.fileName || D.name)) || 'Без названия';
-function docLayered(){ return doc.layers.filter(L=>!isGroup(L)).length>1 || doc.layers.some(L=>L.mask || L.kind==='adj' || isGroup(L)); }
+function layerBlank(L){ // №127: a pixel layer with nothing on it (no mask, not smart) — Ctrl+S does not count it as a layer
+  if (isGroup(L) || L.kind==='adj' || L.mask || L.smart || !L.canvas) return false;
+  try{ const d=new Uint32Array(L.ctx.getImageData(0,0,L.canvas.width,L.canvas.height).data.buffer); for (let i=0;i<d.length;i++) if (d[i]>>>24) return false; return true; }catch(_){ return false; } }
+function docLayered(){ const px=doc.layers.filter(L=>!isGroup(L) && !layerBlank(L)); return px.length>1 || doc.layers.some(L=>L.mask || L.kind==='adj' || isGroup(L)); }
 async function filePerm(h){ try{ if (!h.queryPermission) return true; const o={mode:'readwrite'}; if ((await h.queryPermission(o))==='granted') return true; return (await h.requestPermission(o))==='granted'; }catch(e){ return false; } }
 function docBindFile(D, h){ if (!D || !h) return; D.fileHandle=h; D.fileName=h.name;
   idbPut({[PFX(D.id)+'fh']:h}).catch(e=>console.warn('handle not stored', e));
@@ -7678,7 +7695,7 @@ async function tabWithFile(h){ if (!h || !h.isSameEntry) return null;
     try{ if (x && await x.isSameEntry(h)) return t; }catch(_){} } return null; }
 async function openDialog(){
   if (IS_DESK && window.showOpenFilePicker && !nativeApp){ let hs;
-    try{ hs=await window.showOpenFilePicker({multiple:true, types:[{description:'PSD и картинки', accept:{'image/vnd.adobe.photoshop':['.psd'], 'image/*':['.png','.jpg','.jpeg','.webp','.gif','.bmp','.tif','.tiff','.avif']}}]}); }
+    try{ hs=await window.showOpenFilePicker({multiple:true, id:'proyavka-open', types:[{description:'PSD и картинки', accept:{'image/vnd.adobe.photoshop':['.psd'], 'image/*':['.png','.jpg','.jpeg','.webp','.gif','.bmp','.tif','.tiff','.avif']}}]}); }
     catch(e){ if (e && e.name==='AbortError') return; console.warn(e); $('#fOpen').click(); return; }
     const fs=[]; for (const h of hs){ try{ const f=await h.getFile(); f._h=h; fs.push(f); }catch(e){ console.warn(e); } } if (fs.length) openFilesAsDocs(fs); return; }
   $('#fOpen').click(); }
@@ -9651,7 +9668,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-10-25 · №126 Ревизия последних версий'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-12 · №127 Открытие и сохранение как в Фотошопе'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
@@ -9674,7 +9691,7 @@ function homeEl(){ const h=$('#home'); if (h.dataset.ready) return h; h.dataset.
     if (a==='help') showHelp(); else if (a==='look') appearanceDialog(); else if (a==='new') newDocDialog(); else if (a==='open') openDialog(); else if (a==='lib') openLibrary(); else if (a==='logout') acctLogout(); else if (a==='login') homeLogin(); });
   h.addEventListener('dragover', e=>{ e.preventDefault(); h.classList.add('drop'); });
   h.addEventListener('dragleave', e=>{ if (!h.contains(e.relatedTarget)) h.classList.remove('drop'); });
-  h.addEventListener('drop', e=>{ e.preventDefault(); h.classList.remove('drop'); if (acctNeedsLogin()) return; const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])]; if (fs.length) openFilesAsDocs(fs); });
+  h.addEventListener('drop', async e=>{ e.preventDefault(); h.classList.remove('drop'); if (acctNeedsLogin()) return; const fs=await dropFiles(e); if (fs.length) openFilesAsDocs(fs); });
   return h; }
 async function homeShow(){ homeOn=true; document.body.classList.add('home'); closePops(); const h=homeEl(); h.hidden=false;
   try{ localStorage.setItem('proyavka.home','1'); }catch(_){} await homeFill(); }

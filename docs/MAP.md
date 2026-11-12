@@ -115,7 +115,8 @@ python3 tools/map.py градиент     # русское название са
   `saveAsDesk`, `exportImg`, **`psdBuffer`** (вся запись PSD).
 - `№116 цветовой профиль` — `SRGB_ICC_B64` / `srgbIcc`, `iccParse`, `iccConvertCanvas`, `iccOnOpen` (окно при открытии PSD), `blobSrgb` (профиль в PNG/JPEG). В `vendor/ag-psd.js` своя правка: ресурс 1039 → `iccProfile`.
 - `№107 «Сдать кат»` — `deliverChecks`, `deliverGo`.
-- `№89` — файл документа (`docBindFile`, `fileHandle`), безопасная зона, линейки, «Реф с позы».
+- `№89` — файл документа (`docBindFile`, `fileHandle`, с №127 `layerBlank` / `docLayered`), безопасная зона, линейки, «Реф с позы».
+- `files` — с №127 `dropFiles` (перетаскивание отдаёт файл вместе с местом на диске) перед `openFilesAsDocs`.
 - `№104 «Рефы»`, `№108 История`, `№101 «Островок»`, `№88 interface themes`.
 - `№110 Второй экран` — окно для очков / второго монитора (`s2Open`, `s2Tick`, `s2Draw`, `s2DrawRefs`), оболочка ставит его на другой монитор (`placeScreen2` в `pc-app/main.js`); «Курсор пера в воздухе» (`hoverCross`). Пустые рефы — `s2RefsEmpty`, файлы, брошенные на второй экран, — в рефы (`s2Open`).
 - `selection bar & transform bar`, `input` (все мышь/перо/клавиши: `toolDown/Move/Up`, курсоры,

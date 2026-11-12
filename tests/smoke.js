@@ -143,6 +143,27 @@ const steps = [
       check(await page.evaluate(() => doc.name) === 'Тест', 'не вернулась на вкладку «Тест»');
   }},
 
+  { name: 'Открыть картинку: один слой, пустой слой не мешает Ctrl+S писать в PNG; перетаскивание отдаёт файл', run: async page => {
+      const r = await page.evaluate(async () => {
+        const c = document.createElement('canvas'); c.width = 320; c.height = 240; const x = c.getContext('2d'); x.fillStyle = '#c33'; x.fillRect(0, 0, 320, 240);
+        const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+        await openFilesAsDocs([new File([blob], 'кадр.png', { type: 'image/png' })]);
+        const out = { n: doc.layers.length, name: doc.name, a: doc.layers[0].ctx.getImageData(10, 10, 1, 1).data[3], one: docLayered() };
+        doc.layers.push(newLayer('Пустой')); out.blank = docLayered();
+        doc.layers[1].ctx.fillRect(0, 0, 4, 4); out.drawn = docLayered();
+        const dt = new DataTransfer(); dt.items.add(new File([blob], 'перетащила.png', { type: 'image/png' }));
+        const fs = await dropFiles({ dataTransfer: dt }); out.drop = fs.length === 1 && fs[0].name === 'перетащила.png';
+        return out;
+      });
+      check(r.n === 1, `картинка открылась с ${r.n} слоями, а должна одним`);
+      check(r.a === 255, 'картинка не легла в слой');
+      check(!r.one && !r.blank, 'один слой (или плюс пустой) считается «со слоями» — Ctrl+S ушёл бы в PSD');
+      check(r.drawn, 'слой с рисунком не считается слоем');
+      check(r.drop, 'перетаскивание не отдало файл');
+      await page.evaluate(async () => { const t = TABS.list.find(t => t.doc && t.doc.name === 'Тест'); if (t) await tabSwitch(t); });
+      check(await page.evaluate(() => doc.name) === 'Тест', 'не вернулась на вкладку «Тест»');
+  }},
+
   { name: 'Кадрирование холста и отмена', run: async page => {
       await page.evaluate(() => canvasReframe(0, 0, 1000, 1400));
       check(await page.evaluate(() => doc.w === 1000 && doc.h === 1400), 'холст не обрезался');
