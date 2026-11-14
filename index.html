@@ -236,7 +236,8 @@ body.tooling #tabs .tab,body.tooling #tabs .tplus,body.tooling #zoomBadge{pointe
 #aiedit .aeh{display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;border-bottom:1px solid var(--line);cursor:move;touch-action:none;font-size:13px}
 #aiedit .aeh b{color:#f0b46a;font-weight:600;white-space:nowrap} #aeVer{flex:1;min-width:0;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #aiedit .aeh button{width:28px;height:26px;border-radius:7px;color:var(--muted);flex:none} #aiedit .aeh button:hover{background:var(--panel-2);color:var(--fg)}
-#aiedit iframe{flex:1;border:0;width:100%;min-height:0;background:transparent} #aiedit.drag iframe{pointer-events:none}
+#aiedit .aebox{flex:1;min-height:0;position:relative;overflow:hidden} #aiedit iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:transparent}
+#aiedit #aeSmaller,#aiedit #aeBigger{width:30px;font-size:11px;font-weight:600} #aiedit.drag iframe{pointer-events:none}
 #aiedit:not(.pad) #aeHints{display:none} #aiedit #aeHints.on{color:#f0b46a}
 #aiedit.pad .aegrip{display:none}
 #aiedit .aegrip{height:10px;cursor:ns-resize;touch-action:none;flex:none;background:linear-gradient(var(--line),var(--line)) center/34px 2px no-repeat}
@@ -989,7 +990,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     </aside>
   </div>
 
-  <div id="aiedit" hidden><div class="aeh"><b>✦ AI Edit</b><span id="aeVer"></span><button id="aeHints" title="Показать / спрятать подсказки">?</button><button id="aeReload" title="Перечитать плагин с компьютера">⟳</button><button id="aeClose" title="Закрыть панель">✕</button></div><iframe id="aeFrame" title="AI Edit"></iframe><div class="aegrip" title="Потяни, чтобы изменить высоту"></div></div>
+  <div id="aiedit" hidden><div class="aeh"><b>✦ AI Edit</b><span id="aeVer"></span><button id="aeSmaller" title="Панель мельче">A−</button><button id="aeBigger" title="Панель крупнее">A+</button><button id="aeHints" title="Показать / спрятать подсказки">?</button><button id="aeReload" title="Перечитать плагин с компьютера">⟳</button><button id="aeClose" title="Закрыть панель">✕</button></div><div class="aebox"><iframe id="aeFrame" title="AI Edit"></iframe></div><div class="aegrip" title="Потяни, чтобы изменить высоту"></div></div>
   <div class="pop" id="aimenu" hidden>
     <div class="aih">С выделением</div>
     <button data-a="gen" data-sel="1">✦ Генерация <small>дорисовать по словам</small></button>
@@ -5634,6 +5635,10 @@ function xfApply(){
   updateSelBar(); setTool(t.prevTool||'brush'); markDirty(); requestRender();
   if (typeof lift!=='undefined' && lift && t.layer===lift.OL) objOpen();
 }
+// №129 iPad: after moving a layer with a finger, a quick tap on the picture = Enter + ⌘D (apply, then drop the selection)
+function xfTapDone(){ if (!xf) return; xfApply(); if (xf) return;
+  if (sel){ deselect(); toast('Трансформ применён · выделение снято · вернуть выделение — тап двумя пальцами',2200); }
+  else toast('Трансформ применён',1200); }
 function xfCancel(){
   if(!xf) return; const t=xf; xf=null; $('#xfbar').hidden=true;
   if (t.onCancel) t.onCancel();
@@ -6519,8 +6524,18 @@ let aeRO=null;
 function aeFit(){ if (IS_DESK) return; const w=$('#aiedit'), f=$('#aeFrame'); if (w.hidden) return; let d=null; try{ d=f.contentDocument; }catch(e){} if (!d || !d.body) return;
   let bottom=0; for (const el of d.body.children){ if (el.tagName==='SCRIPT' || el.tagName==='STYLE') continue; const r=el.getBoundingClientRect(); if (r.height) bottom=Math.max(bottom, r.bottom); }
   const cs=d.defaultView.getComputedStyle(d.body), content=bottom+(d.scrollingElement?d.scrollingElement.scrollTop:0)+parseFloat(cs.paddingBottom||0)+parseFloat(cs.marginBottom||0)+6;
-  const app=$('#app').getBoundingClientRect(), head=w.querySelector('.aeh').offsetHeight, H=Math.max(160, Math.min(Math.ceil(content)+head+2, app.height-w.offsetTop-12));
-  if (Math.abs(w.offsetHeight-H)>2) w.style.height=H+'px'; }
+  const app=$('#app').getBoundingClientRect(), head=w.querySelector('.aeh').offsetHeight, H=Math.max(160, Math.min(Math.ceil(content*aeK())+head+2, app.height-w.offsetTop-12));
+  if (Math.abs(w.offsetHeight-H)>2){ w.style.height=H+'px'; aeScale(); } }
+/* №129: the whole panel is drawn smaller (as if zoomed out) — the plugin lays out at its usual width, then the frame is scaled.
+   A−/A+ in the header, remembered; default 80 %. */
+const AE_K='proyavka.aiedit.k';
+function aeK(){ let k=NaN; try{ k=parseFloat(localStorage.getItem(AE_K)); }catch(e){} return k>=0.6 && k<=1.2 ? k : 0.8; }
+function aeScale(){ const w=$('#aiedit'), b=w.querySelector('.aebox'), f=$('#aeFrame'), k=aeK(); if (!b || !f) return;
+  f.style.width=(b.clientWidth/k)+'px'; f.style.height=(b.clientHeight/k)+'px'; f.style.transform='scale('+k+')'; }
+function aeZoom(d){ const k=Math.round(clamp(aeK()+d, 0.6, 1.2)*100)/100; try{ localStorage.setItem(AE_K, String(k)); }catch(e){}
+  aePlace(); aeScale(); setTimeout(aeFit,30); toast('Панель AI Edit: '+Math.round(k*100)+' %',1000); }
+$('#aeSmaller').onclick=()=>aeZoom(-0.1); $('#aeBigger').onclick=()=>aeZoom(0.1);
+try{ new ResizeObserver(()=>aeScale()).observe($('#aiedit')); }catch(e){}
 function aeHook(){ const f=$('#aeFrame'); f.onload=()=>{ let d=null; try{ d=f.contentDocument; }catch(e){} if (!d || IS_DESK) return;
     let hints=false; try{ hints=localStorage.getItem('proyavka.aiedit.hints')==='1'; }catch(e){}
     d.body.classList.toggle('aecompact', !hints); $('#aeHints').classList.toggle('on', hints);
@@ -6530,11 +6545,11 @@ $('#aeHints').onclick=()=>{ let d=null; try{ d=$('#aeFrame').contentDocument; }c
   $('#aeHints').classList.toggle('on', on); try{ localStorage.setItem('proyavka.aiedit.hints', on?'1':'0'); }catch(e){} setTimeout(aeFit,50); };
 function aePlace(){ const w=$('#aiedit'), app=$('#app').getBoundingClientRect(); let p=null; try{ p=JSON.parse(localStorage.getItem(AE_POS)||'null'); }catch(e){}
   w.classList.toggle('pad', !IS_DESK);
-  const W=Math.min(IS_DESK?400:360, app.width-16), H=Math.min(p&&p.h||900, app.height-80);
+  const W=Math.min(Math.round((IS_DESK?400:360)*aeK()), app.width-16), H=Math.min(p&&p.h||900, app.height-80);
   const rr=$('#airail'), railL = rr && rr.offsetParent ? rr.getBoundingClientRect().left-app.left : null;
   if (!p){ const lay=$('#layers'), lr=lay && !lay.hidden ? lay.getBoundingClientRect() : null; p={ x: railL!=null ? railL-W-10 : lr ? lr.left-W-10 : app.width-W-12, y:80 }; }
   else if (railL!=null && p.x+W > railL-4 && p.x < railL+52) p={...p, x:railL-W-10}; // never over the AI buttons
-  w.style.width=W+'px'; w.style.height=H+'px'; w.style.left=clamp(p.x,4,Math.max(4,app.width-W-4))+'px'; w.style.top=clamp(p.y,4,Math.max(4,app.height-60))+'px'; if (!IS_DESK) setTimeout(aeFit,0); }
+  w.style.width=W+'px'; w.style.height=H+'px'; w.style.left=clamp(p.x,4,Math.max(4,app.width-W-4))+'px'; w.style.top=clamp(p.y,4,Math.max(4,app.height-60))+'px'; aeScale(); if (!IS_DESK) setTimeout(aeFit,0); }
 (function aeDrag(){ const w=$('#aiedit'), h=w.querySelector('.aeh'), g=w.querySelector('.aegrip'); let st=null;
   const save=()=>{ try{ localStorage.setItem(AE_POS, JSON.stringify({x:w.offsetLeft, y:w.offsetTop, h:w.offsetHeight})); }catch(e){} };
   const down=(e,mode)=>{ if (e.target.closest('button')) return; st={mode, x:e.clientX, y:e.clientY, l:w.offsetLeft, t:w.offsetTop, h:w.offsetHeight}; w.classList.add('drag'); e.target.setPointerCapture(e.pointerId); e.preventDefault(); };
@@ -8636,11 +8651,13 @@ stage.addEventListener('pointermove', e=>{
 function endTouch(e){
   if (!touches.has(e.pointerId)) return;
   touches.delete(e.pointerId); clearTimeout(holdT);
+  const xfTap = fingerTool && e.pointerId===toolPtr && !!xf && S.tool==='transform'; // №129: a finger on the transform frame
   if (fingerTool && e.pointerId===toolPtr){ toolUp(e); fingerTool=false; }
   if (onePan && onePan.pick){ eyeEnd(touches.size>0); }
   if (touches.size===0){
     if (gesture && !gesture.moved && Date.now()-gesture.t0<350){
       if (gesture.max===2) undo(); else if (gesture.max===3) redo(); else if (gesture.max>=4) toggleUI();
+      else if (gesture.max===1 && xfTap && xf && !S.fingerDraw) xfTapDone(); // №129: moved the layer — a tap applies it and drops the selection
       else if (gesture.max===1 && !S.fingerDraw && onePan && !onePan.pick && (S.tool==='clone'||S.tool==='heal')){ const [x,y]=toDoc(onePan.x,onePan.y); setCloneSrc(x,y); }
       else if (gesture.max===1 && !S.fingerDraw && !xf && !edge && !pup && !crop && !onePan?.pick && S.tool!=='wand' && S.tool!=='tap' && sel) quickDeselect();
     }
@@ -9688,7 +9705,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-12 · №128 Библиотека AI Edit из Фотошопа'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-14 · №129 тап после трансформа пальцем снимает выделение; панель AI Edit мельче'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

@@ -468,6 +468,39 @@ const steps = [
       check(a > 0, 'крестик над холстом не нарисовался');
   }},
 
+  { name: 'Трансформ пальцем → тап: применён, выделение снято (iPad)', desk: false, run: async page => {
+      const r = await page.evaluate(async () => {
+        const n0 = undoStack.length; setTool('rect'); applySelPoly([[100,100],[400,100],[400,400],[100,400]]); setTool('transform');
+        const out = { xf: !!xf };
+        const st = stage.getBoundingClientRect(), [sx, sy] = toScr(250, 250), cx = st.left + sx, cy = st.top + sy;
+        const f = (type, x, y, id) => oc.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: id, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, buttons: type === 'pointerup' ? 0 : 1 }));
+        f('pointerdown', cx, cy, 31); for (let k = 1; k <= 8; k++) f('pointermove', cx + k * 10, cy, 31); f('pointerup', cx + 80, cy, 31);
+        out.stillXf = !!xf;
+        await new Promise(r => setTimeout(r, 400));
+        f('pointerdown', cx + 300, cy + 300, 32); f('pointerup', cx + 300, cy + 300, 32);
+        out.applied = !xf; out.desel = !sel; out.tool = S.tool;
+        while (undoStack.length > n0) undo(); setTool("brush");
+        return out; });
+      check(r.xf && r.stillXf, 'трансформ не начался или закрылся после перетаскивания пальцем');
+      check(r.applied, 'тап не применил трансформ');
+      check(r.desel, 'тап не снял выделение');
+  }},
+
+  { name: 'AI Edit: панель мельче, A−/A+ меняют размер', run: async page => {
+      const r = await page.evaluate(async () => {
+        try{ localStorage.removeItem(AE_K); }catch(e){}
+        $('#aiedit').hidden = false; aePlace(); await new Promise(r => setTimeout(r, 100));
+        const k0 = aeK(), w0 = $('#aiedit').offsetWidth, tf = $('#aeFrame').style.transform, fw = parseFloat($('#aeFrame').style.width);
+        $('#aeBigger').click(); await new Promise(r => setTimeout(r, 100));
+        const k1 = aeK(), w1 = $('#aiedit').offsetWidth;
+        $('#aeSmaller').click(); localStorage.removeItem(AE_K); aeClose();
+        return { k0, w0, tf, fw, k1, w1, base: IS_DESK ? 400 : 360 }; });
+      check(r.k0 < 1 && r.w0 < r.base, `панель не уменьшилась: ширина ${r.w0}`);
+      check(/scale\(0\.8/.test(r.tf), 'содержимое панели не масштабировано: ' + r.tf);
+      check(Math.abs(r.fw * r.k0 - (r.w0 - 2)) < 4, `ширина содержимого ${r.fw} не совпадает с окном ${r.w0}`);
+      check(r.k1 > r.k0 && r.w1 > r.w0, 'A+ не увеличил панель');
+  }},
+
   { name: 'Цветовой профиль: sRGB в сохранении, перевод из Adobe RGB', run: async page => {
       const r = await page.evaluate(async () => {
         const s = u => String.fromCharCode(...u), out = {};
