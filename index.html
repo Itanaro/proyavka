@@ -1044,6 +1044,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <button data-m="save" class="deskonly">Сохранить <small>Ctrl+S</small></button>
     <button data-m="saveas" class="deskonly">Сохранить как… <small>Ctrl+Shift+S</small></button>
     <button data-m="psd" class="padonly">Сохранить PSD <small>со слоями</small></button>
+    <button data-m="psdzip" class="padonly">Отправить PSD в Телеграм <small>архивом — слои целы</small></button>
     <button data-m="deliver">Сдать кат… <small>PSD + PNG, с проверкой</small></button>
     <div class="mrow"><span>Экспорт</span><button data-m="png">PNG</button><button data-m="png50" title="PNG, 50% — превью">PNG ½</button><button data-m="jpg">JPG</button></div>
     <hr class="padonly">
@@ -7484,6 +7485,10 @@ async function saveFile(name, data){
 async function exportImg(kind){
   busy(true,'Собираю файл…'); await nextFrame();
   try{
+    if (kind==='psdzip'){ // №130: Telegram (and other messengers) take a shared .psd for a photo — flatten it and shrink it. A .zip is sent as a file.
+      const buf=psdBuffer(), zip=fflate.zipSync({[safeName()+'.psd']:new Uint8Array(buf)},{level:0}); busy(false);
+      await saveFile(safeName()+'.psd.zip', new Blob([zip],{type:'application/zip'})); return;
+    }
     if (kind==='psd'){
       const buf=psdBuffer();
       busy(false);
@@ -9705,7 +9710,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-14 · №129 тап после трансформа пальцем снимает выделение; панель AI Edit мельче'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-15 · №130 айпад: PSD в Телеграм архивом .psd.zip'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

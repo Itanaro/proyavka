@@ -486,6 +486,19 @@ const steps = [
       check(r.desel, 'тап не снял выделение');
   }},
 
+  { name: 'PSD в Телеграм: архив .psd.zip, внутри PSD со слоями (iPad)', desk: false, run: async page => {
+      const r = await page.evaluate(async () => {
+        let got = null; const keep = saveFile; saveFile = async (n, b) => { got = { n, b }; };
+        try { await exportImg('psdzip'); } finally { saveFile = keep; }
+        if (!got) return { ok: false };
+        const z = fflate.unzipSync(new Uint8Array(await got.b.arrayBuffer())), names = Object.keys(z);
+        const psd = agPsd.readPsd(z[names[0]].buffer, { skipLayerImageData: true, skipThumbnail: true });
+        return { ok: true, n: got.n, names, layers: (psd.children || []).length, w: psd.width, want: doc.layers.filter(L => !isGroup(L)).length, dw: doc.w }; });
+      check(r.ok, 'файл не отдан');
+      check(/\.psd\.zip$/.test(r.n) && r.names.length === 1 && /\.psd$/.test(r.names[0]), 'не тот архив: ' + r.n + ' / ' + (r.names || []).join(','));
+      check(r.w === r.dw && r.layers >= 1, `PSD внутри не тот: ширина ${r.w}, слоёв ${r.layers}`);
+  }},
+
   { name: 'AI Edit: панель мельче, A−/A+ меняют размер', run: async page => {
       const r = await page.evaluate(async () => {
         try{ localStorage.removeItem(AE_K); }catch(e){}
