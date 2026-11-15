@@ -7668,7 +7668,8 @@ function deliverDialog(){
   if (!doc){ toast('Сначала открой кат'); return; } if (panelBusy && panelBusy()) return;
   const C=deliverChecks(), bad=C.some(c=>c.st==='bad'), ic={ok:'✓',warn:'!',bad:'✕',info:'i'};
   const d=dialog('<h3>Сдать кат</h3><p class="dvp">PSD + PNG '+DELIVER_PNG_W+'×'+DELIVER_PNG_W*4/3+' — одной кнопкой. Сначала проверка по стандарту.</p><label class="dvn">Имя файла<input type="text" spellcheck="false"></label><div class="dvl"></div><div class="dvf"></div>',
-    [[bad?'Сдать всё равно':'Сдать', dd=>{ deliverGo(dd.querySelector('.dvn input').value); }, true], ['Отмена', null]]);
+    [[bad?'Сдать всё равно':'Сдать', dd=>{ deliverGo(dd.querySelector('.dvn input').value); }, true],
+     ...(deliverDesk() ? [] : [['Архивом — для Телеграма', dd=>{ deliverGo(dd.querySelector('.dvn input').value, true); }]]), ['Отмена', null]]); // №131
   d.classList.add('dlgdv');
   const inp=d.querySelector('.dvn input'); inp.value=safeName(); inp.onkeydown=e=>{ e.stopPropagation(); if (e.key==='Enter') d.querySelector('.actions .pri').click(); };
   const l=d.querySelector('.dvl');
@@ -7678,10 +7679,10 @@ function deliverDialog(){
   const f=d.querySelector('.dvf');
   if (deliverDesk()){ f.innerHTML='<span>Папка: <b>…</b></span><button>Сменить…</button>'; idbGet('deliverDir').then(h=>{ f.querySelector('b').textContent=h?h.name:'выберу при сдаче'; }).catch(()=>{});
     f.querySelector('button').onclick=async()=>{ try{ const h=await deliverDir(true); f.querySelector('b').textContent=h.name; }catch(e){ if (!(e&&e.name==='AbortError')) toast('Папка не выбралась: '+e.message,3000); } }; }
-  else f.innerHTML='<span>Откроется «Поделиться» с двумя файлами — сохрани в «Файлы» или отправь.</span>';
+  else f.innerHTML='<span>Откроется «Поделиться» с двумя файлами — сохрани в «Файлы» или отправь. В Телеграм — кнопкой «Архивом»: иначе он сведёт и сожмёт их в фото.</span>';
   if (IS_DESK) setTimeout(()=>{ try{ inp.focus(); inp.select(); }catch(_){} },50);
 }
-async function deliverGo(name){
+async function deliverGo(name, zip){ // zip (№131, iPad): both files in one .zip — Telegram turns a shared .psd / .png into a squeezed photo
   name=(name||safeName()).replace(/[\\/:*?"<>|]+/g,'_').trim()||safeName();
   let dir=null;
   if (deliverDesk()){ try{ dir=await deliverDir(false) || await deliverDir(true); }catch(e){ if (e&&e.name==='AbortError') toast('Сдача отменена'); else toast('Папка недоступна: '+e.message,3000); return; } }
@@ -7691,7 +7692,8 @@ async function deliverGo(name){
     if (SZ) doc.layers.splice(at,1);
     try{ buf=psdBuffer(); flat=flatten(doc.w*4===doc.h*3 ? DELIVER_PNG_W/doc.w : 0.5); } finally{ if (SZ) doc.layers.splice(at,0,SZ); }
     const psd=new Blob([buf],{type:'image/vnd.adobe.photoshop'}), png=await blobSrgb(await toBlob(flat,'image/png'));
-    files=[[name+'.psd',psd],[name+'.png',png]]; }
+    files=[[name+'.psd',psd],[name+'.png',png]];
+    if (zip && !dir){ const z={}; for (const [n,b] of files) z[n]=new Uint8Array(await b.arrayBuffer()); files=[[name+'.zip', new Blob([fflate.zipSync(z,{level:0})],{type:'application/zip'})]]; } }
   catch(e){ busy(false); console.error(e); toast('Не собралось: '+(e.message||'ошибка'),4000); return; }
   busy(false);
   try{
@@ -9710,7 +9712,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-15 · №130 айпад: PSD в Телеграм архивом .psd.zip'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-15 · №131 айпад: Сдать кат архивом для Телеграма'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

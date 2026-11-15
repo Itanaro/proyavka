@@ -499,6 +499,17 @@ const steps = [
       check(r.w === r.dw && r.layers >= 1, `PSD внутри не тот: ширина ${r.w}, слоёв ${r.layers}`);
   }},
 
+  { name: 'Сдать кат архивом: один .zip с PSD и PNG (iPad)', desk: false, run: async page => {
+      const r = await page.evaluate(async () => {
+        const got = []; const keep = saveFile, ks = navigator.canShare; saveFile = async (n, b) => { got.push({ n, b }); }; navigator.canShare = () => false;
+        try { await deliverGo('Кат1', true); } finally { saveFile = keep; navigator.canShare = ks; }
+        if (got.length !== 1) return { n: got.length };
+        const z = fflate.unzipSync(new Uint8Array(await got[0].b.arrayBuffer()));
+        return { n: 1, name: got[0].n, inside: Object.keys(z).sort() }; });
+      check(r.n === 1, 'ожидался один файл, а отдано ' + r.n);
+      check(r.name === 'Кат1.zip' && r.inside.join() === 'Кат1.png,Кат1.psd', 'не тот архив: ' + r.name + ' / ' + (r.inside || []).join(','));
+  }},
+
   { name: 'AI Edit: панель мельче, A−/A+ меняют размер', run: async page => {
       const r = await page.evaluate(async () => {
         try{ localStorage.removeItem(AE_K); }catch(e){}
