@@ -298,6 +298,55 @@ def net_proxy(h, body):
 
 # ---------- «Выделить объект» на видеокарте: BiRefNet_HR (birefnet/subject.py) ----------
 _subj = None
+# ---------- «Каты на ПК»: рабочая папка, которую Проявка на iPad открывает и куда сохраняет ----------
+# Папка по умолчанию — Документы\Проявка; другую можно вписать одной строкой в cats-folder.txt рядом с мостом.
+# Перед перезаписью прежний файл откладывается в _версии (последние 5 на файл) — страховка от случайной перезаписи.
+CATS_EXT = ('.psd', '.psb', '.png', '.jpg', '.jpeg', '.webp')
+VERSIONS = '_версии'
+def cats_root():
+    f = os.path.join(HERE, 'cats-folder.txt'); d = ''
+    if os.path.exists(f):
+        try: d = open(f, encoding='utf-8-sig').read().strip().strip('"')
+        except Exception: d = ''
+    d = d or os.path.join(os.path.expanduser('~'), 'Documents', 'Проявка')
+    os.makedirs(d, exist_ok=True); return os.path.realpath(d)
+def cats_path(rel):
+    root = cats_root(); rel = (rel or '').replace('\\', '/').strip('/')
+    if any(x in ('..', VERSIONS) or x.startswith('.') for x in rel.split('/') if x): raise ValueError('недопустимый путь')
+    full = os.path.realpath(os.path.join(root, *[x for x in rel.split('/') if x]))
+    if full != root and not full.startswith(root + os.sep): raise ValueError('путь вне рабочей папки')
+    return root, full
+def _mt(f): return int(os.path.getmtime(f) * 1000)
+def cats_list(rel):
+    root, d = cats_path(rel)
+    if not os.path.isdir(d): raise FileNotFoundError('папки нет')
+    items = []
+    for e in os.scandir(d):
+        if e.name.startswith('.') or e.name == VERSIONS or e.name.endswith('.part'): continue
+        try:
+            if e.is_dir(): items.append({'name': e.name, 'dir': True, 'mtime': _mt(e.path)})
+            elif e.name.lower().endswith(CATS_EXT): st = e.stat(); items.append({'name': e.name, 'dir': False, 'size': st.st_size, 'mtime': int(st.st_mtime * 1000)})
+        except OSError: pass
+    return {'root': os.path.basename(root), 'path': '' if d == root else os.path.relpath(d, root).replace('\\', '/'), 'items': items}
+def cats_put(rel, data, base, force):
+    root, f = cats_path(rel)
+    if not f.lower().endswith(CATS_EXT): raise ValueError('сохраняются только PSD и картинки')
+    if os.path.isfile(f):
+        cur = _mt(f)
+        if not force and abs(cur - base) > 2: return 409, {'error': 'файл на компьютере изменился', 'mtime': cur, 'size': os.path.getsize(f)}
+        vd = os.path.join(os.path.dirname(f), VERSIONS); os.makedirs(vd, exist_ok=True)
+        stem, ext = os.path.splitext(os.path.basename(f))
+        try: import shutil; shutil.copy2(f, os.path.join(vd, stem + time.strftime(' %Y-%m-%d %H-%M-%S', time.localtime(cur / 1000)) + ext))
+        except Exception as e: p('Не отложила прежнюю версию:', e)
+        old = sorted(x for x in os.listdir(vd) if x.startswith(stem + ' ') and x.endswith(ext))
+        for x in old[:-5]:
+            try: os.remove(os.path.join(vd, x))
+            except OSError: pass
+    else: os.makedirs(os.path.dirname(f), exist_ok=True)
+    open(f + '.part', 'wb').write(data); os.replace(f + '.part', f)
+    p(time.strftime('%H:%M:%S'), 'Каты: сохранено с iPad', os.path.relpath(f, root), f'{len(data) / 1048576:.1f} МБ')
+    return 200, {'ok': True, 'mtime': _mt(f), 'size': len(data)}
+
 def subject_mod():
     global _subj
     if _subj is None:
@@ -338,7 +387,7 @@ class H(BaseHTTPRequestHandler):
             return self.reply(403, json.dumps({'error': 'нужен адрес с ключом моста'}, ensure_ascii=False).encode())
         path = self.path[len(PREFIX):]
         if path == '/bridge/ping':
-            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'remote': REMOTE_ADDR, 'net': bool(os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')), 'subject': subject_state(), 'matting': subject_state('matting')}, ensure_ascii=False).encode())
+            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'remote': REMOTE_ADDR, 'net': bool(os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')), 'subject': subject_state(), 'matting': subject_state('matting'), 'cats': True}, ensure_ascii=False).encode())
         if path == '/proyavka/sdstart':
             try: st = sd_start(); return self.reply(200, json.dumps({'state': st}).encode())
             except Exception as e: return self.reply(500, json.dumps({'error': str(e)}, ensure_ascii=False).encode())
@@ -354,6 +403,25 @@ class H(BaseHTTPRequestHandler):
             except Exception as e:
                 p('Выделение объекта — ошибка:', e); return self.reply(500, json.dumps({'error': str(e)}, ensure_ascii=False).encode())
         n = int(self.headers.get('Content-Length') or 0); body = self.rfile.read(n) if n else None
+        if path.startswith('/files/'):  # «Каты на ПК»
+            q = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query); rel = (q.get('p') or [''])[0]; act = urllib.parse.urlsplit(path).path
+            J = lambda code, o: self.reply(code, json.dumps(o, ensure_ascii=False).encode())
+            try:
+                if act == '/files/list': return J(200, cats_list(rel))
+                if act == '/files/get':
+                    _, f = cats_path(rel)
+                    if not os.path.isfile(f): return J(404, {'error': 'файла нет'})
+                    data = open(f, 'rb').read()
+                    self.send_response(200); self.cors(); self.send_header('Content-Type', 'application/octet-stream'); self.send_header('Content-Length', str(len(data)))
+                    self.send_header('X-Mtime', str(_mt(f))); self.send_header('Access-Control-Expose-Headers', 'X-Mtime'); self.end_headers(); self.wfile.write(data); return
+                if act == '/files/put' and self.command == 'POST':
+                    code, o = cats_put(rel, body or b'', int((q.get('base') or ['0'])[0] or 0), (q.get('force') or ['0'])[0] == '1'); return J(code, o)
+                if act == '/files/mkdir' and self.command == 'POST':
+                    _, d = cats_path(rel); os.makedirs(d, exist_ok=True); return J(200, {'ok': True})
+                return J(404, {'error': 'нет такой команды'})
+            except FileNotFoundError as e: return J(404, {'error': str(e)})
+            except ValueError as e: return J(400, {'error': str(e)})
+            except Exception as e: p('Каты — ошибка:', e); return J(500, {'error': str(e)})
         if path.startswith('/plugin/'):
             parts = [urllib.parse.unquote(x) for x in path.split('?')[0].split('/')[2:]]
             pid = parts[0] if parts else ''

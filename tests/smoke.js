@@ -510,6 +510,37 @@ const steps = [
       check(r.name === 'Кат1.zip' && r.inside.join() === 'Кат1.png,Кат1.psd', 'не тот архив: ' + r.name + ' / ' + (r.inside || []).join(','));
   }},
 
+  { name: 'Каты на ПК: сохранить, конфликт → копия, без связи → очередь, открыть', run: async page => {
+      const r = await page.evaluate(async stub => {
+        const out = {}, B = stub + '/k/test', wait = async (f, ms = 8000) => { const t0 = Date.now(); while (!f()) { if (Date.now() - t0 > ms) return false; await new Promise(r => setTimeout(r, 50)); } return true; };
+        const keepUrl = genCfg.sdUrl; genCfg.sdUrl = B; BR.base = B; BR.at = Date.now();
+        const list = async rel => (await (await fetch(B + '/files/list?p=' + encodeURIComponent(rel || ''))).json()).items.map(x => x.name);
+        if (xf) xfCancel();
+        const D0 = doc, nTabs = TABS.list.length, dir = 'т' + Date.now(), nm = dir + '/Кат проба.psd'; await fetch(B + '/files/mkdir?p=' + encodeURIComponent(dir), { method: 'POST' });
+        try {
+          out.saved = await catsWrite(doc, nm, -1);
+          out.bound = doc.pc && doc.pc.path === nm && doc.fileName === 'Кат проба.psd';
+          out.inList = (await list(dir)).includes('Кат проба.psd');
+          await fetch(stub + '/_catsedit?p=' + encodeURIComponent(nm), { method: 'POST' });
+          await catsSave();
+          const dlg = [...document.querySelectorAll('.dlg')].find(d => /изменился/.test(d.textContent)); out.clashDlg = !!dlg;
+          if (dlg) [...dlg.querySelectorAll('.actions button')].find(b => /копией/.test(b.textContent)).click();
+          out.copy = await wait(() => doc.pc && /айпад/.test(doc.pc.path));
+          out.twoFiles = (await list(dir)).length === 2;
+          await fetch(stub + '/_catsdown1', { method: 'POST' });
+          const m0 = doc.pc.mtime; await catsWrite(doc, doc.pc.path, doc.pc.mtime);
+          out.queued = (await catsQueueGet()).length === 1;
+          await fetch(stub + '/_catsdown0', { method: 'POST' });
+          await catsFlush(); out.flushed = (await catsQueueGet()).length === 0 && doc.pc.mtime > m0;
+          await catsOpenFile(nm, null);
+          out.opened = doc !== D0 && doc.pc && doc.pc.path === nm && doc.w === D0.w && TABS.list.length === nTabs + 1;
+          await catsOpenFile(nm, null); out.noDup = TABS.list.length === nTabs + 1;
+          if (doc !== D0) { tabClose(); await new Promise(r => setTimeout(r, 300)); const t0 = TABS.list.find(t => t.doc === D0); if (t0 && TABS.cur !== t0) await tabSwitch(t0); }
+        } finally { await fetch(stub + '/_catsdown0', { method: 'POST' }); D0.pc = null; D0.fileName = null; genCfg.sdUrl = keepUrl; BR.base = ''; document.querySelectorAll('.scrim').forEach(x => x.remove()); }
+        out.back = doc === D0; return out; }, STUB);
+      for (const [k, v] of Object.entries(r)) check(v, 'Каты на ПК: не так — ' + k);
+  }},
+
   { name: 'AI Edit: панель мельче, A−/A+ меняют размер', run: async page => {
       const r = await page.evaluate(async () => {
         try{ localStorage.removeItem(AE_K); }catch(e){}

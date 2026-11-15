@@ -265,6 +265,14 @@ kbd{font-family:var(--mono);font-size:11.5px;color:var(--accent);background:rgba
 .dlg .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
 .dlg .actions button{height:40px;padding:0 16px;border-radius:10px;background:var(--panel-2)}
 .dlg .actions .pri{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.dlgcats{width:min(620px,100%)} .dlgcats .ctp{display:flex;flex-wrap:wrap;gap:2px;align-items:center;font-size:13px;color:var(--muted);margin:2px 0 8px}
+.dlgcats .ctp button{padding:4px 8px;border-radius:8px;color:var(--fg)} .dlgcats .ctp button:hover{background:var(--panel-2)}
+.dlgcats .ctl{max-height:min(52vh,460px);overflow:auto;border:1px solid var(--line);border-radius:12px;padding:4px}
+.dlgcats .ctr{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 10px;border-radius:9px;min-height:44px}
+.dlgcats .ctr:hover,.dlgcats .ctr.on{background:var(--panel-2)} .dlgcats .ctr i{flex:none;width:38px;font-style:normal;font-size:10px;font-weight:600;text-align:center;padding:3px 0;border-radius:6px;background:var(--panel-2);color:var(--muted)}
+.dlgcats .ctr.dir i{background:transparent;font-size:18px} .dlgcats .ctr b{flex:1;min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .dlgcats .ctr small{flex:none;color:var(--muted);font-size:11px}
+.dlgcats .ctm{color:var(--muted);font-size:13px;padding:12px} .dlgcats .ctn{display:flex;flex-direction:column;gap:4px;margin-top:10px;font-size:12px;color:var(--muted)}
+.dlgcats .ctn input{height:38px;border-radius:9px;border:1px solid var(--line);background:var(--field);color:var(--fg);padding:0 10px;font-size:14px}
 .dlg.narrow{width:min(400px,100%)}
 .dlg.wide{width:min(820px,100%)}
 .lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;max-height:62vh;overflow-y:auto;padding:2px}
@@ -1038,12 +1046,14 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <button data-m="new">Новый документ <small class="deskonly">Ctrl+N</small></button>
     <button data-m="open">Открыть… <small class="deskonly">Ctrl+O</small><small class="padonly">PSD, картинка</small></button>
     <button data-m="lib">Мои документы</button>
+    <button data-m="cats">Каты на ПК… <small id="mCats">рабочая папка компьютера</small></button>
     <button data-m="close">Закрыть документ <small class="deskonly">Ctrl+W</small></button>
     <button data-m="place">Поместить картинку слоем</button>
     <hr>
     <button data-m="save" class="deskonly">Сохранить <small>Ctrl+S</small></button>
     <button data-m="saveas" class="deskonly">Сохранить как… <small>Ctrl+Shift+S</small></button>
     <button data-m="psd" class="padonly">Сохранить PSD <small>со слоями</small></button>
+    <button data-m="catssave">Сохранить на ПК… <small>в рабочую папку</small></button>
     <button data-m="psdzip" class="padonly">Отправить PSD в Телеграм <small>архивом — слои целы</small></button>
     <button data-m="deliver">Сдать кат… <small>PSD + PNG, с проверкой</small></button>
     <div class="mrow"><span>Экспорт</span><button data-m="png">PNG</button><button data-m="png50" title="PNG, 50% — превью">PNG ½</button><button data-m="jpg">JPG</button></div>
@@ -7189,6 +7199,7 @@ async function openFilesAsDocs(files){
         doc.layers.length=1; doc.active=0; clearHistory(); } // №127: like Photoshop — an opened picture is one layer, no empty one on top
       else continue;
       if (f._h) docBindFile(doc, f._h);
+      if (f._pc) catsBind(doc, f._pc, f.name); // №132
       layersChanged(); requestRender(); markDirty(); n++;
     }catch(err){ console.error(err); toast('Не открылся '+f.name+': '+(err.message==='mem'?'не хватает памяти':'формат не прочитался'),4000); }
   }
@@ -7449,6 +7460,7 @@ async function saveFileDesk(name, data, again){ // straight into a folder on dis
    Ctrl+S — writes the same file again in its format (the first time — the same dialog). */
 async function saveAsDesk(again){
   if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  if (again && doc.pc && !doc.fileHandle) return catsSave(); // №132
   let h = again && doc.fileHandle ? doc.fileHandle : null, toPsd=false;
   // like Photoshop: Ctrl+S on a PNG / JPEG that now has layers does not flatten it silently — it asks where to save the PSD
   if (h && !/\.psd$/i.test(h.name) && docLayered()){ h=null; toPsd=true; // №127: say what keeps it layered, so it is clear what to merge
@@ -7489,6 +7501,7 @@ async function exportImg(kind){
       const buf=psdBuffer(), zip=fflate.zipSync({[safeName()+'.psd']:new Uint8Array(buf)},{level:0}); busy(false);
       await saveFile(safeName()+'.psd.zip', new Blob([zip],{type:'application/zip'})); return;
     }
+    if (kind==='psd' && doc.pc && !saveFile.handle){ busy(false); await catsSave(); return; } // №132: a cut-scene from the PC goes back there
     if (kind==='psd'){
       const buf=psdBuffer();
       busy(false);
@@ -7706,6 +7719,136 @@ async function deliverGo(name, zip){ // zip (№131, iPad): both files in one .z
   }catch(e){ console.error(e); toast('Не записалось: '+(e.message||'ошибка'),4000); }
 }
 const safeName=()=> (doc.name||'proyavka').replace(/[\\/:*?"<>|]+/g,'_');
+
+/* ============ №132 «Каты на ПК»: the PC's working folder (bridge /files/…) is where the cut-scenes live.
+   Open from the iPad, Save goes back to the same file; the bridge keeps the previous version in _версии.
+   The file changed on the PC meanwhile (edited in Photoshop) — ask. The PC does not answer — the file waits on the iPad (IndexedDB)
+   and is sent by itself when the PC is back (a clash then — saved next to it as a copy, nothing is overwritten unasked). */
+const CATS_Q='catsQueue', CATS_DIR='proyavka.cats.dir';
+const catsSize=n=> n>=1048576 ? (n/1048576).toFixed(n>=104857600?0:1).replace('.',',')+' МБ' : Math.max(1,Math.round(n/1024))+' КБ';
+const catsDate=t=>{ const d=new Date(t), hm=d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}); return d.toDateString()===new Date().toDateString() ? 'сегодня '+hm : d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'})+' '+hm; };
+const catsJoin=(a,b)=> [a,b].filter(Boolean).join('/');
+const catsName=p=> String(p).split('/').pop();
+async function catsFetch(path, opt={}, ms=30000){
+  let base=sdBase(); if (!base){ if (IS_DESK && typeof pcAutoConnect==='function') try{ await pcAutoConnect(); }catch(_){} base=sdBase()||await bridgePick(true); }
+  if (!base) throw new Error('nobridge');
+  const go=async b=>{ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(), ms); try{ return await fetch(b+path, Object.assign({cache:'no-store'}, opt, {signal:ctl.signal})); } finally{ clearTimeout(T); } };
+  try{ return await go(base); }
+  catch(e){ const nb=await bridgePick(true); if (nb && nb!==base){ try{ return await go(nb); }catch(_){} } throw new Error('offline'); } }
+const catsWhy=e=> e.message==='nobridge' ? 'Проявка ещё не знает адрес компьютера: ✦ ИИ → Настройки генерации → Свой ПК' : e.message==='offline' ? 'компьютер не отвечает — включён? мост запущен?' : (e.message||'ошибка');
+function catsBind(D, pc, name){ D.pc={path:pc.path, mtime:pc.mtime||0}; D.fileName=name||catsName(pc.path);
+  const t=TABS.list.find(x=>x.id===D.id); if (t) t.file=D.fileName;
+  if (D===doc){ try{ setText('#docName span', docLabel(D)); }catch(_){} tabsRender(); markDirty(); } else D._metaDirty=true; }
+
+async function catsDialog(mode){
+  if (mode==='save' && !doc){ toast('Сначала открой кат'); return; } if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  let cur=''; try{ cur=localStorage.getItem(CATS_DIR)||''; }catch(_){} if (mode==='save' && doc.pc) cur=doc.pc.path.split('/').slice(0,-1).join('/');
+  let items=[];
+  const d=dialog('<h3>'+(mode==='save'?'Сохранить на ПК':'Каты на ПК')+'</h3><div class="ctp"></div><div class="ctl"></div>'+(mode==='save'?'<label class="ctn">Имя файла<input type="text" spellcheck="false" autocomplete="off"></label>':''),
+    [...(mode==='save'?[['Сохранить сюда', dd=>{ catsSaveAs(cur, dd.querySelector('.ctn input').value, items); }, true]]:[]),
+     ['＋ Папка', ()=>{ catsMkdir(); return false; }], ['Закрыть', null]]);
+  d.classList.add('dlgcats');
+  const crumbs=d.querySelector('.ctp'), list=d.querySelector('.ctl'), inp=d.querySelector('.ctn input');
+  if (inp){ inp.value=doc.pc ? catsName(doc.pc.path).replace(/\.(png|jpe?g|webp)$/i,'.psd') : safeName()+'.psd'; inp.onkeydown=e=>{ e.stopPropagation(); if (e.key==='Enter') d.querySelector('.actions .pri').click(); }; }
+  const msg=t=>{ list.innerHTML=''; const p=document.createElement('p'); p.className='ctm'; p.textContent=t; list.append(p); };
+  async function load(rel){
+    msg('Загружаю…'); let j;
+    try{ const r=await catsFetch('/files/list?p='+encodeURIComponent(rel)); j=await r.json().catch(()=>({})); if (!r.ok) throw new Error(r.status===404 && /list/.test(r.url) && !j.error ? 'мост на компьютере старый — обнови его' : (j.error||'HTTP '+r.status)); }
+    catch(e){ if (rel && e.message!=='offline' && e.message!=='nobridge') return load(''); msg('Не открылось: '+catsWhy(e)); return; }
+    cur=j.path||''; try{ localStorage.setItem(CATS_DIR, cur); }catch(_){}
+    crumbs.innerHTML=''; const parts=cur?cur.split('/'):[];
+    [j.root||'Каты', ...parts].forEach((n,i)=>{ if (i){ const s=document.createElement('span'); s.textContent='›'; crumbs.append(s); }
+      const b=document.createElement('button'); b.textContent=i?n:'🖥 '+n; b.onclick=()=>load(parts.slice(0,i).join('/')); crumbs.append(b); });
+    items=(j.items||[]).sort((a,b)=> (b.dir-a.dir) || (a.dir ? a.name.localeCompare(b.name,'ru') : b.mtime-a.mtime));
+    list.innerHTML=''; if (!items.length){ msg(mode==='save'?'Папка пустая — сохрани сюда первый файл':'Здесь пока пусто. Сохрани кат сюда из Проявки или положи PSD в эту папку на компьютере'); }
+    for (const it of items){ const b=document.createElement('button'); b.className='ctr'+(it.dir?' dir':'');
+      b.innerHTML='<i></i><b></b><small></small>'; b.querySelector('i').textContent=it.dir?'📁':(it.name.split('.').pop()||'').toUpperCase(); b.querySelector('b').textContent=it.name;
+      b.querySelector('small').textContent=it.dir?'':catsSize(it.size)+' · '+catsDate(it.mtime);
+      b.onclick=()=>{ if (it.dir) return load(catsJoin(cur, it.name));
+        if (mode==='save'){ if (inp){ inp.value=it.name; list.querySelectorAll('.ctr.on').forEach(x=>x.classList.remove('on')); b.classList.add('on'); } return; }
+        d.closest('.scrim').remove(); catsOpenFile(catsJoin(cur, it.name), it); };
+      list.append(b); } }
+  async function catsMkdir(){ const n=await askText('Новая папка', ''); if (!n) return; const name=n.replace(/[\\/:*?"<>|]+/g,'_').trim(); if (!name) return;
+    try{ const r=await catsFetch('/files/mkdir?p='+encodeURIComponent(catsJoin(cur,name)),{method:'POST'}); if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error||'HTTP '+r.status); load(catsJoin(cur,name)); }
+    catch(e){ toast('Папка не создалась: '+catsWhy(e),3500); } }
+  load(cur);
+}
+function askText(title, v){ return new Promise(res=>{ let done=false; const d=dialog('<h3></h3><input type="text" class="asktx" spellcheck="false" style="width:100%;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--fg);padding:0 12px;font-size:15px">',
+    [['Готово', dd=>{ done=true; res(dd.querySelector('input').value.trim()); }, true], ['Отмена', ()=>{ done=true; res(''); }]]);
+  d.querySelector('h3').textContent=title; const i=d.querySelector('input'); i.value=v||''; i.onkeydown=e=>{ e.stopPropagation(); if (e.key==='Enter') d.querySelector('.actions .pri').click(); };
+  const s=d.closest('.scrim'); new MutationObserver((_,o)=>{ if (!s.isConnected){ o.disconnect(); if (!done) res(''); } }).observe($('#app'),{childList:true}); setTimeout(()=>i.focus(),50); }); }
+
+async function catsOpenFile(rel, it){
+  for (const t of TABS.list) if (t.doc && t.doc.pc && t.doc.pc.path===rel){ if (t!==TABS.cur) await tabSwitch(t); toast(catsName(rel)+' уже открыт — переключила на него',2200); return; }
+  busy(true,'Скачиваю с компьютера'+(it&&it.size?' · '+catsSize(it.size):'')+'…'); await nextFrame();
+  let f;
+  try{ const r=await catsFetch('/files/get?p='+encodeURIComponent(rel),{},600000); if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error||'HTTP '+r.status);
+    const b=await r.blob(); f=new File([b], catsName(rel), {type: /\.ps[db]$/i.test(rel)?'image/vnd.adobe.photoshop':(b.type||'')}); f._pc={path:rel, mtime:+r.headers.get('X-Mtime')||it&&it.mtime||0}; }
+  catch(e){ busy(false); toast('Не скачалось: '+catsWhy(e),4000); return; }
+  busy(false); await openFilesAsDocs([f]);
+}
+async function catsBlob(path){ // the document as the file at path: PSD, or a flat PNG / JPEG
+  if (/\.ps[db]$/i.test(path)) return new Blob([psdBuffer()]);
+  const jpg=/\.jpe?g$/i.test(path); return await blobSrgb(await toBlob(flatten(1, jpg), jpg?'image/jpeg':'image/png', 0.95)); }
+async function catsSave(){
+  if (!doc || !doc.pc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  let path=doc.pc.path, base=doc.pc.mtime||0;
+  if (!/\.ps[db]$/i.test(path) && docLayered()){ path=path.replace(/\.[^./]+$/,'')+'.psd'; base=-1; } // like Photoshop: layers do not go into a PNG — PSD next to it
+  return catsWrite(doc, path, base); }
+function catsSaveAs(dir, name, items){
+  name=String(name||'').replace(/[\\/:*?"<>|]+/g,'_').trim(); if (!name){ toast('Нужно имя файла'); return; }
+  if (!/\.(psd|psb|png|jpe?g)$/i.test(name)) name+='.psd';
+  if (!/\.ps[db]$/i.test(name) && docLayered()) toast('В '+name.split('.').pop().toUpperCase()+' слои сольются — со слоями сохраняет PSD',3000);
+  const ex=(items||[]).find(x=>!x.dir && x.name.toLowerCase()===name.toLowerCase()), path=catsJoin(dir,name);
+  if (ex) dialog('<h3>Заменить «'+name.replace(/</g,'&lt;')+'»?</h3><p>Такой файл уже есть в этой папке. Прежний отложится в папку «_версии» рядом.</p>',
+    [['Заменить', ()=>{ catsWrite(doc, path, ex.mtime); }, true], ['Отмена', null]]);
+  else catsWrite(doc, path, -1);
+}
+async function catsWrite(D, path, base, force){ // base: mtime the file had when opened; -1 — new file (must not exist), 0 — no check
+  if (D!==doc) return;
+  busy(true,'Собираю файл…'); await nextFrame(); let blob;
+  try{ blob=await catsBlob(path); }catch(e){ busy(false); console.error(e); toast('Не собралось: '+(e.message||'ошибка'),4000); return; }
+  const r=await catsPut(path, blob, base, force, true);
+  if (r.ok){ catsBind(D, {path, mtime:r.mtime}, catsName(path)); D.catsSaved=Date.now(); toast('Сохранено на ПК: '+catsName(path)+' · '+catsSize(blob.size),2400); return true; }
+  if (r.clash){ const nm=catsName(path);
+    dialog('<h3>Файл на компьютере изменился</h3><p>«'+nm.replace(/</g,'&lt;')+'» поменяли после того, как он был открыт здесь'+(r.mtime?' — '+catsDate(r.mtime):'')+' (в Фотошопе?).</p>',
+      [['Сохранить копией', ()=>{ catsWrite(D, catsCopyName(path), -1); }, true], ['Заменить его этим', ()=>{ catsWrite(D, path, 0, true); }], ['Отмена', null]]); return false; }
+  if (r.offline){ await catsEnqueue({path, base, name:catsName(path), docId:D.id, t:Date.now()}, blob);
+    toast('Компьютер не отвечает — «'+catsName(path)+'» ждёт на айпаде и уйдёт на ПК сам, как только он появится',4200); return false; }
+  toast('Не сохранилось на ПК: '+r.error,4500); return false;
+}
+const catsCopyName=path=>{ const d=new Date(), tag=' (айпад '+String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+'-'+String(d.getMinutes()).padStart(2,'0')+')';
+  return path.replace(/(\.[^./]+)?$/, m=>tag+(m||'.psd')); };
+async function catsPut(path, blob, base, force, loud){
+  if (loud) busy(true,'Отправляю на компьютер · '+catsSize(blob.size)+'…');
+  try{ const r=await catsFetch('/files/put?p='+encodeURIComponent(path)+'&base='+(base>0?Math.round(base):0)+(force||base===0?'&force=1':''), {method:'POST', body:blob, headers:{'Content-Type':'application/octet-stream'}}, Math.max(120000, blob.size/30)); // ≥30 KB/s
+    const j=await r.json().catch(()=>({}));
+    if (r.ok) return {ok:true, mtime:j.mtime};
+    if (r.status===409) return {clash:true, mtime:j.mtime};
+    return {error:j.error||('HTTP '+r.status)}; }
+  catch(e){ return e.message==='offline'||e.message==='nobridge' ? {offline:true} : {error:catsWhy(e)}; }
+  finally{ if (loud) busy(false); } }
+// base -1 for a new file means «must not exist»: the bridge checks only when base>0, so a new name that appeared meanwhile is caught here
+async function catsQueueGet(){ try{ const q=await idbGet(CATS_Q); return Array.isArray(q)?q:[]; }catch(_){ return []; } }
+async function catsEnqueue(item, blob){
+  const q=await catsQueueGet(), old=q.filter(x=>x.path===item.path), keep=q.filter(x=>x.path!==item.path);
+  item.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6); if (old.length) item.base=old[0].base; // the base of the first unsent save — what the PC file was when opened
+  keep.push(item); await idbTx({[CATS_Q]:keep, ['catsQ:'+item.id]:blob}, old.map(x=>'catsQ:'+x.id)); catsMark(keep.length); }
+function catsMark(n){ const m=$('#mCats'); if (m) m.textContent = n ? 'ждут отправки на ПК: '+n : 'рабочая папка компьютера'; }
+let catsBusy=false;
+async function catsFlush(){
+  if (catsBusy) return; const q=await catsQueueGet(); catsMark(q.length); if (!q.length) return; catsBusy=true;
+  try{ for (const it of q){ const blob=await idbGet('catsQ:'+it.id).catch(()=>null);
+      let r = blob ? await catsPut(it.path, blob, it.base, false, false) : {ok:true};
+      let path=it.path;
+      if (r.offline) break;
+      if (r.clash){ path=catsCopyName(it.path); r=await catsPut(path, blob, -1, false, false); if (r.ok) toast('«'+it.name+'» на ПК успели поменять — отправила рядом копией: '+catsName(path),5000); }
+      if (r.ok || r.error){ const rest=(await catsQueueGet()).filter(x=>x.id!==it.id); await idbTx({[CATS_Q]:rest}, ['catsQ:'+it.id]); catsMark(rest.length);
+        const D=TABS.list.map(t=>t.doc).find(x=>x && x.id===it.docId); if (r.ok && D) catsBind(D, {path, mtime:r.mtime}, catsName(path));
+        if (r.error) toast('Не отправилось на ПК «'+it.name+'»: '+r.error,5000); else if (path===it.path) toast('Отправлено на ПК: '+it.name,2200); } } }
+  finally{ catsBusy=false; } }
+setTimeout(catsFlush, 4000); setInterval(()=>{ if (document.visibilityState==='visible') catsFlush(); }, 30000);
+document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible') setTimeout(catsFlush, 1500); }); window.addEventListener('online', ()=>setTimeout(catsFlush, 2000));
 document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops(); const m=b.dataset.m;
   if (m==='noop') return;
   if (acctNeedsLogin() && !['help','store','penpick','finger','look','hovercross'].includes(m)){ toast('Сначала войди'); return; }
@@ -7714,6 +7857,7 @@ document.querySelectorAll('#menu [data-m]').forEach(b=>b.onclick=()=>{ closePops
   if(m==='backup') exportBackup(); else if(m==='restore') $('#fBackup').click(); else if(m==='lib') openLibrary(); else if(m==='new') newDocDialog(); else if(m==='open') openDialog(); else if(m==='place') $('#fPlace').click(); else if(m==='save') saveAsDesk(true); else if(m==='saveas') saveAsDesk(false); else if(m==='crop') cropOpen(); else if(m==='isize') imageSizeDialog(); else if(m==='csize') canvasSizeDialog();
   else if(m==='look') appearanceDialog();
   else if(m==='deliver') deliverDialog();
+  else if(m==='cats') catsDialog('open'); else if(m==='catssave') catsDialog('save');
   else if(m==='hovercross') hoverCrossToggle(); else if(m==='help') showHelp(); else if(m==='store') storeReport(); else if(m==='penpick'){ S.penHoldPick=!S.penHoldPick; $('#mPenPick').textContent=S.penHoldPick?'вкл':'выкл'; savePrefs(); toast(S.penHoldPick?'Задержи карандаш на месте ~0.5 с — появится пипетка':'Пипетка карандашом выключена; палец по-прежнему берёт цвет удержанием'); } else if(m==='finger'){ S.fingerDraw=!S.fingerDraw; $('#mFinger').textContent=S.fingerDraw?'вкл':'выкл'; savePrefs(); toast(S.fingerDraw?'Палец рисует. Двигать холст — двумя пальцами':'Палец двигает холст, рисует только карандаш'); }
   else exportImg(m);
 });
@@ -8530,7 +8674,7 @@ function smartConvert(){
 }
 function smartRasterize(L){ L=L||AL(); if (!doc || !L || !L.smart) return; const e=smartFlag(L,null); e.label='Растрировать'; pushHist(e); layersChanged(); markDirty(); toast('«'+L.name+'» растрирован — теперь обычный слой',1600); }
 async function smartPicture(f){ // a file → canvas (PSD — its composite)
-  if (/\.psb?$/i.test(f.name)){ if (!window.agPsd) throw new Error('psd'); const p=agPsd.readPsd(await f.arrayBuffer(),{skipLayerImageData:true,skipThumbnail:true}); if (!p.canvas) throw new Error('psd'); return p.canvas; }
+  if (/\.ps[db]$/i.test(f.name)){ if (!window.agPsd) throw new Error('psd'); const p=agPsd.readPsd(await f.arrayBuffer(),{skipLayerImageData:true,skipThumbnail:true}); if (!p.canvas) throw new Error('psd'); return p.canvas; }
   const im=await loadImage(f), c=mk(im.naturalWidth,im.naturalHeight); ctx2(c).drawImage(im,0,0); return c; }
 function smartReplace(){
   const L=AL(); if (!doc || !L || !L.smart){ toast('Выбери смарт-объект'); return; } if (panelBusy()) return;
@@ -9311,7 +9455,7 @@ document.addEventListener('keydown', e=>{
     if (L==='g') return go(()=>{ if (!need()) return; if (e.altKey) toggleClip(); else if (e.shiftKey) ungroup(); else makeGroup(); });
     if (L==='j') return go(()=>{ if (!need()) return; if (e.shiftKey){ if (sel) selCutToLayer(); else toast('Сначала выдели, что вырезать'); } else sel ? selCopyToLayer() : dupLayer(); });
     if (L==='s' && e.altKey && e.shiftKey) return go(()=>deliverDialog());
-    if (L==='s') return go(()=>{ if (IS_DESK && window.showSaveFilePicker && !nativeApp) return saveAsDesk(!e.shiftKey); saveFile.again=!e.shiftKey; exportImg('psd').finally(()=>{ saveFile.again=false; }); });
+    if (L==='s') return go(()=>{ if (doc && doc.pc && !e.shiftKey && !doc.fileHandle) return catsSave(); if (IS_DESK && window.showSaveFilePicker && !nativeApp) return saveAsDesk(!e.shiftKey); saveFile.again=!e.shiftKey; exportImg('psd').finally(()=>{ saveFile.again=false; }); });
     if (L==='t') return go(()=>setTool('transform'));
     if (L==='c' && e.altKey) return go(()=>canvasSizeDialog());
     if (L==='c') return go(()=>copySel(e.shiftKey));
@@ -9538,7 +9682,7 @@ async function autosave(force, D0){
         if (L.mask){ keys.push('m'+L.id); if (need) put[P+'m'+L.id]=await toBlobBg(L.mask.canvas,'image/png'); }
       }catch(e){ throw e; }
     }
-    put[P+'meta']={ refs:(D.refs||[]).map(r=>({k:r.k, name:r.name, w:r.w, h:r.h, crop:r.crop||undefined})), file:D.fileName||null, owner:D.owner||acctId(), w:D.w, h:D.h, dpi:D.dpi||72, notes:D.notes||null, notesHide:!!D.notesHide, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,smart:L.smart?{M:L.smart.M.slice(),w:L.smart.src.width,h:L.smart.src.height}:undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
+    put[P+'meta']={ refs:(D.refs||[]).map(r=>({k:r.k, name:r.name, w:r.w, h:r.h, crop:r.crop||undefined})), file:D.fileName||null, pc:D.pc||null, owner:D.owner||acctId(), w:D.w, h:D.h, dpi:D.dpi||72, notes:D.notes||null, notesHide:!!D.notesHide, name:D.name, active:D.active, uid, keys, layers:D.layers.map(L=>({id:L.id,kind:L.kind||'layer',name:L.name,visible:L.visible,opacity:L.opacity,blend:L.blend,collapsed:!!L.collapsed,parent:L.parent?L.parent.id:null,adj:L.adj||undefined,clip:L.clip||undefined,smart:L.smart?{M:L.smart.M.slice(),w:L.smart.src.width,h:L.smart.src.height}:undefined,mask:L.mask?{enabled:L.mask.enabled}:null})), t:Date.now() };
     try{ const k=Math.min(1,360/Math.max(D.w,D.h)), cur=doc; let th; doc=D; try{ th=flatten(k,true); } finally{ doc=cur; } put[P+'thumb']=await toBlob(th,'image/jpeg',0.8); }catch(_){}
     const lib=await libGet(), e={id:D.id, name:D.name, file:D.fileName||null, w:D.w, h:D.h, t:Date.now(), n:D.layers.filter(x=>!isGroup(x)).length, owner:D.owner||acctId(), dev:DEVICE_ID}, i=lib.findIndex(x=>x.id===D.id);
     if (i>=0) lib[i]=e; else lib.unshift(e);
@@ -9559,7 +9703,7 @@ async function restore(id){
     const P=PFX(id), m=await idbGet(P+'meta'); if(!m||!m.layers||!m.layers.length) return false;
     busy(true,'Открываю «'+(m.name||'документ')+'»…'); await nextFrame();
     resetDocState(); doc=null;
-    const D={id, refs:(m.refs||[]).map(r=>Object.assign({}, r, {c:null})), fileName:m.file||null, owner:m.owner||'local', keys:m.keys||[], w:m.w,h:m.h,dpi:m.dpi||72,notes:m.notes||null,notesHide:!!m.notesHide,name:m.name,layers:[],active:0,editMask:false}; doc=D;
+    const D={id, refs:(m.refs||[]).map(r=>Object.assign({}, r, {c:null})), fileName:m.file||null, pc:m.pc||null, owner:m.owner||'local', keys:m.keys||[], w:m.w,h:m.h,dpi:m.dpi||72,notes:m.notes||null,notesHide:!!m.notesHide,name:m.name,layers:[],active:0,editMask:false}; doc=D;
     const byId=new Map();
     for (const l of m.layers){
       if (l.kind==='group'){ const G=newGroup(l.name); G.id=l.id; Object.assign(G,{visible:l.visible,opacity:l.opacity,blend:l.blend,collapsed:l.collapsed}); G.__p=l.parent; byId.set(G.id,G);
@@ -9712,7 +9856,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-15 · №131 айпад: Сдать кат архивом для Телеграма'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-15 · №132 Каты на ПК: рабочая папка компьютера через мост'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

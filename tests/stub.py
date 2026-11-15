@@ -11,6 +11,7 @@
   GET  /api/v1/models            — пара моделей с картинками на выходе
   GET  /api/v1/key               — ключ «or-good» годится, остальные — 401
   /k/test/…                      — мост ПК: ping, промпт плагина SD (/proyavka/sdpreset), Automatic1111 img2img и progress (№112)
+  /k/test/files/…                — «Каты на ПК» (№132): настоящий код моста над временной папкой; POST /_catsedit — «правка в Фотошопе»
   GET  /_log                     — что приходило (модель, пропорция, число картинок) — для проверок в тестах
   POST /_reset                   — очистить журнал
 """
@@ -19,6 +20,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from PIL import Image
 
 LOG, LOCK = [], threading.Lock()
+import importlib.util, os, tempfile, urllib.parse
+_spec = importlib.util.spec_from_file_location('bridge', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'pc-bridge', 'bridge.py'))
+BRIDGE = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(BRIDGE)
+BRIDGE.HERE = tempfile.mkdtemp(prefix='pv-cats-'); open(os.path.join(BRIDGE.HERE, 'cats-folder.txt'), 'w').write(os.path.join(BRIDGE.HERE, 'Каты'))
+CATS = {'down': False}
 SD = {'down': False}   # №115: «Automatic1111 не запущен», пока тест не попросит запуск
 
 def png_b64(img):
@@ -62,11 +68,31 @@ class H(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self): self._send(204, {})
 
+    def _files(self):   # the bridge's own «Каты на ПК» functions over a temp folder
+        u = urllib.parse.urlsplit(self.path); q = urllib.parse.parse_qs(u.query); rel = (q.get('p') or [''])[0]; act = u.path[len('/k/test'):]
+        n = int(self.headers.get('Content-Length') or 0); body = self.rfile.read(n) if n else b''
+        if CATS['down']: self.close_connection = True; return self.connection.shutdown(2)
+        try:
+            if act == '/files/list': return self._send(200, BRIDGE.cats_list(rel))
+            if act == '/files/get':
+                _, f = BRIDGE.cats_path(rel); data = open(f, 'rb').read()
+                self.send_response(200); self.send_header('Content-Type', 'application/octet-stream'); self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Expose-Headers', 'X-Mtime'); self.send_header('X-Mtime', str(BRIDGE._mt(f))); self.send_header('Content-Length', str(len(data)))
+                self.end_headers(); self.wfile.write(data); return
+            if act == '/files/put':
+                code, o = BRIDGE.cats_put(rel, body, int((q.get('base') or ['0'])[0] or 0), (q.get('force') or ['0'])[0] == '1'); return self._send(code, o)
+            if act == '/files/mkdir':
+                _, d = BRIDGE.cats_path(rel); os.makedirs(d, exist_ok=True); return self._send(200, {'ok': True})
+        except FileNotFoundError as e: return self._send(404, {'error': str(e)})
+        except ValueError as e: return self._send(400, {'error': str(e)})
+        self._send(404, {'error': 'нет такой команды'})
+
     def _auth(self):
         return 'or-good' in (self.headers.get('Authorization') or '')
 
     def do_GET(self):
         p = self.path.split('?')[0]
+        if p.startswith('/k/test/files/'): return self._files()
         if p == '/_log':
             with LOCK: return self._send(200, LOG)
         if p == '/k/test/bridge/ping': return self._send(200, {'ok': True, 'host': 'stub', 'ml': False})
@@ -83,6 +109,11 @@ class H(BaseHTTPRequestHandler):
         self._send(404, {'error': {'message': 'not found'}})
 
     def do_POST(self):
+        if self.path.startswith('/k/test/files/'): return self._files()
+        if self.path.startswith('/_catsdown'): CATS['down'] = self.path.endswith('1'); return self._send(200, {'ok': True})
+        if self.path.startswith('/_catsedit'):   # «the file was changed on the PC»
+            rel = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)['p'][0]; _, f = BRIDGE.cats_path(rel)
+            import time as _t; _t.sleep(0.01); os.utime(f, None); return self._send(200, {'mtime': BRIDGE._mt(f)})
         n = int(self.headers.get('Content-Length') or 0)
         try:
             body = json.loads(self.rfile.read(n) or b'{}')

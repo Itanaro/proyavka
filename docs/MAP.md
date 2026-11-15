@@ -113,6 +113,10 @@ python3 tools/map.py градиент     # русское название са
 - `files` — `openPsd`, `placeFile`, `flatten`, фоновое кодирование PNG.
 - `the PC speaks PC` — `deskText` + `DESK_PHRASES` / `DESK_WORDS` (тексты ПК-версии);
   `saveAsDesk`, `exportImg`, **`psdBuffer`** (вся запись PSD).
+- №132 «Каты на ПК» (после `deliverGo`) — рабочая папка компьютера через мост `/files/list|get|put|mkdir`:
+  `catsDialog` (открыть / сохранить), `catsOpenFile`, `catsSave` / `catsWrite` / `catsPut`, у документа `doc.pc = {path, mtime}`
+  (хранится в автосохранении). Нет связи — очередь `catsQueue` в IndexedDB, `catsFlush` раз в 30 с. Мост: `cats_root` / `cats_put`
+  (прежняя версия — в `_версии`, 5 штук; путь только внутри папки). Тест-заглушка гоняет настоящий код моста.
 - `№116 цветовой профиль` — `SRGB_ICC_B64` / `srgbIcc`, `iccParse`, `iccConvertCanvas`, `iccOnOpen` (окно при открытии PSD), `blobSrgb` (профиль в PNG/JPEG). В `vendor/ag-psd.js` своя правка: ресурс 1039 → `iccProfile`.
 - `№107 «Сдать кат»` — `deliverChecks`, `deliverGo`.
 - `№89` — файл документа (`docBindFile`, `fileHandle`, с №127 `layerBlank` / `docLayered`), безопасная зона, линейки, «Реф с позы».
