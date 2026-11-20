@@ -197,6 +197,32 @@ const steps = [
       await page.evaluate(() => aip && aiDone());
   }},
 
+  { name: 'Генеративная заливка: менюшка под выделением, пусто → «убрать», слова → K3 Edit, по одному варианту', run: async page => {
+      await page.request.post(STUB + '/_reset');
+      await page.evaluate(() => { doc.active = 0; layersChanged(); setTool('rect'); });
+      await penDrag(page, [[400, 500], [800, 900]]);
+      const bar = await page.evaluate(() => { const el = document.getElementById('selbar'), r = el.getBoundingClientRect(), b = selBBox(), [, y1] = toScr(b.x + b.w, b.y + b.h);
+        return { vis: !el.hidden, at: el.classList.contains('at'), top: r.top - document.getElementById('stage').getBoundingClientRect().top, y1, n: el.querySelectorAll('button').length, w: r.width }; });
+      check(bar.vis && bar.at, 'менюшка выделения не появилась под выделением');
+      check(bar.top > bar.y1 - 2 || bar.top < bar.y1, 'менюшка не привязана к выделению');
+      check(bar.n === 6, 'в менюшке должно быть 6 кнопок, а их ' + bar.n);
+      await page.evaluate(() => document.querySelector('#selbar [data-sel=more]').click());
+      check(await page.evaluate(() => !document.getElementById('lyCtx').hidden && /Умная заливка/.test(document.getElementById('lyCtx').textContent)), '«⋯» не открыл остальные действия');
+      await page.evaluate(() => { document.getElementById('lyCtx').hidden = true; document.querySelector('#selbar [data-sel=gen]').click(); });
+      check(await page.evaluate(() => !!document.getElementById('genPrompt') && document.getElementById('genbar').classList.contains('at') && document.getElementById('selbar').hidden), 'поле заливки не встало в менюшку');
+      await page.evaluate(() => genGo());
+      await until(page, () => gen && !gen.busy && gen.variants.length === 1, null, 20000, 'первый вариант');
+      await page.evaluate(() => { gen.editing = true; gen.prompt = 'чашка кофе'; genGo(); });
+      await until(page, () => gen && !gen.busy && gen.variants.length === 2, null, 20000, 'второй вариант');
+      const log = (await (await page.request.get(STUB + '/_log')).json()).filter(x => x.kind === 'image');
+      check(log.length === 2, 'на два нажатия должно уйти 2 запроса, а ушло ' + log.length);
+      check(log[0].model === 'google/gemini-nano-banana-2.1' && log[1].model === 'krea/k3-edit', 'модели не те: ' + log.map(x => x.model).join(', '));
+      check(await page.evaluate(() => /2 \/ 2/.test(document.getElementById('genbar').textContent)), 'счётчик вариантов не «2 / 2»');
+      await page.evaluate(() => genDone());
+      check(await page.evaluate(() => !!AL().mask && /Генерация/.test(AL().name)), 'слой заливки с маской не остался');
+      await page.evaluate(() => deselect());
+  }},
+
   { name: 'ИИ на заглушке: Арт-директор → заметки', run: async page => {
       await page.evaluate(() => artDirector());
       await page.evaluate(() => critRun());

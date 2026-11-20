@@ -541,6 +541,16 @@ body:not(.showhints) #stage .fbar .gh:not(.keep){display:none}
 #stage .fbar{left:calc(50% + 50px);max-width:calc(100% - 124px)}
 #stage.lyopen .fbar{left:calc(50% - 103px);max-width:calc(100% - 430px)}
 .fgrp{display:flex;align-items:center;gap:2px;flex-wrap:nowrap}
+/* №133 context bar under the selection, like Photoshop's */
+.fbar.ctx{flex-wrap:nowrap;max-width:none;padding:4px;gap:2px;border-radius:14px}
+.fbar.ctx.at{bottom:auto!important;transform:none!important;animation:none!important}
+#genbar.ctx{flex-direction:row;align-items:center;width:max-content!important;max-width:calc(100% - 20px)!important;padding:4px!important;gap:2px!important}
+.fbar.ctx button{height:34px;padding:0 10px;font-size:12.5px;border-radius:10px}
+.fbar.ctx button.ib{width:34px;padding:0;font-size:16px}
+.fbar.ctx input{height:34px;width:min(300px,44vw);border-radius:10px;border:1px solid var(--line);background:var(--field);padding:0 10px;color:var(--fg);font-size:14px;margin:0 2px}
+.fbar.ctx .cnt{font-size:12.5px;color:var(--muted);padding:0 2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fbar.ctx .busy{font-size:12.5px;color:var(--muted);padding:0 10px;white-space:nowrap;animation:pvPulse 1.2s ease-in-out infinite}
+@keyframes pvPulse{50%{opacity:.45}}
 
 #gsOr input,#gsFal input,#gsComfy input{flex:1;min-width:0;height:36px;border-radius:12px;border:1px solid var(--line);background:var(--field);padding:0 12px;color:var(--fg);font:inherit}
 
@@ -933,11 +943,8 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <canvas id="ovl"></canvas>
     <div id="status"><span id="zoomBadge">100%</span><span id="docInfo"></span><span id="memInfo"></span><span id="safeChip" title="Безопасная зона: 900 px из 1500 рабочей ширины ката, по центру — показать / спрятать (отдельный слой сверху)">▯ 900</span></div>
     <div id="tabs" hidden></div>
-    <div class="fbar" id="selbar" hidden>
-      <span class="fgrp"><button data-sel="invert">Инверсия</button><button data-sel="edge">Край…</button></span>
-      <span class="fgrp"><span class="fsep"></span><button data-sel="copy">На слой</button><button data-sel="mask">В маску</button><button data-sel="fill">Залить</button><button data-sel="delete">Удалить</button></span>
-      <span class="fgrp"><span class="fsep"></span><button data-sel="fill2" title="Заливка с учётом содержимого">Умная заливка</button><button data-sel="ai" class="ai" title="Убрать нейросетью">✦ Убрать</button><button data-sel="lift" class="ai" title="Поднять объект на свой слой, дорисовать фон за ним и двигать">✦ Сдвинуть</button></span>
-      <span class="fgrp"><button data-sel="gen" class="ai" title="Генеративная заливка">✦ Генерация</button><button data-sel="sketch" class="ai" title="Отрисовать набросок в выделении">✦ Отрисовать</button><button data-sel="sd" class="ai" title="SD Inpaint на своём компьютере (Automatic1111)">✦ SD</button><button data-sel="transform" class="pri">Трансформ</button></span>
+    <div class="fbar ctx" id="selbar" hidden>
+      <button data-sel="gen" class="ai" title="Генеративная заливка: пусто — убрать, слова — вписать новое">✦ Генеративная заливка</button><button data-sel="ai" class="ai" title="Убрать нейросетью">✦ Убрать</button><span class="fsep"></span><button data-sel="edge">Край…</button><button data-sel="invert">Инверсия</button><button data-sel="mask">В маску</button><span class="fsep"></span><button data-sel="more" class="ib" title="Ещё" aria-label="Ещё">⋯</button>
     </div>
     <div class="fbar" id="edgebar" hidden>
       <div class="eh">Край выделения <span>красным — то, что не выделено</span></div>
@@ -1503,7 +1510,7 @@ function renderStrokePart(){
   renderOverlay(); return true;
 }
 function render(){
-  needRender=false; if(!doc) return;
+  needRender=false; if(!doc) return; if (!$('#selbar').hidden || !$('#genbar').hidden) placeCtxBars();
   if ((stroke||liqStroke) && !fullPending && renderStrokePart()) return;
   fullPending=false;
   const W=vc.width, H=vc.height;
@@ -2246,7 +2253,29 @@ function selToMask(){
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
 }
-function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep) || !!(typeof filt!=='undefined' && filt) || !!(typeof gen!=='undefined' && gen) || !!(typeof lift!=='undefined' && lift && lift.open) || !!(typeof aip!=='undefined' && aip) || !!(typeof pup!=='undefined' && pup); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); syncSelModes(); }
+function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep) || !!(typeof filt!=='undefined' && filt) || !!(typeof gen!=='undefined' && gen) || !!(typeof lift!=='undefined' && lift && lift.open) || !!(typeof aip!=='undefined' && aip) || !!(typeof pup!=='undefined' && pup); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); requestAnimationFrame(placeCtxBars); syncSelModes(); }
+/* №133 the selection bar and the fill bar hang under the selection (Photoshop's contextual task bar); «⋯ → Закрепить внизу» puts them back to the bottom */
+const ctxPinned=()=>lsGet('proyavka.ctxPin')==='1';
+function placeCtxBars(){ for (const id of ['selbar','genbar']){ const el=$('#'+id); if (el && !el.hidden && el.classList.contains('ctx')) placeCtx(el); } }
+function placeCtx(el){
+  const box = el.id==='genbar' && gen && gen.box ? gen.box : (sel ? selBBox() : null);
+  if (!doc || !box || ctxPinned()){ el.classList.remove('at'); el.style.left=el.style.top=''; return; }
+  const F=viewFree(), M=10, pts=[[box.x,box.y],[box.x+box.w,box.y],[box.x,box.y+box.h],[box.x+box.w,box.y+box.h]].map(p=>toScr(p[0],p[1]));
+  const xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]), x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
+  const w=el.offsetWidth, h=el.offsetHeight, top0=F.T+M, bot=F.T+F.H-M;
+  let top=y1+14; if (top+h>bot){ top=y0-14-h; if (top<top0) top=bot-h; } // below → above → over the bottom of the selection
+  const left=Math.max(F.L+M, Math.min(F.L+F.W-w-M, (x0+x1)/2-w/2));
+  el.classList.add('at'); el.style.left=Math.round(left)+'px'; el.style.top=Math.round(Math.max(top0,top))+'px';
+}
+function selMore(x, y){
+  const m=$('#lyCtx'); m.textContent=''; const head=document.createElement('div'); head.className='aih'; head.textContent='Выделение'; m.append(head);
+  const B=(t,k,fn,cls)=>{ const b=document.createElement('button'); b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=t; b.lastChild.textContent=k||''; if (cls) b.className=cls; b.onclick=()=>{ m.hidden=true; fn(); }; m.append(b); };
+  B('На слой','',selCopyToLayer); B('Залить…','',selFill); B('Удалить','Delete',selDelete); B('Умная заливка','',contentAwareFill);
+  B('✦ Сдвинуть объект','',objLift); B('✦ Отрисовать набросок','',sketchRender); B('✦ SD Inpaint','свой ПК',()=>genOpen('sd'));
+  B('Трансформ','Ctrl+T',()=>setTool('transform')); B('Снять выделение','Ctrl+D',()=>deselect());
+  B(ctxPinned() ? 'Менюшку — под выделение' : 'Менюшку — закрепить внизу','',()=>{ lsSet('proyavka.ctxPin', ctxPinned()?'0':'1'); placeCtxBars(); });
+  closePops('lyCtx'); m.hidden=false; const r=m.getBoundingClientRect(); m.style.left=Math.max(8,Math.min(x-r.width/2, innerWidth-r.width-8))+'px'; m.style.top=(y+r.height+8>innerHeight ? Math.max(8,y-r.height-48) : y)+'px';
+}
 function quickDeselect(){ if(!sel) return; deselect(); toast('Выделение снято · вернуть — тап двумя пальцами',1500); }
 function syncSelModes(){ document.querySelectorAll('#selModes button').forEach(b=>b.classList.toggle('on', b.dataset.mode===S.selMode)); }
 function setSelMode(k){ S.selMode=k; updateCursor(); if(S.tool!=='lasso'&&S.tool!=='rect') setTool('lasso'); renderOpts(); syncSelModes();
@@ -3293,7 +3322,7 @@ function liqReset(){ // the whole session back to how the layer was
 /* ============ generative fill, like Firefly: selection → (optional words) → 3 variants that fit light and colour ============
    The picture around the selection (with generous context) and the selection as a mask go to an inpainting model on the
    PC (ComfyUI + FLUX.1 Fill). Only the selected area comes back: a new layer with the selection as its mask. */
-const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-nano-banana-2.1', orRes:'1K', orBase:'https://openrouter.ai', orVision:'google/gemini-2.5-flash', critDeep:false, sdUrl:'', sdPrompt:'', sdNeg:'(worst quality:2), (low quality:2), lowres, watermark, signature, blurry', sdDenoise:0.05, sdSteps:60, sdCfg:7, sdSampler:'Euler a', sdModel:'', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', ggModel:'gemini-nano-banana-2.1', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
+const GEN_DEF={ provider:'or', orKey:'', orModel:'google/gemini-nano-banana-2.1', orFillModel:'krea/k3-edit', orEraseModel:'google/gemini-nano-banana-2.1', orRes:'1K', orBase:'https://openrouter.ai', orVision:'google/gemini-2.5-flash', critDeep:false, sdUrl:'', sdPrompt:'', sdNeg:'(worst quality:2), (low quality:2), lowres, watermark, signature, blurry', sdDenoise:0.05, sdSteps:60, sdCfg:7, sdSampler:'Euler a', sdModel:'', falKey:'', falBase:'https://queue.fal.run', falModel:'fal-ai/flux-pro/v1/fill', gemKey:'', gemModel:'gemini-2.5-flash', ggModel:'gemini-nano-banana-2.1', gemBase:'https://generativelanguage.googleapis.com', url:'', unet:'flux1-fill-dev.safetensors', dtype:'fp8_e4m3fn', clipL:'clip_l.safetensors', t5:'t5xxl_fp8_e4m3fn.safetensors', vae:'ae.safetensors', steps:24, guidance:30 };
 let genCfg=Object.assign({}, GEN_DEF); try{ Object.assign(genCfg, JSON.parse(localStorage.getItem('proyavka.gen')||'{}')); }catch(e){}
 if (genCfg.provider==='comfy') genCfg.provider='or';
 if (!genCfg.sdV2){ genCfg.sdDenoise=0.05; genCfg.sdV2=1; }
@@ -3324,7 +3353,9 @@ async function orFill(P, words, n){
   const ask = words
     ? 'Edit this image. Inside the solid magenta area only, paint: '+words+'. It must fit the scene: same lighting direction and colour temperature, perspective, scale, grain, sharpness and depth of field. Do not change anything outside the magenta area. No magenta may remain.'
     : 'Edit this image. Remove the solid magenta area and fill it with a seamless, natural continuation of the surrounding background: same textures, lighting, perspective, grain and depth of field, nothing new added. Do not change anything outside the magenta area. No magenta may remain.';
-  return orRequest(P.img, ask, n, {mask:P.mask, magenta:true});
+  // №133 generative fill has its own two models: with words — «fit in» (K3 Edit by default), empty — «remove»
+  const model = edProv()==='or' ? (words ? genCfg.orFillModel : genCfg.orEraseModel) || genCfg.orModel : undefined;
+  return orRequest(P.img, ask, n, {mask:P.mask, magenta:true, model});
 }
 async function cloudFill(P, words, fluxPrompt, n){ return genCfg.provider==='fal' ? falFill(P, fluxPrompt, n) : orFill(P, words, n); }
 async function orPing(){
@@ -3476,10 +3507,13 @@ function genOpen(backend){
   if (!doc || !sel){ toast('Сначала выдели область'); return; } if (xf||filt||harm||dep||(typeof aip!=='undefined'&&aip)){ toast('Сначала закрой открытую панель'); return; }
   gen={ prompt:'', str:1, variants:[], idx:-1, layer:null, backend: backend==='sd' ? 'sd' : 'cloud' };
   if (gen.backend==='sd') Object.assign(gen, { prompt:genCfg.sdPrompt, neg:genCfg.sdNeg, str:genCfg.sdDenoise, steps:genCfg.sdSteps, model:genCfg.sdModel });
-  genBuild(); $('#genbar').hidden=false; updateSelBar();
+  const gb=$('#genbar'); gb.classList.toggle('ctx', gen.backend!=='sd'); gb.classList.remove('at'); gb.style.left=gb.style.top='';
+  if (gen.backend!=='sd'){ gen.box=selBBox(); gen.editing=true; }
+  genBuild(); gb.hidden=false; updateSelBar(); placeCtxBars();
+  if (gen.backend!=='sd' && IS_DESK) setTimeout(()=>{ const i=$('#genPrompt'); if (i) i.focus(); }, 30);
 }
 function genBuild(){
-  const g=gen, box=$('#genbar'); if(!g) return; if (g.backend==='sd') return sdBuild(); box.textContent='';
+  const g=gen, box=$('#genbar'); if(!g) return; if (g.backend==='sd') return sdBuild(); return genBuildCtx();
   const head=document.createElement('div'); head.className='eh'; head.innerHTML='✦ Генеративная заливка <span></span>';
   head.lastChild.textContent = !genReady() ? (genCloud() ? 'нужен ключ '+PROV_NAME[genCfg.provider]+' — кнопка ⚙' : 'нужен адрес компьютера — кнопка ⚙') : g.busy ? g.busy : g.variants.length ? 'выбери вариант или попроси ещё' : 'пусто — заполнит по смыслу; или пара слов: «розы на переднем плане»'; box.append(head);
   const pr=document.createElement('div'); pr.className='er'; pr.innerHTML='<label>Что там</label><input type="text" id="genPrompt" autocomplete="off" spellcheck="false" placeholder="можно оставить пустым"><span></span>';
@@ -3503,6 +3537,39 @@ function genBuild(){
     if (g.variants.length){ const ok=document.createElement('button'); ok.className='pri'; ok.textContent='✓ Оставить слой'; ok.onclick=genDone; foot.append(ok); } }
   box.append(foot);
 }
+/* №133 the fill bar itself: prompt → (working) → variants ‹ 1/2 › ↻ ✎ ✓ ✕ — one row under the selection */
+function genBuildCtx(){
+  const g=gen, box=$('#genbar'); box.textContent='';
+  const B=(t,fn,cls,title)=>{ const b=document.createElement('button'); b.textContent=t; if (cls) b.className=cls; if (title) b.title=title; b.onclick=fn; box.append(b); return b; };
+  const T=(t,cls)=>{ const s=document.createElement('span'); s.className=cls; s.textContent=t; box.append(s); return s; };
+  const sep=()=>T('','fsep'), n=g.variants.length;
+  const go=()=>{ g.editing=false; genGo(); };
+  if (!genReady()){ T('нужен ключ '+(PROV_NAME[genCfg.provider]||'OpenRouter'),'cnt'); B('⚙ Настройки',genSettings); B('✕',genCancel,'ib','Отмена'); }
+  else if (g.busy){ T(g.busy,'busy'); B('Остановить',()=>{ g.cancelled=true; if (g.abort) g.abort.abort(); }); }
+  else if (n && !g.editing){
+    B('‹',()=>genPick((g.idx-1+n)%n),'ib','Предыдущий вариант'); T((g.idx+1)+' / '+n,'cnt'); B('›',()=>genPick((g.idx+1)%n),'ib','Следующий вариант'); sep();
+    B('↻ Ещё',go,'','Ещё один вариант с тем же промптом'); B('✎',()=>{ g.editing=true; genBuild(); const i=$('#genPrompt'); if (i){ i.focus(); i.select(); } },'ib','Изменить промпт'); sep();
+    B('✓',genDone,'ib pri','Оставить слой'); B('✕',genCancel,'ib','Отмена'); B('⋯',e=>genMore(e.currentTarget),'ib','Модели и настройки');
+  } else {
+    B('←',()=>{ if (n){ g.editing=false; genBuild(); } else genCancel(); },'ib', n ? 'К вариантам' : 'Назад');
+    const inp=document.createElement('input'); inp.type='text'; inp.id='genPrompt'; inp.autocomplete='off'; inp.spellcheck=false; inp.value=g.prompt;
+    inp.placeholder='Пусто — убрать, или что вписать';
+    inp.oninput=()=>{ g.prompt=inp.value; };
+    inp.onkeydown=e=>{ e.stopPropagation(); if (e.key==='Enter'){ e.preventDefault(); inp.blur(); go(); } else if (e.key==='Escape'){ e.preventDefault(); inp.blur(); if (n){ g.editing=false; genBuild(); } else genCancel(); } };
+    box.append(inp); B('✦ Создать',go,'pri', 'Пусто — убрать выделенное; слова — вписать новое'); B('⋯',e=>genMore(e.currentTarget),'ib','Модели и настройки');
+  }
+  placeCtxBars();
+}
+function genMore(btn){
+  const m=$('#lyCtx'); m.textContent=''; const nm=id=>String(id||'').split('/').pop();
+  const H=t=>{ const d=document.createElement('div'); d.className='aih'; d.textContent=t; m.append(d); };
+  const or=edProv()==='or';
+  H(or ? 'Вписать: '+nm(genCfg.orFillModel)+' · Убрать: '+nm(genCfg.orEraseModel) : PROV_NAME[genCfg.provider]+' · '+nm(genCfg.provider==='google'?genCfg.ggModel:genCfg.falModel));
+  if (gen && gen.cost) H('Потрачено на эту заливку: $'+gen.cost.toFixed(3));
+  const b=document.createElement('button'); b.innerHTML='<span>Настройки генерации…</span><small>модели, ключ</small>'; b.onclick=()=>{ m.hidden=true; genSettings(); }; m.append(b);
+  closePops('lyCtx'); m.hidden=false; const r=btn.getBoundingClientRect(), mr=m.getBoundingClientRect();
+  m.style.left=Math.max(8,Math.min(r.right-mr.width, innerWidth-mr.width-8))+'px'; m.style.top=(r.bottom+mr.height+8>innerHeight ? Math.max(8,r.top-mr.height-6) : r.bottom+6)+'px';
+}
 function genPrep(){ // crop with context, size for the model (~1 MP, multiples of 16), mask white = to fill
   const b=sel.box&&sel.box.w ? sel.box : selBBox(); if (!b || !b.w) throw new Error('пустое выделение');
   const pad=Math.max(48, Math.round(Math.max(b.w,b.h)*0.4)), r=clipRect(b.x-pad, b.y-pad, b.w+2*pad, b.h+2*pad);
@@ -3517,7 +3584,7 @@ function genPrep(){ // crop with context, size for the model (~1 MP, multiples o
   return {r, W, H, img, mask};
 }
 async function genGo(){
-  const g=gen; if (!g || g.busy) return; if (g.backend==='sd') return sdGo();
+  const g=gen; if (!g || g.busy) return; if (g.backend==='sd') return sdGo(); g.editing=false;
   if (!genReady()){ genSettings(); return; }
   if (!g.prep && !sel){ toast('Выделение пропало — выдели заново'); return; }
   g.cancelled=false;
@@ -3529,10 +3596,10 @@ async function genGo(){
       if (genCfg.provider==='fal' && genCfg.gemKey){ g.busy='смотрю на кадр и пишу подсказку…'; genBuild();
         try{ prompt = g.lastWords===words && g.smart ? g.smart : await gemPrompt(P, words); g.smart=prompt; g.lastWords=words; }catch(e){ if (e.message==='cancel') throw e; console.warn('smart prompt',e); toast('Умная подсказка не вышла ('+e.message+') — иду без неё',2600); } }
       if (!prompt) prompt = words ? genPrompt(words) : 'Seamless natural continuation of the surrounding background, matching texture, lighting, perspective and grain; nothing new in this area.';
-      g.used = genCfg.provider==='fal' ? prompt : null; g.busy='генерирую варианты ('+PROV_NAME[genCfg.provider]+')…'; genBuild();
-      const res=await cloudFill(P, words, prompt, 3); if (res.cost) g.cost=(g.cost||0)+res.cost;
-      res.bitmaps.forEach((bm,i)=>{ const c=mk(P.r.w,P.r.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,P.r.w,P.r.h); bm.close&&bm.close(); g.variants.push(c); if (i===0) genPick(g.variants.length-1, true); });
-      g.busy=null; genBuild(); toast('Готово — выбери вариант'+(g.cost?' · потрачено $'+g.cost.toFixed(2):''),2000); return; }
+      g.used = genCfg.provider==='fal' ? prompt : null; g.busy= words ? 'вписываю…' : 'убираю…'; genBuild();
+      const res=await cloudFill(P, words, prompt, 1); if (res.cost) g.cost=(g.cost||0)+res.cost; g.lastCost=res.cost||0;
+      res.bitmaps.forEach(bm=>{ const c=mk(P.r.w,P.r.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,P.r.w,P.r.h); bm.close&&bm.close(); g.variants.push(c); genPick(g.variants.length-1, true); });
+      g.busy=null; genBuild(); toast('Готово'+(g.lastCost?' · $'+g.lastCost.toFixed(3):'')+(g.variants.length>1?' · вариантов: '+g.variants.length:''),1800); return; }
     g.busy='отправляю картинку на компьютер…'; genBuild();
     const stamp=Date.now().toString(36), imgN=await genUpload(P.img,'proyavka_img_'+stamp+'.png'), maskN=await genUpload(P.mask,'proyavka_mask_'+stamp+'.png');
     const prompt=genPrompt(g.prompt);
@@ -3578,7 +3645,7 @@ async function orRequest(img, ask, n, opt={}){
   // one request per variant: Google (Nano Banana) refuses n>1, and a provider that does not know resolution / output_format gets the request again without them
   const base={model:opt.model||genCfg.orModel, ...(opt.ggModel && edProv()==='google'?{gg_model:opt.ggModel}:{}), prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:opt.res||genCfg.orRes||'1K', output_format:'png', input_references:refs};
   const one=async b=>{ if (edProv()==='google') return ggImage(b); try{ return await (await netFetch(orBaseUrl()+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(b)},180000)).json(); }
-    catch(e){ if (/requested parameter|not support/i.test(e.message) && (b.resolution||b.output_format)){ const c=Object.assign({},b); delete c.resolution; delete c.output_format; return one(c); } throw e; } };
+    catch(e){ if (/requested parameter|not support/i.test(e.message)){ const c=Object.assign({},b); if (c.resolution||c.output_format){ delete c.resolution; delete c.output_format; return one(c); } if (c.aspect_ratio){ delete c.aspect_ratio; return one(c); } } throw e; } };
   const rs=await Promise.allSettled(Array.from({length:Math.max(1,n||1)}, ()=>one(base))), ok=rs.filter(x=>x.status==='fulfilled').map(x=>x.value);
   if (!ok.length) throw rs[0].reason;
   const r={ data:ok.flatMap(x=>x.data||[]), usage:{cost:ok.reduce((a,x)=>a+((x.usage&&x.usage.cost)||0),0)}, error:(ok.find(x=>x.error)||{}).error };
@@ -4139,7 +4206,10 @@ function genSettings(tab){
   const d=dialog(`<h3>Генерация: откуда брать модель</h3><p>Каждый подключает свой аккаунт: ключ хранится только на этом устройстве и никуда, кроме выбранного сервиса, не уходит. OpenRouter — много моделей в одном аккаунте. Google AI Studio — Nano Banana напрямую, те же цены без комиссии OpenRouter. fal.ai — FLUX Fill строго по маске. Свой ПК — SD Inpaint на 4090 через мост.</p>
     <div class="seg" id="gsProv" style="margin:4px 0 10px"><button data-p="or">OpenRouter</button><button data-p="google">Google AI Studio</button><button data-p="fal">fal.ai</button><button data-p="sd">Свой ПК · SD</button></div>
     <div id="gsOr"><div class="row" style="margin:6px 0"><label>Ключ</label><input type="password" id="gsOrKey" autocomplete="off" spellcheck="false" placeholder="openrouter.ai → Keys"></div>
-      <div class="row" style="margin:6px 0"><label>Модель</label><select id="gsOrModel" style="min-width:0;flex:1"></select></div></div>
+      <div class="row" style="margin:6px 0"><label>Модель</label><select id="gsOrModel" style="min-width:0;flex:1"></select></div>
+      <div class="row" style="margin:6px 0"><label>Заливка · вписать</label><select id="gsOrFill" style="min-width:0;flex:1"></select></div>
+      <div class="row" style="margin:6px 0"><label>Заливка · убрать</label><select id="gsOrErase" style="min-width:0;flex:1"></select></div>
+      <p class="gh" style="margin:0 0 4px">Генеративная заливка: со словами — «вписать», пустое поле — «убрать». Остальные инструменты берут «Модель».</p></div>
     <div id="gsGg"><div class="row" style="margin:6px 0"><label>Ключ</label><input type="password" id="gsGgKey" autocomplete="off" spellcheck="false" placeholder="aistudio.google.com → Get API key"></div>
       <div class="row" style="margin:6px 0"><label>Модель</label><select id="gsGgModel" style="min-width:0;flex:1"></select></div>
       <p class="gh" style="margin:0 0 4px">Для картинок у ключа должен быть включён платный уровень (Billing в AI Studio). Из России — через VPN. Тот же ключ даёт арт-директора и умную подсказку для fal.ai.</p></div>
@@ -4158,13 +4228,13 @@ function genSettings(tab){
     <p id="gsState" class="kbd" style="margin:10px 0 0;min-height:18px"></p>`,
     [['Проверить', d=>{ read(d); genSave(); const s=d.querySelector('#gsState'); s.textContent='проверяю…';
         const p=view==='sd' ? sdPing()
-          : view==='or' ? orPing().then(async t=>{ try{ fillModels(sel_, await orModels(), PRESET, NB21, genCfg.orModel); }catch(e){} return t+' · моделей с картинками: '+sel_.options.length; })
+          : view==='or' ? orPing().then(async t=>{ try{ const L=await orModels(); fillModels(sel_, L, PRESET, NB21, genCfg.orModel); fillModels(selF, L, PRESET, 'krea/k3-edit', genCfg.orFillModel); fillModels(selE, L, PRESET, NB21, genCfg.orEraseModel); }catch(e){} return t+' · моделей с картинками: '+sel_.options.length; })
           : view==='google' ? ggPing().then(t=>{ if (ggModelsCache && ggModelsCache.length) fillModels(selG, ggModelsCache, GPRESET, GG_NB21, genCfg.ggModel); return t+' · моделей с картинками: '+selG.options.length; })
           : view==='fal' ? falPing() : genPing();
         p.then(t=>{ s.textContent='✓ '+t; }).catch(e=>{ s.textContent='✕ '+e.message; }); return false; }],
      ['Сохранить', d=>{ read(d); genSave(); if (gen){ gen.modelsAsked=false; genBuild(); } if (lift && lift.open) objBuild(); if (aip) aiBuild(); }, true]]);
-  const sel_=d.querySelector('#gsOrModel'), selG=d.querySelector('#gsGgModel');
-  const PRESET=[[NB21,'Nano Banana 2.1'],['google/gemini-3.1-flash-image-preview','Nano Banana 2 (Google выключит 29 окт.)'],['google/gemini-2.5-flash-image','Nano Banana (Gemini 2.5 Flash Image)'],['black-forest-labs/flux.2-pro','FLUX.2 Pro'],['bytedance-seed/seedream-5-0-pro','Seedream 5.0 Pro'],['bytedance-seed/seedream-4.5','Seedream 4.5'],['openai/gpt-image-1','GPT Image 1']];
+  const sel_=d.querySelector('#gsOrModel'), selG=d.querySelector('#gsGgModel'), selF=d.querySelector('#gsOrFill'), selE=d.querySelector('#gsOrErase');
+  const PRESET=[[NB21,'Nano Banana 2.1'],['krea/k3-edit','Krea K3 Edit'],['bytedance-seed/seedream-5-5','Seedream 5.5'],['openai/gpt-image-2.6-sunburst','GPT Image 2.6 Sunburst'],['qwen/qwen-image-3','Qwen Image 3'],['google/gemini-3.1-flash-image-preview','Nano Banana 2 (Google выключит 29 окт.)'],['google/gemini-2.5-flash-image','Nano Banana (Gemini 2.5 Flash Image)'],['black-forest-labs/flux.2-pro','FLUX.2 Pro'],['bytedance-seed/seedream-5-0-pro','Seedream 5.0 Pro'],['bytedance-seed/seedream-4.5','Seedream 4.5'],['openai/gpt-image-1','GPT Image 1']];
   const GPRESET=[[GG_NB21,'Nano Banana 2.1'],['gemini-3-pro-image-preview','Nano Banana Pro'],['gemini-2.5-flash-image','Nano Banana (2.5 Flash Image)']];
   const fillModels=(el, list, preset, top, cur)=>{ el.textContent=''; const seen=new Set();
     const all=list.length ? list.map(x=>[x.id,x.name]) : preset; all.sort((a,b)=>(b[0]===top)-(a[0]===top));
@@ -4176,14 +4246,14 @@ function genSettings(tab){
                          : 'Адрес для связи из любой сети ещё не получен: открой Проявку дома, когда мост запущен (на компьютере — Tailscale).'; };
     show(); bridgePick(true).then(show); }
   d.querySelectorAll('#gsCloud button').forEach(b=>{ b.classList.toggle('on', b.dataset.c===(genCfg.cloudVia||'auto')); b.onclick=()=>{ genCfg.cloudVia=b.dataset.c; genSave(); CLOUD.via=null; d.querySelectorAll('#gsCloud button').forEach(x=>x.classList.toggle('on',x===b)); }; });
-  fillModels(sel_, [], PRESET, NB21, genCfg.orModel); fillModels(selG, ggModelsCache||[], GPRESET, GG_NB21, genCfg.ggModel||GG_NB21);
+  fillModels(sel_, [], PRESET, NB21, genCfg.orModel); fillModels(selF, [], PRESET, 'krea/k3-edit', genCfg.orFillModel); fillModels(selE, [], PRESET, NB21, genCfg.orEraseModel); fillModels(selG, ggModelsCache||[], GPRESET, GG_NB21, genCfg.ggModel||GG_NB21);
   const curModel=()=> view==='google' ? selG.value : sel_.value, nb=()=> curModel()===NB21 || curModel()===GG_NB21;
   const RS={'1K':'≈1 Мп, ~$0.03 за картинку у Nano Banana 2.1 — для правок и черновиков','2K':'≈4 Мп, ~$0.05 — заметно больше деталей на крупных кусках','4K':'≈16 Мп, ~$0.08 — медленно; для больших заливок и расширения кадра'};
   const box=d.querySelector('#gsOrRes'), info=d.querySelector('#gsOrResInfo'), setRes=r=>{ box.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.r===r)); info.textContent=RS[r]+(view==='google'?' · напрямую, без комиссии OpenRouter':'')+(!nb() && r!=='1K' ? ' · другие модели могут не уметь 2K/4K — тогда ответ придёт в 1K' : ''); };
   box.querySelectorAll('button').forEach(b=>b.onclick=()=>setRes(b.dataset.r)); [sel_,selG].forEach(el=>el.addEventListener('change',()=>setRes(box.querySelector('.on')?.dataset.r||'1K')));
   // one Google key, two fields (Google tab and the fal.ai smart prompt) — keep them in step
   const gk1=d.querySelector('#gsGgKey'), gk2=d.querySelector('#gsGemKey'); gk1.oninput=()=>{ gk2.value=gk1.value; }; gk2.oninput=()=>{ gk1.value=gk2.value; };
-  const read=d=>{ genCfg.orKey=d.querySelector('#gsOrKey').value.trim(); genCfg.orModel=sel_.value||genCfg.orModel; genCfg.ggModel=selG.value||genCfg.ggModel||GG_NB21; genCfg.orRes=d.querySelector('#gsOrRes .on')?.dataset.r||genCfg.orRes||'1K'; genCfg.falKey=d.querySelector('#gsFalKey').value.trim(); genCfg.gemKey=gk1.value.trim(); genCfg.sdUrl=d.querySelector('#gsSdUrl').value.trim(); genCfg.pcML=d.querySelector('#gsPcML').checked; sdModelsCache=null; PC.alive=null; PC.sess={}; PC.failAt=0; CLOUD.via=null; };
+  const read=d=>{ genCfg.orKey=d.querySelector('#gsOrKey').value.trim(); genCfg.orModel=sel_.value||genCfg.orModel; genCfg.orFillModel=selF.value||genCfg.orFillModel; genCfg.orEraseModel=selE.value||genCfg.orEraseModel; genCfg.ggModel=selG.value||genCfg.ggModel||GG_NB21; genCfg.orRes=d.querySelector('#gsOrRes .on')?.dataset.r||genCfg.orRes||'1K'; genCfg.falKey=d.querySelector('#gsFalKey').value.trim(); genCfg.gemKey=gk1.value.trim(); genCfg.sdUrl=d.querySelector('#gsSdUrl').value.trim(); genCfg.pcML=d.querySelector('#gsPcML').checked; sdModelsCache=null; PC.alive=null; PC.sess={}; PC.failAt=0; CLOUD.via=null; };
   d.querySelector('#gsOrKey').value=genCfg.orKey; d.querySelector('#gsFalKey').value=genCfg.falKey; gk1.value=gk2.value=genCfg.gemKey||''; d.querySelector('#gsSdUrl').value=genCfg.sdUrl; d.querySelector('#gsPcML').checked=genCfg.pcML!==false;
   let view = tab==='sd' ? 'sd' : genCfg.provider;
   const sync=()=>{ d.querySelectorAll('#gsProv button').forEach(b=>b.classList.toggle('on', b.dataset.p===view)); d.querySelector('#gsOr').hidden=view!=='or'; d.querySelector('#gsGg').hidden=view!=='google'; d.querySelector('#gsResBox').hidden=view!=='or'&&view!=='google'; d.querySelector('#gsFal').hidden=view!=='fal'; d.querySelector('#gsComfy').hidden=view!=='sd'; d.querySelector('#gsState').textContent=''; setRes(box.querySelector('.on')?.dataset.r||genCfg.orRes||'1K'); };
@@ -8587,6 +8657,7 @@ function hoverCrossDraw(cur){ const [a,b]=cur; ox.save(); ox.lineCap='round';
 
 /* ============ selection bar & transform bar ============ */
 document.querySelectorAll('#selbar [data-sel]').forEach(b=>b.onclick=()=>{ const a=b.dataset.sel;
+  if (a==='more'){ const r=b.getBoundingClientRect(); if (!$('#lyCtx').hidden){ $('#lyCtx').hidden=true; return; } selMore(r.left+r.width/2, r.bottom+6); return; }
   ({ai:()=>inpaintFromSel(), edge:edgeOpen, deselect:()=>deselect(), invert:invertSel, fill:selFill, delete:selDelete, copy:selCopyToLayer, mask:selToMask, transform:()=>setTool('transform'), fill2:contentAwareFill, gen:()=>genOpen(), lift:objLift, sketch:sketchRender, sd:()=>genOpen('sd')})[a](); });
 $('#bDesel').onclick=()=>quickDeselect();
 $('#docName').onclick=()=>openLibrary();
@@ -9856,7 +9927,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-15 · №132 Каты на ПК: рабочая папка компьютера через мост'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-20 · №133 Генеративная заливка как в Фотошопе: менюшка под выделением, K3 Edit, по одному варианту'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

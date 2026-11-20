@@ -79,6 +79,8 @@ python3 tools/map.py градиент     # русское название са
 **ИИ и облако**
 - `generative fill` + `Google AI Studio` — провайдеры (`edProv`), `ggImage`, `ggVision`,
   **`cloudFetch`** (облако через мост ПК), fal.ai.
+  Заливка в менюшке под выделением (№133): `genBuildCtx`, `genMore`; модели `orFillModel` / `orEraseModel` в `orFill`.
+- `selection` — менюшка выделения под выделением (№133): `placeCtxBars` / `placeCtx`, «⋯» — `selMore`, закрепить внизу — `proyavka.ctxPin`.
 - `OpenRouter: shared request + four tools` — **`orRequest`** (общий запрос на картинку), общее
   ИИ-окно `aiOpen/aiGo/aiPick/aiDone/aiCancel`; 1 Вписать в сцену, 2 Отрисовать, 3 Расширить кадр
   (`canvasExpand`, `expandAlign`), 4 Арт-директор (`critRun`) и заметки на полях (`notes*`).
