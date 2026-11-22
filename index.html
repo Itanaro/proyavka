@@ -3736,8 +3736,10 @@ async function orRequest(img, ask, n, opt={}){
   // one request per variant: Google (Nano Banana) refuses n>1, and a provider that does not know resolution / output_format gets the request again without them
   const base={model:opt.model||genCfg.orModel, ...(opt.ggModel && edProv()==='google'?{gg_model:opt.ggModel}:{}), prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:opt.res||genCfg.orRes||'1K', output_format:'png', input_references:refs};
   let dropped=false;
-  const one=async b=>{ if (edProv()==='google') return ggImage(b); try{ return await (await netFetch(orBaseUrl()+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(b)},180000)).json(); }
-    catch(e){ if (/requested parameter|not support/i.test(e.message)){ const c=Object.assign({},b); if (c.output_format){ delete c.output_format; return one(c); } if (c.resolution){ dropped=true; delete c.resolution; return one(c); } if (c.aspect_ratio){ delete c.aspect_ratio; return one(c); } } throw e; } };
+  // №138 a model that silently hangs at 2K (K3 Edit did, №137) — after 100 s one more try at 1K instead of waiting 3 minutes for nothing
+  const one=async b=>{ if (edProv()==='google') return ggImage(b); const big=b.resolution && b.resolution!=='1K';
+    try{ return await (await netFetch(orBaseUrl()+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(b)}, big?100000:180000)).json(); }
+    catch(e){ if (big && e.message==='сервис не ответил'){ dropped=true; toast('Модель не ответила в '+b.resolution+' — пробую 1K',3000); return one(Object.assign({},b,{resolution:'1K'})); } if (/requested parameter|not support/i.test(e.message)){ const c=Object.assign({},b); if (c.resolution||c.output_format){ if (c.resolution) dropped=true; delete c.resolution; delete c.output_format; return one(c); } if (c.aspect_ratio){ delete c.aspect_ratio; return one(c); } } throw e; } };
   const rs=await Promise.allSettled(Array.from({length:Math.max(1,n||1)}, ()=>one(base))), ok=rs.filter(x=>x.status==='fulfilled').map(x=>x.value);
   if (!ok.length) throw rs[0].reason;
   const r={ data:ok.flatMap(x=>x.data||[]), usage:{cost:ok.reduce((a,x)=>a+((x.usage&&x.usage.cost)||0),0)}, error:(ok.find(x=>x.error)||{}).error };
@@ -10019,7 +10021,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-22 · №137 Генеративная заливка: без рамки, размер ответа'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-22 · №138 Баг: K3 Edit не отвечала'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
