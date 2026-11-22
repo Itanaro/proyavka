@@ -217,13 +217,19 @@ const steps = [
       const log = (await (await page.request.get(STUB + '/_log')).json()).filter(x => x.kind === 'image');
       check(log.length === 2, 'на два нажатия должно уйти 2 запроса, а ушло ' + log.length);
       check(log[0].model === 'google/gemini-nano-banana-2.1' && log[1].model === 'krea/k3-edit', 'модели не те: ' + log.map(x => x.model).join(', '));
+      check(log[0].refs === 1 && log[1].refs === 2 && /mask/i.test(log[1].prompt), '«вписать» должно уходить кадром + маской (2 картинки), «убрать» — одной (№139): ' + log.map(x => x.refs).join(', '));
       check(await page.evaluate(() => /2 \/ 2/.test(document.getElementById('genbar').textContent)), 'счётчик вариантов не «2 / 2»');
       check(await page.evaluate(() => { const r = gen.prep.r, d = gen.layer.mask.ctx.getImageData(r.x, r.y, r.w, r.h).data; let mid = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 20 && d[i] < 235) mid++; return mid > 50; }), 'край маски заливки жёсткий — растушёвки нет (№135)');
       check(await page.evaluate(() => { const P = gen.prep, w = P.r.w, h = P.r.h, O = ctx2(P.orig).getImageData(0, 0, w, h).data, V = ctx2(gen.variants[0]).getImageData(0, 0, w, h).data, S = ctx2(P.selC).getImageData(0, 0, w, h).data;
         let e = 0, n = 0; for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) { const i = 4 * (y * w + x); if (S[i + 3] < 10) { e += Math.abs(V[i] - O[i]) + Math.abs(V[i + 1] - O[i + 1]) + Math.abs(V[i + 2] - O[i + 2]); n++; } } return n && e / n / 3 < 6; }), 'вокруг заливки цвет ответа не подогнан под кадр (№135)');
+      await page.request.post(STUB + '/_reset');
+      await page.evaluate(() => { gen.editing = true; gen.prompt = 'REFCOPY'; genGo(); });
+      await until(page, () => gen && !gen.busy && gen.variants.length === 3, null, 20000, 'третий вариант');
+      const log3 = (await (await page.request.get(STUB + '/_log')).json()).filter(x => x.kind === 'image');
+      check(log3.length === 2 && log3[0].refs === 2 && log3[1].refs === 1, 'модель вернула маску — нет повтора «по-старому» (№139): ' + log3.map(x => x.refs).join(', '));
       const names = await page.evaluate(() => { genPick(0); const a = gen.layer.name; genPick(1); return [a, gen.layer.name]; });
       check(names[0] === 'Генеративная заливка' && names[1] === 'чашка кофе', 'имя слоя заливки — не промпт (№136): ' + names.join(' / '));
-      await page.evaluate(() => genDone());
+      await page.evaluate(() => { genPick(1); genDone(); });
       check(await page.evaluate(() => !!AL().mask && AL().name === 'чашка кофе'), 'слой заливки с маской не остался');
       await page.evaluate(() => deselect());
   }},

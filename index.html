@@ -3353,15 +3353,24 @@ const PROV_NAME={fal:'fal.ai', or:'OpenRouter', google:'Google AI Studio', comfy
 /* OpenRouter: one account, many image models (Nano Banana, FLUX.2, Seedream, GPT image). They edit by instruction and
    have no mask input, so the area is painted magenta, the model repaints the piece, and only the masked part is taken back */
 const OR_ASPECTS=[[1,1],[4,3],[3,4],[3,2],[2,3],[16,9],[9,16]];
-async function orFill(P, words, n){
+async function orFill(P, words, n, force){
+  // №139 «вписать» like Photoshop: the model sees what is under the selection (the picture itself + a black/white mask as the 2nd image),
+  // so it builds on what is there (soft streaks stay streaks) instead of inventing a new scene into a magenta hole. Empty — «убрать» — keeps magenta.
+  const model0 = edProv()==='or' ? (words ? genCfg.orFillModel : genCfg.orEraseModel) || genCfg.orModel : undefined;
+  if (words && genCfg.fillSee!==false && force!=='magenta'){
+    const ask2='Two images. Image 1 is the picture to edit. Image 2 is a black-and-white mask of the same frame: the white part marks the area to edit. '
+      +'In image 1, inside the white area only, add: '+words+'. Build on what is already there — keep its existing shapes, soft gradients, colours and brightness range as the base and blend the new element into them; '
+      +'match the light direction, colour temperature, contrast, softness, grain and depth of field of the surroundings, with no visible outline of the area. Do not add anything else. '
+      +'Outside the white area, change nothing. Return only the edited image 1, full frame, same framing — never the mask.';
+    return orRequest(P.img, ask2, n, {mask:P.mask, refs:[P.mask], model:model0, res:P.res});
+  }
   const ask = words
     ? 'Edit this image. Inside the solid magenta area only, paint: '+words+'. It must fit the scene: same lighting direction and colour temperature, perspective, scale, grain, sharpness and depth of field. Whatever touches the edge of the magenta area must continue into it — shapes, light, gradients and background flow across the border, so the area has no visible outline; new things are attached to the scene, not pasted on top. Do not change anything outside the magenta area. No magenta may remain.'
     : 'Edit this image. Remove the solid magenta area and fill it with a seamless, natural continuation of the surrounding background: same textures, lighting, perspective, grain and depth of field, nothing new added. Do not change anything outside the magenta area. No magenta may remain.';
   // №133 generative fill has its own two models: with words — «fit in» (K3 Edit by default), empty — «remove»
-  const model = edProv()==='or' ? (words ? genCfg.orFillModel : genCfg.orEraseModel) || genCfg.orModel : undefined;
-  return orRequest(P.img, ask, n, {mask:P.mask, magenta:true, model, res:P.res});
+  return orRequest(P.img, ask, n, {mask:P.mask, magenta:true, model:model0, res:P.res});
 }
-async function cloudFill(P, words, fluxPrompt, n){ return genCfg.provider==='fal' ? falFill(P, fluxPrompt, n) : orFill(P, words, n); }
+async function cloudFill(P, words, fluxPrompt, n, force){ return genCfg.provider==='fal' ? falFill(P, fluxPrompt, n) : orFill(P, words, n, force); }
 async function orPing(){
   const base=genCfg.orBase.replace(/\/+$/,''), H={'Authorization':'Bearer '+genCfg.orKey.trim()};
   let r=await cloudFetch(base+'/api/v1/key',{headers:H, mode:'cors'}).catch(()=>{ throw new Error('нет связи с OpenRouter (VPN?)'); });
@@ -3570,6 +3579,9 @@ function genMore(btn){
   const or=edProv()==='or';
   H(or ? 'Вписать: '+nm(genCfg.orFillModel)+' · Убрать: '+nm(genCfg.orEraseModel) : PROV_NAME[genCfg.provider]+' · '+nm(genCfg.provider==='google'?genCfg.ggModel:genCfg.falModel));
   if (gen && gen.cost) H('Потрачено на эту заливку: $'+gen.cost.toFixed(3));
+  if (or){ const t=document.createElement('button'), on=genCfg.fillSee!==false; // №139 «вписать»: the model sees what is under the selection, or a magenta hole (as before)
+    t.id='genSee'; t.innerHTML='<span>'+(on?'✓ ':'')+'Вписать: модель видит, что под выделением</span><small>'+(on?'строит на том, что там есть':'выключено — дыра пурпуром, рисует с нуля')+'</small>';
+    t.onclick=()=>{ genCfg.fillSee=!on; genSave(); m.hidden=true; toast(genCfg.fillSee!==false?'Вписать: модель видит, что под выделением':'Вписать: выделение закрашивается, модель рисует с нуля',2200); }; m.append(t); }
   const b=document.createElement('button'); b.innerHTML='<span>Настройки генерации…</span><small>модели, ключ</small>'; b.onclick=()=>{ m.hidden=true; genSettings(); }; m.append(b);
   closePops('lyCtx'); m.hidden=false; const r=btn.getBoundingClientRect(), mr=m.getBoundingClientRect();
   m.style.left=Math.max(8,Math.min(r.right-mr.width, innerWidth-mr.width-8))+'px'; m.style.top=(r.bottom+mr.height+8>innerHeight ? Math.max(8,r.top-mr.height-6) : r.bottom+6)+'px';
@@ -3647,6 +3659,13 @@ function genFit(P, c){
     for (let x=0;x<w;x++){ const fx=Math.min(sw-1,Math.max(0,(x+0.5)*kx-0.5)), x0=Math.floor(fx), x1=Math.min(sw-1,x0+1), ax=fx-x0, o=4*(y*w+x);
       const a=3*(y0*sw+x0), b=3*(y0*sw+x1), e=3*(y1*sw+x0), f=3*(y1*sw+x1);
       for (let q=0;q<3;q++){ const v=d[o+q]+(D[a+q]*(1-ax)+D[b+q]*ax)*(1-ay)+(D[e+q]*(1-ax)+D[f+q]*ax)*ay; d[o+q]=v<0?0:v>255?255:v; } } }
+  // 2b) №139 no darks deeper than the surroundings have: a model's own deep shadows (navy holes in a soft studio backdrop) are lifted
+  //     towards the darkest tone around; brighter new things (a light leak) are left alone
+  { const O3=ctx2(P.orig,{willReadFrequently:true}).getImageData(0,0,w,h).data, hist=new Uint32Array(256); let nh=0;
+    for (let y=0;y<h;y+=2) for (let x=0;x<w;x+=2){ const zi=Math.min(sh-1,Math.floor(y*ky))*sw+Math.min(sw-1,Math.floor(x*kx)); if (M1[zi]) continue; const i=4*(y*w+x); hist[Math.round(O3[i]*.3+O3[i+1]*.59+O3[i+2]*.11)]++; nh++; }
+    if (nh>400){ let acc=0, lo=0; for (; lo<255; lo++){ acc+=hist[lo]; if (acc>nh*0.005) break; }
+      if (lo>12) for (let y=0;y<h;y++) for (let x=0;x<w;x++){ const zi=Math.min(sh-1,Math.floor(y*ky))*sw+Math.min(sw-1,Math.floor(x*kx)); if (!M1[zi]) continue; const i=4*(y*w+x), L=d[i]*.3+d[i+1]*.59+d[i+2]*.11;
+        if (L<lo){ const t=lo-(lo-L)*0.3, k=L>1 ? t/L : 1; for (let q=0;q<3;q++){ const v=d[i+q]*k*0.6+(d[i+q]+(t-L))*0.4; d[i+q]=v>255?255:v; } } } } }
   // 3) grain: models answer smoother than a photo — add back the difference in fine noise, measured in the ring of the picture
   let grain=0; { const O2=ctx2(P.orig,{willReadFrequently:true}).getImageData(0,0,w,h).data, gl=(a,i)=>a[i]*.3+a[i+1]*.59+a[i+2]*.11;
     let so=0,no=0,sr=0,nr=0; for (let y=1;y<h-1;y+=2) for (let x=1;x<w-1;x+=2){ const zi=Math.min(sh-1,Math.floor(y*ky))*sw+Math.min(sw-1,Math.floor(x*kx)), ring=M2[zi]&&!M1[zi], ins=M1[zi]; if (!ring&&!ins) continue;
@@ -3657,6 +3676,10 @@ function genFit(P, c){
   rx.putImageData(id,0,0);
   return {c:res, moved, step:Math.round(step/3), grain:Math.round(grain*10)/10};
 }
+// №139 how much the answer looks like the picture outside the selection (correlation of brightness, −1…1)
+function genLike(P, bm){ const w=96, h=Math.max(8,Math.round(96*P.r.h/P.r.w)), gr=src=>{ const t=mk(w,h), x=ctx2(t,{willReadFrequently:true}); x.drawImage(src,0,0,w,h); const d=x.getImageData(0,0,w,h).data, a=new Float32Array(w*h); for (let i=0;i<w*h;i++) a[i]=d[4*i]*.3+d[4*i+1]*.59+d[4*i+2]*.11; return a; };
+  const A=gr(P.orig), B=gr(bm), M=gr(P.selC); let sa=0,sb=0,n=0; for (let i=0;i<w*h;i++) if (M[i]<5){ sa+=A[i]; sb+=B[i]; n++; } if (n<50) return 1; sa/=n; sb/=n;
+  let ab=0,aa=0,bb=0; for (let i=0;i<w*h;i++) if (M[i]<5){ const p=A[i]-sa, q=B[i]-sb; ab+=p*q; aa+=p*p; bb+=q*q; } if (aa<4*n || bb<4*n) return Math.abs(sa-sb)<24 && Math.abs(aa-bb)<16*n ? 1 : 0; return ab/Math.sqrt(aa*bb); } // flat picture: judge by brightness
 // №135 the layer mask: the selection, softened outward into the strip the model repainted anyway (was a hard edge on the lasso line)
 function genSoftMask(P){
   const r=P.r, g=Math.max(1.5, P.grow), t=mk(r.w,r.h), x=ctx2(t); x.imageSmoothingQuality='high';
@@ -3676,7 +3699,10 @@ async function genGo(){
         try{ prompt = g.lastWords===words && g.smart ? g.smart : await gemPrompt(P, words); g.smart=prompt; g.lastWords=words; }catch(e){ if (e.message==='cancel') throw e; console.warn('smart prompt',e); toast('Умная подсказка не вышла ('+e.message+') — иду без неё',2600); } }
       if (!prompt) prompt = words ? genPrompt(words) : 'Seamless natural continuation of the surrounding background, matching texture, lighting, perspective and grain; nothing new in this area.';
       g.used = genCfg.provider==='fal' ? prompt : null; g.busy= words ? 'вписываю…' : 'убираю…'; genBuild();
-      const res=await cloudFill(P, words, prompt, 1); if (res.cost) g.cost=(g.cost||0)+res.cost; g.lastCost=res.cost||0;
+      let res=await cloudFill(P, words, prompt, 1);
+      if (words && genCfg.provider!=='fal' && genCfg.fillSee!==false && res.bitmaps[0] && genLike(P, res.bitmaps[0])<0.35){ // №139 the model gave back the mask or a different picture
+        if (res.cost) g.cost=(g.cost||0)+res.cost; g.busy='модель не поняла маску — повторяю по-старому…'; genBuild(); res=await cloudFill(P, words, prompt, 1, 'magenta'); }
+      if (res.cost) g.cost=(g.cost||0)+res.cost; g.lastCost=res.cost||0;
       if (!g.softMask && P.orig) g.softMask=genSoftMask(P);
       let fit=null;
       res.bitmaps.forEach(bm=>{ let c=mk(P.r.w,P.r.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,P.r.w,P.r.h); bm.close&&bm.close();
@@ -10021,7 +10047,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-22 · №138 Баг: K3 Edit не отвечала'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-22 · №139 Заливка «вписать»: модель видит, что под выделением'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
