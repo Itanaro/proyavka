@@ -3618,7 +3618,8 @@ function genFit(P, c){
     for (const s of [0.97,0.985,1,1.015,1.03]) for (let dy=-R;dy<=R;dy+=2) for (let dx=-R;dx<=R;dx+=2){ const v=err(s,dx,dy); if (v<best.e) best={s,dx,dy,e:v}; }
     const b0=best; for (const s of [b0.s-0.007,b0.s,b0.s+0.007]) for (let dy=b0.dy-1;dy<=b0.dy+1;dy++) for (let dx=b0.dx-1;dx<=b0.dx+1;dx++){ const v=err(s,dx,dy); if (v<best.e) best={s,dx,dy,e:v}; }
     if ((best.dx||best.dy||best.s!==1) && best.e < e0*0.8 && e0>4){ // only when it is clearly better — on a flat background any shift «fits»
-      out=mk(w,h); const x=ctx2(out), k=w/sw; x.imageSmoothingQuality='high'; x.setTransform(best.s,0,0,best.s, w/2*(1-best.s)+best.dx*k, h/2*(1-best.s)+best.dy*k); x.drawImage(c,0,0);
+      out=mk(w,h); const x=ctx2(out), k=w/sw; x.imageSmoothingQuality='high'; x.drawImage(c,0,0); // №137 under the shifted answer — the unshifted one, so no empty strip at the frame edge
+      x.setTransform(best.s,0,0,best.s, w/2*(1-best.s)+best.dx*k, h/2*(1-best.s)+best.dy*k); x.drawImage(c,0,0);
       moved={dx:Math.round(best.dx*k), dy:Math.round(best.dy*k), s:best.s}; } }
   // 2) match the surroundings: difference picture − answer in the ring, filled inward smoothly
   const V=px(out); const lv=[]; let cw=sw, ch=sh, val=new Float32Array(N*3), wt=new Float32Array(N);
@@ -3682,6 +3683,11 @@ async function genGo(){
         if (P.orig && genCfg.genFit!==false){ try{ fit=genFit(P, c); c=fit.c; }catch(e){ console.warn('genFit', e); } }
         (g.vWords||(g.vWords=[]))[g.variants.length]=words; g.variants.push(c); genPick(g.variants.length-1, true); });
       const fitNote = fit && fit.moved ? ' · подвинула на '+Math.hypot(fit.moved.dx,fit.moved.dy).toFixed(0)+' px' : '';
+      // №137 how big the answer really was — if the model came back small and it was stretched, say so (the reason for «мыло»)
+      const up = res.native ? Math.max(P.r.w,P.r.h)/Math.max(res.native[0],res.native[1]) : 1;
+      g.lastNative={native:res.native, piece:[P.r.w,P.r.h], asked:res.asked, dropped:res.dropped, up};
+      console.log('genfill answer', JSON.stringify(g.lastNative));
+      if (up>1.25) setTimeout(()=>toast('Ответ модели '+res.native[0]+'×'+res.native[1]+' на кусок '+P.r.w+'×'+P.r.h+' — растянут ×'+up.toFixed(1)+(res.dropped?' (модель не приняла '+res.asked+')':'')+'. Выдели поменьше или другую модель в ⚙',6000),1900);
       g.busy=null; genBuild(); toast('Готово'+(g.lastCost?' · $'+g.lastCost.toFixed(3):'')+fitNote+(g.variants.length>1?' · вариантов: '+g.variants.length:''),1800); return; }
     g.busy='отправляю картинку на компьютер…'; genBuild();
     const stamp=Date.now().toString(36), imgN=await genUpload(P.img,'proyavka_img_'+stamp+'.png'), maskN=await genUpload(P.mask,'proyavka_mask_'+stamp+'.png');
@@ -3729,8 +3735,9 @@ async function orRequest(img, ask, n, opt={}){
   for (const r of (opt.refs||[])){ const c=mk(SW,SH), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(r,0,0,SW,SH); refs.push({type:'image_url', image_url:{url:c.toDataURL('image/png')}}); }
   // one request per variant: Google (Nano Banana) refuses n>1, and a provider that does not know resolution / output_format gets the request again without them
   const base={model:opt.model||genCfg.orModel, ...(opt.ggModel && edProv()==='google'?{gg_model:opt.ggModel}:{}), prompt:ask, aspect_ratio:best[0]+':'+best[1], resolution:opt.res||genCfg.orRes||'1K', output_format:'png', input_references:refs};
+  let dropped=false;
   const one=async b=>{ if (edProv()==='google') return ggImage(b); try{ return await (await netFetch(orBaseUrl()+'/api/v1/images',{method:'POST', headers:{'Authorization':'Bearer '+genCfg.orKey.trim(),'Content-Type':'application/json'}, body:JSON.stringify(b)},180000)).json(); }
-    catch(e){ if (/requested parameter|not support/i.test(e.message)){ const c=Object.assign({},b); if (c.resolution||c.output_format){ delete c.resolution; delete c.output_format; return one(c); } if (c.aspect_ratio){ delete c.aspect_ratio; return one(c); } } throw e; } };
+    catch(e){ if (/requested parameter|not support/i.test(e.message)){ const c=Object.assign({},b); if (c.output_format){ delete c.output_format; return one(c); } if (c.resolution){ dropped=true; delete c.resolution; return one(c); } if (c.aspect_ratio){ delete c.aspect_ratio; return one(c); } } throw e; } };
   const rs=await Promise.allSettled(Array.from({length:Math.max(1,n||1)}, ()=>one(base))), ok=rs.filter(x=>x.status==='fulfilled').map(x=>x.value);
   if (!ok.length) throw rs[0].reason;
   const r={ data:ok.flatMap(x=>x.data||[]), usage:{cost:ok.reduce((a,x)=>a+((x.usage&&x.usage.cost)||0),0)}, error:(ok.find(x=>x.error)||{}).error };
@@ -3739,15 +3746,15 @@ async function orRequest(img, ask, n, opt={}){
   if (opt.mask){ const ring=mk(W,H), rx=ctx2(ring,{willReadFrequently:true}), g=Math.max(4,Math.round(Math.max(W,H)*0.03));
     for (let a=0;a<12;a++) rx.drawImage(opt.mask, Math.round(Math.cos(a*Math.PI/6)*g), Math.round(Math.sin(a*Math.PI/6)*g), W, H); rx.globalCompositeOperation='destination-out'; rx.drawImage(opt.mask,0,0,W,H);
     rd=rx.getImageData(0,0,W,H).data; od=ctx2(img,{willReadFrequently:true}).getImageData(0,0,W,H).data; }
-  const out=[];
+  const out=[]; let native=null;
   for (const it of r.data){ const src = it.b64_json ? 'data:'+(it.media_type||'image/png')+';base64,'+it.b64_json : it.url; if (!src) continue;
-    const bm=await createImageBitmap(await (await fetch(src)).blob()); const c=mk(W,H), cx=ctx2(c,{willReadFrequently:true}); cx.imageSmoothingQuality='high'; cx.drawImage(bm,0,0,W,H); bm.close&&bm.close();
+    const bm=await createImageBitmap(await (await fetch(src)).blob()); native=[bm.width,bm.height]; const c=mk(W,H), cx=ctx2(c,{willReadFrequently:true}); cx.imageSmoothingQuality='high'; cx.drawImage(bm,0,0,W,H); bm.close&&bm.close();
     if (rd){ const id=cx.getImageData(0,0,W,H), d=id.data; let n0=0; const so=[0,0,0], sr=[0,0,0];
       for (let i=0;i<d.length;i+=16){ if (rd[i+3]>127){ n0++; for (let ch=0;ch<3;ch++){ so[ch]+=od[i+ch]; sr[ch]+=d[i+ch]; } } }
       if (n0>50){ const gain=[0,1,2].map(ch=> sr[ch]>1 ? Math.min(1.6,Math.max(0.6, so[ch]/sr[ch])) : 1); for (let i=0;i<d.length;i+=4){ d[i]*=gain[0]; d[i+1]*=gain[1]; d[i+2]*=gain[2]; } cx.putImageData(id,0,0); } }
     out.push(c); }
   if (!out.length) throw new Error('модель не вернула картинку');
-  return {bitmaps:out, cost:r.usage && r.usage.cost};
+  return {bitmaps:out, cost:r.usage && r.usage.cost, native, dropped, asked:base.resolution};
 }
 function regionFor(b, pad){ const p=Math.max(32, Math.round(Math.max(b.w,b.h)*pad)); return clipRect(b.x-p, b.y-p, b.w+2*p, b.h+2*p); }
 function modelSize(r){ const k=orK(r.w*r.h, 2); return [Math.max(64,Math.round(r.w*k/16)*16), Math.max(64,Math.round(r.h*k/16)*16)]; }
@@ -10012,7 +10019,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-22 · №136 Генеративная заливка: без мыла, зерно, имя = промпт'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-22 · №137 Генеративная заливка: без рамки, размер ответа'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
