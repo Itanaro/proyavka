@@ -3633,6 +3633,22 @@ function genFit(P, c){
       out=mk(w,h); const x=ctx2(out), k=w/sw; x.imageSmoothingQuality='high'; x.drawImage(c,0,0); // №137 under the shifted answer — the unshifted one, so no empty strip at the frame edge
       x.setTransform(best.s,0,0,best.s, w/2*(1-best.s)+best.dx*k, h/2*(1-best.s)+best.dy*k); x.drawImage(c,0,0);
       moved={dx:Math.round(best.dx*k), dy:Math.round(best.dy*k), s:best.s}; } }
+  // 1b) №140 the model regraded the whole piece (K3 Edit gives it a cold cyan cast): one colour transform (3×3 + offset),
+  //     fitted on everything outside the repainted area, is applied to the whole answer — so the new part comes in the frame's colour,
+  //     not only its edge. Taken only when it clearly helps and looks like a grade, not a different picture.
+  let graded=false;
+  if (nOut>400){ const V0=px(out), XX=new Float64Array(16), XY=new Float64Array(12); let n=0;
+    for (let i=0;i<N;i++){ if (M1[i]) continue; const o=4*i, xv=[V0[o]/255,V0[o+1]/255,V0[o+2]/255,1];
+      for (let a=0;a<4;a++){ for (let b=0;b<4;b++) XX[a*4+b]+=xv[a]*xv[b]; for (let q=0;q<3;q++) XY[a*3+q]+=xv[a]*O[o+q]/255; } n++; }
+    for (let a=0;a<4;a++){ XX[a*5]+=n*1e-4; for (let q=0;q<3;q++) if (a===q) XY[a*3+q]+=n*1e-4; } // a whisper of «identity» keeps it stable
+    const Mt=genSolve4(XX, XY);
+    if (Mt){ let e0=0, e1=0; const ap=(v,o,q)=>255*(Mt[q]*v[o]/255+Mt[3+q]*v[o+1]/255+Mt[6+q]*v[o+2]/255+Mt[9+q]);
+      for (let i=0;i<N;i++){ if (M1[i]) continue; const o=4*i; for (let q=0;q<3;q++){ e0+=Math.abs(O[o+q]-V0[o+q]); e1+=Math.abs(O[o+q]-ap(V0,o,q)); } }
+      const sane=[0,4,8].every(j=>Mt[j]>0.55&&Mt[j]<1.6) && [1,2,3,5,6,7].every(j=>Math.abs(Mt[j])<0.45);
+      if (sane && e0/(3*n)>3 && e1<e0*0.85){ const gx=ctx2(out,{willReadFrequently:true}), gd=gx.getImageData(0,0,w,h), dd=gd.data;
+        for (let o=0;o<dd.length;o+=4){ const r0=dd[o]/255, g0=dd[o+1]/255, b0=dd[o+2]/255;
+          for (let q=0;q<3;q++){ const v=255*(Mt[q]*r0+Mt[3+q]*g0+Mt[6+q]*b0+Mt[9+q]); dd[o+q]=v<0?0:v>255?255:v; } }
+        gx.putImageData(gd,0,0); graded=Math.round((1-e1/e0)*100); } } }
   // 2) match the surroundings: difference picture − answer in the ring, filled inward smoothly
   const V=px(out); const lv=[]; let cw=sw, ch=sh, val=new Float32Array(N*3), wt=new Float32Array(N);
   for (let i=0;i<N;i++) if (M2[i]&&!M1[i]){ wt[i]=1; for (let q=0;q<3;q++) val[3*i+q]=O[4*i+q]-V[4*i+q]; }
@@ -3662,10 +3678,15 @@ function genFit(P, c){
   // 2b) №139 no darks deeper than the surroundings have: a model's own deep shadows (navy holes in a soft studio backdrop) are lifted
   //     towards the darkest tone around; brighter new things (a light leak) are left alone
   { const O3=ctx2(P.orig,{willReadFrequently:true}).getImageData(0,0,w,h).data, hist=new Uint32Array(256); let nh=0;
-    for (let y=0;y<h;y+=2) for (let x=0;x<w;x+=2){ const zi=Math.min(sh-1,Math.floor(y*ky))*sw+Math.min(sw-1,Math.floor(x*kx)); if (M1[zi]) continue; const i=4*(y*w+x); hist[Math.round(O3[i]*.3+O3[i+1]*.59+O3[i+2]*.11)]++; nh++; }
-    if (nh>400){ let acc=0, lo=0; for (; lo<255; lo++){ acc+=hist[lo]; if (acc>nh*0.005) break; }
+    // №140 the darkest tone is taken from the ring around the selection only (was: the whole piece — the black costume and wires
+    //      set the bar so low that nothing was ever lifted); lifted darks also take the ring's colour, not the model's saturated navy
+    const rc=[0,0,0];
+    for (let y=0;y<h;y+=2) for (let x=0;x<w;x+=2){ const zi=Math.min(sh-1,Math.floor(y*ky))*sw+Math.min(sw-1,Math.floor(x*kx)); if (!M2[zi]||M1[zi]) continue; const i=4*(y*w+x), L0=O3[i]*.3+O3[i+1]*.59+O3[i+2]*.11; hist[Math.round(L0)]++; for (let q=0;q<3;q++) rc[q]+=O3[i+q]-L0; nh++; }
+    if (nh>400){ let acc=0, lo=0; for (; lo<255; lo++){ acc+=hist[lo]; if (acc>nh*0.005) break; } for (let q=0;q<3;q++) rc[q]/=nh;
       if (lo>12) for (let y=0;y<h;y++) for (let x=0;x<w;x++){ const zi=Math.min(sh-1,Math.floor(y*ky))*sw+Math.min(sw-1,Math.floor(x*kx)); if (!M1[zi]) continue; const i=4*(y*w+x), L=d[i]*.3+d[i+1]*.59+d[i+2]*.11;
-        if (L<lo){ const t=lo-(lo-L)*0.3, k=L>1 ? t/L : 1; for (let q=0;q<3;q++){ const v=d[i+q]*k*0.6+(d[i+q]+(t-L))*0.4; d[i+q]=v>255?255:v; } } } } }
+        if (L<lo){ const t=lo-(lo-L)*0.3, k=L>1 ? t/L : 1; for (let q=0;q<3;q++){ const v=d[i+q]*k*0.6+(d[i+q]+(t-L))*0.4; d[i+q]=v>255?255:v; }
+          const wg=Math.min(1,(lo-L)/(lo*0.35))*0.6, L2=d[i]*.3+d[i+1]*.59+d[i+2]*.11;
+          for (let q=0;q<3;q++){ const v=L2+(d[i+q]-L2)*(1-wg)+rc[q]*wg; d[i+q]=v<0?0:v>255?255:v; } } } } }
   // 3) grain: models answer smoother than a photo — add back the difference in fine noise, measured in the ring of the picture
   let grain=0; { const O2=ctx2(P.orig,{willReadFrequently:true}).getImageData(0,0,w,h).data, gl=(a,i)=>a[i]*.3+a[i+1]*.59+a[i+2]*.11;
     let so=0,no=0,sr=0,nr=0; for (let y=1;y<h-1;y+=2) for (let x=1;x<w-1;x+=2){ const zi=Math.min(sh-1,Math.floor(y*ky))*sw+Math.min(sw-1,Math.floor(x*kx)), ring=M2[zi]&&!M1[zi], ins=M1[zi]; if (!ring&&!ins) continue;
@@ -3674,17 +3695,39 @@ function genFit(P, c){
     if (no>200 && nr>200){ const sO=Math.sqrt(so/no), sR=Math.sqrt(sr/nr); if (sR<sO*0.85){ grain=Math.sqrt(sO*sO-sR*sR)/1.118;
       for (let i=0;i<d.length;i+=4){ const n=(Math.random()+Math.random()+Math.random()-1.5)*2*grain; for (let q=0;q<3;q++){ const v=d[i+q]+n+(Math.random()-0.5)*grain*0.5; d[i+q]=v<0?0:v>255?255:v; } } } } }
   rx.putImageData(id,0,0);
-  return {c:res, moved, step:Math.round(step/3), grain:Math.round(grain*10)/10};
+  return {c:res, moved, graded, step:Math.round(step/3), grain:Math.round(grain*10)/10};
 }
 // №139 how much the answer looks like the picture outside the selection (correlation of brightness, −1…1)
 function genLike(P, bm){ const w=96, h=Math.max(8,Math.round(96*P.r.h/P.r.w)), gr=src=>{ const t=mk(w,h), x=ctx2(t,{willReadFrequently:true}); x.drawImage(src,0,0,w,h); const d=x.getImageData(0,0,w,h).data, a=new Float32Array(w*h); for (let i=0;i<w*h;i++) a[i]=d[4*i]*.3+d[4*i+1]*.59+d[4*i+2]*.11; return a; };
   const A=gr(P.orig), B=gr(bm), M=gr(P.selC); let sa=0,sb=0,n=0; for (let i=0;i<w*h;i++) if (M[i]<5){ sa+=A[i]; sb+=B[i]; n++; } if (n<50) return 1; sa/=n; sb/=n;
   let ab=0,aa=0,bb=0; for (let i=0;i<w*h;i++) if (M[i]<5){ const p=A[i]-sa, q=B[i]-sb; ab+=p*q; aa+=p*p; bb+=q*q; } if (aa<4*n || bb<4*n) return Math.abs(sa-sb)<24 && Math.abs(aa-bb)<16*n ? 1 : 0; return ab/Math.sqrt(aa*bb); } // flat picture: judge by brightness
-// №135 the layer mask: the selection, softened outward into the strip the model repainted anyway (was a hard edge on the lasso line)
-function genSoftMask(P){
-  const r=P.r, g=Math.max(1.5, P.grow), t=mk(r.w,r.h), x=ctx2(t); x.imageSmoothingQuality='high';
-  for (const f of [0.5,1]) for (let a=0;a<16;a++) x.drawImage(P.selC, Math.cos(a*Math.PI/8)*g*0.45*f, Math.sin(a*Math.PI/8)*g*0.45*f); x.drawImage(P.selC,0,0);
-  const m=mk(doc.w,doc.h); ctx2(m).drawImage(softBlur(t, g*0.45), r.x, r.y); return m; }
+// 4×4 normal equations, three right-hand sides (XX row-major 4×4, XY 4×3) → 4×3 solution or null
+function genSolve4(XX, XY){ const A=Array.from({length:4},(_,a)=>[XX[a*4],XX[a*4+1],XX[a*4+2],XX[a*4+3],XY[a*3],XY[a*3+1],XY[a*3+2]]);
+  for (let c=0;c<4;c++){ let p=c; for (let r=c+1;r<4;r++) if (Math.abs(A[r][c])>Math.abs(A[p][c])) p=r; if (Math.abs(A[p][c])<1e-9) return null; [A[c],A[p]]=[A[p],A[c]];
+    for (let r=0;r<4;r++) if (r!==c){ const f=A[r][c]/A[c][c]; for (let k=c;k<7;k++) A[r][k]-=f*A[c][k]; } }
+  const M=new Float64Array(12); for (let a=0;a<4;a++) for (let q=0;q<3;q++) M[a*3+q]=A[a][4+q]/A[a][a]; return M; }
+/* №135 the layer mask: the selection, softened outward into the strip the model repainted anyway (was a hard edge on the lasso line).
+   №140 with words («вписать») the transition is wider and sits on both sides of the lasso line: ~3 % of the selection inside + the repainted
+   strip outside — on soft backgrounds (bokeh, light leaks) the 25-px edge read as a drawn line. «Убрать» keeps the edge outside only:
+   inside, the removed thing must not show through. Built by distance from the edge, smooth ramp. */
+function genSoftMask(P, words){
+  const r=P.r, S=Math.min(1, 1024/Math.max(r.w,r.h)), w=Math.max(4,Math.round(r.w*S)), h=Math.max(4,Math.round(r.h*S)), N=w*h;
+  const t=mk(w,h), tx=ctx2(t,{willReadFrequently:true}); tx.imageSmoothingQuality='high'; tx.drawImage(P.selC,0,0,w,h); const sd=tx.getImageData(0,0,w,h);
+  const inside=new Uint8Array(N); let x0=w,y0=h,x1=-1,y1=-1;
+  for (let i=0;i<N;i++) if (sd.data[4*i+3]>127){ inside[i]=1; const x=i%w, y=(i/w)|0; if (x<x0)x0=x; if (x>x1)x1=x; if (y<y0)y0=y; if (y>y1)y1=y; }
+  if (x1<0) return null;
+  const dist=on=>{ const D=new Float32Array(N); for (let i=0;i<N;i++) D[i]=inside[i]===on?0:1e9; const q=Math.SQRT2; // chamfer distance to the nearest pixel with inside===on
+    for (let y=0;y<h;y++) for (let x=0;x<w;x++){ const i=y*w+x; let v=D[i]; if (!v) continue;
+      if (x>0) v=Math.min(v,D[i-1]+1); if (y>0){ v=Math.min(v,D[i-w]+1); if (x>0) v=Math.min(v,D[i-w-1]+q); if (x<w-1) v=Math.min(v,D[i-w+1]+q); } D[i]=v; }
+    for (let y=h-1;y>=0;y--) for (let x=w-1;x>=0;x--){ const i=y*w+x; let v=D[i]; if (!v) continue;
+      if (x<w-1) v=Math.min(v,D[i+1]+1); if (y<h-1){ v=Math.min(v,D[i+w]+1); if (x<w-1) v=Math.min(v,D[i+w+1]+q); if (x>0) v=Math.min(v,D[i+w-1]+q); } D[i]=v; }
+    return D; };
+  const dOut=dist(1), dIn=dist(0); // outside: how far to the selection; inside: how far to its edge
+  const gOut=Math.max(1.5, P.grow*S*0.9), gIn = words ? Math.max(gOut, Math.max(x1-x0+1, y1-y0+1)*0.03) : 1;
+  for (let i=0;i<N;i++){ const v = inside[i] ? dIn[i]-0.5 : 0.5-dOut[i]; let a=(v+gOut)/(gIn+gOut); a=a<0?0:a>1?1:a; a=a*a*(3-2*a); // smooth ramp
+    sd.data[4*i]=sd.data[4*i+1]=sd.data[4*i+2]=255; sd.data[4*i+3]=Math.round(a*255); }
+  tx.clearRect(0,0,w,h); tx.putImageData(sd,0,0);
+  const m=mk(doc.w,doc.h), mx=ctx2(m); mx.imageSmoothingQuality='high'; mx.drawImage(t, r.x, r.y, r.w, r.h); return m; }
 async function genGo(){
   const g=gen; if (!g || g.busy) return; if (g.backend==='sd') return sdGo(); g.editing=false;
   if (!genReady()){ genSettings(); return; }
@@ -3703,12 +3746,12 @@ async function genGo(){
       if (words && genCfg.provider!=='fal' && genCfg.fillSee!==false && res.bitmaps[0] && genLike(P, res.bitmaps[0])<0.35){ // №139 the model gave back the mask or a different picture
         if (res.cost) g.cost=(g.cost||0)+res.cost; g.busy='модель не поняла маску — повторяю по-старому…'; genBuild(); res=await cloudFill(P, words, prompt, 1, 'magenta'); }
       if (res.cost) g.cost=(g.cost||0)+res.cost; g.lastCost=res.cost||0;
-      if (!g.softMask && P.orig) g.softMask=genSoftMask(P);
+      if (!g.softMask && P.orig) g.softMask=genSoftMask(P, words);
       let fit=null;
       res.bitmaps.forEach(bm=>{ let c=mk(P.r.w,P.r.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,P.r.w,P.r.h); bm.close&&bm.close();
         if (P.orig && genCfg.genFit!==false){ try{ fit=genFit(P, c); c=fit.c; }catch(e){ console.warn('genFit', e); } }
         (g.vWords||(g.vWords=[]))[g.variants.length]=words; g.variants.push(c); genPick(g.variants.length-1, true); });
-      const fitNote = fit && fit.moved ? ' · подвинула на '+Math.hypot(fit.moved.dx,fit.moved.dy).toFixed(0)+' px' : '';
+      const fitNote = (fit && fit.moved ? ' · подвинула на '+Math.hypot(fit.moved.dx,fit.moved.dy).toFixed(0)+' px' : '')+(fit && fit.graded ? ' · вернула цвет кадра' : '');
       // №137 how big the answer really was — if the model came back small and it was stretched, say so (the reason for «мыло»)
       const up = res.native ? Math.max(P.r.w,P.r.h)/Math.max(res.native[0],res.native[1]) : 1;
       g.lastNative={native:res.native, piece:[P.r.w,P.r.h], asked:res.asked, dropped:res.dropped, up};
@@ -10047,7 +10090,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-22 · №139 Заливка «вписать»: модель видит, что под выделением'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-22 · №140 Заливка: цвет кадра внутри, широкий переход'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

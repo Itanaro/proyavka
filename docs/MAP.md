@@ -80,7 +80,7 @@ python3 tools/map.py градиент     # русское название са
 - `generative fill` + `Google AI Studio` — провайдеры (`edProv`), `ggImage`, `ggVision`,
   **`cloudFetch`** (облако через мост ПК), fal.ai.
   Заливка в менюшке под выделением (№133): `genBuildCtx`, `genMore`; модели `orFillModel` / `orEraseModel` в `orFill`.
-  Вклейка ответа (№135): `genPrep` (хранит `orig`, `selC`, `grow`) → `genFit` (выравнивание + перенос света/цвета через шов) → маска `genSoftMask`.
+  Вклейка ответа (№135): `genPrep` (хранит `orig`, `selC`, `grow`) → `genFit` (выравнивание + перенос света/цвета через шов) → маска `genSoftMask`. №140: в `genFit` шаг 1b — цветовой перевод всего ответа (`genSolve4`), маска — по расстоянию от края.
 - `selection` — менюшка выделения под выделением (№133): `placeCtxBars` / `placeCtx`, «⋯» — `selMore`, закрепить внизу — `proyavka.ctxPin`.
 - `OpenRouter: shared request + four tools` — **`orRequest`** (общий запрос на картинку), общее
   ИИ-окно `aiOpen/aiGo/aiPick/aiDone/aiCancel`; 1 Вписать в сцену, 2 Отрисовать, 3 Расширить кадр

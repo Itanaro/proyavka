@@ -222,6 +222,14 @@ const steps = [
       check(await page.evaluate(() => { const r = gen.prep.r, d = gen.layer.mask.ctx.getImageData(r.x, r.y, r.w, r.h).data; let mid = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 20 && d[i] < 235) mid++; return mid > 50; }), 'край маски заливки жёсткий — растушёвки нет (№135)');
       check(await page.evaluate(() => { const P = gen.prep, w = P.r.w, h = P.r.h, O = ctx2(P.orig).getImageData(0, 0, w, h).data, V = ctx2(gen.variants[0]).getImageData(0, 0, w, h).data, S = ctx2(P.selC).getImageData(0, 0, w, h).data;
         let e = 0, n = 0; for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) { const i = 4 * (y * w + x); if (S[i + 3] < 10) { e += Math.abs(V[i] - O[i]) + Math.abs(V[i + 1] - O[i + 1]) + Math.abs(V[i + 2] - O[i + 2]); n++; } } return n && e / n / 3 < 6; }), 'вокруг заливки цвет ответа не подогнан под кадр (№135)');
+      check(await page.evaluate(() => { const P = gen.prep, w = P.r.w, h = P.r.h, S = ctx2(P.selC).getImageData(0, 0, w, h).data, cnt = m => { const d = ctx2(m).getImageData(P.r.x, P.r.y, w, h).data; let k = 0; for (let i = 3; i < d.length; i += 4) if (S[i] > 250 && d[i] < 235) k++; return k; };
+        return cnt(genSoftMask(P, 'чашка')) > 4 * Math.max(1, cnt(genSoftMask(P, ''))); }), '«вписать»: переход маски не заходит внутрь выделения (№140)');
+      check(await page.evaluate(() => { const w = 240, h = 180, o = mk(w, h), ox = ctx2(o), gr = ox.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#4a4f9a'); gr.addColorStop(1, '#d0508f'); ox.fillStyle = gr; ox.fillRect(0, 0, w, h);
+        const s = mk(w, h), sx = ctx2(s); sx.fillStyle = '#fff'; sx.fillRect(80, 60, 80, 60);
+        const a = mk(w, h), ax = ctx2(a, { willReadFrequently: true }); ax.drawImage(o, 0, 0); const id = ax.getImageData(0, 0, w, h), d = id.data; for (let i = 0; i < d.length; i += 4) { d[i] = d[i] * 0.7; d[i + 1] = d[i + 1] * 0.9 + 25; d[i + 2] = Math.min(255, d[i + 2] * 1.05 + 10); } ax.putImageData(id, 0, 0);
+        const f = genFit({ r: { x: 0, y: 0, w, h }, orig: o, selC: s, grow: 3 }, a), V = ctx2(f.c).getImageData(0, 0, w, h).data, O = ox.getImageData(0, 0, w, h).data; let e = 0, n = 0;
+        for (let y = 70; y < 110; y++) for (let x = 90; x < 150; x++) { const i = 4 * (y * w + x); e += Math.abs(V[i] - O[i]) + Math.abs(V[i + 2] - O[i + 2]); n++; }
+        return f.graded > 0 && e / n / 2 < 8; }), 'ответ с чужим оттенком на весь кусок не вернулся в цвет кадра (№140)');
       await page.request.post(STUB + '/_reset');
       await page.evaluate(() => { gen.editing = true; gen.prompt = 'REFCOPY'; genGo(); });
       await until(page, () => gen && !gen.busy && gen.variants.length === 3, null, 20000, 'третий вариант');
