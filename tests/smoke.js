@@ -221,8 +221,10 @@ const steps = [
       check(await page.evaluate(() => { const r = gen.prep.r, d = gen.layer.mask.ctx.getImageData(r.x, r.y, r.w, r.h).data; let mid = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 20 && d[i] < 235) mid++; return mid > 50; }), 'край маски заливки жёсткий — растушёвки нет (№135)');
       check(await page.evaluate(() => { const P = gen.prep, w = P.r.w, h = P.r.h, O = ctx2(P.orig).getImageData(0, 0, w, h).data, V = ctx2(gen.variants[0]).getImageData(0, 0, w, h).data, S = ctx2(P.selC).getImageData(0, 0, w, h).data;
         let e = 0, n = 0; for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) { const i = 4 * (y * w + x); if (S[i + 3] < 10) { e += Math.abs(V[i] - O[i]) + Math.abs(V[i + 1] - O[i + 1]) + Math.abs(V[i + 2] - O[i + 2]); n++; } } return n && e / n / 3 < 6; }), 'вокруг заливки цвет ответа не подогнан под кадр (№135)');
+      const names = await page.evaluate(() => { genPick(0); const a = gen.layer.name; genPick(1); return [a, gen.layer.name]; });
+      check(names[0] === 'Генеративная заливка' && names[1] === 'чашка кофе', 'имя слоя заливки — не промпт (№136): ' + names.join(' / '));
       await page.evaluate(() => genDone());
-      check(await page.evaluate(() => !!AL().mask && /Генерация/.test(AL().name)), 'слой заливки с маской не остался');
+      check(await page.evaluate(() => !!AL().mask && AL().name === 'чашка кофе'), 'слой заливки с маской не остался');
       await page.evaluate(() => deselect());
   }},
 

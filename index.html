@@ -3337,7 +3337,7 @@ const NB21='google/gemini-nano-banana-2.1';
 if (!genCfg.nb21 && /^google\/gemini-(2\.5|3\.1)-flash-image/.test(genCfg.orModel||'')){ genCfg.nbOld=genCfg.orModel; genCfg.orModel=NB21; genCfg.nb21=1; genSave(); setTimeout(()=>toast('Генерация переключена на Nano Banana 2.1 — вдвое дешевле прежней. Вернуть можно в ⚙ ИИ',5000),2500); }
 else if (!genCfg.nb21){ genCfg.nb21=1; genSave(); }
 // OpenRouter answer size: 1K ≈ 1 MP, 2K ≈ 4 MP, 4K ≈ 16 MP — the picture we send grows with it, so the detail is really there
-const orK=(A,up)=>Math.min(Math.sqrt(orMP()/A), Math.max(1, Math.min(up, Math.sqrt(1.05e6/A)))); // never blow a piece up past ~1 MP just because the answer is 2K/4K
+const orK=(A,up,res)=>Math.min(Math.sqrt(orMP(res)/A), Math.max(1, Math.min(up, Math.sqrt(1.05e6/A)))); // never blow a piece up past ~1 MP just because the answer is 2K/4K
 const orMP=res=>1.05e6*(edProv() && genCfg.provider!=='fal' ? ({'2K':4,'4K':16}[res||genCfg.orRes]||1) : 1);
 /* picture-edit service for the instruction tools (generation, fit into the scene, sketch, expand, art director):
    OpenRouter or Google AI Studio directly. Each person brings their own key; it stays on this device. */
@@ -3359,7 +3359,7 @@ async function orFill(P, words, n){
     : 'Edit this image. Remove the solid magenta area and fill it with a seamless, natural continuation of the surrounding background: same textures, lighting, perspective, grain and depth of field, nothing new added. Do not change anything outside the magenta area. No magenta may remain.';
   // №133 generative fill has its own two models: with words — «fit in» (K3 Edit by default), empty — «remove»
   const model = edProv()==='or' ? (words ? genCfg.orFillModel : genCfg.orEraseModel) || genCfg.orModel : undefined;
-  return orRequest(P.img, ask, n, {mask:P.mask, magenta:true, model});
+  return orRequest(P.img, ask, n, {mask:P.mask, magenta:true, model, res:P.res});
 }
 async function cloudFill(P, words, fluxPrompt, n){ return genCfg.provider==='fal' ? falFill(P, fluxPrompt, n) : orFill(P, words, n); }
 async function orPing(){
@@ -3577,7 +3577,9 @@ function genMore(btn){
 function genPrep(){ // crop with context, size for the model (~1 MP, multiples of 16), mask white = to fill
   const b=sel.box&&sel.box.w ? sel.box : selBBox(); if (!b || !b.w) throw new Error('пустое выделение');
   const pad=Math.max(48, Math.round(Math.max(b.w,b.h)*0.4)), r=clipRect(b.x-pad, b.y-pad, b.w+2*pad, b.h+2*pad);
-  const k=orK(r.w*r.h, 3);
+  // №136 resolution «auto»: a piece bigger than ~1.25 MP goes at 2K, so it comes back in its own size, not stretched up from 1 MP (that was the «мыло»)
+  const res = (genCfg.orRes||'1K')!=='1K' ? genCfg.orRes : (r.w*r.h>1.25e6 ? '2K' : '1K');
+  const k=orK(r.w*r.h, 3, res);
   const W=Math.max(64,Math.round(r.w*k/16)*16), H=Math.max(64,Math.round(r.h*k/16)*16);
   const img=mk(W,H), ix=ctx2(img); ix.fillStyle='#fff'; ix.fillRect(0,0,W,H); ix.imageSmoothingQuality='high'; ix.drawImage(compositeRegion(r,W,H),0,0);
   const sm=mk(W,H), sx=ctx2(sm); sx.imageSmoothingQuality='high'; sx.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,W,H);
@@ -3587,7 +3589,7 @@ function genPrep(){ // crop with context, size for the model (~1 MP, multiples o
   for (let a=0;a<8;a++){ mx.drawImage(wm, Math.round(Math.cos(a*Math.PI/4)*g), Math.round(Math.sin(a*Math.PI/4)*g)); } mx.drawImage(wm,0,0);
   // №135 for fitting the answer in: the untouched picture at full size, the selection cut to the piece, how far the model may repaint past it
   const orig=compositeRegion(r, r.w, r.h), selC=mk(r.w,r.h); ctx2(selC).drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,r.w,r.h);
-  return {r, W, H, img, mask, orig, selC, grow:g*r.w/W};
+  return {r, W, H, img, mask, orig, selC, grow:g*r.w/W, res};
 }
 /* №135 fit the model's answer into the frame, like Photoshop's generative fill does:
    1) line it up with the picture (models nudge and zoom a little) — by the untouched picture around the selection;
@@ -3644,8 +3646,15 @@ function genFit(P, c){
     for (let x=0;x<w;x++){ const fx=Math.min(sw-1,Math.max(0,(x+0.5)*kx-0.5)), x0=Math.floor(fx), x1=Math.min(sw-1,x0+1), ax=fx-x0, o=4*(y*w+x);
       const a=3*(y0*sw+x0), b=3*(y0*sw+x1), e=3*(y1*sw+x0), f=3*(y1*sw+x1);
       for (let q=0;q<3;q++){ const v=d[o+q]+(D[a+q]*(1-ax)+D[b+q]*ax)*(1-ay)+(D[e+q]*(1-ax)+D[f+q]*ax)*ay; d[o+q]=v<0?0:v>255?255:v; } } }
+  // 3) grain: models answer smoother than a photo — add back the difference in fine noise, measured in the ring of the picture
+  let grain=0; { const O2=ctx2(P.orig,{willReadFrequently:true}).getImageData(0,0,w,h).data, gl=(a,i)=>a[i]*.3+a[i+1]*.59+a[i+2]*.11;
+    let so=0,no=0,sr=0,nr=0; for (let y=1;y<h-1;y+=2) for (let x=1;x<w-1;x+=2){ const zi=Math.min(sh-1,Math.floor(y*ky))*sw+Math.min(sw-1,Math.floor(x*kx)), ring=M2[zi]&&!M1[zi], ins=M1[zi]; if (!ring&&!ins) continue;
+      const A2=ins?d:O2, i=4*(y*w+x), l=gl(A2,i)-(gl(A2,i-4)+gl(A2,i+4)+gl(A2,i-4*w)+gl(A2,i+4*w))/4; if (Math.abs(l)>24) continue; // edges are not grain
+      if (ins){ sr+=l*l; nr++; } else { so+=l*l; no++; } }
+    if (no>200 && nr>200){ const sO=Math.sqrt(so/no), sR=Math.sqrt(sr/nr); if (sR<sO*0.85){ grain=Math.sqrt(sO*sO-sR*sR)/1.118;
+      for (let i=0;i<d.length;i+=4){ const n=(Math.random()+Math.random()+Math.random()-1.5)*2*grain; for (let q=0;q<3;q++){ const v=d[i+q]+n+(Math.random()-0.5)*grain*0.5; d[i+q]=v<0?0:v>255?255:v; } } } } }
   rx.putImageData(id,0,0);
-  return {c:res, moved, step:Math.round(step/3)};
+  return {c:res, moved, step:Math.round(step/3), grain:Math.round(grain*10)/10};
 }
 // №135 the layer mask: the selection, softened outward into the strip the model repainted anyway (was a hard edge on the lasso line)
 function genSoftMask(P){
@@ -3671,7 +3680,7 @@ async function genGo(){
       let fit=null;
       res.bitmaps.forEach(bm=>{ let c=mk(P.r.w,P.r.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,P.r.w,P.r.h); bm.close&&bm.close();
         if (P.orig && genCfg.genFit!==false){ try{ fit=genFit(P, c); c=fit.c; }catch(e){ console.warn('genFit', e); } }
-        g.variants.push(c); genPick(g.variants.length-1, true); });
+        (g.vWords||(g.vWords=[]))[g.variants.length]=words; g.variants.push(c); genPick(g.variants.length-1, true); });
       const fitNote = fit && fit.moved ? ' · подвинула на '+Math.hypot(fit.moved.dx,fit.moved.dy).toFixed(0)+' px' : '';
       g.busy=null; genBuild(); toast('Готово'+(g.lastCost?' · $'+g.lastCost.toFixed(3):'')+fitNote+(g.variants.length>1?' · вариантов: '+g.variants.length:''),1800); return; }
     g.busy='отправляю картинку на компьютер…'; genBuild();
@@ -3689,10 +3698,12 @@ function genPrompt(t){ t=String(t||'').trim(); if (!t) return '';
   return t+'. Photorealistic, seamlessly blended into the surrounding scene, same lighting direction, colour temperature, perspective, grain and depth of field as the rest of the image.'; }
 function genPick(i, quiet){
   const g=gen; if (!g || !g.variants[i]) return; g.idx=i; const P=g.prep, c=g.variants[i];
-  if (!g.layer || !doc.layers.includes(g.layer)){ const L=newLayer((g.backend==='sd'?'SD':'Генерация')+(g.prompt.trim()?' · '+g.prompt.trim().slice(0,28):''));
+  // №136 the layer of the cloud fill is named by its prompt only (easy to copy), per variant; empty — «Генеративная заливка»
+  const gname=()=>{ const t=String((g.vWords&&g.vWords[i]!=null) ? g.vWords[i] : g.prompt||'').trim(); return g.backend==='sd' ? 'SD'+(t?' · '+t.slice(0,28):'') : (t.slice(0,255)||'Генеративная заливка'); };
+  if (!g.layer || !doc.layers.includes(g.layer)){ const L=newLayer(gname());
     const m=newMask(L); m.ctx.clearRect(0,0,doc.w,doc.h); m.ctx.drawImage(g.softMask||g.selMask,0,0); L.mask=m;
     insertLayer(L, doc.active+1); g.layer=L; }
-  const L=g.layer; L.ctx.clearRect(0,0,doc.w,doc.h); L.ctx.drawImage(c,P.r.x,P.r.y); L.dirty=true; thumbSoon(L); markDirty(); requestRender();
+  const L=g.layer; if (L.name!==gname()){ L.name=gname(); layersChanged(); } L.ctx.clearRect(0,0,doc.w,doc.h); L.ctx.drawImage(c,P.r.x,P.r.y); L.dirty=true; thumbSoon(L); markDirty(); requestRender();
   if (!quiet) genBuild();
 }
 function genDone(){ const g=gen; gen=null; $('#genbar').hidden=true; updateSelBar(); if (g && g.layer){ layersChanged(); toast('Генерация легла слоем с маской — край можно докрасить',2200); } }
@@ -10001,7 +10012,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-22 · №135 Генеративная заливка: вклейка в свет и цвет'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-22 · №136 Генеративная заливка: без мыла, зерно, имя = промпт'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
