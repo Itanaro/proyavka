@@ -3355,7 +3355,7 @@ const PROV_NAME={fal:'fal.ai', or:'OpenRouter', google:'Google AI Studio', comfy
 const OR_ASPECTS=[[1,1],[4,3],[3,4],[3,2],[2,3],[16,9],[9,16]];
 async function orFill(P, words, n){
   const ask = words
-    ? 'Edit this image. Inside the solid magenta area only, paint: '+words+'. It must fit the scene: same lighting direction and colour temperature, perspective, scale, grain, sharpness and depth of field. Do not change anything outside the magenta area. No magenta may remain.'
+    ? 'Edit this image. Inside the solid magenta area only, paint: '+words+'. It must fit the scene: same lighting direction and colour temperature, perspective, scale, grain, sharpness and depth of field. Whatever touches the edge of the magenta area must continue into it — shapes, light, gradients and background flow across the border, so the area has no visible outline; new things are attached to the scene, not pasted on top. Do not change anything outside the magenta area. No magenta may remain.'
     : 'Edit this image. Remove the solid magenta area and fill it with a seamless, natural continuation of the surrounding background: same textures, lighting, perspective, grain and depth of field, nothing new added. Do not change anything outside the magenta area. No magenta may remain.';
   // №133 generative fill has its own two models: with words — «fit in» (K3 Edit by default), empty — «remove»
   const model = edProv()==='or' ? (words ? genCfg.orFillModel : genCfg.orEraseModel) || genCfg.orModel : undefined;
@@ -3585,8 +3585,73 @@ function genPrep(){ // crop with context, size for the model (~1 MP, multiples o
   const wm=mk(W,H), wx=ctx2(wm); wx.fillStyle='#fff'; wx.fillRect(0,0,W,H); wx.globalCompositeOperation='destination-in'; wx.drawImage(sm,0,0);
   const g=Math.max(2, Math.round(Math.max(W,H)*0.012)); // grow a little so the seam is generated too
   for (let a=0;a<8;a++){ mx.drawImage(wm, Math.round(Math.cos(a*Math.PI/4)*g), Math.round(Math.sin(a*Math.PI/4)*g)); } mx.drawImage(wm,0,0);
-  return {r, W, H, img, mask};
+  // №135 for fitting the answer in: the untouched picture at full size, the selection cut to the piece, how far the model may repaint past it
+  const orig=compositeRegion(r, r.w, r.h), selC=mk(r.w,r.h); ctx2(selC).drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,r.w,r.h);
+  return {r, W, H, img, mask, orig, selC, grow:g*r.w/W};
 }
+/* №135 fit the model's answer into the frame, like Photoshop's generative fill does:
+   1) line it up with the picture (models nudge and zoom a little) — by the untouched picture around the selection;
+   2) carry the colour and brightness of the surroundings across the seam: the difference between the picture and the answer
+      in a band just outside the repainted area is spread smoothly inward (push-pull) and added — the new thing keeps its own
+      light inside, but meets the background with no step at the edge. */
+function genFit(P, c){
+  const w=P.r.w, h=P.r.h; if (w<16||h<16) return {c};
+  const S=Math.min(1, 384/Math.max(w,h)), sw=Math.max(8,Math.round(w*S)), sh=Math.max(8,Math.round(h*S)), N=sw*sh;
+  const px=cv=>{ const t=mk(sw,sh), x=ctx2(t,{willReadFrequently:true}); x.imageSmoothingQuality='high'; x.drawImage(cv,0,0,sw,sh); return x.getImageData(0,0,sw,sh).data; };
+  const zone=rad=>{ const t=mk(sw,sh), x=ctx2(t,{willReadFrequently:true}); x.imageSmoothingQuality='high';
+    if (rad>0) for (const f of [0.35,0.7,1]) for (let a=0;a<16;a++) x.drawImage(P.selC, Math.cos(a*Math.PI/8)*rad*f, Math.sin(a*Math.PI/8)*rad*f, sw, sh);
+    x.drawImage(P.selC,0,0,sw,sh); const d=x.getImageData(0,0,sw,sh).data, o=new Uint8Array(N); for (let i=0;i<N;i++) o[i]=d[4*i+3]>16?1:0; return o; };
+  const gS=Math.max(1.5, P.grow*S*1.3), band=Math.max(4, Math.round(Math.max(sw,sh)*0.05));
+  const M1=zone(gS), M2=zone(gS+band); let nRing=0, nOut=0; for (let i=0;i<N;i++){ if (M2[i]&&!M1[i]) nRing++; if (!M1[i]) nOut++; }
+  if (nRing<30) return {c}; // the selection takes the whole piece — nothing to match against
+  const O=px(P.orig), gray=d=>{ const a=new Float32Array(N); for (let i=0;i<N;i++) a[i]=d[4*i]*.3+d[4*i+1]*.59+d[4*i+2]*.11; return a; };
+  // 1) line up: small shift and scale, judged only on the picture outside the repainted area
+  let out=c, moved=null;
+  if (nOut>200){ const A=gray(O), B=gray(px(c)), cx=sw/2, cy=sh/2, st=Math.max(1, Math.round(Math.sqrt(nOut/6000)));
+    let mA=0,k0=0; for (let y=0;y<sh;y+=st) for (let x=0;x<sw;x+=st){ const i=y*sw+x; if (!M1[i]){ mA+=A[i]; k0++; } } mA/=Math.max(1,k0);
+    const err=(s,dx,dy)=>{ let e=0, m=0, k=0; const va=[], vb=[];
+      for (let y=0;y<sh;y+=st) for (let x=0;x<sw;x+=st){ const i=y*sw+x; if (M1[i]) continue; const bx=Math.round((x-cx-dx)/s+cx), by=Math.round((y-cy-dy)/s+cy); if (bx<0||by<0||bx>=sw||by>=sh) continue; va.push(A[i]); vb.push(B[by*sw+bx]); m+=B[by*sw+bx]; k++; }
+      if (k<60) return 1e18; m/=k; for (let j=0;j<k;j++){ const q=(va[j]-mA)-(vb[j]-m); e+=q*q; } return e/k; };
+    const e0=err(1,0,0), R=Math.max(2, Math.round(Math.max(sw,sh)*0.025)); let best={s:1,dx:0,dy:0,e:e0};
+    for (const s of [0.97,0.985,1,1.015,1.03]) for (let dy=-R;dy<=R;dy+=2) for (let dx=-R;dx<=R;dx+=2){ const v=err(s,dx,dy); if (v<best.e) best={s,dx,dy,e:v}; }
+    const b0=best; for (const s of [b0.s-0.007,b0.s,b0.s+0.007]) for (let dy=b0.dy-1;dy<=b0.dy+1;dy++) for (let dx=b0.dx-1;dx<=b0.dx+1;dx++){ const v=err(s,dx,dy); if (v<best.e) best={s,dx,dy,e:v}; }
+    if ((best.dx||best.dy||best.s!==1) && best.e < e0*0.8 && e0>4){ // only when it is clearly better — on a flat background any shift «fits»
+      out=mk(w,h); const x=ctx2(out), k=w/sw; x.imageSmoothingQuality='high'; x.setTransform(best.s,0,0,best.s, w/2*(1-best.s)+best.dx*k, h/2*(1-best.s)+best.dy*k); x.drawImage(c,0,0);
+      moved={dx:Math.round(best.dx*k), dy:Math.round(best.dy*k), s:best.s}; } }
+  // 2) match the surroundings: difference picture − answer in the ring, filled inward smoothly
+  const V=px(out); const lv=[]; let cw=sw, ch=sh, val=new Float32Array(N*3), wt=new Float32Array(N);
+  for (let i=0;i<N;i++) if (M2[i]&&!M1[i]){ wt[i]=1; for (let q=0;q<3;q++) val[3*i+q]=O[4*i+q]-V[4*i+q]; }
+  lv.push({w:cw,h:ch,val,wt});
+  while (cw>1||ch>1){ const nw=Math.max(1,Math.ceil(cw/2)), nh=Math.max(1,Math.ceil(ch/2)), nv=new Float32Array(nw*nh*3), nt=new Float32Array(nw*nh), p=lv[lv.length-1];
+    for (let y=0;y<ch;y++) for (let x=0;x<cw;x++){ const i=y*cw+x, t=p.wt[i]; if (!t) continue; const j=(y>>1)*nw+(x>>1); nt[j]+=t; for (let q=0;q<3;q++) nv[3*j+q]+=p.val[3*i+q]*t; }
+    for (let j=0;j<nw*nh;j++) if (nt[j]>0){ for (let q=0;q<3;q++) nv[3*j+q]/=nt[j]; nt[j]=Math.min(1,nt[j]); }
+    lv.push({w:nw,h:nh,val:nv,wt:nt}); cw=nw; ch=nh; }
+  for (let l=lv.length-2;l>=0;l--){ const a=lv[l], b=lv[l+1];
+    for (let y=0;y<a.h;y++) for (let x=0;x<a.w;x++){ const i=y*a.w+x, t=a.wt[i]; if (t>=1) continue;
+      const fx=Math.min(b.w-1,Math.max(0,(x-0.5)/2)), fy=Math.min(b.h-1,Math.max(0,(y-0.5)/2)), x0=Math.floor(fx), y0=Math.floor(fy), x1=Math.min(b.w-1,x0+1), y1=Math.min(b.h-1,y0+1), ax=fx-x0, ay=fy-y0;
+      for (let q=0;q<3;q++){ const u=(b.val[3*(y0*b.w+x0)+q]*(1-ax)+b.val[3*(y0*b.w+x1)+q]*ax)*(1-ay)+(b.val[3*(y1*b.w+x0)+q]*(1-ax)+b.val[3*(y1*b.w+x1)+q]*ax)*ay; a.val[3*i+q]=a.val[3*i+q]*t+u*(1-t); }
+      a.wt[i]=1; } }
+  let D=lv[0].val; const br=Math.max(1, Math.round(band/3)); // a light blur — the noise of the ring must not print into the new area
+  for (let pass=0;pass<2;pass++){ const T=new Float32Array(N*3);
+    for (let y=0;y<sh;y++){ let s0=0,s1=0,s2=0,n=0; for (let x=-br;x<sw+br;x++){ if (x+br<sw){ const j=3*(y*sw+x+br); s0+=D[j]; s1+=D[j+1]; s2+=D[j+2]; n++; } if (x-br-1>=0){ const j=3*(y*sw+x-br-1); s0-=D[j]; s1-=D[j+1]; s2-=D[j+2]; n--; } if (x>=0&&x<sw){ const j=3*(y*sw+x); T[j]=s0/n; T[j+1]=s1/n; T[j+2]=s2/n; } } }
+    const U=new Float32Array(N*3);
+    for (let x=0;x<sw;x++){ let s0=0,s1=0,s2=0,n=0; for (let y=-br;y<sh+br;y++){ if (y+br<sh){ const j=3*((y+br)*sw+x); s0+=T[j]; s1+=T[j+1]; s2+=T[j+2]; n++; } if (y-br-1>=0){ const j=3*((y-br-1)*sw+x); s0-=T[j]; s1-=T[j+1]; s2-=T[j+2]; n--; } if (y>=0&&y<sh){ const j=3*(y*sw+x); U[j]=s0/n; U[j+1]=s1/n; U[j+2]=s2/n; } } }
+    D=U; }
+  let step=0; for (let i=0;i<N;i++) if (M1[i]) step=Math.max(step, Math.abs(D[3*i])+Math.abs(D[3*i+1])+Math.abs(D[3*i+2]));
+  const res=out===c ? mk(w,h) : out, rx=ctx2(res,{willReadFrequently:true}); if (out===c) rx.drawImage(c,0,0);
+  const id=rx.getImageData(0,0,w,h), d=id.data, kx=(sw)/w, ky=(sh)/h;
+  for (let y=0;y<h;y++){ const fy=Math.min(sh-1,Math.max(0,(y+0.5)*ky-0.5)), y0=Math.floor(fy), y1=Math.min(sh-1,y0+1), ay=fy-y0;
+    for (let x=0;x<w;x++){ const fx=Math.min(sw-1,Math.max(0,(x+0.5)*kx-0.5)), x0=Math.floor(fx), x1=Math.min(sw-1,x0+1), ax=fx-x0, o=4*(y*w+x);
+      const a=3*(y0*sw+x0), b=3*(y0*sw+x1), e=3*(y1*sw+x0), f=3*(y1*sw+x1);
+      for (let q=0;q<3;q++){ const v=d[o+q]+(D[a+q]*(1-ax)+D[b+q]*ax)*(1-ay)+(D[e+q]*(1-ax)+D[f+q]*ax)*ay; d[o+q]=v<0?0:v>255?255:v; } } }
+  rx.putImageData(id,0,0);
+  return {c:res, moved, step:Math.round(step/3)};
+}
+// №135 the layer mask: the selection, softened outward into the strip the model repainted anyway (was a hard edge on the lasso line)
+function genSoftMask(P){
+  const r=P.r, g=Math.max(1.5, P.grow), t=mk(r.w,r.h), x=ctx2(t); x.imageSmoothingQuality='high';
+  for (const f of [0.5,1]) for (let a=0;a<16;a++) x.drawImage(P.selC, Math.cos(a*Math.PI/8)*g*0.45*f, Math.sin(a*Math.PI/8)*g*0.45*f); x.drawImage(P.selC,0,0);
+  const m=mk(doc.w,doc.h); ctx2(m).drawImage(softBlur(t, g*0.45), r.x, r.y); return m; }
 async function genGo(){
   const g=gen; if (!g || g.busy) return; if (g.backend==='sd') return sdGo(); g.editing=false;
   if (!genReady()){ genSettings(); return; }
@@ -3602,8 +3667,13 @@ async function genGo(){
       if (!prompt) prompt = words ? genPrompt(words) : 'Seamless natural continuation of the surrounding background, matching texture, lighting, perspective and grain; nothing new in this area.';
       g.used = genCfg.provider==='fal' ? prompt : null; g.busy= words ? 'вписываю…' : 'убираю…'; genBuild();
       const res=await cloudFill(P, words, prompt, 1); if (res.cost) g.cost=(g.cost||0)+res.cost; g.lastCost=res.cost||0;
-      res.bitmaps.forEach(bm=>{ const c=mk(P.r.w,P.r.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,P.r.w,P.r.h); bm.close&&bm.close(); g.variants.push(c); genPick(g.variants.length-1, true); });
-      g.busy=null; genBuild(); toast('Готово'+(g.lastCost?' · $'+g.lastCost.toFixed(3):'')+(g.variants.length>1?' · вариантов: '+g.variants.length:''),1800); return; }
+      if (!g.softMask && P.orig) g.softMask=genSoftMask(P);
+      let fit=null;
+      res.bitmaps.forEach(bm=>{ let c=mk(P.r.w,P.r.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,P.r.w,P.r.h); bm.close&&bm.close();
+        if (P.orig && genCfg.genFit!==false){ try{ fit=genFit(P, c); c=fit.c; }catch(e){ console.warn('genFit', e); } }
+        g.variants.push(c); genPick(g.variants.length-1, true); });
+      const fitNote = fit && fit.moved ? ' · подвинула на '+Math.hypot(fit.moved.dx,fit.moved.dy).toFixed(0)+' px' : '';
+      g.busy=null; genBuild(); toast('Готово'+(g.lastCost?' · $'+g.lastCost.toFixed(3):'')+fitNote+(g.variants.length>1?' · вариантов: '+g.variants.length:''),1800); return; }
     g.busy='отправляю картинку на компьютер…'; genBuild();
     const stamp=Date.now().toString(36), imgN=await genUpload(P.img,'proyavka_img_'+stamp+'.png'), maskN=await genUpload(P.mask,'proyavka_mask_'+stamp+'.png');
     const prompt=genPrompt(g.prompt);
@@ -3620,7 +3690,7 @@ function genPrompt(t){ t=String(t||'').trim(); if (!t) return '';
 function genPick(i, quiet){
   const g=gen; if (!g || !g.variants[i]) return; g.idx=i; const P=g.prep, c=g.variants[i];
   if (!g.layer || !doc.layers.includes(g.layer)){ const L=newLayer((g.backend==='sd'?'SD':'Генерация')+(g.prompt.trim()?' · '+g.prompt.trim().slice(0,28):''));
-    const m=newMask(L); m.ctx.clearRect(0,0,doc.w,doc.h); m.ctx.drawImage(g.selMask,0,0); L.mask=m;
+    const m=newMask(L); m.ctx.clearRect(0,0,doc.w,doc.h); m.ctx.drawImage(g.softMask||g.selMask,0,0); L.mask=m;
     insertLayer(L, doc.active+1); g.layer=L; }
   const L=g.layer; L.ctx.clearRect(0,0,doc.w,doc.h); L.ctx.drawImage(c,P.r.x,P.r.y); L.dirty=true; thumbSoon(L); markDirty(); requestRender();
   if (!quiet) genBuild();
@@ -9931,7 +10001,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-22 · №134 «Недавние»: очистить список и убрать по одному'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-22 · №135 Генеративная заливка: вклейка в свет и цвет'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
