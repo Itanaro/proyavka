@@ -603,6 +603,26 @@ const steps = [
       for (const [k, v] of Object.entries(r)) check(v, 'профиль: не так — ' + k);
   }},
 
+  { name: '«Недавние»: убрать по одному, вернуть, очистить всё', run: async page => {
+      const r = await page.evaluate(async () => {
+        await autosave(true); await flushSave(); localStorage.removeItem(RECENT_HIDE);
+        await homeShow(); const h = document.getElementById('home'), cards = () => h.querySelectorAll('.hcard').length;
+        const out = { n0: cards(), clr: !h.querySelector('.hclr').hidden };
+        h.querySelector('.hcard .hx').click(); await new Promise(r => setTimeout(r, 300));
+        out.n1 = cards(); out.opened = !homeOn ? 'открылся документ вместо «убрать»' : '';
+        document.querySelector('#toast .tact').click(); await new Promise(r => setTimeout(r, 300)); out.n2 = cards();
+        await recentHide(libMine(await libGet()).map(e => e.id), true);
+        out.n3 = cards(); out.empty = (h.querySelector('.hempty') || {}).textContent || ''; out.lib = !h.querySelector('h2 [data-h=lib]').hidden;
+        out.kept = (await libGet()).length;
+        localStorage.removeItem(RECENT_HIDE); homeHide(); return out; });
+      check(r.n0 > 0 && r.clr, 'в «Недавних» нет карточек или кнопки «Очистить»');
+      check(!r.opened, r.opened);
+      check(r.n1 === r.n0 - 1, `× не убрал карточку: было ${r.n0}, стало ${r.n1}`);
+      check(r.n2 === r.n0, `«Вернуть» не вернул карточку: ${r.n2} из ${r.n0}`);
+      check(r.n3 === 0 && /пусты/.test(r.empty) && r.lib, '«Очистить» не опустошил список или нет ссылки «Все документы»');
+      check(r.kept >= r.n0, 'документы удалились из памяти, а должны были только пропасть из списка');
+  }},
+
   { name: 'Автосохранение → перезагрузка → документ на месте', run: async page => {
       await page.evaluate(async () => { const t = TABS.list.find(t => t.doc && t.doc.name === 'Тест'); if (t && t.doc !== doc) await tabSwitch(t); });
       const n = await page.evaluate(async () => { await autosave(true); await flushSave(); return doc.layers.length; });

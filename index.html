@@ -607,6 +607,10 @@ body.home #menu [data-m=place],body.home #menu [data-m=save],body.home #menu [da
 #home .hth{aspect-ratio:4/3;border-radius:12px;background:#0d0e10;display:flex;align-items:center;justify-content:center;overflow:hidden}
 #home .hth img{max-width:100%;max-height:100%;opacity:0;transition:opacity .25s}
 #home .hth img.ld{opacity:1}
+#home .hcard{position:relative} #home .hx{position:absolute;top:13px;right:13px;z-index:2;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass-bg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);color:var(--fg);font-size:17px;line-height:1;cursor:pointer;transition:opacity .15s,background .15s}
+#home .hx:hover{background:var(--soft-2);color:var(--danger)}
+@media (hover:hover){ #home .hx{opacity:0} #home .hcard:hover .hx,#home .hx:focus-visible{opacity:1} }
+#home .hmain h2 .hclr{margin-left:auto;color:var(--muted);font-size:13px;font-weight:500} #home .hmain h2 .hclr:hover{color:var(--fg)} #home .hmain h2 .hclr:not([hidden]) + button{margin-left:14px}
 #home .hcard .nm{margin:9px 4px 0;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #home .hcard .mt{margin:2px 4px 3px;color:var(--muted);font:10.5px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #home .hcard.last .mt b{color:var(--accent);font-weight:500}
@@ -9772,7 +9776,7 @@ async function restore(id){
   try{
     id = id || getCurDoc(); if (!id){ const lib=libMine(await libGet()); if(!lib.length) return false; id=lib[0].id; }
     const P=PFX(id), m=await idbGet(P+'meta'); if(!m||!m.layers||!m.layers.length) return false;
-    busy(true,'Открываю «'+(m.name||'документ')+'»…'); await nextFrame();
+    busy(true,'Открываю «'+(m.name||'документ')+'»…'); await nextFrame(); recentUnhide(id);
     resetDocState(); doc=null;
     const D={id, refs:(m.refs||[]).map(r=>Object.assign({}, r, {c:null})), fileName:m.file||null, pc:m.pc||null, owner:m.owner||'local', keys:m.keys||[], w:m.w,h:m.h,dpi:m.dpi||72,notes:m.notes||null,notesHide:!!m.notesHide,name:m.name,layers:[],active:0,editMask:false}; doc=D;
     const byId=new Map();
@@ -9927,7 +9931,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-20 · №133 Генеративная заливка как в Фотошопе: менюшка под выделением, K3 Edit, по одному варианту'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-22 · №134 «Недавние»: очистить список и убрать по одному'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
@@ -9944,10 +9948,10 @@ function homeEl(){ const h=$('#home'); if (h.dataset.ready) return h; h.dataset.
     +'<div class="hacct" hidden><span></span><button data-h="logout">Выйти</button></div>'
     +'<div class="hdrop">'+(IS_DESK?'Перетащи сюда PSD или картинки — каждая откроется своим документом. Ctrl+V — картинка из буфера.':'Открывает PSD, PNG и JPG. Картинка, вставленная из буфера, тоже откроется документом.')+'</div>'
     +'<div class="hfoot"><button class="hmini" data-h="help" title="'+(IS_DESK?'Клавиши, мышь и инструменты':'Жесты, клавиши и инструменты')+'">'+ic('help')+'<span>'+'Справка'+'</span></button><button class="hmini" data-h="look" title="Оформление">'+ic('look')+'<span>Оформление</span></button></div>'+'</aside>'
-    +'<section class="hmain"><h2>Недавние <span></span><button data-h="lib" hidden>Все документы →</button></h2><div class="hgrid"></div></section></div>';
+    +'<section class="hmain"><h2>Недавние <span></span><button class="hclr" data-h="clear" hidden title="Убрать всё из «Недавних» — документы останутся в «Все документы»">Очистить</button><button data-h="lib" hidden>Все документы →</button></h2><div class="hgrid"></div></section></div>';
   h.addEventListener('click', e=>{ const b=e.target.closest('[data-h]'); if (!b) return; const a=b.dataset.h;
     if (acctNeedsLogin() && a!=='login') return;
-    if (a==='help') showHelp(); else if (a==='look') appearanceDialog(); else if (a==='new') newDocDialog(); else if (a==='open') openDialog(); else if (a==='lib') openLibrary(); else if (a==='logout') acctLogout(); else if (a==='login') homeLogin(); });
+    if (a==='help') showHelp(); else if (a==='look') appearanceDialog(); else if (a==='new') newDocDialog(); else if (a==='open') openDialog(); else if (a==='lib') openLibrary(); else if (a==='clear') recentClearAsk(); else if (a==='logout') acctLogout(); else if (a==='login') homeLogin(); });
   h.addEventListener('dragover', e=>{ e.preventDefault(); h.classList.add('drop'); });
   h.addEventListener('dragleave', e=>{ if (!h.contains(e.relatedTarget)) h.classList.remove('drop'); });
   h.addEventListener('drop', async e=>{ e.preventDefault(); h.classList.remove('drop'); if (acctNeedsLogin()) return; const fs=await dropFiles(e); if (fs.length) openFilesAsDocs(fs); });
@@ -9965,22 +9969,39 @@ async function homeFill(){ const h=homeEl(), g=h.querySelector('.hgrid'); homeUr
   const lock=acctNeedsLogin(), ses=acctSession(); h.classList.toggle('locked', lock);
   h.querySelector('.hlogin').hidden=!lock; h.querySelectorAll('.hside > .hbtn, .hdrop').forEach(x=>x.hidden=lock);
   const ac=h.querySelector('.hacct'); ac.hidden=!ses; if (ses) ac.querySelector('span').textContent=ses.name||ses.email;
-  if (lock){ h.querySelector('.hdev').textContent=IS_DESK?'Этот компьютер':IS_IPAD?'Этот iPad':'Это устройство'; h.querySelector('.hmain h2 span').textContent=''; h.querySelector('.hmain h2 button').hidden=true;
+  if (lock){ h.querySelector('.hdev').textContent=IS_DESK?'Этот компьютер':IS_IPAD?'Этот iPad':'Это устройство'; h.querySelector('.hmain h2 span').textContent=''; h.querySelectorAll('.hmain h2 button').forEach(b=>b.hidden=true);
     g.innerHTML='<div class="hempty">Документы появятся после входа.</div>'; return; }
+  const all=lib.length; lib=recentVisible(lib); // №134: «Недавние» can be cleared / trimmed — documents stay in «Все документы»
   const N=IS_DESK?17:11, shown=lib.slice(0,N);
   h.querySelector('.hmain h2 span').textContent= lib.length>N ? N+' из '+lib.length : (lib.length?String(lib.length):'');
-  h.querySelector('.hmain h2 button').hidden= lib.length<=N;
+  h.querySelector('.hmain h2 button[data-h=lib]').hidden= lib.length<=N && lib.length===all;
+  h.querySelector('.hmain h2 .hclr').hidden= !lib.length;
   g.textContent='';
+  if (!lib.length && all){ g.innerHTML='<div class="hempty">«Недавние» пусты. Документы никуда не делись — они в «Все документы».<br>Открой любой — и он снова появится здесь.</div>'; return; }
   if (!lib.length){ g.innerHTML='<div class="hempty">Здесь появятся документы, с которыми ты работаешь на этом устройстве.<br>Открой файл — PSD, PNG, JPG или перетащи его сюда. Пустой холст — «Файл → Новый документ».</div>'; return; }
   shown.forEach((e,i)=>{ const c=document.createElement('button'); c.className='hcard'+(i===0?' last':''); c.title=e.name;
-    c.innerHTML='<div class="hth"></div><div class="nm"></div><div class="mt"></div>';
+    c.innerHTML='<div class="hth"></div><div class="nm"></div><div class="mt"></div><span class="hx" role="button" tabindex="0" title="Убрать из «Недавних» (документ останется в «Все документы»)" aria-label="Убрать из недавних">×</span>';
     c.querySelector('.nm').textContent=e.file||e.name||'Без названия';
     c.querySelector('.mt').innerHTML=(i===0?'<b>продолжить</b> · ':'')+escapeHtml(fmtWhen(e.t)+' · '+e.w+'×'+e.h+' · '+(e.n||'?')+' сл.');
-    c.onclick=()=>homeOpen(e.id); g.append(c); homeThumb(e.id, c.querySelector('.hth')); }); }
+    c.onclick=ev=>{ if (ev.target.closest('.hx')){ ev.stopPropagation(); recentHide([e.id]); return; } homeOpen(e.id); }; g.append(c); homeThumb(e.id, c.querySelector('.hth')); }); }
 async function homeThumb(id, box){ try{ let b=await idbGet(PFX(id)+'thumb');
     if (!b){ const m=await idbGet(PFX(id)+'meta'); const k=m&&(m.keys||[]).filter(k=>k[0]==='c').pop(); if (k) b=await idbGet(PFX(id)+k); }
     if (!b || !homeOn || !box.isConnected) return; const u=URL.createObjectURL(b); homeUrls.push(u);
     const im=new Image(); im.alt=''; im.onload=()=>im.classList.add('ld'); im.src=u; box.append(im); }catch(_){} }
+/* №134: «Недавние» — убрать по одному (× на карточке) или «Очистить» всё. Документы не удаляются: id → время, когда убрали;
+   документ возвращается в «Недавние», как только его откроют или он сохранится позже этого времени. */
+const RECENT_HIDE='proyavka.recentHide';
+function recentHideGet(){ try{ return JSON.parse(localStorage.getItem(RECENT_HIDE)||'{}')||{}; }catch(_){ return {}; } }
+function recentHideSet(m){ try{ localStorage.setItem(RECENT_HIDE, JSON.stringify(m)); }catch(_){} }
+function recentVisible(lib){ const m=recentHideGet(); return lib.filter(e=>!(m[e.id] && m[e.id]>=(e.t||0))); }
+function recentUnhide(id){ const m=recentHideGet(); if (m[id]){ delete m[id]; recentHideSet(m); } }
+async function recentHide(ids, quiet){ const m=recentHideGet(), prev={}; let lib=[]; try{ lib=await libGet(); }catch(_){}
+  for (const id of ids){ prev[id]=m[id]; const e=lib.find(x=>x.id===id); m[id]=Math.max(Date.now(), (e&&e.t)||0); }
+  recentHideSet(m); await homeFill();
+  if (!quiet) toastAct(ids.length>1?'«Недавние» очищены · документы — в «Все документы»':'Убрано из «Недавних»', 'Вернуть', async()=>{ const n=recentHideGet(); for (const id of ids){ if (prev[id]) n[id]=prev[id]; else delete n[id]; } recentHideSet(n); if (homeOn) await homeFill(); }); }
+async function recentClearAsk(){ let lib=[]; try{ lib=recentVisible(libMine(await libGet())); }catch(_){} if (!lib.length) return;
+  dialog('<h3>Очистить «Недавние»?</h3><p>Список станет пустым. Сами документы не удаляются — они останутся в «Все документы», и любой открытый снова вернётся сюда.</p>',
+    [['Отмена',null],['Очистить', ()=>{ recentHide(lib.map(e=>e.id)); }, 'pri']]); }
 async function homeLogin(){ const h=$('#home'), em=h.querySelector('#hEmail'), k=h.querySelector('#hKey'), err=h.querySelector('.herr'), b=h.querySelector('[data-h=login]');
   if (!em.value.trim() || !k.value.trim()){ err.textContent='Нужны почта и ключ'; return; }
   b.disabled=true; err.textContent='Проверяю…';

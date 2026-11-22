@@ -132,7 +132,7 @@ python3 tools/map.py градиент     # русское название са
 **Хранение и запуск**
 - `prefs & autosave` + `documents library` — IndexedDB, `d:<id>:…`.
 - `№87 accounts` — заготовка входа (выключена), **`autosave` / `restore`** тоже живут здесь.
-- `№86 home screen` — «Начало», `closeToHome`.
+- `№86 home screen` — «Начало», `closeToHome`; №134 «Недавние» — `recentHide`, `recentClearAsk`, `recentVisible` (скрытые — localStorage `proyavka.recentHide`).
 - `storage diagnostics`, `boot`.
 
 ## Сквозные правила кода (на них уже обжигались)
