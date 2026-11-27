@@ -1376,7 +1376,16 @@ function composeTree(ctx, leaf, opt={}, P=opt.P||null, depth=0){
     const cw=ctx.canvas.width, ch=ctx.canvas.height; let t=grpPool[depth];
     if (!t || t.width!==cw || t.height!==ch){ t=mk(cw,ch); if (cw===comp.width && ch===comp.height) grpPool[depth]=t; }
     const tx=ctx2(t); tx.setTransform(1,0,0,1,0,0); tx.globalAlpha=1; tx.globalCompositeOperation='source-over'; tx.clearRect(0,0,cw,ch);
-    tx.imageSmoothingEnabled=ctx.imageSmoothingEnabled; tx.imageSmoothingQuality=ctx.imageSmoothingQuality; tx.setTransform(ctx.getTransform());
+    tx.imageSmoothingEnabled=ctx.imageSmoothingEnabled; tx.imageSmoothingQuality=ctx.imageSmoothingQuality;
+    if (L.blend==='pass'){ // №148: сквозная группа с непрозрачностью / маской — как в Фотошопе: участники ложатся на то, что под группой,
+      // а результат смешивается с подложкой на opacity × маска (было: считалась отдельно — «Перекрытие» внутри ложилось на пустоту, серой пеленой)
+      tx.drawImage(ctx.canvas,0,0); tx.setTransform(ctx.getTransform()); composeTree(tx, leaf, opt, L, depth+1); tx.setTransform(1,0,0,1,0,0);
+      let k=null; if (gm){ k=mk(cw,ch); const kx=ctx2(k); kx.fillStyle='#fff'; kx.fillRect(0,0,cw,ch); kx.globalCompositeOperation='destination-in'; (opt.map||mapIdentity)(kx, L.mask.canvas, L);
+        tx.save(); tx.globalCompositeOperation='destination-in'; tx.drawImage(k,0,0); tx.restore(); }
+      ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity; ctx.globalCompositeOperation='destination-out'; // подложка × (1 − k)
+      if (k) ctx.drawImage(k,0,0); else { ctx.fillStyle='#000'; ctx.fillRect(0,0,cw,ch); }
+      ctx.globalCompositeOperation='lighter'; ctx.drawImage(t,0,0); ctx.restore(); continue; } // + результат × k
+    tx.setTransform(ctx.getTransform());
     composeTree(tx, leaf, opt, L, depth+1);
     if (gm){ tx.save(); tx.setTransform(1,0,0,1,0,0); tx.globalAlpha=1; tx.globalCompositeOperation='destination-in'; (opt.map||mapIdentity)(tx, L.mask.canvas, L); tx.restore(); }
     ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=L.opacity; blendDraw(ctx, L.blend==='pass'?'source-over':L.blend, t,0,0); ctx.restore();
@@ -10131,7 +10140,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-27 · №147 «Резкость · экшен» сильнее, группа на 70 %'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-27 · №148 сквозная группа на 70 % — без серой пелены'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

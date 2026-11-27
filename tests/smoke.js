@@ -85,16 +85,18 @@ const steps = [
 
   { name: 'Резкость · экшен: копия слоя → Цветовой контраст 1 px → Перекрытие → группа «Резкость», одна отмена', run: async page => {
       const r = await page.evaluate(async () => {
-        const X = newLayer('Источник'); X.ctx.fillStyle = '#808080'; X.ctx.fillRect(0, 0, doc.w, doc.h); X.ctx.fillStyle = '#fff'; X.ctx.fillRect(200, 200, 300, 300);
+        const X = newLayer('Источник'); X.ctx.fillStyle = '#c03050'; X.ctx.fillRect(0, 0, doc.w, doc.h); X.ctx.fillStyle = '#fff'; X.ctx.fillRect(200, 200, 300, 300);
         insertLayer(X, doc.active + 1); const n0 = doc.layers.length, i = doc.layers.indexOf(X);
         await sharpAction();
         const L = doc.layers[i + 1], G = doc.layers[i + 2], flat = L.ctx.getImageData(50, 50, 1, 1).data, edge = L.ctx.getImageData(200, 300, 1, 1).data, src = X.ctx.getImageData(50, 50, 1, 1).data;
-        const out = { op: G && G.opacity, n: doc.layers.length - n0, gName: G && G.name, grp: isGroup(G), act: AL() === G, lName: L.name, blend: L.blend, par: L.parent === G, flat: flat[0], edge: edge[0], src: src[0] };
+        const cc = mk(doc.w, doc.h), cx = ctx2(cc, { willReadFrequently: true }); composeTree(cx, leafFull); const comp = cx.getImageData(50, 50, 1, 1).data;
+        const out = { comp: [...comp].slice(0, 3), op: G && G.opacity, n: doc.layers.length - n0, gName: G && G.name, grp: isGroup(G), act: AL() === G, lName: L.name, blend: L.blend, par: L.parent === G, flat: flat[0], edge: edge[0], src: src[0] };
         undo(); out.back = doc.layers.length === n0; undo(); return out; });
       check(r.n === 2 && r.grp && r.gName === 'Резкость' && r.act, 'группа «Резкость» не появилась или не активна: ' + JSON.stringify(r));
       check(r.lName === 'Резкость' && r.blend === 'overlay' && r.par, 'слой не «Резкость» в «Перекрытии» внутри группы: ' + JSON.stringify(r));
-      check(Math.abs(r.flat - 128) <= 1 && r.edge > 150 && r.src === 128, 'Цветовой контраст посчитан не так (ровное должно стать серым 128, край — светлым): ' + JSON.stringify(r));
+      check(Math.abs(r.flat - 128) <= 1 && r.edge > 150 && r.src === 0xc0, 'Цветовой контраст посчитан не так (ровное должно стать серым 128, край — светлым): ' + JSON.stringify(r));
       check(Math.abs(r.op - 0.7) < 1e-6, 'группа не на 70 %: ' + r.op);
+      check([0xc0, 0x30, 0x50].every((v, i) => Math.abs(v - r.comp[i]) <= 2), 'группа на 70 % легла серой пеленой (сквозная группа считается отдельно): ' + r.comp);
       check(r.back, 'одна отмена не убрала экшен целиком');
   }},
 

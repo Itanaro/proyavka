@@ -47,7 +47,7 @@ python3 tools/map.py градиент     # русское название са
 - `document & layers` + `groups` — `newLayer`, `newMask`, `createDoc`; слои — плоский список снизу
   вверх, у группы заголовок над участниками (`kidsOf`, `depthOf`, `pixelOnly`).
 - `Photoshop blend modes the canvas does not have` — 27 режимов, `blendDraw` (GPU для того, чего
-  нет в canvas), **`composeTree`** (сведение дерева слоёв), `clipComposite` (обтравка), `structEdit`
+  нет в canvas), **`composeTree`** (сведение дерева слоёв; сквозная группа на < 100 % / с маской — по подложке, №148), `clipComposite` (обтравка), `structEdit`
   (структурная правка одной отменой).
 - `view` — `fitView`, `toDoc`/`toScr` (экран ↔ документ).
 - `rendering` — `render`, `composeAll`, кэш «живого слоя» (`liveLayer`, `strokeCacheBuild`,
