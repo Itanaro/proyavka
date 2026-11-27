@@ -4313,7 +4313,10 @@ async function sdGo(){
 let sdq=null;
 function sdqChip(t){ let c=$('#sdq'); if (!t){ if (c) c.hidden=true; if (typeof islandSync==='function') islandSync(); return; }
   if (!c){ c=document.createElement('div'); c.id='sdq'; c.innerHTML='<span></span><button aria-label="Остановить">✕</button>'; $('#stage').append(c);
-    c.lastChild.onclick=()=>{ if (sdStart.wait){ sdStart.wait.stop=true; return; } if (!sdq) return; sdq.cancelled=true; fetch(sdBase()+'/sdapi/v1/interrupt',{method:'POST'}).catch(()=>{}); try{ sdq.abort.abort(); }catch(e){} }; }
+    c.lastChild.onclick=()=>{ // №141: ✕ always closes — stops the Stable start wait AND the running SD request (before: a hung start wait swallowed the click)
+      if (sdStart.wait){ sdStart.wait.stop=true; try{ sdStart.wait.ctl&&sdStart.wait.ctl.abort(); }catch(e){} }
+      if (sdq){ sdq.cancelled=true; fetch(sdBase()+'/sdapi/v1/interrupt',{method:'POST'}).catch(()=>{}); try{ sdq.abort.abort(); }catch(e){} }
+      sdqChip(null); }; }
   c.firstChild.textContent=t; c.hidden=false; // №126: just under the top bar and the rulers — the stage runs under the glass bars
   try{ c.style.top=Math.round($('#top').getBoundingClientRect().bottom-$('#stage').getBoundingClientRect().top+34)+'px'; }catch(_){ }
   if (typeof islandSync==='function') islandSync(); }
@@ -4328,7 +4331,7 @@ async function sdStart(then){ // №115: the bridge starts Automatic1111 hidden;
   const w=sdStart.wait={stop:false}; sdqChip('Stable запускается… обычно минута-две'); const t0=Date.now();
   try{
     while (Date.now()-t0<300000 && !w.stop){ await new Promise(r=>setTimeout(r,4000)); if (w.stop) break;
-      try{ const r=await fetch(sdBase()+'/sdapi/v1/sd-models',{cache:'no-store'}); if (r.ok){ sdqChip(null); sdModelsCache=null; toast('Stable готов',1500); if (then) then(); return; } }catch(e){}
+      try{ const ctl=w.ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),8000); let r; try{ r=await fetch(sdBase()+'/sdapi/v1/sd-models',{cache:'no-store', signal:ctl.signal}); } finally{ clearTimeout(T); } if (w.stop) break; if (r.ok){ sdqChip(null); sdModelsCache=null; toast('Stable готов',1500); if (then) then(); return; } }catch(e){}
       sdqChip('Stable запускается… '+Math.round((Date.now()-t0)/1000)+' с'); }
     sdqChip(null);
     if (w.stop) toast('Не жду Stable — он догрузится сам, F2 сработает, когда будет готов',3200);
@@ -4350,7 +4353,7 @@ async function sdQuick(){
       inpainting_mask_invert:0, resize_mode:0, width:P.W, height:P.H, batch_size:1, n_iter:1, include_init_images:false, save_images:false, send_images:true };
     (async()=>{ while (polling && sdq===q){ await new Promise(r=>setTimeout(r,1000)); if (!polling || sdq!==q) break;
       try{ const j=await (await fetch(sdBase()+'/sdapi/v1/progress?skip_current_image=true',{cache:'no-store'})).json(), st=j.state||{};
-        if (st.sampling_steps) sdqChip('SD-ретушь · шаг '+(st.sampling_step||0)+' из '+st.sampling_steps); else sdqChip('SD-ретушь · жду компьютер…'); }catch(e){} } })();
+        if (q.cancelled) break; if (st.sampling_steps) sdqChip('SD-ретушь · шаг '+(st.sampling_step||0)+' из '+st.sampling_steps); else sdqChip('SD-ретушь · жду компьютер…'); }catch(e){} } })();
     let r; try{ r=await (await sdFetch('/sdapi/v1/img2img',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:q.abort.signal}, 600000)).json(); }
     finally{ polling=false; }
     if (q.cancelled) throw new Error('cancel');
@@ -10090,7 +10093,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-22 · №140 Заливка: цвет кадра внутри, широкий переход'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-27 · №141 Крестик SD-плашки закрывает всегда'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
