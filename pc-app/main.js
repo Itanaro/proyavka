@@ -25,7 +25,7 @@ const BRIDGE_NET = { HTTPS_PROXY: 'http://127.0.0.1:10877', HTTP_PROXY: 'http://
 async function ensureBridge() {
   if (!BRIDGE_DIR || await portOpen(BRIDGE_PORT)) return;
   const sd = path.join(BRIDGE_DIR, '..', 'stable-diffusion-portable-main');
-  const py = [path.join(sd, 'venv', 'Scripts', 'python.exe'), path.join(sd, 'python', 'python.exe')].find(p => fs.existsSync(p));
+  const py = [path.join(sd, 'venv', 'Scripts', 'pythonw.exe'), path.join(sd, 'venv', 'Scripts', 'python.exe'), path.join(sd, 'python', 'python.exe')]  // 27.11: pythonw — мост без чёрного окна.find(p => fs.existsSync(p));
   if (!py) return;
   const log = fs.openSync(path.join(BRIDGE_DIR, 'bridge.log'), 'a');
   const child = spawn(py, [path.join(BRIDGE_DIR, 'bridge.py')], { cwd: BRIDGE_DIR, windowsHide: true, detached: true, stdio: ['ignore', log, log], env: Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8' }, BRIDGE_NET) });

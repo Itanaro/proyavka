@@ -49,7 +49,7 @@ def remote_ip():
 
 def ossl(*args):
     env = dict(os.environ); env['OPENSSL_CONF'] = os.path.join(HERE, 'openssl.cnf'); env['MSYS2_ARG_CONV_EXCL'] = '*'; env['MSYS_NO_PATHCONV'] = '1'
-    r = subprocess.run([OPENSSL, *args], cwd=HERE, capture_output=True, text=True, env=env)
+    r = subprocess.run([OPENSSL, *args], cwd=HERE, capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL, creationflags=0x08000000 if os.name == 'nt' else 0)  # 27.11: без чёрного окна
     if r.returncode: raise RuntimeError('openssl: ' + (r.stderr or r.stdout))
 
 def ensure_certs(ip, rip=''):
@@ -90,6 +90,29 @@ MODEL_URL = 'https://itanaro.github.io/proyavka/models/{}.{}.wasm'
 MODEL_DIR = os.path.join(HERE, 'models')
 _sessions = {}; _lock = __import__('threading').Lock()
 DT = {'uint8': 'uint8', 'float32': 'float32', 'int32': 'int32', 'int64': 'int64', 'bool': 'bool', 'float16': 'float16', 'int8': 'int8'}
+# Видеокарта для ONNX-моделей: onnxruntime-gpu ищет библиотеки CUDA 12 и cuDNN 9. Их кладёт в cuda-libs\ батник
+# «Подключить видеокарту к мосту.bat» (отдельно от Automatic1111 — его Python не трогаем). Здесь мост показывает их Windows.
+_cuda_done = {'v': False}
+def _cuda_dlls(ort):
+    if _cuda_done['v']: return
+    _cuda_done['v'] = True
+    import glob
+    libs = os.path.join(HERE, 'cuda-libs'); dirs = []
+    dirs += glob.glob(os.path.join(libs, 'nvidia', '*', 'bin')) + glob.glob(os.path.join(libs, 'nvidia', '*', 'lib'))
+    try:
+        import importlib.util; t = importlib.util.find_spec('torch')
+        if t and t.origin: dirs.append(os.path.join(os.path.dirname(t.origin), 'lib'))
+    except Exception: pass
+    dirs = [d for d in dirs if os.path.isdir(d)]
+    for d in dirs:
+        try: os.add_dll_directory(d)
+        except Exception: pass
+    os.environ['PATH'] = os.pathsep.join(dirs + [os.environ.get('PATH', '')])
+    if os.path.isdir(libs) and libs not in sys.path: sys.path.insert(0, libs)
+    try:
+        if hasattr(ort, 'preload_dlls'): ort.preload_dlls(directory='')
+    except Exception as e: p('Видеокарта: preload_dlls —', e)
+    p('Видеокарта: onnxruntime', ort.__version__, '· папок с библиотеками:', len(dirs), '· доступно:', ', '.join(x.replace('ExecutionProvider', '') for x in ort.get_available_providers()))
 def ort_session(name):
     import onnxruntime as ort, urllib.request
     with _lock:
@@ -100,9 +123,10 @@ def ort_session(name):
             stem, n = MODEL_PARTS[name]; p('Скачиваю модель', name, '…'); data = b''
             for i in range(n): data += urllib.request.urlopen(MODEL_URL.format(stem, i), timeout=120).read()
             open(path + '.part', 'wb').write(data); os.replace(path + '.part', path)
+        _cuda_dlls(ort)
         prov = [x for x in ('CUDAExecutionProvider', 'CPUExecutionProvider') if x in ort.get_available_providers()]
         try: s = ort.InferenceSession(path, providers=prov)
-        except Exception: s = ort.InferenceSession(path, providers=['CPUExecutionProvider'])
+        except Exception as e: p('Видеокарта не подключилась для', name, '—', e); s = ort.InferenceSession(path, providers=['CPUExecutionProvider'])
         p('Модель', name, 'готова ·', s.get_providers()[0].replace('ExecutionProvider', ''))
         _sessions[name] = s; return s
 def ort_run(name, body):
@@ -160,19 +184,11 @@ def sd_running():
     try: socket.create_connection(UPSTREAM, 0.6).close(); return True
     except Exception: return False
 
-SD_START = {'at': 0}
 def sd_start():
-    """№115: start Automatic1111 hidden, like the Windows autostart does — only if it is not running (a second copy would fight for the ports)."""
+    """27.11.2026: Проявка больше НЕ запускает Stable сама. Его включают пультом «Stable Diffusion» на рабочем столе —
+    тогда один и тот же Stable работает и для Photoshop, и для Проявки. Мост только говорит, включён он или нет."""
     if sd_running(): return 'running'
-    if time.time() - SD_START['at'] < 240: return 'starting'
-    bat = os.path.join(SD_ROOT, 'webui-user.bat')
-    if not os.path.isfile(bat): raise RuntimeError('не нашла webui-user.bat')
-    env = {k: v for k, v in os.environ.items() if k.upper() not in ('HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY')}  # SD goes online directly, like autostart.bat
-    log = open(os.path.join(HERE, 'sd-autostart.log'), 'a', encoding='utf-8', errors='ignore')
-    flags = (0x08000000 | 0x00000200) if os.name == 'nt' else 0  # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
-    subprocess.Popen(['cmd', '/c', bat] if os.name == 'nt' else [bat], cwd=SD_ROOT, env=env, stdout=log, stderr=log, stdin=subprocess.DEVNULL, creationflags=flags, close_fds=True)
-    SD_START['at'] = time.time(); p(time.strftime('%H:%M:%S'), 'запускаю Automatic1111 по просьбе Проявки')
-    return 'started'
+    raise RuntimeError('Stable выключен — включи его пультом «Stable Diffusion» на рабочем столе (цифра 2)')
 
 def plugin_dir(pid):
     base = os.path.join(UXP_DIR, 'Plugins', 'External'); best = None
@@ -513,7 +529,8 @@ def watch_self(srv):
         except Exception: pass
         log = open(os.path.join(HERE, 'bridge.log'), 'a', encoding='utf-8')
         flags = (0x00000008 | 0x08000000) if os.name == 'nt' else 0  # DETACHED_PROCESS | CREATE_NO_WINDOW
-        subprocess.Popen([sys.executable, os.path.abspath(__file__)], cwd=HERE, stdout=log, stderr=log, stdin=subprocess.DEVNULL, creationflags=flags, close_fds=True)
+        pyw = os.path.join(os.path.dirname(sys.executable), 'pythonw.exe')  # 27.11: pythonw — без чёрного окна
+        subprocess.Popen([pyw if os.path.exists(pyw) else sys.executable, os.path.abspath(__file__)], cwd=HERE, stdout=log, stderr=log, stdin=subprocess.DEVNULL, creationflags=flags, close_fds=True)
         os._exit(0)
 
 def death_log():
