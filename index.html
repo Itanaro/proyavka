@@ -1018,6 +1018,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <button data-a="ai" data-sel="1">✦ Убрать <small class="padonly">на iPad</small><small class="deskonly">нейросеть</small></button>
     <button data-a="sd" data-sel="1">✦ SD Inpaint <small>свой ПК</small></button>
     <button data-a="sdq" data-sel="1">✦ SD-ретушь <small class="padonly">сразу, как F2 в Фотошопе</small><small class="deskonly">F2</small></button>
+    <button data-a="sdq2" data-sel="1">✦ SD-ретушь ×2 <small class="padonly">волосы, мелкие детали</small><small class="deskonly">Shift+F2</small></button>
     <hr>
     <button data-a="fit">✦ Вписать в сцену <small id="aiFitL">активный слой</small></button>
     <button data-a="expand">✦ Расширить кадр</button>
@@ -4259,19 +4260,20 @@ function sdBuild(){
   foot.append(st, sp, B('Отмена',genCancel), B(g.variants.length?'↻ Ещё вариант':'Сгенерировать', genGo, g.variants.length?'alt':'pri'));
   if (g.variants.length) foot.append(B('✓ Оставить слой',genDone,'pri')); box.append(foot);
 }
-function sdPrep(){ // exactly as the PC plugin com.alisa.sdinpaint («точный режим»): selection + 48 px, not squared, native resolution; only >1536 or <256 px is rescaled
+function sdPrep(o){ // №143 o.x2: the crop goes to SD twice as big (cap 2048) and comes back shrunk into the frame — the VAE blur lands on 2× detail (hair, lashes)
+  // exactly as the PC plugin com.alisa.sdinpaint («точный режим»): selection + 48 px, not squared, native resolution; only >1536 or <256 px is rescaled
   const hint=selBBox(), b=aeMaskBounds(aeM(sel.mask, clipRect(hint.x-2,hint.y-2,hint.w+4,hint.h+4))); if (!b || !b.w) throw new Error('пустое выделение');
-  const PAD=48, MAX=1536, MIN=256, ASPECT=3;
+  const X2=!!(o&&o.x2), PAD=48, MAX=X2?2048:1536, MIN=256, ASPECT=3;
   let cw=Math.min(doc.w, b.w+PAD*2), ch=Math.min(doc.h, b.h+PAD*2);
   if (cw/ch>ASPECT) ch=Math.min(doc.h, Math.ceil(cw/ASPECT)); if (ch/cw>ASPECT) cw=Math.min(doc.w, Math.ceil(ch/ASPECT));
   cw=Math.min(doc.w, Math.max(64,cw)); ch=Math.min(doc.h, Math.max(64,ch));
   const left=clamp(Math.round(b.x+b.w/2-cw/2), 0, doc.w-cw), top=clamp(Math.round(b.y+b.h/2-ch/2), 0, doc.h-ch), r={x:left, y:top, w:cw, h:ch};
-  const big=Math.max(cw,ch), small=Math.min(cw,ch); let k=1; if (big>MAX) k=MAX/big; else if (small<MIN) k=Math.min(MIN/small, MAX/big);
+  const big=Math.max(cw,ch), small=Math.min(cw,ch); let k=1; if (X2) k=Math.min(2, MAX/big); else if (big>MAX) k=MAX/big; else if (small<MIN) k=Math.min(MIN/small, MAX/big);
   const r8=v=>Math.max(8, Math.round(v/8)*8), W=r8(cw*k), H=r8(ch*k);
   const img=mk(W,H), ix=ctx2(img); ix.fillStyle='#fff'; ix.fillRect(0,0,W,H); ix.imageSmoothingQuality='high'; ix.drawImage(compositeRegion(r,W,H),0,0);
   const mask=mk(W,H), mx=ctx2(mask); mx.fillStyle='#000'; mx.fillRect(0,0,W,H);
   const wm=mk(W,H), wx=ctx2(wm); wx.fillStyle='#fff'; wx.fillRect(0,0,W,H); wx.globalCompositeOperation='destination-in'; wx.drawImage(sel.mask, r.x,r.y,r.w,r.h, 0,0,W,H); mx.drawImage(wm,0,0);
-  return {r, W, H, img, mask, scaled:k<1};
+  return {r, W, H, img, mask, scaled:k<1, x2:X2};
 }
 async function sdGo(){
   const g=gen; if (!g || g.busy) return; if (!sdBase()){ genSettings('sd'); return; }
@@ -4339,34 +4341,35 @@ async function sdStart(then){ // №115/№142: the bridge only says whether Aut
     else toast('Stable так и не включился за 5 минут — включи его пультом на рабочем столе и попробуй ещё раз',5000);
   } finally{ sdStart.wait=null; } }
 const sdDown = e => /Automatic1111 не запущен/.test(e && e.message || '');
-async function sdQuick(){
+async function sdQuick(o){ // №143 o.x2 — «SD-ретушь ×2» (Shift+F2): for hair and fine texture
+  const X2=!!(o&&o.x2), NM=X2?'SD-ретушь ×2':'SD-ретушь';
   if (!doc) return; if (sdq){ toast('SD ещё считает прошлое выделение',1500); return; }
   if (!sel){ toast(IS_DESK ? 'Сначала выдели участок — F2 прогонит его через SD, как в Фотошопе' : 'Сначала выдели участок — SD-ретушь прогонит его через Stable на компьютере',2600); return; }
   if (!sdBase()){ toast('Нужен адрес моста — открываю настройки',2200); genSettings('sd'); return; }
   if (panelBusy && panelBusy()) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
   const D=doc, W0=doc.w, H0=doc.h, q=sdq={cancelled:false, abort:new AbortController()}; let polling=true;
   try{
-    const P=sdPrep(), selMask=mk(D.w,D.h); ctx2(selMask).drawImage(sel.mask,0,0);
-    sdqChip('SD-ретушь · отправляю…');
+    const P=sdPrep({x2:X2}), selMask=mk(D.w,D.h); ctx2(selMask).drawImage(sel.mask,0,0);
+    sdqChip(NM+' · отправляю'+(X2?' '+P.W+'×'+P.H:'')+'…');
     const pr=await sdPreset();
     const body={ init_images:[P.img.toDataURL('image/png')], mask:P.mask.toDataURL('image/png'), prompt:pr.prompt, negative_prompt:pr.neg, seed:-1,
       steps:60, cfg_scale:7, denoising_strength:0.05, sampler_name:'Euler a', mask_blur:4, inpainting_fill:1, inpaint_full_res:false, inpaint_full_res_padding:48,
       inpainting_mask_invert:0, resize_mode:0, width:P.W, height:P.H, batch_size:1, n_iter:1, include_init_images:false, save_images:false, send_images:true };
     (async()=>{ while (polling && sdq===q){ await new Promise(r=>setTimeout(r,1000)); if (!polling || sdq!==q) break;
       try{ const j=await (await fetch(sdBase()+'/sdapi/v1/progress?skip_current_image=true',{cache:'no-store'})).json(), st=j.state||{};
-        if (q.cancelled) break; if (st.sampling_steps) sdqChip('SD-ретушь · шаг '+(st.sampling_step||0)+' из '+st.sampling_steps); else sdqChip('SD-ретушь · жду компьютер…'); }catch(e){} } })();
+        if (q.cancelled) break; if (st.sampling_steps) sdqChip(NM+' · шаг '+(st.sampling_step||0)+' из '+st.sampling_steps); else sdqChip(NM+' · жду компьютер…'); }catch(e){} } })();
     let r; try{ r=await (await sdFetch('/sdapi/v1/img2img',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:q.abort.signal}, 600000)).json(); }
     finally{ polling=false; }
     if (q.cancelled) throw new Error('cancel');
     const imgs=r.images||[]; if (!imgs.length) throw new Error(r.error||r.detail||'Automatic1111 не вернул картинку');
     const bm=await createImageBitmap(await (await fetch('data:image/png;base64,'+String(imgs[imgs.length-1]).split(',').pop())).blob());
     if (doc!==D || doc.w!==W0 || doc.h!==H0){ bm.close&&bm.close(); toast(doc!==D ? 'Документ сменился — результат SD не положила' : 'Размер кадра изменился — результат SD не положила',3000); return; } // №126
-    const tag=(pr.prompt||'retouch').trim().slice(0,40), L=newLayer('SD '+tag);
+    const tag=(pr.prompt||'retouch').trim().slice(0,40), L=newLayer((X2?'SD ×2 ':'SD ')+tag);
     L.ctx.imageSmoothingQuality='high'; L.ctx.drawImage(bm, P.r.x, P.r.y, P.r.w, P.r.h); bm.close&&bm.close();
     const m=newMask(L); m.ctx.clearRect(0,0,D.w,D.h); m.ctx.drawImage(selMask,0,0); L.mask=m;
-    insertLayer(L, doc.active+1, 'SD-ретушь'); layersChanged(); markDirty(); requestRender();
-    toast('SD-ретушь легла слоем с маской'+(pr.from==='own'?' · промпт Проявки (плагин Фотошопа не нашёлся)':''),1800);
-  }catch(e){ if (e.message==='cancel' || q.cancelled) toast('SD остановлен',1200); else if (sdDown(e)) toastAct(SD_OFF,'Подождать и прогнать',()=>sdStart(()=>{ if (sel) sdQuick(); else toast('Stable готов — выдели участок и жми ещё раз',2600); }),8000); else { console.error(e); toast('SD-ретушь: '+e.message,5000); } }
+    insertLayer(L, doc.active+1, NM); layersChanged(); markDirty(); requestRender();
+    toast(NM+' легла слоем с маской'+(X2?' · считала '+P.W+'×'+P.H+', вернула в '+P.r.w+'×'+P.r.h:'')+(pr.from==='own'?' · промпт Проявки (плагин Фотошопа не нашёлся)':''),1800);
+  }catch(e){ if (e.message==='cancel' || q.cancelled) toast('SD остановлен',1200); else if (sdDown(e)) toastAct(SD_OFF,'Подождать и прогнать',()=>sdStart(()=>{ if (sel) sdQuick(o); else toast('Stable готов — выдели участок и жми ещё раз',2600); }),8000); else { console.error(e); toast(NM+': '+e.message,5000); } }
   finally{ polling=false; if (sdq===q) sdq=null; sdqChip(null); }
 }
 function genSettings(tab){
@@ -6615,7 +6618,7 @@ $('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aim
   const r=$('#bAI').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
 document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePops(); const a=b.dataset.a; if (!doc) return; if (a!=='set' && aip && !aiSettle()) return;
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
-  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sdq:sdQuick, sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, detail:()=>cropOpen({detail:true}), critic:artDirector, aiedit:()=>aeOpen(), rmbg:rmbgOpen, pose:poseRefOpen, set:genSettings})[a](); });
+  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sdq:()=>sdQuick(), sdq2:()=>sdQuick({x2:true}), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, detail:()=>cropOpen({detail:true}), critic:artDirector, aiedit:()=>aeOpen(), rmbg:rmbgOpen, pose:poseRefOpen, set:genSettings})[a](); });
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,#bImg,.tgm,.pickHere,#lyMore')) closePops(); },true);
 document.addEventListener('pointerdown',e=>{ const a=document.activeElement; if (a && a.matches && a.matches('input,textarea') && !e.target.closest('input,textarea,select,label,.dlg') && (e.target.closest('#stage canvas,.ly,#layers') || e.target.tagName==='CANVAS')) a.blur(); },true);
 document.addEventListener('keydown',e=>{ if (e.key==='Escape' && !$('#lyCtx').hidden) $('#lyCtx').hidden=true; });
@@ -8551,6 +8554,7 @@ const ISLAND_ACTS={
   puppet:{t:'Марионетка', icon:()=>toolIcon('@puppet'), run:()=>pupOpen()},
   crop:{t:'Кадрирование', icon:()=>$('#bCrop').innerHTML, run:()=>{ if (!document.querySelector('.scrim')) cropOpen(); }},
   sdq:{t:IS_DESK ? 'SD-ретушь (F2)' : 'SD-ретушь', svg:'<rect x="2" y="4.5" width="20" height="15" rx="4.5"/><text x="12" y="15.8" text-anchor="middle" font-size="10" font-weight="700" font-family="system-ui,sans-serif" fill="currentColor" stroke="none">SD</text>', run:()=>sdQuick()},
+  sdq2:{t:IS_DESK ? 'SD-ретушь ×2 (Shift+F2) — волосы, мелкие детали' : 'SD-ретушь ×2 — волосы, мелкие детали', svg:'<rect x="2" y="4.5" width="20" height="15" rx="4.5"/><text x="12" y="15.8" text-anchor="middle" font-size="8.5" font-weight="700" font-family="system-ui,sans-serif" fill="currentColor" stroke="none">SD×2</text>', run:()=>sdQuick({x2:true})},
   airm:{t:'Убрать нейросетью (выделение)', svg:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M12 8.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="currentColor"/>', run:()=>{ if (sel) inpaintFromSel(); else toast('Сначала выдели, что убрать'); }},
   nav:{t:'Навигатор — вся картина, тянуть рамку', svg:'<rect x="3" y="4" width="18" height="16" rx="3"/><rect x="9" y="8.5" width="8" height="6.5" rx="1"/>', run:()=>navToggle()}, // №123
   hand:{t:IS_DESK ? 'Рука — один раз потянуть холст пером или мышью' : 'Рука — один раз потянуть холст карандашом', svg:'<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11V5a1.5 1.5 0 0 1 3 0v6M14 11V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.5a5.5 5.5 0 0 1-4.6-2.5L3.6 14a1.5 1.5 0 0 1 2.5-1.6L8 15"/>', run:()=>{ penHand=!penHand; islandSync(); updateCursor(); if (penHand) toast(IS_DESK ? 'Тяни холст пером или мышью — потом инструмент вернётся' : 'Тяни холст карандашом — потом инструмент вернётся',1600); }},
@@ -9713,6 +9717,7 @@ document.addEventListener('keydown', e=>{
   if (e.shiftKey && C==='F6'){ e.preventDefault(); if (sel) edgeOpen(); return; }
   if (k==='tab' || (L==='f' && !e.shiftKey)){ e.preventDefault(); toggleUI(); return; }
   if (L==='p'){ pupOpen(); return; }
+  if (C==='F2' && e.shiftKey){ e.preventDefault(); sdQuick({x2:true}); return; } // №143: SD retouch ×2 — hair, fine texture
   if (C==='F2' && !e.shiftKey){ e.preventDefault(); sdQuick(); return; } // №112: like F2 → SD Inpaint in Photoshop
   if (L==='c' && !e.shiftKey){ if (!document.querySelector('.scrim')) cropOpen(); return; }
   if (/^arrow/.test(k) && sel && !sel.inverted && !xf && !edge && ['lasso','rect','wand','tap'].includes(S.tool)){ e.preventDefault(); const d=e.shiftKey?10:1;
@@ -10094,7 +10099,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-27 · №142 Stable выключен — «включи пультом» и ожидание'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-27 · №143 SD-ретушь ×2 (Shift+F2)'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

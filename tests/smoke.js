@@ -395,6 +395,23 @@ const steps = [
       await page.evaluate(() => { undo(); deselect(); genCfg.sdUrl = ''; });
   }},
 
+  { name: 'Shift+F2 — SD-ретушь ×2: кусок уходит вдвое крупнее и ложится обратно в рамку (заглушка моста)', run: async page => {
+      await page.request.post(STUB + '/_reset');
+      await page.evaluate(stub => { genCfg.sdUrl = stub + '/k/test'; BR.base = null; BR.at = Date.now(); doc.active = 0; layersChanged(); applySelPoly([[300, 400], [700, 400], [700, 900], [300, 900]]); window.__n0 = doc.layers.length; }, STUB);
+      await page.evaluate(() => closePops()); await page.keyboard.press('Shift+F2').catch(() => {});
+      await page.waitForTimeout(300); await page.evaluate(() => { if (!sdq && doc.layers.length === window.__n0) sdQuick({ x2: true }); }); // iPad: no F2 — the menu item does the same
+      await until(page, () => doc.layers.length > window.__n0 && !sdq, null, 20000, 'слой SD-ретуши ×2');
+      const P = await page.evaluate(() => { applySelPoly([[300, 400], [700, 400], [700, 900], [300, 900]]); const p = sdPrep(), q = sdPrep({ x2: true }); deselect(); return { w: p.W, h: p.H, w2: q.W, h2: q.H, rw: q.r.w, rh: q.r.h }; });
+      const r = await page.evaluate(() => { const L = AL(); return { name: L.name, mask: !!L.mask, a: L.ctx.getImageData(500, 600, 1, 1).data[3], out: L.ctx.getImageData(100, 100, 1, 1).data[3] }; });
+      const log = (await (await page.request.get(STUB + '/_log')).json()).filter(x => x.kind === 'sd');
+      check(log.length === 1, 'в Automatic1111 ушло запросов: ' + log.length);
+      check(Math.abs(log[0].w - 2 * P.w) <= 8 && Math.abs(log[0].h - 2 * P.h) <= 8 && log[0].w === P.w2, 'размер не ×2: ' + log[0].w + '×' + log[0].h + ' при обычном ' + P.w + '×' + P.h);
+      check(log[0].denoise === 0.05 && log[0].steps === 60, 'настройки не как у F2');
+      check(r.name.startsWith('SD ×2') && r.mask, 'слой не тот: ' + r.name);
+      check(r.a > 0 && r.out === 0, 'результат лёг не на место выделения');
+      await page.evaluate(() => { undo(); deselect(); genCfg.sdUrl = ''; });
+  }},
+
   { name: 'Stable выключен: «Подождать и прогнать», включила пультом — ретушь прошла (заглушка моста)', run: async page => {
       await page.request.post(STUB + '/_sddown');
       await page.evaluate(stub => { genCfg.sdUrl = stub + '/k/test'; BR.base = null; BR.local = ''; BR.at = Date.now(); doc.active = 0; layersChanged(); applySelPoly([[300, 400], [700, 400], [700, 900], [300, 900]]); window.__n0 = doc.layers.length; sdQuick(); }, STUB);
