@@ -124,8 +124,10 @@ class H(BaseHTTPRequestHandler):
             with LOCK: LOG.clear()
             return self._send(200, {'ok': True})
         if p == '/_sddown': SD['down'] = True; return self._send(200, {'ok': True})
-        if p == '/k/test/proyavka/sdstart':
-            st = 'started' if SD['down'] else 'running'; SD['down'] = False; return self._send(200, {'state': st})
+        if p == '/_sdup': SD['down'] = False; return self._send(200, {'ok': True})   # №142: «включила Stable пультом»
+        if p == '/k/test/proyavka/sdstart':   # №142: like the bridge — never starts Stable, only says whether it is on
+            if SD['down']: return self._send(500, {'error': 'Stable выключен — включи его пультом «Stable Diffusion» на рабочем столе (цифра 2)'})
+            return self._send(200, {'state': 'running'})
         if p == '/k/test/sdapi/v1/img2img' and SD['down']: return self._send(502, {'error': 'Automatic1111 не запущен на компьютере'})
         if p == '/k/test/sdapi/v1/img2img':   # Automatic1111: the picture back, a bit greener
             with LOCK: LOG.append({'kind': 'sd', 'prompt': body.get('prompt'), 'neg': body.get('negative_prompt'), 'denoise': body.get('denoising_strength'),

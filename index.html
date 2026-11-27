@@ -4305,7 +4305,7 @@ async function sdGo(){
       const c=mk(P.r.w,P.r.h), x=ctx2(c); x.imageSmoothingQuality='high'; x.drawImage(bm,0,0,P.r.w,P.r.h); bm.close&&bm.close(); g.variants.push(c); }
     genPick(g.variants.length-imgs.length, true);
     g.busy=null; genBuild(); toast('Готово — выбери вариант',1500);
-  }catch(e){ g.busy=null; if (gen===g) genBuild(); if (sdDown(e)) toastAct('Stable на компьютере не запущен','Запустить',()=>sdStart(()=>toast('Stable готов — жми «Сгенерировать»',2200)),8000); else if (e.message!=='cancel'){ console.error(e); toast('SD Inpaint: '+e.message,5000); } else toast('Остановлено',1200); }
+  }catch(e){ g.busy=null; if (gen===g) genBuild(); if (sdDown(e)) toastAct(SD_OFF,'Подождать',()=>sdStart(()=>toast('Stable готов — жми «Сгенерировать»',2200)),8000); else if (e.message!=='cancel'){ console.error(e); toast('SD Inpaint: '+e.message,5000); } else toast('Остановлено',1200); }
 }
 /* №112 F2 «SD-ретушь выделения» — like the F2 command of the Photoshop plugin SD Inpaint: no panel, the plugin's fixed skin settings
    (0.05 / 60 steps / CFG 7 / Euler a / mask blur 4 / original), its prompt and negative read from the plugin through the bridge,
@@ -4323,19 +4323,20 @@ function sdqChip(t){ let c=$('#sdq'); if (!t){ if (c) c.hidden=true; if (typeof 
 async function sdPreset(){ // the Photoshop plugin's own prompt; an older bridge or no plugin — Проявка's saved SD prompt
   try{ const ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),8000); if (sdq) sdq.abort.signal.addEventListener('abort',()=>ctl.abort(),{once:true}); const r=await fetch(sdBase()+'/proyavka/sdpreset',{cache:'no-store', signal:ctl.signal}); clearTimeout(T); if (r.ok){ const j=await r.json(); if (j && typeof j.prompt==='string') return {prompt:j.prompt, neg:j.neg||'', from:'ps'}; } }catch(e){}
   return {prompt:genCfg.sdPrompt||'', neg:genCfg.sdNeg||'', from:'own'}; }
-async function sdStart(then){ // №115: the bridge starts Automatic1111 hidden; when it answers — go on
-  if (sdStart.wait){ toast('Stable уже запускается — подожди немного',1800); return; } // №126: one start at a time
+const SD_OFF='Stable выключен — включи его пультом на рабочем столе'; // №142: Stable is switched on only by the remote on the PC desktop
+async function sdStart(then){ // №115/№142: the bridge only says whether Automatic1111 is on (it no longer starts it); off — wait until it is switched on by the remote, then go on
+  if (sdStart.wait){ toast('Уже жду Stable — включи его пультом на рабочем столе',2000); return; } // №126: one start at a time
   try{ const j=await (await sdFetch('/proyavka/sdstart',{method:'POST'},15000)).json(); if (j.state==='running'){ if (then) then(); return; } }
   catch(e){ let m=e.message||''; try{ const k=m.indexOf('{'); if (k>=0){ const jj=JSON.parse(m.slice(k)); if (jj.error) m=jj.error; } }catch(_){ }
-    toast('Stable не запустился: '+(/HTTP 404/.test(e.message)?'мост старой версии — обнови мост':m),4000); return; }
-  const w=sdStart.wait={stop:false}; sdqChip('Stable запускается… обычно минута-две'); const t0=Date.now();
+    if (!/пульт/.test(m)){ toast('Stable не отвечает: '+(/HTTP 404/.test(e.message)?'мост старой версии — обнови мост':m),4000); return; } }
+  const w=sdStart.wait={stop:false}; sdqChip('Жду Stable — включи его пультом на рабочем столе'); const t0=Date.now();
   try{
     while (Date.now()-t0<300000 && !w.stop){ await new Promise(r=>setTimeout(r,4000)); if (w.stop) break;
       try{ const ctl=w.ctl=new AbortController(), T=setTimeout(()=>ctl.abort(),8000); let r; try{ r=await fetch(sdBase()+'/sdapi/v1/sd-models',{cache:'no-store', signal:ctl.signal}); } finally{ clearTimeout(T); } if (w.stop) break; if (r.ok){ sdqChip(null); sdModelsCache=null; toast('Stable готов',1500); if (then) then(); return; } }catch(e){}
-      sdqChip('Stable запускается… '+Math.round((Date.now()-t0)/1000)+' с'); }
+      sdqChip('Жду Stable — включи его пультом · '+Math.round((Date.now()-t0)/1000)+' с'); }
     sdqChip(null);
-    if (w.stop) toast('Не жду Stable — он догрузится сам, F2 сработает, когда будет готов',3200);
-    else toast('Stable не ответил за 5 минут — попробуй ещё раз; если повторится, скажи Claude',5000);
+    if (w.stop) toast('Не жду Stable — когда включишь его пультом, F2 сработает',3200);
+    else toast('Stable так и не включился за 5 минут — включи его пультом на рабочем столе и попробуй ещё раз',5000);
   } finally{ sdStart.wait=null; } }
 const sdDown = e => /Automatic1111 не запущен/.test(e && e.message || '');
 async function sdQuick(){
@@ -4365,7 +4366,7 @@ async function sdQuick(){
     const m=newMask(L); m.ctx.clearRect(0,0,D.w,D.h); m.ctx.drawImage(selMask,0,0); L.mask=m;
     insertLayer(L, doc.active+1, 'SD-ретушь'); layersChanged(); markDirty(); requestRender();
     toast('SD-ретушь легла слоем с маской'+(pr.from==='own'?' · промпт Проявки (плагин Фотошопа не нашёлся)':''),1800);
-  }catch(e){ if (e.message==='cancel' || q.cancelled) toast('SD остановлен',1200); else if (sdDown(e)) toastAct('Stable на компьютере не запущен','Запустить и прогнать',()=>sdStart(()=>{ if (sel) sdQuick(); else toast('Stable готов — выдели участок и жми ещё раз',2600); }),8000); else { console.error(e); toast('SD-ретушь: '+e.message,5000); } }
+  }catch(e){ if (e.message==='cancel' || q.cancelled) toast('SD остановлен',1200); else if (sdDown(e)) toastAct(SD_OFF,'Подождать и прогнать',()=>sdStart(()=>{ if (sel) sdQuick(); else toast('Stable готов — выдели участок и жми ещё раз',2600); }),8000); else { console.error(e); toast('SD-ретушь: '+e.message,5000); } }
   finally{ polling=false; if (sdq===q) sdq=null; sdqChip(null); }
 }
 function genSettings(tab){
@@ -10093,7 +10094,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-27 · №141 Крестик SD-плашки закрывает всегда'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-27 · №142 Stable выключен — «включи пультом» и ожидание'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

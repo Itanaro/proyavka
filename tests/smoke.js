@@ -395,13 +395,18 @@ const steps = [
       await page.evaluate(() => { undo(); deselect(); genCfg.sdUrl = ''; });
   }},
 
-  { name: 'Stable не запущен: «Запустить и прогнать» (заглушка моста)', run: async page => {
+  { name: 'Stable выключен: «Подождать и прогнать», включила пультом — ретушь прошла (заглушка моста)', run: async page => {
       await page.request.post(STUB + '/_sddown');
       await page.evaluate(stub => { genCfg.sdUrl = stub + '/k/test'; BR.base = null; BR.local = ''; BR.at = Date.now(); doc.active = 0; layersChanged(); applySelPoly([[300, 400], [700, 400], [700, 900], [300, 900]]); window.__n0 = doc.layers.length; sdQuick(); }, STUB);
-      await until(page, () => !!document.querySelector('#toast .tact'), null, 10000, 'кнопка «Запустить и прогнать»');
-      check(await page.evaluate(() => document.querySelector('#toast .tact').textContent.includes('Запустить')), 'на кнопке не «Запустить»');
+      await until(page, () => !!document.querySelector('#toast .tact'), null, 10000, 'кнопка «Подождать и прогнать»');
+      const t = await page.evaluate(() => ({ b: document.querySelector('#toast .tact').textContent, m: document.getElementById('toast').textContent }));
+      check(t.b.includes('Подождать') && t.m.includes('пульт') && !t.m.includes('не запустился'), 'тост не тот: ' + t.m);
       await page.evaluate(() => document.querySelector('#toast .tact').click());
-      await until(page, () => doc.layers.length > window.__n0 && !sdq, null, 30000, 'ретушь после запуска Stable');
+      await until(page, () => { const c = document.getElementById('sdq'); return !!c && !c.hidden && c.textContent.includes('пульт'); }, null, 10000, 'плашка «Жду Stable — включи пультом»');
+      await page.waitForTimeout(1500);
+      check(await page.evaluate(() => doc.layers.length === window.__n0), 'ретушь прошла, хотя Stable ещё выключен');
+      await page.request.post(STUB + '/_sdup');   // включила пультом
+      await until(page, () => doc.layers.length > window.__n0 && !sdq, null, 30000, 'ретушь после включения Stable');
       check(await page.evaluate(() => AL().name.startsWith('SD ')), 'после запуска слой SD не лёг');
       await page.evaluate(() => { undo(); deselect(); genCfg.sdUrl = ''; });
   }},
