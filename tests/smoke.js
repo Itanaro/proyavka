@@ -462,6 +462,20 @@ const steps = [
       check(r.four === 4, 'кнопка не добавилась'); check(r.back === 'rect,lasso,sdq', 'кнопка не убралась: ' + r.back); check(r.swap === 'liquify', 'значок не заменился');
   }},
 
+  { name: 'Островок: значок «Резкость · экшен» в плитках, нажатие — группа «Резкость»', run: async page => {
+      const r = await page.evaluate(async () => { const out = {};
+        islandMenu(2, 300, 300); const tile = [...document.querySelectorAll('#lyCtx .igrid .it')].find(b => (b.title || '').startsWith('Резкость · экшен'));
+        out.tile = !!tile && !!tile.querySelector('svg'); if (tile) tile.click(); out.slot = island.slots[2];
+        const X = newLayer('Источник ⧫'); X.ctx.fillStyle = '#808080'; X.ctx.fillRect(0, 0, doc.w, doc.h); insertLayer(X, doc.active + 1); const n0 = doc.layers.length;
+        const b = document.querySelector('#island .ib[data-k="sharp"]'), rc = b.getBoundingClientRect(), o = { bubbles: true, pointerId: 7, button: 0, clientX: rc.x + rc.width / 2, clientY: rc.y + rc.height / 2 };
+        b.dispatchEvent(new PointerEvent('pointerdown', o)); b.dispatchEvent(new PointerEvent('pointerup', o));
+        for (let i = 0; i < 40 && doc.layers.length === n0; i++) await new Promise(f => setTimeout(f, 100));
+        out.made = doc.layers.length === n0 + 2 && isGroup(AL()) && AL().name === 'Резкость';
+        undo(); undo(); island.slots[2] = 'sdq'; islandSave(); islandBuild(); return out; });
+      check(r.tile, 'в плитках Островка нет значка «Резкость · экшен»'); check(r.slot === 'sharp', 'значок не встал на кнопку: ' + r.slot);
+      check(r.made, 'кнопка Островка не запустила экшен «Резкость»');
+  }},
+
   { name: 'Удаление кистью — без затемнения экрана', run: async page => {
       const r = await page.evaluate(() => { const b = () => { const e = document.getElementById('busy'); return !!e && !e.hidden; };
         busyLite = true; busy(true, 'Нейросеть дорисовывает…'); const quiet = !b(); busy(true, 'Загружаю нейросеть удаления… 3 из 28 МБ · тап — отменить'); const dl = b(); busy(false); busyLite = false;
