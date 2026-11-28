@@ -722,6 +722,56 @@ const steps = [
       check(Math.abs(r.out - 40) < 3, 'тронуто то, что вне дыры: ' + r.out);
   }},
 
+  { name: 'Вырезать Ctrl+X: кусок в буфер, на слое дыра, Ctrl+V — на место, одна отмена', desk: true, run: async page => {
+      const r = await page.evaluate(async () => {
+        if (sel) deselect(); const L = newLayer('Вырезка'); L.ctx.fillStyle = '#c83232'; L.ctx.fillRect(0, 0, doc.w, doc.h); insertLayer(L, doc.layers.length);
+        applySelPoly([[100, 100], [300, 100], [300, 260], [100, 260]]);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'x', code: 'KeyX', ctrlKey: true, bubbles: true }));
+        const a = (x, y) => L.ctx.getImageData(x, y, 1, 1).data[3];
+        const r = { hole: a(200, 180), keep: a(500, 500), clipW: clip && clip.c.width, clipH: clip && clip.c.height };
+        deselect(); const n = doc.layers.length; pasteClip(); r.pasted = doc.layers.length === n + 1 && AL().ctx.getImageData(200, 180, 1, 1).data[3] > 250;
+        undo(); undo(); undo(); r.back = a(200, 180); // вставка, снятие выделения, вырезание
+        doc.active = doc.layers.indexOf(L); deleteLayer(); return r; });
+      check(r.hole === 0 && r.keep === 255, `на слое не вырезано или вырезано лишнее: внутри ${r.hole}, снаружи ${r.keep}`);
+      check(Math.abs(r.clipW - 200) <= 6 && Math.abs(r.clipH - 160) <= 6, `в буфере не тот кусок: ${r.clipW}×${r.clipH}`);
+      check(r.pasted, 'Ctrl+V не вставил вырезанное на новый слой на то же место');
+      check(r.back === 255, 'отмена не вернула вырезанное: ' + r.back);
+  }},
+
+  { name: 'Маска: применить к слою и размытие маски (радиус, отмена, в выделении)', run: async page => {
+      const r = await page.evaluate(async () => {
+        if (sel) deselect(); const L = newLayer('Маска-тест'); L.ctx.fillStyle = '#3264c8'; L.ctx.fillRect(0, 0, doc.w, doc.h); insertLayer(L, doc.layers.length);
+        const m = newMask(L); m.ctx.clearRect(0, 0, doc.w / 2, doc.h); L.mask = m; doc.editMask = true; layersChanged();
+        const ma = x => L.mask.ctx.getImageData(x, 800, 1, 1).data[3], W2 = doc.w / 2, r = {};
+        maskBlurOpen(); r.bar = !$('#mblurbar').hidden;
+        mblur.px = 20; mblurPreview(); r.live = ma(W2); maskBlurClose(true); r.cancel = ma(W2);
+        maskBlurOpen(); mblur.px = 20; maskBlurApply(); r.edge = ma(W2); r.far = ma(W2 - 200); r.closed = !mblur && $('#mblurbar').hidden;
+        undo(); r.undo = ma(W2);
+        applySelPoly([[0, 0], [doc.w, 0], [doc.w, 400], [0, 400]]); maskBlurOpen(); mblur.px = 20; maskBlurApply(); deselect();
+        r.inSel = L.mask.ctx.getImageData(W2, 200, 1, 1).data[3]; r.outSel = ma(W2); undo();
+        doc.editMask = false; filtOpen('blur'); r.layerFilt = !!filt; if (filt) filtClose();
+        doc.editMask = true; filtOpen('blur'); r.maskFilt = !!mblur && !filt; maskBlurClose(true);
+        removeMask(true); r.applied = !L.mask && L.ctx.getImageData(100, 800, 1, 1).data[3] === 0 && L.ctx.getImageData(doc.w - 100, 800, 1, 1).data[3] === 255;
+        undo(); r.maskBack = !!L.mask;
+        doc.editMask = false; doc.active = doc.layers.indexOf(L); deleteLayer(); return r; });
+      check(r.bar, 'панель «Размытие маски» не открылась');
+      check(r.live > 40 && r.live < 215 && r.cancel === 255, `предпросмотр или отмена неверны: на краю ${r.live}, после отмены ${r.cancel}`);
+      check(r.edge > 40 && r.edge < 215 && r.far === 0 && r.closed, `размытие не применилось как надо: край ${r.edge}, далеко ${r.far}`);
+      check(r.undo === 255, 'Ctrl+Z не вернул резкую маску: ' + r.undo);
+      check(r.inSel < 215 && r.outSel === 255, `с выделением размыло не там: внутри ${r.inSel}, снаружи ${r.outSel}`);
+      check(r.layerFilt && r.maskFilt, 'Гаусс: на слое должен открыться фильтр слоя, на маске — размытие маски');
+      check(r.applied && r.maskBack, '«Применить маску» не стёрла скрытое или отмена не вернула маску');
+  }},
+
+  { name: 'AI Edit: второе нажатие на значок прячет панель', run: async page => {
+      const r = await page.evaluate(async () => {
+        const b = document.querySelector('#airail [data-ai="aiedit"]'), w = $('#aiedit'); aeClose();
+        b.click(); const a = !w.hidden && b.classList.contains('on'); b.click(); const c = w.hidden && !b.classList.contains('on');
+        return { a, c }; });
+      check(r.a, 'первое нажатие не открыло панель');
+      check(r.c, 'второе нажатие не спрятало панель');
+  }},
+
   { name: 'Автосохранение → перезагрузка → документ на месте', run: async page => {
       await page.evaluate(async () => { const t = TABS.list.find(t => t.doc && t.doc.name === 'Тест'); if (t && t.doc !== doc) await tabSwitch(t); });
       const n = await page.evaluate(async () => { await autosave(true); await flushSave(); return doc.layers.length; });

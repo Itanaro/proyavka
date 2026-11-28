@@ -70,6 +70,7 @@ python3 tools/map.py градиент     # русское название са
 **Фильтры, тон, коррекции**
 - `depth map` (+ «За объект», «Коррекция», «Свет») — Depth Anything V2, дымка, свет по глубине.
 - `lens blur` (GPU) и `layer filters` (Гаусс, резкость; `blendByMask`); №145 экшен «Резкость» — `sharpAction`, `highPassInto` (Цветовой контраст).
+- №151 размытие маски — `maskBlurOpen`, `mblurWrite`, `maskBlurApply` (`mblur`, панель `#mblurbar`); пункты маски в меню слоёв — `maskItems`; Ctrl+X — `selCut` (рядом с `copySel`).
 - `liquify` — пластика на поле смещений (`liqDab`, `lqRender`).
 - `adjustment layers` (+ `the colour function of each kind`, `WebGL2`, `creating and editing`) —
   кривые, уровни, цветовой тон, баланс, **карта градиента**, **выборочная коррекция**; LUT 64³,

@@ -105,6 +105,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .row .hs{flex:1;width:auto}
 #opts.tight{gap:8px} #opts.tight .hs{width:80px} #opts.tight .opt{gap:5px}
 #adjbar .seg,#depthbar .seg{align-self:flex-start} #adjbar .selcfam,#adjbar .gmpre{flex-wrap:wrap;gap:4px;background:none;padding:0} #adjbar .selcfam button,#adjbar .gmpre button{border-radius:8px;background:var(--field);font-size:12px;padding:5px 8px} #adjbar .selcfam button.on,#adjbar .gmpre button.on{background:var(--accent);color:#fff} #adjbar .selcfam i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(127,127,127,.5)} #adjbar .selcfam button.used:not(.on){box-shadow:inset 0 -2px 0 var(--accent)} #adjbar canvas.gmbar{width:100%;height:34px;display:block;border-radius:6px} #adjbar .gmst{display:flex;gap:6px;align-items:center} #adjbar .gmst input[type=color]{width:38px;height:28px;padding:0;border:1px solid rgba(127,127,127,.45);border-radius:6px;background:none;cursor:pointer} #adjbar .gmst button{width:30px;height:28px;padding:0;border-radius:6px;background:var(--field);font-size:15px;line-height:1;color:inherit} #adjbar .gmst button:disabled{opacity:.35} #adjbar .gmtools{display:flex;gap:8px;align-items:center;flex-wrap:wrap} #adjbar .gmhint{font-size:11px;color:var(--muted)} #adjbar .er{grid-template-columns:172px 1fr 52px} #adjbar canvas.curve{width:100%;aspect-ratio:1.6;max-height:240px;border-radius:10px;touch-action:none;display:block} #adjbar canvas.lv{aspect-ratio:auto;height:64px}
+#mblurbar .er{display:grid;grid-template-columns:96px 1fr 98px;align-items:center;gap:10px;font-size:13px} #mblurbar .er label{color:var(--muted)} #mblurbar .er .hs{height:32px;width:auto} #mblurbar .er .v{font-family:var(--mono);font-size:12px;text-align:right;white-space:nowrap} #mblurbar .er .v input{width:58px;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--fg);font:inherit;text-align:right} #mblurbar .er .seg{grid-column:2 / span 2;justify-self:start} /* №151 */
 #optMore{min-width:36px;font-size:16px;letter-spacing:1px}
 #optPop{position:absolute;z-index:45;display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);max-width:min(420px,calc(100vw - 32px))}
 #optPop .opt{justify-content:space-between} #optPop .hs{width:150px} #optPop .seg{align-self:flex-start}
@@ -172,7 +173,7 @@ body.tooling #tabs .tab,body.tooling #tabs .tplus,body.tooling #zoomBadge{pointe
 .fbar button{height:36px;padding:0 12px;border-radius:8px;white-space:nowrap;font-size:13px}
 .fbar button:active{background:var(--panel-2)}
 .fbar .pri{background:var(--accent);color:var(--accent-ink);font-weight:600}
-#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar,#objbar,#aibar,#critbar,#pupbar,#cropbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
+#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#mblurbar,#genbar,#objbar,#aibar,#critbar,#pupbar,#cropbar{flex-direction:column;align-items:stretch;flex-wrap:nowrap;width:min(460px,calc(100% - 24px));padding:12px 14px;gap:10px}
 #edgebar .eh,#harmbar .eh,#adjbar .eh,#depthbar .eh,#filtbar .eh,#genbar .eh,#objbar .eh,#aibar .eh,#critbar .eh,#pupbar .eh,#cropbar .eh{font-weight:600;font-size:14px}
 #edgebar .eh span,#harmbar .eh span,#adjbar .eh span,#depthbar .eh span,#filtbar .eh span,#genbar .eh span,#objbar .eh span,#aibar .eh span,#critbar .eh span,#pupbar .eh span,#cropbar .eh span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
 #edgebar .er,#harmbar .er,#adjbar .er,#depthbar .er,#filtbar .er,#genbar .er,#objbar .er,#aibar .er,#critbar .er,#pupbar .er,#cropbar .er{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;font-size:13px}
@@ -443,7 +444,7 @@ html,body,#app{background:radial-gradient(120% 90% at 50% 40%,#1a1b1f 0%,#121316
 #status span{background:var(--glass-bg);border:1px solid var(--glass-edge);border-radius:10px;padding:4px 9px}
 .fbar{left:calc(50% + 36px);bottom:28px;border-radius:22px;padding:7px}
 #stage.lyopen .fbar{left:calc((100% - 316px + 72px)/2);max-width:calc(100% - 316px - 72px - 32px)}
-#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#genbar,#objbar,#aibar,#critbar,#pupbar,#cropbar{padding:14px 16px;gap:11px}
+#edgebar,#harmbar,#adjbar,#depthbar,#filtbar,#mblurbar,#genbar,#objbar,#aibar,#critbar,#pupbar,#cropbar{padding:14px 16px;gap:11px}
 #toast{top:84px;border-radius:16px;padding:10px 18px}
 #menu{top:72px;left:10px;border-radius:20px;padding:8px}
 #picker{top:72px;right:10px;border-radius:22px}
@@ -960,6 +961,7 @@ body.desk #swatchBg{box-shadow:0 0 0 2px var(--panel)}
     <div class="fbar" id="adjbar" hidden></div>
     <div class="fbar" id="depthbar" hidden></div>
     <div class="fbar" id="filtbar" hidden></div>
+    <div class="fbar" id="mblurbar" hidden></div>
     <div class="fbar" id="genbar" hidden></div>
     <div class="fbar" id="objbar" hidden></div>
     <div class="fbar" id="aibar" hidden></div>
@@ -1698,7 +1700,7 @@ function pxEntry(canvas, x,y,w,h, before){
   return { undo:swap, redo:swap, bytes:w*h*4, canvas }; // canvas: №109 — the auto-rasterising check finds smart objects by it
 }
 const compound = (...es) => ({ es, undo(){ for(let i=es.length-1;i>=0;i--) es[i].undo(); }, redo(){ for(const e of es) e.redo(); }, bytes: es.reduce((a,e)=>a+(e.bytes||0),0) });
-function undo(){ if (crop){ toast('Сначала заверши кадрирование: Enter или Esc',1600); return; } if (pup){ toast('В марионетке: убери булавку или нажми «Сбросить»',1600); return; } if(edge){ edgeCancel(); return; } if (adjEdit) adjClose(); if(stroke||xf||liqStroke) return; const e=undoStack.pop(); if(!e){ toast('Нечего отменять'); return; } e.undo(); redoStack.push(e); afterHist('Отменено', e.sel); if (e.liq && liq===e.liq) liq.cv=contentVer; }
+function undo(){ if (crop){ toast('Сначала заверши кадрирование: Enter или Esc',1600); return; } if (pup){ toast('В марионетке: убери булавку или нажми «Сбросить»',1600); return; } if(edge){ edgeCancel(); return; } if (mblur){ maskBlurClose(true); toast('Размытие маски отменено',900); return; } if (adjEdit) adjClose(); if(stroke||xf||liqStroke) return; const e=undoStack.pop(); if(!e){ toast('Нечего отменять'); return; } e.undo(); redoStack.push(e); afterHist('Отменено', e.sel); if (e.liq && liq===e.liq) liq.cv=contentVer; }
 function redo(){ if (pup||crop) return; if (adjEdit) adjClose(); if(stroke||xf||liqStroke) return; const e=redoStack.pop(); if(!e){ toast("Нечего возвращать"); return; } e.redo(); undoStack.push(e); afterHist("Возвращено", e.sel); if (e.liq && liq===e.liq) liq.cv=contentVer; }
 function afterHist(msg, selOnly){ if(selOnly){ requestRender(); toast(msg,900); return; } doc.active=clamp(doc.active,0,doc.layers.length-1); if(!AL().mask) doc.editMask=false; doc.layers.forEach(L=>L.dirty=true); layersChanged(); requestRender(); markDirty(); toast(msg,900); }
 function grab(canvas,r){ return ctx2(canvas).getImageData(r.x,r.y,r.w,r.h); }
@@ -1968,7 +1970,7 @@ function brushPopRender(){
 }
 
 function strokeBegin(p){
-  if (filt){ toast('Сначала примени или отмени фильтр'); return false; }
+  if (filt||mblur){ toast('Сначала примени или отмени '+(mblur?'размытие маски':'фильтр')); return false; }
   { const A=AL(); if (A && A.kind==='adj' && (S.tool==='brush'||S.tool==='eraser')){
       if (!A.mask){ const m=newMask(A); A.mask=m; A.dirty=true; pushHist({undo(){A.mask=null;}, redo(){A.mask=m;}}); }
       if (!doc.editMask){ doc.editMask=true; layersChanged(); } } }
@@ -2251,6 +2253,14 @@ function copySel(merged){
   clip={c, x:r.x, y:r.y, name: merged ? 'Вставка' : L.name, stale:false, ref: merged ? null : refUnder(c, L, r.x, r.y)};
   try{ if (navigator.clipboard && window.ClipboardItem) navigator.clipboard.write([new ClipboardItem({'image/png': new Promise(res=>c.toBlob(res,'image/png'))})]).catch(()=>{}); }catch(e){}
   toast((merged?'Видимое скопировано':'Скопировано')+' · '+r.w+'×'+r.h+(aip&&aip.detail?' · Ctrl+V — в рефы':''),1500); }
+function selCut(){ // №151 Ctrl+X like Photoshop: the selected part goes to the clipboard and is erased from the layer — one undo; Ctrl+V puts it back on a new layer in the same place
+  if (!doc) return; if (!sel){ toast('Сначала выдели, что вырезать'); return; }
+  if (doc.editMask && AL().mask){ toast('Сейчас выбрана маска — Ctrl+X вырезает картинку слоя: кликни по миниатюре слоя',2600); return; }
+  if (!pixelOnly()) return; const r=selBBox(); if (!r.w||!r.h) return;
+  const was=clip; copySel(false); if (!clip || clip===was) return;
+  const L=AL(), before=grab(L.canvas,r), x=L.ctx; x.globalCompositeOperation='destination-out'; x.drawImage(sel.mask,r.x,r.y,r.w,r.h,r.x,r.y,r.w,r.h); x.globalCompositeOperation='source-over';
+  pushHist(pxEntry(L.canvas,r.x,r.y,r.w,r.h,before)); L.dirty=true; thumbSoon(L); requestRender();
+  toast('Вырезано · '+clip.c.width+'×'+clip.c.height+' · Ctrl+V — вставить на новый слой на то же место',1800); }
 function clipCopy(c){ const q=mk(c.width,c.height); ctx2(q).drawImage(c,0,0); return q; }
 function pasteClip(){ // new layer, in the place it was copied from
   if (!doc || !clip) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
@@ -2267,7 +2277,7 @@ function selToMask(){
   else { const mask=newMask(L,true); L.mask=mask; doc.editMask=true; pushHist({undo(){L.mask=null;doc.editMask=false;},redo(){L.mask=mask;}}); }
   L.dirty=true; deselect(); layersChanged(); requestRender(); toast('Маска создана из выделения');
 }
-function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep) || !!(typeof filt!=='undefined' && filt) || !!(typeof gen!=='undefined' && gen) || !!(typeof lift!=='undefined' && lift && lift.open) || !!(typeof aip!=='undefined' && aip) || !!(typeof pup!=='undefined' && pup); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); requestAnimationFrame(placeCtxBars); syncSelModes(); }
+function updateSelBar(){ $('#selbar').hidden = !sel || !!xf || !!edge || !!(typeof harm!=='undefined' && harm) || !!(typeof adjEdit!=='undefined' && adjEdit) || !!(typeof dep!=='undefined' && dep) || !!(typeof filt!=='undefined' && filt) || !!(typeof mblur!=='undefined' && mblur) || !!(typeof gen!=='undefined' && gen) || !!(typeof lift!=='undefined' && lift && lift.open) || !!(typeof aip!=='undefined' && aip) || !!(typeof pup!=='undefined' && pup); $('#bDesel').hidden = !sel || !!xf || !!edge; $('#bDesel').parentElement.hidden = $('#bDesel').hidden; requestAnimationFrame(fitOpts); requestAnimationFrame(placeCtxBars); syncSelModes(); }
 /* №133 the selection bar and the fill bar hang under the selection (Photoshop's contextual task bar); «⋯ → Закрепить внизу» puts them back to the bottom */
 const ctxPinned=()=>lsGet('proyavka.ctxPin')==='1';
 function placeCtxBars(){ for (const id of ['selbar','genbar']){ const el=$('#'+id); if (el && !el.hidden && el.classList.contains('ctx')) placeCtx(el); } }
@@ -2284,7 +2294,7 @@ function placeCtx(el){
 function selMore(x, y){
   const m=$('#lyCtx'); m.textContent=''; const head=document.createElement('div'); head.className='aih'; head.textContent='Выделение'; m.append(head);
   const B=(t,k,fn,cls)=>{ const b=document.createElement('button'); b.innerHTML='<span></span><small></small>'; b.firstChild.textContent=t; b.lastChild.textContent=k||''; if (cls) b.className=cls; b.onclick=()=>{ m.hidden=true; fn(); }; m.append(b); };
-  B('На слой','',selCopyToLayer); B('Залить…','',selFill); B('Удалить','Delete',selDelete); B('Умная заливка','',contentAwareFill);
+  B('На слой','',selCopyToLayer); if (IS_DESK) B('Вырезать','Ctrl+X',selCut); else B('Вырезать на слой','',selCutToLayer); B('Залить…','',selFill); B('Удалить','Delete',selDelete); B('Умная заливка','',contentAwareFill);
   B('✦ Сдвинуть объект','',objLift); B('✦ Отрисовать набросок','',sketchRender); B('✦ SD Inpaint','свой ПК',()=>genOpen('sd'));
   B('Трансформ','Ctrl+T',()=>setTool('transform')); B('Снять выделение','Ctrl+D',()=>deselect());
   B(ctxPinned() ? 'Менюшку — под выделение' : 'Менюшку — закрепить внизу','',()=>{ lsSet('proyavka.ctxPin', ctxPinned()?'0':'1'); placeCtxBars(); });
@@ -3101,7 +3111,8 @@ function filtProcess(d, W, H, kind, t, sig, wts){ // RGBA bytes in place; wts: p
       for (let c=0;c<3;c++){ const v=ch[c][i], diff=v-bl[c][i]; if (Math.abs(diff*ia)<thr) continue; const nv=clamp((v+amt*diff)*ia,0,255); d[j+c]+=(nv-d[j+c])*k; } } }
 }
 function filtOpen(kind){
-  if (!doc || xf || edge || stroke || harm || filt) return; if (dep) depthClose(); if (adjEdit) adjClose();
+  if (kind==='blur' && doc && doc.editMask && AL() && AL().mask) return maskBlurOpen(); // №151: like Photoshop — a filter on the picked mask blurs the mask
+  if (!doc || xf || edge || stroke || harm || filt || mblur) return; if (dep) depthClose(); if (adjEdit) adjClose();
   const L=AL(); if (!L || isGroup(L) || L.kind==='adj'){ toast('Выбери обычный слой'); return; }
   if (!shown(L)){ toast('Слой скрыт'); return; }
   const useSel=!!sel, box = useSel ? (sel.box && sel.box.w ? sel.box : {x:0,y:0,w:doc.w,h:doc.h}) : {x:0,y:0,w:doc.w,h:doc.h};
@@ -3131,6 +3142,58 @@ function filtBuild(){
   const ok=document.createElement('button'); ok.className='pri'; ok.textContent='Применить'; ok.onclick=filtApply;
   foot.append(sp,c,ok); box.append(foot);
 }
+/* ============ №151 mask blur: Gaussian on the layer mask — live on the mask itself, one undo ============
+   «Размытие маски…» (mask menu, right click on the mask, layer menus, «Размытие / резкость» while the mask is picked).
+   Slider in px (like Photoshop's Gaussian Blur radius) or typed exactly; with a selection — only inside it, with its soft edge. */
+let mblur=null, mblurRaf=0; const MBLUR_MAX=250;
+const mblurPx = t => Math.round(t*t*MBLUR_MAX*10)/10, mblurT = px => Math.sqrt(clamp(px,0,MBLUR_MAX)/MBLUR_MAX);
+function maskBlurOpen(){
+  if (!doc) return; if (xf){ toast('Сначала примени или отмени трансформ'); return; }
+  if (mblur || edge || stroke || harm || filt || pup || crop || gen || (aip && !aiSettle())){ if (!mblur) toast('Сначала закрой открытую панель',2000); return; }
+  if (dep) depthClose(); if (adjEdit) adjClose();
+  const L=AL(); if (!L || !L.mask){ toast('У слоя нет маски'); return; }
+  if (!L.mask.enabled){ toast('Маска выключена — включи её (Shift + клик по маске)',2400); return; }
+  const W=doc.w, H=doc.h, orig=ctx2(L.mask.canvas,{willReadFrequently:true}).getImageData(0,0,W,H), a0=new Float32Array(W*H);
+  for (let i=0;i<a0.length;i++) a0[i]=orig.data[i*4+3];
+  let w=null; if (sel){ const md=ctx2(sel.mask,{willReadFrequently:true}).getImageData(0,0,W,H).data; w=new Float32Array(W*H); for (let i=0;i<w.length;i++) w[i]=md[i*4+3]/255; }
+  let last=0; try{ last=+localStorage.getItem('proyavka.mblur')||0; }catch(_){}
+  mblur={L, orig, a0, w, px:last>0?last:8, shown:0};
+  doc.editMask=true; layersChanged(); mblurBuild(); $('#mblurbar').hidden=false; updateSelBar(); mblurPreview();
+}
+function mblurBuild(){
+  const m=mblur, box=$('#mblurbar'); box.textContent='';
+  const head=document.createElement('div'); head.className='eh'; head.innerHTML='<b>Размытие маски</b> <span></span>'; head.lastChild.textContent=(m.w?'в выделении · ':'')+'«'+m.L.name+'»'; box.append(head);
+  const r=document.createElement('div'); r.className='er'; r.innerHTML='<label>Радиус</label><div></div><span class="v"><input type="number" min="0" max="'+MBLUR_MAX+'" step="0.5"> px</span>';
+  const inp=r.querySelector('input'); inp.value=m.px;
+  const draw=hslider(r.children[1],{min:0,max:1,get:()=>mblurT(m.px),set:x=>{ m.px=mblurPx(x); inp.value=m.px; mblurSoon(); }});
+  inp.addEventListener('input',()=>{ const v=parseFloat(String(inp.value).replace(',','.')); if (!isFinite(v)) return; m.px=clamp(v,0,MBLUR_MAX); draw(); mblurSoon(); });
+  inp.addEventListener('keydown',e=>{ if (e.key==='Enter'){ e.preventDefault(); inp.blur(); maskBlurApply(); } else if (e.key==='Escape'){ e.preventDefault(); inp.blur(); maskBlurClose(true); } });
+  box.append(r);
+  const q=document.createElement('div'); q.className='er'; q.innerHTML='<label>Быстро</label><div class="seg"></div><span></span>';
+  for (const v of [1,3,8,20,50]){ const b=document.createElement('button'); b.textContent=v; b.title=v+' px'; b.onclick=()=>{ m.px=v; inp.value=v; draw(); mblurSoon(); }; q.children[1].append(b); }
+  box.append(q);
+  const foot=document.createElement('div'); foot.className='eb'; const sp=document.createElement('span'); sp.style.flex='1';
+  const c=document.createElement('button'); c.textContent='Отмена'; c.onclick=()=>maskBlurClose(true);
+  const ok=document.createElement('button'); ok.className='pri'; ok.textContent='Применить'; ok.onclick=maskBlurApply;
+  foot.append(sp,c,ok); box.append(foot);
+}
+const mblurSoon=()=>{ if (!mblurRaf) mblurRaf=requestAnimationFrame(mblurPreview); };
+function mblurWrite(px){ // the mask itself shows the result: original alpha → blurred, weighted by the selection
+  const m=mblur, W=doc.w, H=doc.h, id=new ImageData(new Uint8ClampedArray(m.orig.data), W, H), d=id.data;
+  if (px>=0.3){ const f=gauss(Float32Array.from(m.a0),W,H,px), w=m.w;
+    for (let i=0,j=3;i<f.length;i++,j+=4){ const k=w?w[i]:1; if (k<0.004) continue; d[j]=m.a0[i]+(f[i]-m.a0[i])*k; } }
+  ctx2(m.L.mask.canvas).putImageData(id,0,0); m.shown=px; m.L.dirty=true; requestRender(); }
+function mblurPreview(){ mblurRaf=0; if (!mblur || mblur.shown===mblur.px) return; mblurWrite(mblur.px); }
+function maskBlurClose(cancel){ const m=mblur; if (!m) return; cancelAnimationFrame(mblurRaf); mblurRaf=0;
+  if (cancel && m.shown){ ctx2(m.L.mask.canvas).putImageData(m.orig,0,0); m.L.dirty=true; }
+  mblur=null; $('#mblurbar').hidden=true; thumbSoon(m.L); updateSelBar(); requestRender(); }
+function maskBlurApply(){ const m=mblur; if (!m) return;
+  if (m.px<0.3){ maskBlurClose(true); return; }
+  if (m.shown!==m.px) mblurWrite(m.px);
+  try{ localStorage.setItem('proyavka.mblur', String(m.px)); }catch(_){}
+  pushHist(pxEntry(m.L.mask.canvas,0,0,doc.w,doc.h,m.orig)); markDirty(); const px=m.px, inSel=!!m.w;
+  maskBlurClose(false);
+  toast('Маска размыта на '+px+' px'+(inSel?' в выделении':'')+' · Ctrl+Z вернёт',1600); }
 function lensParams(t, scale){ return {r:lensPx(t.r)*scale, bright:t.bright, thr:0.45+t.thr*0.5, blades:t.blades, rot:0.3, grain:t.grain, cat:t.cat}; }
 function blendByMask(base, over, mask){ // base canvas := lerp(base, over, mask alpha) — all the same size
   const w=base.width, h=base.height, t=mk(w,h), tx=ctx2(t); tx.drawImage(over,0,0); tx.globalCompositeOperation='destination-in'; tx.drawImage(mask,0,0,w,h);
@@ -4444,7 +4507,8 @@ async function falPing(){ // a key check without spending money: an empty reques
   return 'fal.ai на связи, ключ принят'+(genCfg.gemKey?' · Gemini проверится при первой генерации':''); }
 function filtMenu(){
   dialog('<h3>Фильтр на слой</h3><p>Действует на весь активный слой, а если есть выделение — только на выделенное, с мягким краем.</p>',
-    [['Размытие объектива', ()=>filtOpen('lens'), false, 'как у настоящего объектива: блики раскрываются в боке, форма диафрагмы'],
+    [...(AL() && AL().mask ? [['Размытие маски', ()=>maskBlurOpen(), false, 'растушевать край маски слоя — радиус в пикселях, видно сразу']] : []),
+     ['Размытие объектива', ()=>filtOpen('lens'), false, 'как у настоящего объектива: блики раскрываются в боке, форма диафрагмы'],
      ['Размытие по Гауссу', ()=>filtOpen('blur'), false, 'ровное размытие слоя: фон, дальний план, подложка'],
      ['Резкость', ()=>filtOpen('sharp'), false, 'контурная резкость: сила, радиус, порог (чтобы не тащить шум)'],
      [IS_DESK ? 'Резкость · экшен (F3)' : 'Резкость · экшен', ()=>sharpAction(), false, 'как экшен «Резкость» в Фотошопе: копия слоя, Цветовой контраст 1 px, Перекрытие, своя группа'],
@@ -6061,10 +6125,16 @@ function layerMenu(L, x, y){
   if (!many && !isGroup(AL())) B(AL().clip ? 'Снять обтравочную маску' : 'Обтравочная маска','Ctrl+Alt+G',()=>toggleClip(AL()));
   if (!many && AL().smart){ B('Заменить содержимое…','',smartReplace); B('Растрировать','',()=>smartRasterize()); }
   else if (many || AL().kind!=='adj') B('Преобразовать в смарт-объект','',smartConvert);
+  if (!many && AL().mask) maskItems(B, AL()); // №151
   if (!many) B('Переименовать','двойной клик',()=>layerRename(AL()));
   B(many ? 'Удалить слои' : 'Удалить','Delete',deleteLayer,'dg');
   closePops('lyCtx'); m.hidden=false; const r=m.getBoundingClientRect(); m.style.left=Math.min(x, innerWidth-r.width-8)+'px'; m.style.top=Math.min(y, innerHeight-r.height-8)+'px';
 }
+/* №151 mask actions in the layer menus, like Photoshop's right click on a mask: apply, blur, delete */
+function maskItems(B, L){ const px=!isGroup(L) && L.kind!=='adj';
+  if (px) B('Применить маску','',()=>removeMask(true));
+  B('Размытие маски…','',maskBlurOpen);
+  B('Удалить маску','',()=>removeMask(false),'dg'); }
 /* «⋯» under the layer list (№83): the rarely used layer actions, so the list itself gets more height */
 function layerMore(x, y){
   if (!doc) return; const m=$('#lyCtx'), L=AL(), g=isGroup(L); m.textContent='';
@@ -6076,7 +6146,7 @@ function layerMore(x, y){
   if (!g) B(L.clip ? 'Снять обтравочную маску' : 'Обтравочная маска', 'Ctrl+Alt+G', ()=>toggleClip(L));
   if (L.smart){ B('Заменить содержимое…','',smartReplace); B('Растрировать','',()=>smartRasterize()); }
   else if (L.kind!=='adj') B('Преобразовать в смарт-объект','',smartConvert);
-  if (L.mask) B('Инвертировать маску','',invertMask);
+  if (L.mask){ B('Инвертировать маску','',invertMask); maskItems(B, L); } // №151
   if (!g) B('Размытие / резкость…','',filtMenu);
   B(g ? 'Расформировать группу' : 'Очистить слой','',clearLayer, g?'':'dg');
   closePops('lyCtx'); m.hidden=false; const r=m.getBoundingClientRect(); m.style.left=Math.max(8,Math.min(x, innerWidth-r.width-8))+'px'; m.style.top=(y+r.height>innerHeight-8 ? Math.max(8,y-r.height-44) : y)+'px';
@@ -6231,7 +6301,7 @@ function removeMask(apply){
     const px=pxEntry(L.canvas,0,0,doc.w,doc.h,before); L.mask=null; doc.editMask=false;
     pushHist(compound(px,{undo(){L.mask=m;},redo(){L.mask=null;doc.editMask=false;}})); }
   else { L.mask=null; doc.editMask=false; pushHist({undo(){L.mask=m;},redo(){L.mask=null;doc.editMask=false;}}); }
-  L.dirty=true; layersChanged(); requestRender();
+  L.dirty=true; thumbSoon(L); layersChanged(); requestRender(); toast(apply ? 'Маска применена: скрытое стёрто со слоя · Ctrl+Z вернёт' : 'Маска удалена',1500);
 }
 function mergeDown(){
   if (pickedMany()) return mergePicked();
@@ -6346,7 +6416,8 @@ function layersChanged(){ structVer++; try{ maskColorSync(); }catch(e){} try{ if
         const n=doc.layers.filter(x=>isDesc(x,L)&&!isGroup(x)).length;
         const nm=document.createElement('div'); nm.style.minWidth='0'; let mcg=null;
         if (L.mask){ mcg=thumbFor(L,true); mcg.classList.toggle('sel', i===doc.active && doc.editMask); mcg.style.opacity=L.mask.enabled?1:.4;
-          mcg.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); toast('Рисуешь по маске группы: чёрный скрывает, белый и ластик возвращают',2600); }; }
+          mcg.onclick=e=>{ e.stopPropagation(); doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); toast('Рисуешь по маске группы: чёрный скрывает, белый и ластик возвращают',2600); };
+          mcg.addEventListener('contextmenu', e=>{ e.preventDefault(); e.stopPropagation(); if (e.pointerType==='touch' || panelBusy()) return; pickClear(); doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); openMaskMenu(); }); }
         else nm.style.gridColumn='span 2';
         nm.innerHTML='<div class="nm"></div><div class="meta"></div>';
         nm.firstChild.textContent=L.name; nm.lastChild.textContent=n+' сл. · '+Math.round(L.opacity*100)+'% · '+(L.blend==='pass'?'Сквозной':(BLENDS.find(b=>b[0]===L.blend)||BLENDS[0])[1]);
@@ -6359,6 +6430,7 @@ function layersChanged(){ structVer++; try{ maskColorSync(); }catch(e){} try{ if
       row.append(eye, tc);
       if (L.mask){ const mc=thumbFor(L,true); mc.classList.toggle('sel', i===doc.active && doc.editMask); mc.style.opacity=L.mask.enabled?1:.4;
         mc.onclick=e=>{ e.stopPropagation(); if (e.ctrlKey||e.metaKey){ selFromLayer(L,true, e.shiftKey?'add':e.altKey?'sub':'new'); return; } if (e.shiftKey){ setProp(L.mask,'enabled',!L.mask.enabled); layersChanged(); requestRender(); return; } doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); toast('Рисуешь по маске: чёрный скрывает, белый и ластик возвращают',2600); };
+        mc.addEventListener('contextmenu', e=>{ e.preventDefault(); e.stopPropagation(); if (e.pointerType==='touch' || panelBusy()) return; pickClear(); doc.active=doc.layers.indexOf(L); doc.editMask=true; layersChanged(); openMaskMenu(); }); // №151 like Photoshop: right click on the mask
         row.append(mc); }
       const nm=document.createElement('div'); nm.style.minWidth='0'; if (!L.mask) nm.style.gridColumn='span 2';
       nm.innerHTML='<div class="nm"></div><div class="meta"></div>';
@@ -6415,7 +6487,8 @@ function openMaskMenu(){
   const items=[[onMask?(g?'Закончить с маской':'Рисовать по слою'):'Рисовать по маске', ()=>{ doc.editMask=!onMask; layersChanged(); if(!onMask) toast('Рисуешь по маске: чёрный скрывает, белый и ластик возвращают',2600); }, '', onMask?(g?'Вернуться к группе':'Кисть снова рисует по картинке'):'Кисть скрывает, ластик возвращает'],
      ['Инвертировать', ()=>invertMask(), '', 'Скрытое станет видимым и наоборот · ⌘I'],
      [L.mask.enabled?'Выключить маску':'Включить маску', ()=>{ setProp(L.mask,'enabled',!L.mask.enabled); layersChanged(); }, '', L.mask.enabled?(g?'Временно показать группу целиком':'Временно показать слой целиком'):'Снова скрыть замаскированное'],
-     ...(g?[]:[['Применить к слою', ()=>removeMask(true), '', 'Скрытое стирается со слоя, маска исчезает']]),
+     ['Размытие маски…', ()=>maskBlurOpen(), '', 'Растушевать край маски: ползунок в пикселях, видно сразу'],
+     ...(g||L.kind==='adj'?[]:[['Применить к слою', ()=>removeMask(true), '', 'Скрытое стирается со слоя, маска исчезает']]),
      ['Удалить маску', ()=>removeMask(false), 'dg', g?'Группа снова видна целиком':'Слой снова виден целиком'],
      ['Закрыть', null, 'close']];
   const d=dialog(`<div class="mhead"><div class="mprev"></div><div><h3>${g?'Маска группы':'Маска слоя'}</h3><p class="mname"></p></div></div>`, items, {list:true});
@@ -6698,7 +6771,7 @@ $('#bAI').onclick=e=>{ e.stopPropagation(); closePops('aimenu'); const m=$('#aim
   const r=$('#bAI').getBoundingClientRect(); m.style.left=Math.round(r.left)+'px'; m.hidden=false; };
 document.querySelectorAll('#aimenu [data-a]').forEach(b=>b.onclick=()=>{ closePops(); const a=b.dataset.a; if (!doc) return; if (a!=='set' && aip && !aiSettle()) return;
   if (xf){ toast('Сначала примени или отмени трансформ'); return; }
-  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sdq:()=>sdQuick(), sdq2:()=>sdQuick({x1:true}), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, detail:()=>cropOpen({detail:true}), critic:artDirector, aiedit:()=>aeOpen(), rmbg:rmbgOpen, pose:poseRefOpen, set:genSettings})[a](); });
+  ({gen:()=>genOpen(), sd:()=>genOpen('sd'), sdq:()=>sdQuick(), sdq2:()=>sdQuick({x1:true}), sketch:sketchRender, lift:objLift, ai:()=>inpaintFromSel(), fit:fitIntoScene, expand:expandDialog, detail:()=>cropOpen({detail:true}), critic:artDirector, aiedit:()=>{ if ($('#aiedit').hidden) aeOpen(); else aeClose(); }, rmbg:rmbgOpen, pose:poseRefOpen, set:genSettings})[a](); });
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pop,#swatch,#bMenu,#bAI,#bImg,.tgm,.pickHere,#lyMore')) closePops(); },true);
 document.addEventListener('pointerdown',e=>{ const a=document.activeElement; if (a && a.matches && a.matches('input,textarea') && !e.target.closest('input,textarea,select,label,.dlg') && (e.target.closest('#stage canvas,.ly,#layers') || e.target.tagName==='CANVAS')) a.blur(); },true);
 document.addEventListener('keydown',e=>{ if (e.key==='Escape' && !$('#lyCtx').hidden) $('#lyCtx').hidden=true; });
@@ -6837,8 +6910,9 @@ function aeLibMerge(ps, seed){
     if (seed!=null && /^\d+$/.test(seed)) localStorage.setItem('aiEditLibSeed', seed); }catch(e){ return null; } // Photoshop's seed mark: defaults it deleted do not come back here
   return {n:ps.length, own:keep.length}; }
 /* ---- the panel ---- */
+const aeRailSync=()=>{ const b=document.querySelector('#airail [data-ai="aiedit"]'); if (b) b.classList.toggle('on', !$('#aiedit').hidden); };
 async function aeOpen(reload){
-  const w=$('#aiedit'); w.hidden=false; aePlace();
+  const w=$('#aiedit'); w.hidden=false; aePlace(); aeRailSync();
   if (AE.loaded && !reload) return;
   const ver=$('#aeVer'); ver.textContent='загружаю плагин с компьютера…';
   try{ AE.src=await aeLoadSrc(); }
@@ -6849,7 +6923,7 @@ async function aeOpen(reload){
   const lib=s.from==='pc' ? await aeLibSync() : null; if (lib) ver.title+='\nБиблиотека промптов — из Фотошопа: '+lib.n+(lib.own?' (+ '+lib.own+' сделано здесь)':'');
   AE.loaded=true; $('#aeFrame').srcdoc=aeBuildHtml(s);
 }
-function aeClose(){ $('#aiedit').hidden=true; }
+function aeClose(){ $('#aiedit').hidden=true; aeRailSync(); }
 /* iPad: the panel is as tall as its content (no empty half-screen), up to the bottom of the screen; then it scrolls inside */
 let aeRO=null;
 function aeFit(){ if (IS_DESK) return; const w=$('#aiedit'), f=$('#aeFrame'); if (w.hidden) return; let d=null; try{ d=f.contentDocument; }catch(e){} if (!d || !d.body) return;
@@ -7383,7 +7457,7 @@ function panelBusy(why){ // a panel with its own preview is open: it would break
   if (aip && !aiSettle()) return true;
   if (stroke || (typeof liqStroke!=='undefined' && liqStroke)) return true;
   if (xf){ toast('Сначала примени или отмени трансформ'); return true; }
-  if (edge||harm||filt||gen||aip||(lift&&lift.open)||pup||crop||(typeof dep!=='undefined'&&dep)){ toast('Сначала закрой открытую панель'+(why?' — '+why:''),2400); return true; }
+  if (edge||harm||filt||mblur||gen||aip||(lift&&lift.open)||pup||crop||(typeof dep!=='undefined'&&dep)){ toast('Сначала закрой открытую панель'+(why?' — '+why:''),2400); return true; }
   if (typeof adjEdit!=='undefined' && adjEdit) adjClose();
   return false;
 }
@@ -7460,7 +7534,7 @@ function tabsRender(){
 function airailLayout(){ const r=$('#airail'); if (!r) return; const st=$('#stage').getBoundingClientRect(), ly=$('#layers');
   const top = !ly.hidden ? ly.getBoundingClientRect().top-st.top : Math.max(8, $('#top').getBoundingClientRect().bottom-st.top+6);
   const right = !ly.hidden ? st.right-ly.getBoundingClientRect().left+8 : 10; r.style.top=top+'px'; r.style.right=right+'px'; try{ islandPlace(); }catch(_){} }
-document.querySelectorAll('#airail [data-ai]').forEach(b=>b.onclick=()=>{ const m=$('#aimenu [data-a="'+b.dataset.ai+'"]'); if (m) m.click(); });
+document.querySelectorAll('#airail [data-ai]').forEach(b=>b.onclick=()=>{ if (b.dataset.ai==='aiedit' && !$('#aiedit').hidden){ aeClose(); return; } /* №151: the second click hides the panel */ const m=$('#aimenu [data-a="'+b.dataset.ai+'"]'); if (m) m.click(); });
 /* AI panel (Detail and the others) as a floating window next to the layers, like AI Edit: drag by the title, double click — back to its place */
 function dockPlace(b){ if (!b || b.hidden) return; b.classList.add('dock');
   const st=$('#stage').getBoundingClientRect(), ly=$('#layers'), rr=$('#airail'), w=Math.min(440, st.width-24); let p=null; try{ p=JSON.parse(localStorage.getItem('proyavka.aidock')||'null'); }catch(e){}
@@ -7566,7 +7640,7 @@ function showHelpPad(){
    <dt>Кадрирование, размер</dt><dd>Меню ☰ → «Кадрировать», «Размер изображения», «Размер холста» — как в фотошопе. Кадрирование: тяни углы рамки карандашом, «Кадрировать» — применить. Увеличение с сохранением деталей идёт через ИИ на компьютере, без него — чёткий Lanczos.</dd>
    <dt>✦ SD-ретушь</dt><dd>«ИИ → SD-ретушь»: выделенный участок сразу уходит в Automatic1111 на компьютере — как F2 в Фотошопе, с теми же настройками ретуши кожи и промптом из плагина SD Inpaint. Результат — слоем с маской, пока считается — работай дальше.</dd>
    <dt>Марионеточная деформация (P)</dt><dd>Группа «Трансформ и деформация» слева, Трансформ → «Марионетка» или клавиша P. На слой (или выделенную часть) ложится сетка; тап карандашом ставит булавку, тяни — изображение гнётся вслед, остальное держат другие булавки. «Жёстко / Обычно / Искажение» — насколько части тянутся. «Вперёд / Назад» — что окажется сверху при наложении. Enter / «Применить» — одна отмена.</dd>
-   <dt>Маска</dt><dd>Кисть скрывает, ластик возвращает. Выбор между слоем и маской — тап по миниатюре.</dd>
+   <dt>Маска</dt><dd>Кисть скрывает, ластик возвращает. Выбор между слоем и маской — тап по миниатюре. Кнопка маски внизу панели слоёв (или «⋯»): «Размытие маски…» — растушевать край, радиус в пикселях, видно сразу (с выделением — только в нём); «Применить к слою» — скрытое стирается со слоя, маска исчезает.</dd>
    <dt>Слои</dt><dd>Двойной тап по имени — переименовать. «⋯» под списком — выше / ниже, слить видимые, размытие, очистить.</dd>
    <dt>Полоса ИИ</dt><dd>Капсула слева от слоёв: Вписать в сцену, Расширить кадр, Доводка, Арт-директор, AI Edit, Удалить фон, Реф с позы. Окна ИИ тянутся за заголовок, двойной тап — на место, «?» — подсказки.</dd>
    <dt>✦ Доводка</dt><dd>Рамка родных для модели пропорций → «Дальше» → кусок в полном разрешении модели ложится слоем на место. Промпт, рефы, шаблоны, модель, разрешение; каждый вариант — своим слоем.</dd>
@@ -7579,7 +7653,7 @@ function showHelpPad(){
   <p class="kbd">С клавиатурой: B кисть · E ластик · L лассо · M прямоугольник · V трансформ · I пипетка · [ ] размер · ⌘Z / ⇧⌘Z · ⌘C / ⌘V · ⌘D снять выделение · ⇧⌘I инвертировать выделение · ⌘I инвертировать маску · ⌘T трансформ · ⌘R линейки · стрелки — сдвиг выделения · Enter применить · Esc отмена</p>`,
   [['Понятно', ()=>{ try{localStorage.setItem('kadr.help','1');}catch(e){} }, true]]);
 }
-const HELP_PC_TOOLS=[["Файл и экран «Начало»", "Открытый файл запоминается: Ctrl+S пишет прямо в него. PNG или JPG, в котором появились слои, Ctrl+S не сплющивает — предложит сохранить PSD рядом, и дальше рабочим будет PSD. Имя во вкладке и вверху — с расширением. Закрыл последний документ — экран «Начало»: недавние файлы этого компьютера, новый, открыть, все документы."], ["Оформление", "«Файл → Оформление»: темы интерфейса Ночь, Облачко, Луч, Графит (прежняя, нейтральная). Фон вокруг холста от темы не зависит: там же или правым кликом мимо картинки — по умолчанию, чёрный, серые или свой цвет."], ["Безопасная зона и линейки", "Кнопка «▯ 900» у счётчиков вверху слева (и «Изображение → Безопасная зона»): слой-разметка сверху — 900 px из 1500 рабочей ширины ката по центру (на 3000 px — 1800). Та же кнопка прячет и показывает; удалила слой — нарисует заново. Линейки в px — полосы вдоль верхней и левой панели, Ctrl+R."], ["Меню «Изображение»", "Сверху рядом с «ИИ»: кадрирование, размер изображения и холста, расширение кадра, Доводка, трансформ, марионетка, пластика, удаление фона, копия видимого, слить видимые, безопасная зона, линейки. Внизу меню — размер, ppi и размер отпечатка. Клик по размеру в строке состояния (слева сверху) тоже открывает «Размер изображения». Кнопка кадрирования есть и на панели инструментов — под группой трансформа."],["Кадрирование (C)", "Рамка с затемнением снаружи и сеткой третей. Тяни углы и стороны, внутри — двигать, снаружи — новая рамка, Shift держит пропорции. Пропорции: свободно, оригинал, 1:1, 4:5, 3:2, 16:9, 9:16, «Повернуть рамку». Рамка может выйти за картинку — холст вырастет (новое поле прозрачное). Enter — кадрировать, Esc — отмена; одна отмена Ctrl+Z."],["Размер изображения (Ctrl+Alt+I)", "Как в фотошопе: ширина/высота в пикселях или процентах, разрешение ppi и размер отпечатка в см. «Сохранение деталей · ИИ» увеличивает через Real-ESRGAN в Automatic1111 на компьютере — новые детали вместо мыла; без компьютера — Lanczos (резкий, без ступенек). Для уменьшения — «Бикубическая, чётче». Маски и прозрачность масштабируются отдельно и чисто. Без «Менять пиксели» меняется только ppi."],["Размер холста (Ctrl+Alt+C)", "Картинка не масштабируется: холст растёт или обрезается вокруг привязки (сетка 3×3). «Относительно» — сколько добавить. Новое поле — прозрачное или залито цветом на нижнем слое; маски в новом поле открыты."],["Инструменты слева", "Похожие собраны в группы: рисование, выделение, умное выделение и глубина, ретушь, тон, трансформ и деформация (трансформ, марионетка, пластика). Клик по группе берёт последний инструмент из неё, повторный клик или удержание открывает список."], ["Удаление · нейросеть (Shift+J)", "Закрась лишний объект или мусор и отпусти — нейросеть дорисует фон (на ПК — на видеокарте, через мост). Для выделения — «✦ Убрать» на нижней панели."], ["Точечная восстанавливающая кисть (J)", "Без источника: мажь по пятну, пылинке, прыщику — заполнится текстурой вокруг. Быстро и без нейросети."], ["Осветление (O), затемнение, губка, размытие, резкость, палец", "Группа «Тон и резкость». Работают кистью, мазки накапливаются — прошёл ещё раз, эффект сильнее. Осветление и затемнение: диапазон Тени / Средние / Света, «Экспозиция», «Сохранять цвет» (без пересвета и грязи). «＋ Серый слой» — неразрушающий вариант: слой 50% серого в «Мягком свете»; на нём осветление рисует светлым, затемнение — тёмным, картинка не трогается, а слабить можно прозрачностью слоя. Губка: «Приглушить» / «Насытить» — насыщенность под кистью; «Беречь яркие» не даёт пересытить и так яркие цвета. Палец размазывает, «Сила» — как далеко тянется краска. «Все слои» — берёт видимую картинку со всех слоёв и кладёт результат на текущий слой: удобно на пустом слое сверху."], ["Глубина", "Группа «Умное выделение и глубина». Нейросеть на ПК через мост (или в браузере) строит карту глубины (первый раз скачает модель ~27 МБ). «Выделение» — клик по объекту выделяет всё на его глубине, «Ближе» / «Дальше» расширяют диапазон. «Дымка» — новый слой цвета кисти с маской по глубине: чем дальше, тем гуще. «Размытие» — клик по тому, что должно остаться резким; дальнее и ближнее размоется, результат ложится новым слоем сверху. «Карта» — показать саму карту глубины."], ["Размытие / резкость слоя", "Панель слоёв → «Размытие / резкость»: размытие объектива (блики раскрываются в боке, форма диафрагмы — круг или лепестки, зерно, чтобы размытое не выглядело пластиком), размытие по Гауссу или контурная резкость (сила, радиус, порог) на весь активный слой. «Резкость · экшен» (на ПК — F3) — как экшен «Резкость» в Фотошопе: копия слоя с Цветовым контрастом 1 px в «Перекрытии», в своей группе «Резкость» на 70 % (контраст чуть сильнее экшена; до 100 % — запас); сила — непрозрачностью группы, где не надо — маской. Если есть выделение — только на выделенное, с мягким краем. Пока двигаешь ползунки — видно сразу; «Применить» — одна отмена."], ["Корректирующие слои", "Панель слоёв → «+ Корректирующий слой»: кривые, уровни, цветовой тон / насыщенность, цветовой баланс. Меняют всё, что под ними, не трогая пиксели; настройки можно поменять в любой момент — клик по значку слоя. Кисть и ластик на таком слое рисуют его маску. «Только на слой ниже» — эффект только на слой прямо под ним (как обтравочная маска). Внутри группы с обычным наложением действует только на группу. «Слить вниз» впечатывает коррекцию в слой. В PSD уходят настоящими корректирующими слоями. Кривые: клик по линии — новая точка, тянуть — двигать, утащить за край — удалить."], ["Гармонизация", "Панель слоёв → «Гармонизация — цвет под фон». Подгоняет свет и цвет вставленного фрагмента под то, что под ним, как гармонизация в фотошопе. Без выделения берётся весь слой, с выделением — только выделенное (подойдёт и для склеенной картинки). «Ориентир»: «Вокруг» — смотрит на полосу фона вокруг фрагмента, «Весь фон» — на всю картинку под слоем. «Свет» и «Цвет» — что именно подгонять, «Насыщенность» — добавить или убрать сочности после подгонки."], ["Заплатка (Shift+J)", "Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение."], ["Штамп (S) и восстанавливающая кисть (Shift+J)", "Источник — кружок на холсте: перетащи его на чистое место (рядом появится лупа) или Alt + клик, потом рисуй. Штамп копирует как есть, восстанавливающая кисть ещё и подгоняет цвет и свет под место. «Выровнять» — источник едет вместе с кистью между мазками."], ["Снять выделение", "Ctrl+D, кнопка ✕ вверху или клик мимо картинки в инструментах выделения."], ["Край выделения", "Кнопка «Край…» на панели выделения: сгладить, растушевать, сузить или расширить. Красным подсвечено то, что не попадёт в выделение. Enter — применить, Esc — отмена."], ["Волшебная палочка (W)", "Клик выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы."], ["Картинка слоем", "Перетащи файл в окно или вставь из буфера (Ctrl+V) — ляжет смарт-объектом."], ["Смарт-объекты", "Слой помнит оригинал: Ctrl+T всегда считается от него — уменьшай и увеличивай без мыла. Правый клик по слою (или «⋯», «Изображение»): «Преобразовать в смарт-объект» (несколько слоёв или группа сведутся в один), «Заменить содержимое…» — новая картинка или PSD в ту же рамку, «Растрировать». Рисовать по смарт-объекту нельзя, маска — можно; фильтр или другая правка пикселей растрирует его (Ctrl+Z вернёт). Значок-файлик в миниатюре. В PSD — настоящий смарт-объект; смарт-объекты из Фотошопа со встроенной картинкой открываются смарт-объектами (со смарт-фильтрами, деформацией или перспективой — пикселями)."], ["Марионеточная деформация (P)", "Группа «Трансформ и деформация» слева, Трансформ → «Марионетка» или клавиша P. На слой (или выделенную часть) ложится сетка; клик ставит булавку, тяни — изображение гнётся, остальное держат другие булавки. Alt+клик по булавке или Delete — убрать. «Жёстко / Обычно / Искажение» — насколько части тянутся; «Вперёд / Назад» — что сверху при наложении. Enter — применить, Esc — отмена."], ["Маска", "Кисть скрывает, ластик возвращает. Выбор между слоем и маской — клик по миниатюре."], ["✦ Доводка", "«ИИ → Доводка» или кнопка на полосе ИИ. Рамка родных для модели пропорций → Enter → кусок перерисовывается в полном разрешении модели и ложится слоем точно на место. Промпт, рефы @img2… («+ Файл», «+ Слой», Ctrl+V), шаблоны, недавние промпты, модель (Banana / Seedream), разрешение. Каждый вариант — своим слоем."], ["✦ Реф с позы", "«ИИ → Реф с позы» или кнопка с человечком на полосе ИИ. Из кадра (или выделения) — скетчевые болванки на чистом белом, поза и ракурс те же. Nano Banana 2.1, 1K; масштаб не меняется — кадр вписывается белыми полями. «Уточнить» — «только героиня», «стул оставить». Каждый вариант — своим слоем."], ["✦ Арт-директор и заметки", "Разбор кадра: быстрый (Flash) или глубокий (Argon). «📌 На поля» — карточка с замечаниями рядом с картинкой и номера на кадре. Карточку можно тащить и закрепить (📌), пункты отмечать ✓ и прятать сделанные; «—» сворачивает в кружок."], ["✦ SD-ретушь (F2)", "Как F2 в Фотошопе: выдели участок и нажми F2 — он уйдёт в Automatic1111 на компьютере с настройками ретуши кожи из плагина SD Inpaint (0,05, 60 шагов, CFG 7, Euler a) и с его промптом и негативом — поменяла промпт в плагине, поменялся и здесь. Модель — та, что сейчас стоит в Automatic1111. Результат — слой «SD …» с маской выделения; пока считается, можно работать дальше, внизу плашка с шагами и ✕. Окно с выбором модели и силой — «ИИ → SD Inpaint»."], ["Полоса ИИ", "Капсула слева от панели слоёв: Вписать в сцену, Расширить кадр, Доводка, Арт-директор, AI Edit, Удалить фон, Реф с позы. Те же пункты — в меню «ИИ»."]];
+const HELP_PC_TOOLS=[["Файл и экран «Начало»", "Открытый файл запоминается: Ctrl+S пишет прямо в него. PNG или JPG, в котором появились слои, Ctrl+S не сплющивает — предложит сохранить PSD рядом, и дальше рабочим будет PSD. Имя во вкладке и вверху — с расширением. Закрыл последний документ — экран «Начало»: недавние файлы этого компьютера, новый, открыть, все документы."], ["Оформление", "«Файл → Оформление»: темы интерфейса Ночь, Облачко, Луч, Графит (прежняя, нейтральная). Фон вокруг холста от темы не зависит: там же или правым кликом мимо картинки — по умолчанию, чёрный, серые или свой цвет."], ["Безопасная зона и линейки", "Кнопка «▯ 900» у счётчиков вверху слева (и «Изображение → Безопасная зона»): слой-разметка сверху — 900 px из 1500 рабочей ширины ката по центру (на 3000 px — 1800). Та же кнопка прячет и показывает; удалила слой — нарисует заново. Линейки в px — полосы вдоль верхней и левой панели, Ctrl+R."], ["Меню «Изображение»", "Сверху рядом с «ИИ»: кадрирование, размер изображения и холста, расширение кадра, Доводка, трансформ, марионетка, пластика, удаление фона, копия видимого, слить видимые, безопасная зона, линейки. Внизу меню — размер, ppi и размер отпечатка. Клик по размеру в строке состояния (слева сверху) тоже открывает «Размер изображения». Кнопка кадрирования есть и на панели инструментов — под группой трансформа."],["Кадрирование (C)", "Рамка с затемнением снаружи и сеткой третей. Тяни углы и стороны, внутри — двигать, снаружи — новая рамка, Shift держит пропорции. Пропорции: свободно, оригинал, 1:1, 4:5, 3:2, 16:9, 9:16, «Повернуть рамку». Рамка может выйти за картинку — холст вырастет (новое поле прозрачное). Enter — кадрировать, Esc — отмена; одна отмена Ctrl+Z."],["Размер изображения (Ctrl+Alt+I)", "Как в фотошопе: ширина/высота в пикселях или процентах, разрешение ppi и размер отпечатка в см. «Сохранение деталей · ИИ» увеличивает через Real-ESRGAN в Automatic1111 на компьютере — новые детали вместо мыла; без компьютера — Lanczos (резкий, без ступенек). Для уменьшения — «Бикубическая, чётче». Маски и прозрачность масштабируются отдельно и чисто. Без «Менять пиксели» меняется только ppi."],["Размер холста (Ctrl+Alt+C)", "Картинка не масштабируется: холст растёт или обрезается вокруг привязки (сетка 3×3). «Относительно» — сколько добавить. Новое поле — прозрачное или залито цветом на нижнем слое; маски в новом поле открыты."],["Инструменты слева", "Похожие собраны в группы: рисование, выделение, умное выделение и глубина, ретушь, тон, трансформ и деформация (трансформ, марионетка, пластика). Клик по группе берёт последний инструмент из неё, повторный клик или удержание открывает список."], ["Удаление · нейросеть (Shift+J)", "Закрась лишний объект или мусор и отпусти — нейросеть дорисует фон (на ПК — на видеокарте, через мост). Для выделения — «✦ Убрать» на нижней панели."], ["Точечная восстанавливающая кисть (J)", "Без источника: мажь по пятну, пылинке, прыщику — заполнится текстурой вокруг. Быстро и без нейросети."], ["Осветление (O), затемнение, губка, размытие, резкость, палец", "Группа «Тон и резкость». Работают кистью, мазки накапливаются — прошёл ещё раз, эффект сильнее. Осветление и затемнение: диапазон Тени / Средние / Света, «Экспозиция», «Сохранять цвет» (без пересвета и грязи). «＋ Серый слой» — неразрушающий вариант: слой 50% серого в «Мягком свете»; на нём осветление рисует светлым, затемнение — тёмным, картинка не трогается, а слабить можно прозрачностью слоя. Губка: «Приглушить» / «Насытить» — насыщенность под кистью; «Беречь яркие» не даёт пересытить и так яркие цвета. Палец размазывает, «Сила» — как далеко тянется краска. «Все слои» — берёт видимую картинку со всех слоёв и кладёт результат на текущий слой: удобно на пустом слое сверху."], ["Глубина", "Группа «Умное выделение и глубина». Нейросеть на ПК через мост (или в браузере) строит карту глубины (первый раз скачает модель ~27 МБ). «Выделение» — клик по объекту выделяет всё на его глубине, «Ближе» / «Дальше» расширяют диапазон. «Дымка» — новый слой цвета кисти с маской по глубине: чем дальше, тем гуще. «Размытие» — клик по тому, что должно остаться резким; дальнее и ближнее размоется, результат ложится новым слоем сверху. «Карта» — показать саму карту глубины."], ["Размытие / резкость слоя", "Панель слоёв → «Размытие / резкость»: размытие объектива (блики раскрываются в боке, форма диафрагмы — круг или лепестки, зерно, чтобы размытое не выглядело пластиком), размытие по Гауссу или контурная резкость (сила, радиус, порог) на весь активный слой. «Резкость · экшен» (на ПК — F3) — как экшен «Резкость» в Фотошопе: копия слоя с Цветовым контрастом 1 px в «Перекрытии», в своей группе «Резкость» на 70 % (контраст чуть сильнее экшена; до 100 % — запас); сила — непрозрачностью группы, где не надо — маской. Если есть выделение — только на выделенное, с мягким краем. Пока двигаешь ползунки — видно сразу; «Применить» — одна отмена."], ["Корректирующие слои", "Панель слоёв → «+ Корректирующий слой»: кривые, уровни, цветовой тон / насыщенность, цветовой баланс. Меняют всё, что под ними, не трогая пиксели; настройки можно поменять в любой момент — клик по значку слоя. Кисть и ластик на таком слое рисуют его маску. «Только на слой ниже» — эффект только на слой прямо под ним (как обтравочная маска). Внутри группы с обычным наложением действует только на группу. «Слить вниз» впечатывает коррекцию в слой. В PSD уходят настоящими корректирующими слоями. Кривые: клик по линии — новая точка, тянуть — двигать, утащить за край — удалить."], ["Гармонизация", "Панель слоёв → «Гармонизация — цвет под фон». Подгоняет свет и цвет вставленного фрагмента под то, что под ним, как гармонизация в фотошопе. Без выделения берётся весь слой, с выделением — только выделенное (подойдёт и для склеенной картинки). «Ориентир»: «Вокруг» — смотрит на полосу фона вокруг фрагмента, «Весь фон» — на всю картинку под слоем. «Свет» и «Цвет» — что именно подгонять, «Насыщенность» — добавить или убрать сочности после подгонки."], ["Заплатка (Shift+J)", "Обведи дефект (или выдели любым инструментом), потом потяни выделение на чистое место и отпусти — дефект заменится текстурой оттуда, а цвет и свет подстроятся под окружение."], ["Штамп (S) и восстанавливающая кисть (Shift+J)", "Источник — кружок на холсте: перетащи его на чистое место (рядом появится лупа) или Alt + клик, потом рисуй. Штамп копирует как есть, восстанавливающая кисть ещё и подгоняет цвет и свет под место. «Выровнять» — источник едет вместе с кистью между мазками."], ["Снять выделение", "Ctrl+D, кнопка ✕ вверху или клик мимо картинки в инструментах выделения."], ["Край выделения", "Кнопка «Край…» на панели выделения: сгладить, растушевать, сузить или расширить. Красным подсвечено то, что не попадёт в выделение. Enter — применить, Esc — отмена."], ["Волшебная палочка (W)", "Клик выделяет похожий цвет. Не отпуская, тяни вбок — вправо допуск больше, влево меньше, подсветка показывает результат. «Все слои» берёт цвет со всего коллажа, «Слой» — с выбранного слоя или группы."], ["Картинка слоем", "Перетащи файл в окно или вставь из буфера (Ctrl+V) — ляжет смарт-объектом."], ["Смарт-объекты", "Слой помнит оригинал: Ctrl+T всегда считается от него — уменьшай и увеличивай без мыла. Правый клик по слою (или «⋯», «Изображение»): «Преобразовать в смарт-объект» (несколько слоёв или группа сведутся в один), «Заменить содержимое…» — новая картинка или PSD в ту же рамку, «Растрировать». Рисовать по смарт-объекту нельзя, маска — можно; фильтр или другая правка пикселей растрирует его (Ctrl+Z вернёт). Значок-файлик в миниатюре. В PSD — настоящий смарт-объект; смарт-объекты из Фотошопа со встроенной картинкой открываются смарт-объектами (со смарт-фильтрами, деформацией или перспективой — пикселями)."], ["Марионеточная деформация (P)", "Группа «Трансформ и деформация» слева, Трансформ → «Марионетка» или клавиша P. На слой (или выделенную часть) ложится сетка; клик ставит булавку, тяни — изображение гнётся, остальное держат другие булавки. Alt+клик по булавке или Delete — убрать. «Жёстко / Обычно / Искажение» — насколько части тянутся; «Вперёд / Назад» — что сверху при наложении. Enter — применить, Esc — отмена."], ["Маска", "Кисть скрывает, ластик возвращает. Выбор между слоем и маской — клик по миниатюре. Правый клик по маске (как в Фотошопе): «Размытие маски…» — растушевать край, радиус в пикселях ползунком или числом, видно сразу, с выделением — только в нём, Enter — применить; «Применить к слою» — скрытое стирается со слоя; «Удалить маску». Размытие по Гауссу при выбранной маске размывает маску."], ["Вырезать (Ctrl+X)", "Как в Фотошопе: выделенное уходит в буфер и стирается со слоя; Ctrl+V — вставить на новый слой на то же место. Ctrl+Shift+J — сразу вырезать на новый слой."], ["✦ Доводка", "«ИИ → Доводка» или кнопка на полосе ИИ. Рамка родных для модели пропорций → Enter → кусок перерисовывается в полном разрешении модели и ложится слоем точно на место. Промпт, рефы @img2… («+ Файл», «+ Слой», Ctrl+V), шаблоны, недавние промпты, модель (Banana / Seedream), разрешение. Каждый вариант — своим слоем."], ["✦ Реф с позы", "«ИИ → Реф с позы» или кнопка с человечком на полосе ИИ. Из кадра (или выделения) — скетчевые болванки на чистом белом, поза и ракурс те же. Nano Banana 2.1, 1K; масштаб не меняется — кадр вписывается белыми полями. «Уточнить» — «только героиня», «стул оставить». Каждый вариант — своим слоем."], ["✦ Арт-директор и заметки", "Разбор кадра: быстрый (Flash) или глубокий (Argon). «📌 На поля» — карточка с замечаниями рядом с картинкой и номера на кадре. Карточку можно тащить и закрепить (📌), пункты отмечать ✓ и прятать сделанные; «—» сворачивает в кружок."], ["✦ SD-ретушь (F2)", "Как F2 в Фотошопе: выдели участок и нажми F2 — он уйдёт в Automatic1111 на компьютере с настройками ретуши кожи из плагина SD Inpaint (0,05, 60 шагов, CFG 7, Euler a) и с его промптом и негативом — поменяла промпт в плагине, поменялся и здесь. Модель — та, что сейчас стоит в Automatic1111. Результат — слой «SD …» с маской выделения; пока считается, можно работать дальше, внизу плашка с шагами и ✕. Окно с выбором модели и силой — «ИИ → SD Inpaint»."], ["Полоса ИИ", "Капсула слева от панели слоёв: Вписать в сцену, Расширить кадр, Доводка, Арт-директор, AI Edit, Удалить фон, Реф с позы. Те же пункты — в меню «ИИ»."]];
 /* the PC version: mouse, keyboard and pen tablet; laid out wide for a landscape monitor (the iPad sheet is a tall column) */
 function showHelpDesk(){
   const K=k=>k.split('+').map(x=>'<kbd>'+x+'</kbd>').join('<i>+</i>');
@@ -8437,7 +8511,7 @@ var histHint=null, histCmp=null;
 const HIST_FN={strokeEnd:'@tool', strokeBegin:'@tool', gradApply:'Градиент', fillWith:'Заливка', selFill:'Заливка выделения', invertPixels:'Инверсия', invertMask:'Инверсия маски',
   adjClose:'Коррекция', blendStep:'Режим наложения', clearLayer:'Очистка слоя', filtApply:'Фильтр', harmApply:'Гармонизация', imageResize:'Размер изображения', canvasReframe:'Размер холста',
   cropApply:'Кадрирование', liqReset:'Пластика', liqEnd:'Пластика', patchUp:'Заплатка', pupApply:'Марионетка', removeBackground:'Удаление фона', removeMask:'Маска удалена',
-  selDelete:'Удаление выделенного', selToMask:'Маска из выделения', toggleClip:'Обтравочная маска', toggleMask:'Маска вкл/выкл', mergeDown:'Слить вниз', objLift:'Объект на слой',
+  selDelete:'Удаление выделенного', selCut:'Вырезать', maskBlurApply:'Размытие маски', selToMask:'Маска из выделения', toggleClip:'Обтравочная маска', toggleMask:'Маска вкл/выкл', mergeDown:'Слить вниз', objLift:'Объект на слой',
   occlApply:'Перекрытие', aeEndModal:'AI Edit', writeFill:'Нейросеть', xfApply:'Трансформ', deletePicked:'Удаление слоёв', groupPicked:'В группу', mergePicked:'Слить слои',
   movePickedTo:'Порядок слоёв', deleteLayer:'Удаление слоя', attachLayerDrag:'Порядок слоёв', moveLayer:'Порядок слоёв', dupGroup:'Копия группы', makeGroup:'В группу',
   ungroup:'Разгруппировать', mergeGroup:'Слить группу', mergeVisible:'Слить видимые', dupLayer:'Копия слоя', addAdj:'Корректирующий слой', selCopyToLayer:'Слой из выделения',
@@ -9817,6 +9891,7 @@ document.addEventListener('keydown', e=>{
     if (L==='r' && e.altKey) return go(()=>{ if (sel) edgeOpen(); else toast('Сначала выдели — «Выделение и маска» уточняет край выделения'); });
     if (L==='r') return go(()=>rulersToggle());
     if (L==='x' && e.shiftKey) return go(()=>{ if (need()) setTool('liquify'); });
+    if (L==='x' && !e.altKey) return go(()=>{ if (need()) selCut(); }); // №151
     if (C==='BracketRight'||C==='BracketLeft') return go(()=>{ if (!need()) return; const d=C==='BracketRight'?1:-1; if (e.shiftKey){ for (let i=0;i<doc.layers.length;i++){ const a=doc.active; moveLayer(d); if (doc.active===a) break; } } else moveLayer(d); });
     if (k==='backspace'||k==='delete') return go(()=>{ if (need()) fillWith(S.bgColor||'#ffffff'); });
     return;
@@ -9850,6 +9925,8 @@ document.addEventListener('keydown', e=>{
   if (C==='BracketLeft'||C==='BracketRight'){ const up=C==='BracketRight';
     if (e.shiftKey){ S.hardness=clamp(Math.round((S.hardness+(up?0.25:-0.25))*4)/4,0,1); spriteKey=''; syncSliders(); renderOpts(); savePrefs(); toast('Жёсткость '+Math.round(S.hardness*100)+'%',900); return; }
     const f=up?1.15:1/1.15; const s=clamp(Math.round(curSize()*f+(up?1:-1)),1,SIZE_MAX); if(S.tool==='eraser') S.eraserSize=s; else if(S.tool==='liquify') S.liqSize=Math.max(8,s); else S.size=s; spriteKey=''; syncSliders(); return; }
+  if (mblur && k==='enter'){ e.preventDefault(); maskBlurApply(); return; }
+  if (mblur && k==='escape'){ e.preventDefault(); maskBlurClose(true); return; }
   if (edge && k==='enter'){ edgeApply(); return; }
   if (edge && k==='escape'){ edgeCancel(); return; }
   if (k==='enter' && xf){ xfApply(); return; }
@@ -10010,6 +10087,7 @@ function resetDocState(){
   if (typeof adjEdit!=='undefined' && adjEdit){ adjEdit=null; $('#adjbar').hidden=true; }
   if (typeof dep!=='undefined'){ if (dep) depthClose(); depthMap=null; }
   if (typeof filt!=='undefined' && filt) filtClose();
+  if (typeof mblur!=='undefined' && mblur) maskBlurClose(true);
   if (typeof gen!=='undefined' && gen){ gen.cancelled=true; try{ gen.abort&&gen.abort.abort(); }catch(e){} gen=null; $('#genbar').hidden=true; }
   if (typeof lift!=='undefined' && lift) objDone(true);
   if (typeof aip!=='undefined' && aip){ aiKeepWords(aip); aip.cancelled=true; aip=null; $('#aibar').hidden=true; }
@@ -10210,7 +10288,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-28 · №150 «Убрать» через LaMa на ПК — без каши'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-28 · №151 Ctrl+X, маска: применить и размыть, AI Edit прячется вторым нажатием'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.
@@ -10291,7 +10369,7 @@ async function homeOpen(id){ try{ localStorage.setItem('proyavka.booting','1'); 
   if (!ok){ toast('Документ не открылся',3000); homeFill(); } }
 async function closeToHome(){ // the last document: save it, release it, show the home screen
   if (tabBusy()) return; closePops(); if ($('#refwin')) $('#refwin').hidden=true; refDocCur=null;
-  if (typeof AE!=='undefined' && !$('#aiedit').hidden) $('#aiedit').hidden=true;
+  if (typeof AE!=='undefined' && !$('#aiedit').hidden) aeClose();
   busy(true,'Сохраняю…'); try{ await flushSave(); }catch(_){}
   resetDocState(); try{ await TABS.saveQ; }catch(_){} busy(false);
   for (const t of TABS.list){ t.doc=null; t.st=null; } TABS.list=[]; TABS.cur=null;
