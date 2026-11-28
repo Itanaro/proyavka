@@ -5287,11 +5287,47 @@ async function migaNative(r, D, hole){
   }
   return out;
 }
+/* №150 LaMa on the home PC (through the bridge): a square crop ~1.5× the hole (never under 512 — small holes stay at full scale),
+   squeezed to the network's 512, back up; only the hole's pixels are taken from it. */
+let lamaBad=0, lamaNote=false;
+async function lamaFill(r, D, hb){
+  if (!window.ort) await loadScript('vendor/ort.min.js');
+  const W=r.w, H=r.h, S=512; let x0=W,y0=H,x1=-1,y1=-1;
+  for (let y=0;y<H;y++){ const o=y*W; for (let x=0;x<W;x++) if (hb[o+x]){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  const G=new Uint8ClampedArray(D); if (x1<0) return G;
+  const side=Math.max(x1-x0+1, y1-y0+1), C=Math.max(S, Math.round(side*1.5)), cw=Math.min(W,C), ch=Math.min(H,C);
+  const cx=Math.max(0, Math.min(W-cw, Math.round((x0+x1+1)/2-cw/2))), cy=Math.max(0, Math.min(H-ch, Math.round((y0+y1+1)/2-ch/2)));
+  const cc=mk(cw,ch), cx_=ctx2(cc), cid=cx_.createImageData(cw,ch), hc=mk(cw,ch), hx=ctx2(hc), hid=hx.createImageData(cw,ch);
+  for (let y=0;y<ch;y++) for (let x=0;x<cw;x++){ const i=(y+cy)*W+x+cx, k=(y*cw+x)*4, a=D[i*4+3]/255;
+    cid.data[k]=D[i*4]*a; cid.data[k+1]=D[i*4+1]*a; cid.data[k+2]=D[i*4+2]*a; cid.data[k+3]=255; hid.data[k+3]=hb[i]?255:0; }
+  cx_.putImageData(cid,0,0); hx.putImageData(hid,0,0);
+  const sc=mk(S,S), sx=ctx2(sc,{willReadFrequently:true}); sx.imageSmoothingQuality='high'; sx.drawImage(cc,0,0,S,S);
+  const hs=mk(S,S), hsx=ctx2(hs,{willReadFrequently:true}); hsx.drawImage(hc,0,0,S,S);
+  const px=sx.getImageData(0,0,S,S).data, hp=hsx.getImageData(0,0,S,S).data, M=S*S, img=new Float32Array(3*M), msk=new Float32Array(M);
+  for (let i=0;i<M;i++){ img[i]=px[i*4]/255; img[i+M]=px[i*4+1]/255; img[i+2*M]=px[i*4+2]/255; msk[i]=hp[i*4+3]>20?1:0; }
+  const sess=await pcSession('lama');
+  const res=await sess.run({image:new ort.Tensor('float32',img,[1,3,S,S]), mask:new ort.Tensor('float32',msk,[1,1,S,S])}), o=res[sess.outputNames[0]].data;
+  let mx=0; for (let i=0;i<o.length;i+=97) if (o[i]>mx) mx=o[i]; const f=mx<=1.5?255:1;
+  const oc=mk(S,S), ox_=ctx2(oc), oid=ox_.createImageData(S,S);
+  for (let i=0;i<M;i++){ oid.data[i*4]=o[i]*f; oid.data[i*4+1]=o[i+M]*f; oid.data[i*4+2]=o[i+2*M]*f; oid.data[i*4+3]=255; } ox_.putImageData(oid,0,0);
+  const bc=mk(cw,ch), bx=ctx2(bc,{willReadFrequently:true}); bx.imageSmoothingQuality='high'; bx.drawImage(oc,0,0,cw,ch);
+  const B=bx.getImageData(0,0,cw,ch).data;
+  for (let y=0;y<ch;y++) for (let x=0;x<cw;x++){ const i=(y+cy)*W+x+cx; if (!hb[i]) continue; const k=(y*cw+x)*4; G[i*4]=B[k]; G[i*4+1]=B[k+1]; G[i*4+2]=B[k+2]; G[i*4+3]=255; }
+  // hole pixels outside the crop (huge hole near a small picture edge) — none in practice; leave them as they were
+  return G;
+}
 async function generateFill(r, D, hole, method, opt){
   const N=r.w*r.h;
   if (method==='ai' && opt && opt.hole){ busy(true,'Нейросеть дорисовывает…'); await nextFrame();
     return regrain(D, await migaNative(r, D, opt.hole), opt.hole, r.w, r.h); }
   if (method==='ai'){
+    // №150 the PC has LaMa: it keeps the surroundings going (leaf edges, bokeh) instead of MI-GAN's smeared mush on wide holes
+    if (await pcML() && PC.caps && PC.caps.lama==='ready' && Date.now()-lamaBad>300000){
+      try{ busy(true,'Нейросеть дорисовывает…'); await nextFrame();
+        const hb=new Uint8Array(N); for (let i=0;i<N;i++) hb[i]=hole[i]>20?1:0;
+        return regrain(D, await lamaFill(r, D, hb), hb, r.w, r.h); }
+      catch(e){ console.warn('LaMa failed, MI-GAN instead', e); lamaBad=Date.now(); }
+    } else if (PC.caps && PC.caps.lama==='loading' && !lamaNote){ lamaNote=true; toast('Новая нейросеть удаления скачивается на компьютер (~200 МБ) — пока убираю прежней',4000); }
     const cap = (await pcML()) ? 1280 : 768; // the PC has memory to spare: the patch comes out sharper
     const k=Math.min(1, cap/Math.max(r.w,r.h)), cw=Math.max(8,Math.round(r.w*k)), ch=Math.max(8,Math.round(r.h*k));
     const sc=mk(r.w,r.h), sx=ctx2(sc); const sid=new ImageData(new Uint8ClampedArray(D),r.w,r.h); sx.putImageData(sid,0,0);
@@ -10174,7 +10210,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden && dirtyDo
     q.classList.toggle('on', B.classList.contains('showhints')); }); };
   let qd=0; new MutationObserver(()=>{ if (qd) return; qd=1; requestAnimationFrame(()=>{ qd=0; sync(); }); }).observe($('#stage'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
-const APP_VERSION='2026-11-27 · №149 удаление нейросетью — зерно с самой кожи, без цветной ряби'; $('#appVer').textContent=APP_VERSION;
+const APP_VERSION='2026-11-28 · №150 «Убрать» через LaMa на ПК — без каши'; $('#appVer').textContent=APP_VERSION;
 /* ============ №86 home screen ============
    Closing the last document leaves no document open (like Photoshop's Home): the recent documents of this device
    (the library in this device's storage), New / Open / All documents, drop or paste a picture to open it.

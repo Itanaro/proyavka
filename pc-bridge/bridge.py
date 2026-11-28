@@ -89,6 +89,31 @@ MODEL_PARTS = {'isnet': ('isnet', 4), 'sam_enc': ('msam_enc', 3), 'sam_dec': ('m
 MODEL_URL = 'https://itanaro.github.io/proyavka/models/{}.{}.wasm'
 MODEL_DIR = os.path.join(HERE, 'models')
 _sessions = {}; _lock = __import__('threading').Lock()
+# №150 LaMa — нейросеть удаления крупнее MI-GAN (208 МБ): живёт только на ПК, качается один раз с Hugging Face в фоне.
+MODEL_DIRECT = {'lama': ('https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx', 208044816)}
+_dl = {}
+def direct_state(name):
+    path = os.path.join(MODEL_DIR, name + '.onnx')
+    if os.path.exists(path): return 'ready'
+    st = _dl.get(name)
+    if st == 'loading': return 'loading'
+    def go():
+        import urllib.request
+        _dl[name] = 'loading'
+        try:
+            os.makedirs(MODEL_DIR, exist_ok=True); url, size = MODEL_DIRECT[name]; p('Скачиваю модель', name, '(~', size // 1048576, 'МБ) …')
+            with urllib.request.urlopen(url, timeout=120) as r, open(path + '.part', 'wb') as f:
+                while True:
+                    b = r.read(1 << 20)
+                    if not b: break
+                    f.write(b)
+            if os.path.getsize(path + '.part') != size: raise ValueError('размер не совпал')
+            os.replace(path + '.part', path); _dl[name] = 'ready'; p('Модель', name, 'скачана')
+        except Exception as e:
+            _dl[name] = 'error'; p('Модель', name, 'не скачалась:', e)
+    if st != 'error' or time.time() - _dl.get(name + '_t', 0) > 600:
+        _dl[name + '_t'] = time.time(); __import__('threading').Thread(target=go, daemon=True).start(); return 'loading'
+    return 'error'
 DT = {'uint8': 'uint8', 'float32': 'float32', 'int32': 'int32', 'int64': 'int64', 'bool': 'bool', 'float16': 'float16', 'int8': 'int8'}
 # Видеокарта для ONNX-моделей: onnxruntime-gpu ищет библиотеки CUDA 12 и cuDNN 9. Их кладёт в cuda-libs\ батник
 # «Подключить видеокарту к мосту.bat» (отдельно от Automatic1111 — его Python не трогаем). Здесь мост показывает их Windows.
@@ -117,8 +142,9 @@ def ort_session(name):
     import onnxruntime as ort, urllib.request
     with _lock:
         if name in _sessions: return _sessions[name]
-        if name not in MODEL_PARTS: raise ValueError('нет такой модели: ' + name)
+        if name not in MODEL_PARTS and name not in MODEL_DIRECT: raise ValueError('нет такой модели: ' + name)
         os.makedirs(MODEL_DIR, exist_ok=True); path = os.path.join(MODEL_DIR, name + '.onnx')
+        if name in MODEL_DIRECT and not os.path.exists(path): raise ValueError('модель ' + name + ' ещё скачивается')
         if not os.path.exists(path):
             stem, n = MODEL_PARTS[name]; p('Скачиваю модель', name, '…'); data = b''
             for i in range(n): data += urllib.request.urlopen(MODEL_URL.format(stem, i), timeout=120).read()
@@ -403,7 +429,7 @@ class H(BaseHTTPRequestHandler):
             return self.reply(403, json.dumps({'error': 'нужен адрес с ключом моста'}, ensure_ascii=False).encode())
         path = self.path[len(PREFIX):]
         if path == '/bridge/ping':
-            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'remote': REMOTE_ADDR, 'net': bool(os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')), 'subject': subject_state(), 'matting': subject_state('matting'), 'cats': True}, ensure_ascii=False).encode())
+            return self.reply(200, json.dumps({'ok': True, 'host': socket.gethostname(), 'ml': True, 'remote': REMOTE_ADDR, 'net': bool(os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')), 'subject': subject_state(), 'matting': subject_state('matting'), 'cats': True, 'lama': direct_state('lama')}, ensure_ascii=False).encode())
         if path == '/proyavka/sdstart':
             try: st = sd_start(); return self.reply(200, json.dumps({'state': st}).encode())
             except Exception as e: return self.reply(500, json.dumps({'error': str(e)}, ensure_ascii=False).encode())

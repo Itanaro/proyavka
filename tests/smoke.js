@@ -703,6 +703,25 @@ const steps = [
       check(r.kept >= r.n0, 'документы удалились из памяти, а должны были только пропасть из списка');
   }},
 
+  { name: '«Убрать» на ПК идёт через LaMa: кусок 512, меняется только дыра', run: async page => {
+      const r = await page.evaluate(async () => {
+        const keep = { pcML, pcSession, caps: PC.caps, bad: lamaBad }, W = 900, H = 700, D = new Uint8ClampedArray(W * H * 4), hole = new Uint8Array(W * H);
+        for (let i = 0; i < W * H; i++) { D[i * 4] = 40; D[i * 4 + 1] = 60; D[i * 4 + 2] = 90; D[i * 4 + 3] = 255; }
+        for (let y = 200; y < 500; y++) for (let x = 380; x < 480; x++) hole[y * W + x] = 255;
+        const seen = { dims: null };
+        pcML = async () => true; PC.caps = { lama: 'ready' }; lamaBad = 0;
+        pcSession = async () => ({ outputNames: ['output'], async run(f) { seen.dims = f.image.dims.join('x') + '/' + f.mask.dims.join('x');
+          const o = new Float32Array(3 * 512 * 512).fill(200); return { output: { data: o } }; } });
+        let G; try { G = await generateFill({ x: 0, y: 0, w: W, h: H }, D, hole, 'ai'); }
+        finally { pcML = keep.pcML; pcSession = keep.pcSession; PC.caps = keep.caps; lamaBad = keep.bad; busy(false); }
+        const inn = G[(350 * W + 430) * 4], out = G[(100 * W + 100) * 4];
+        return { dims: seen.dims, inn, out };
+      });
+      check(r.dims === '1x3x512x512/1x1x512x512', 'LaMa не вызвана или не тот размер: ' + r.dims);
+      check(r.inn > 150, 'дыра не заполнена ответом LaMa: ' + r.inn);
+      check(Math.abs(r.out - 40) < 3, 'тронуто то, что вне дыры: ' + r.out);
+  }},
+
   { name: 'Автосохранение → перезагрузка → документ на месте', run: async page => {
       await page.evaluate(async () => { const t = TABS.list.find(t => t.doc && t.doc.name === 'Тест'); if (t && t.doc !== doc) await tabSwitch(t); });
       const n = await page.evaluate(async () => { await autosave(true); await flushSave(); return doc.layers.length; });
